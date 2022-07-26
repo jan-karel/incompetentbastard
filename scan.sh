@@ -62,7 +62,7 @@ cat raw/local/${naam}_remoteipv6.txt
 NMAP_HOST=${HOSTS//,/' '}
 echo "Poortscan op ${NMAP_HOST}..."
 nmap -e $localnic $NMAP_OPDRACHT_TCP $NMAP_HOST -oA raw/nmap/${naam}_quick_scan_tcp
-nmaptocsv -i raw/nmap/quick_scan_tcp.nmap -f ip-fqdn-port-protocol-service > raw/nmap/${naam}_tcp-poorten.txt
+nmaptocsv -i raw/nmap/${naam}_quick_scan_tcp.nmap -f ip-fqdn-port-protocol-service > raw/nmap/${naam}_tcp-poorten.txt
 sed -i 's/";"/},{/g' raw/nmap/${naam}_tcp-poorten.txt
 sed -i 's/.$/}/' raw/nmap/${naam}_tcp-poorten.txt
 sed -i 's/"/{/g' raw/nmap/${naam}_tcp-poorten.txt
@@ -81,7 +81,7 @@ sed -i 's/";"/},{/g' raw/nmap/${naam}_udp-poorten.txt
 sed -i 's/.$/}/' raw/nmap/${naam}_udp-poorten.txt
 sed -i 's/"/{/g' raw/nmap/${naam}_udp-poorten.txt
 
-nmaptocsv -i raw/nmap/${naam}_quick_scan_tcp.nmap -f fqdn-rdns-ip > raw/${naam}_scope.csv
+nmaptocsv -i raw/nmap/${naam}_quick_scan_tcp.nmap -f fqdn-rdns-ip > raw/{naam}_scope.csv
 sed -i 's/";"/},{/g' raw/${naam}_scope.csv
 sed -i 's/.$/}/' raw/${naam}_scope.csv
 sed -i 's/"/{/g' raw/${naam}_scope.csv

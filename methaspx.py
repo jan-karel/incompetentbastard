@@ -92,7 +92,7 @@ decodingFunc = f"""for (int i = 0; i < buf.Length; i++)
 template = template.replace('[xorreplace]', decodingFunc)
 
 
-file = open('/hacksec/projecten/payloads/meth.aspx', 'w')
+file = open('http/payloads/meth.aspx', 'w')
 item = file.write(template)
 file.close()
 

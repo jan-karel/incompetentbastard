@@ -43,9 +43,13 @@ Or to change the port to 4444:
 
 The reverse shells are taken from 
 
+### ./shell.sh
+
+Connect to a screen
+
 ### ./sshuttle.sh
 
-todo
+Obvious
 
 ### ./commands.sh
 
@@ -73,15 +77,12 @@ This one utilizes `php://input%00`
 
 # dependancies
 
-This might help...
+For MacOS, this might help...
 
 
 - ip `brew install iproute2mac`
 - mono/ xbuild `brew install mono`
 - ` pip3 install dnsrecon asciinema nmaptocsv`
 
-
-
-pip3 install dnsrecon asciinema nmaptocsv
 
 

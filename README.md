@@ -3,7 +3,7 @@
 *Not so fine (you'll find out) bash and python scripts for incompetent bastards, like myself.*
 
 
-## Bashscripts currently on board
+## Bash scripts currently on board
 
 
 
@@ -13,11 +13,11 @@ BTW. I'm adding more soon...
 
 This wil take a basic nmap scan of the network. For example mylocalnetwork
 
-```./intake.sh eth0 mylocalnetwork 12.3.4/24```
+```./scan.sh eth0 mylocalnetwork 12.3.4/24```
 
 ### ./search.sh
 
-Completed the scan? `search.sh` greps
+Completed the scan? `search.sh` greps the output
 
 Find all host's Up:
 ```./search.sh mylocalnetwork up```
@@ -68,5 +68,20 @@ todo
 ### ./rfi_input.sh
 
 This one utilizes `php://input%00`
+
+
+
+# dependancies
+
+This might help...
+
+
+- ip `brew install iproute2mac`
+- mono/ xbuild `brew install mono`
+- ` pip3 install dnsrecon asciinema nmaptocsv`
+
+
+
+pip3 install dnsrecon asciinema nmaptocsv
 
 

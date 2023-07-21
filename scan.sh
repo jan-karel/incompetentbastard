@@ -24,14 +24,14 @@ fi
 
 if [ -z "$naam" ]; then
 
-	echo "naam?"
+  	echo "[!] Please provide the name of the nmap file"
 	exit;
 
 fi
 
 
 if [ -z "$HOSTS" ]; then
-	echo "scan? range?"
+  	echo "[!] Please provide the range to scan"
 	exit;
 fi
 

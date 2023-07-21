@@ -11,7 +11,7 @@ echo "[.] Incompentent bastard "
 
 
 if [ -z "$localnic" ]; then
-  echo "TUN REMOTE (r_) of ETH?"
+  echo "[!] TUN REMOTE (r_) of ETH?"
   exit;
 fi
 

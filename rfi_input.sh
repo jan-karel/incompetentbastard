@@ -10,7 +10,7 @@ HOST=${2:-}
 LPORT=${3:-}
 
 if [ -z "$localnic" ]; then
-  echo "TUN REMOTE (prefixed with r_) or ETH?"
+  echo "[!] TUN REMOTE (prefixed with r_) or ETH?"
   exit;
 fi
 

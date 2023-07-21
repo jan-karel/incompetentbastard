@@ -8,12 +8,12 @@ naam=${1:-}
 zoek=${2:-}
 
 if [ -z "$naam" ]; then
-  echo "naam?"
+  echo "[!] Please provide the name of the nmap file"
   exit;
 fi
 
 if [ -z "$zoek" ]; then
-  echo "zoek?"
+  echo "[!] Please provide something to search for"
   exit;
 fi
 

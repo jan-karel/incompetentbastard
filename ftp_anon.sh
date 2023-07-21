@@ -7,7 +7,7 @@ echo "[.] Incompentent bastard "
 scanfile=${1:-}
 
 if [ -z "$scanfile" ]; then
-  echo "naam?"
+  echo "[!] Please provide the name of the nmap file"
   exit;
 fi
 

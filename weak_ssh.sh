@@ -7,11 +7,15 @@ echo "[.] Incompentent bastard "
 scanfile=${1:-}
 
 #Currently limited to Debian but you can set it to ssh, Ubunutu, 22 or whatever.
-result=$(sh -c "./search.sh ${scanfile} Debian")
+
 if [ -z "$scanfile" ]; then
-  echo "naam?"
+  echo "[!] Please provide the name of the nmap file"
   exit;
 fi
+
+
+result=$(sh -c "./search.sh ${scanfile} Debian")
+
 
 if [ ! -d 'meuk/rsa' ]; then
     echo "[.] One moment. Fetching weak debian rsa keys"

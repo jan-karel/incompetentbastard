@@ -16,6 +16,7 @@ import platform
 import argparse
 import subprocess
 from random import randint
+from meuk.hacksec import *
 
 template="""
 using System;
@@ -137,16 +138,6 @@ namespace Meth
 }
 """
 
-class bcolors:
-    OKBLUE = '\033[94m'
-    OKGREEN = '\033[92m'
-    FAIL = '\033[91m'
-    ENDC = '\033[0m'
-    BOLD = '\033[1m'
-
-# Parse input arguments
-def auto_int(x):
-    return int(x, 0)
 
 parser = argparse.ArgumentParser()
 parser.add_argument("lhost", help="listener IP to use")

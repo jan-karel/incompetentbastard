@@ -86,6 +86,18 @@ todo
 This one utilizes `php://input%00`
 
 
+### ./gen_passwords.sh
+
+todo
+
+## Python scripts onboard
+
+### metaspx.py
+### invoke-shellcode.py
+### meterpreter.py
+### powershell.py
+
+
 
 # dependancies
 

@@ -51,7 +51,7 @@ for x in ${commonpasswords[@]}; do
 		echo "${x^}${f}" >> meuk/wordlists/passwords.txt
 
 
-		for fy in '!' '@' '#' '$'; do
+		for fy in '.' '!' '@' '#' '$'; do
 
 		echo "${x}0${f}${fy}" >> meuk/wordlists/passwords.txt
 		echo "${x^}0${f}${fy}" >> meuk/wordlists/passwords.txt

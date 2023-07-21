@@ -9,7 +9,7 @@ source meuk/globalmeuk.sh
 sessie=${1:-}
 opdracht=${2:-}
 
-echo "[.] Incompentent bastard "
+echo "[*] Incompentent Bastard v${VERSIE}"
 
 screen -list
 

@@ -11,7 +11,7 @@ HOST=${2:-}
 LPORT=${3:-}
 
 
-echo "[.] Incompentent bastard "
+echo "[*] Incompentent Bastard v${VERSIE}"
 
 
 if [ -z "$localnic" ]; then

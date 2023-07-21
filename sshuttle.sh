@@ -6,6 +6,6 @@
 
 source meuk/globalmeuk.sh
 
-echo "[.] Incompentent Bastard "
+echo "[*] Incompentent Bastard v${VERSIE}"
 
 screen -dmS sshuttle_${1} sshuttle -r ${1} ${2}

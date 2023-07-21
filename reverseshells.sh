@@ -11,7 +11,7 @@ localport=${2:-}
 BESTAND=${3:-}
 
 
-echo "[.] Incompentent bastard "
+echo "[*] Incompentent Bastard v${VERSIE}"
 
 if [ -z "$localnic" ]; then
 

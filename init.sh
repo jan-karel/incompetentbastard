@@ -6,7 +6,7 @@
 
 source meuk/globalmeuk.sh
 
-echo "[.] Incompentent bastard "
+echo "[*] Incompentent Bastard v${VERSIE}"
 
 locatie="$PWD"
 

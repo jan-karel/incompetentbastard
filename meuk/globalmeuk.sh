@@ -7,6 +7,7 @@ RE='^[0-9]+$'
 REMOTE=''
 IP=''
 HOST=''
+VERSIE='0.42'
 DATUM=$(date +%d%m%Y)
 NMAP_OPDRACHT_TCP="-Pn -sT -sV -d -A -F --open --max-retries 25 --max-rate 500 --max-scan-delay 50"
 NMAP_OPDRACHT_UDP="-sUV -sT -T5 -F --version-intensity 0"

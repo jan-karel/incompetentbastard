@@ -5,7 +5,7 @@
 # https://hacksec.nl
 
 
-echo "[.] Incompentent bastard "
+echo "[*] Incompentent Bastard v${VERSIE}"
 
 screen -dmS openvpn openvpn meuk/client.ovpn
 screen -dmS empire powershell-empire server

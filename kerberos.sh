@@ -8,7 +8,7 @@ source meuk/globalmeuk.sh
 
 scanfile=${1:-}
 
-echo "[.] Incompentent bastard "
+echo "[*] Incompentent Bastard v${VERSIE}"
 
 
 if [ -z "$scanfile" ]; then

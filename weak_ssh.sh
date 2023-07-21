@@ -6,7 +6,7 @@
 
 source meuk/globalmeuk.sh
 
-echo "[.] Incompentent Bastard v$VERSIE"
+echo "[*] Incompentent Bastard v${VERSIE}"
 
 scanfile=${1:-}
 

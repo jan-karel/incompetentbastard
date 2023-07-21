@@ -3,21 +3,29 @@
 *Not so fine (you'll find out) bash and python scripts for incompetent bastards, like myself.*
 
 
+
 ## Bash scripts currently on board
 
 
+### ./init.sh (always use this function first)
 
-BTW. I'm adding more soon...
+This script will
 
-### ./scan.sh (always use this function first)
+
+...
+
+### ./scan.sh (always use this function second)
 
 This wil take a basic nmap scan of the network. For example mylocalnetwork
 
 ```./scan.sh eth0 mylocalnetwork 12.3.4/24```
 
+
+
+
 ### ./search.sh
 
-Completed the scan? `search.sh` greps the output
+Completed the scan with `scan.sh`? `search.sh` greps the output
 
 Find all host's Up:
 ```./search.sh mylocalnetwork up```
@@ -52,6 +60,10 @@ Connect to a screen
 Obvious
 
 ### ./commands.sh
+
+inject a file from http/commands in to a screen session
+
+```./commands.sh screenname filename```
 
 ### ./kerberos.sh
 Get info from domain controlers

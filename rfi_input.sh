@@ -11,6 +11,7 @@ LPORT=${3:-}
 
 if [ -z "$localnic" ]; then
   echo "[!] TUN REMOTE (prefixed with r_) or ETH?"
+  echo "[!] You failed..."
   exit;
 fi
 
@@ -23,7 +24,8 @@ fi
 
 
 if [ -z "$HOST" ]; then
-  echo "URL?"
+  echo "[!] URL?"
+  echo "[!] You failed..."
   exit;
 fi
 

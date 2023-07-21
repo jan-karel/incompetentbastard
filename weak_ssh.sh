@@ -10,6 +10,7 @@ scanfile=${1:-}
 
 if [ -z "$scanfile" ]; then
   echo "[!] Please provide the name of the nmap file"
+  echo "[!] You failed..."
   exit;
 fi
 

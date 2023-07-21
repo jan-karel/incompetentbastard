@@ -30,11 +30,11 @@ function brakkesed(){
 function fixscreen(){
 if [[ "$OSTYPE" == "darwin"* ]]; then
 	#geen default screen logging op macos, vieze fix
-	screen -dmS "$1" asciinema rec meuk/logs/"$1".rec --stdin -c "$2"
+	screen -dmS "$1" asciinema rec meuk/logs/"$1".rec --stdin -c "stty sane;$2"
 
 else
 	#asciinema rec meuk/logs/"$1".rec 
-	screen -L -Logfile meuk/logs/"$1".log -t "$1" -dmS "$1" asciinema rec meuk/logs/"$1".rec --stdin -c "$2"
+	screen -L -Logfile meuk/logs/"$1".log -t "$1" -dmS "$1" asciinema rec meuk/logs/"$1".rec --stdin -c "stty sane;$2"
 fi
 }
 

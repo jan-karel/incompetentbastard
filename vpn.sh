@@ -9,6 +9,7 @@ systeem=${1:-}
 
 if [ -z "$systeem" ]; then
   echo "[.] Please provide a system to RDP into"
+  echo "[!] You failed..."
   exit;
 fi
 

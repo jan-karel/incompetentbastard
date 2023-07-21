@@ -9,6 +9,7 @@ opdracht=${2:-}
 
 if [ -z "$naam" ]; then
   echo "[.] Please provide a name for the screen"
+  echo "[!] You failed..."
   exit;
 fi
 

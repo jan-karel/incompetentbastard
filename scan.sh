@@ -25,6 +25,7 @@ fi
 if [ -z "$naam" ]; then
 
   	echo "[!] Please provide the name of the nmap file"
+  	echo "[!] You failed..."
 	exit;
 
 fi
@@ -32,6 +33,7 @@ fi
 
 if [ -z "$HOSTS" ]; then
   	echo "[!] Please provide the range to scan"
+  	echo "[!] You failed..."
 	exit;
 fi
 

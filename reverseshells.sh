@@ -13,7 +13,7 @@ if [ -z "$localnic" ]; then
 
 
 
-echo "incompetentbastard reverseshell.sh
+  echo "incompetentbastard reverseshell.sh
 
 Generates some reverse shells, macro's and a txt file for some good ol copy paste.
 Currently default's to port ${PORT} you. Change this by giving the port als a second option.
@@ -26,6 +26,8 @@ or (with port 4444)
 or (with IP)
 ./reverseshell.sh 127.0.1.2 4444
 "
+
+  echo "[!] You failed..."
   exit;
 fi
 

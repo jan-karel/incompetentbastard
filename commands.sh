@@ -12,11 +12,13 @@ screen -list
 echo 'find your commands in http/commands'
 if [ -z "$sessie" ]; then
   echo "[!] Give me a screen session"
+  echo "[!] You failed..."
   exit;
 fi
 
 if [ -z "$opdracht" ]; then
   echo "[!] Give me command_list file from http/command"
+  echo "[!] You failed..."
   exit;
 fi
 

@@ -9,11 +9,13 @@ zoek=${2:-}
 
 if [ -z "$naam" ]; then
   echo "[!] Please provide the name of the nmap file"
+  echo "[!] You failed..."
   exit;
 fi
 
 if [ -z "$zoek" ]; then
   echo "[!] Please provide something to search for"
+  echo "[!] You failed..."
   exit;
 fi
 

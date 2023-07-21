@@ -12,6 +12,7 @@ echo "[.] Incompentent bastard "
 
 if [ -z "$localnic" ]; then
   echo "[!] TUN REMOTE (r_) of ETH?"
+  echo "[!] You failed..."
   exit;
 fi
 
@@ -23,7 +24,8 @@ if beginswith r_ $localnic; then
 
   exit
 if [ -z "$HOST" ]; then
-  echo "URL?"
+  echo "[!] URL?"
+  echo "[!] You failed..."
   exit;
 fi
 

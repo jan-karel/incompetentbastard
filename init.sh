@@ -1,5 +1,7 @@
 source meuk/globalmeuk.sh
 
+echo "[.] Incompentent bastard "
+
 locatie="$PWD"
 
 #just in kaas
@@ -11,7 +13,7 @@ echo 'no' | msfdb init
 
 
 #rapportage aanmaken
-cp -r $locatie/templates/rapport rapport
+#cp -r $locatie/templates/rapport rapport
 
 
 if [[ "$OSTYPE" == "darwin"* ]]; then
@@ -50,7 +52,7 @@ nikto -Version > raw/tooling/nikto-versie.txt
 #wapiti --version > raw/tooling/wapiti-versie.txt
 nuclei --version > raw/tooling/nuclei-versie.txt
 sqlmap --version > raw/tooling/sqlmap-versie.txt
-#whatweb --version > raw/tooling/whatwheb-versie.txt
+whatweb --version > raw/tooling/whatwheb-versie.txt
 dnsrecon --version > raw/tooling/dnsrecon-versie.txt
 sslscan --version > raw/tooling/sslscan-versie.txt
 testssl --version > raw/tooling/testssl-versie.txt
@@ -58,5 +60,5 @@ cat raw/tooling/testssl-versie.txt | sed "s/\x1b[^m]*m//g" > raw/tooling/testssl
 #zapversie=$(ls /usr/share/zaproxy/ | grep jar)
 #echo $zapversie > raw/tooling/zap-versie.txt
 wget --version > raw/tooling/wget-versie.txt
-#dirb > raw/tooling/dirb-versie.txt
+dirb > raw/tooling/dirb-versie.txt
 msfconsole --version > raw/tooling/metasploit-version.txt

@@ -2,11 +2,13 @@
 
 source meuk/globalmeuk.sh
 
+echo "[.] Incompentent bastard "
+
 naam=${1:-}
 opdracht=${2:-}
 
 if [ -z "$naam" ]; then
-  echo "[.] Please provide one of the named screen sessions above"
+  echo "[.] Please provide a name for the screen"
   exit;
 fi
 

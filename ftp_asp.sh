@@ -7,6 +7,9 @@ HOST=${2:-}
 LPORT=${3:-}
 
 
+echo "[.] Incompentent bastard "
+
+
 if [ -z "$localnic" ]; then
   echo "TUN REMOTE (r_) of ETH?"
   exit;

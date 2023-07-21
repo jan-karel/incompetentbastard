@@ -2,6 +2,8 @@
 
 source meuk/globalmeuk.sh
 
+echo "[.] Incompentent bastard "
+
 systeem=${1:-}
 
 

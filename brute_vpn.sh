@@ -4,6 +4,8 @@ source meuk/globalmeuk.sh
 
 scanfile=${1:-}
 
+echo "[.] Incompentent bastard "
+
 if [ -z "$scanfile" ]; then
   echo "naam?"
   exit;

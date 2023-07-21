@@ -2,6 +2,8 @@
 
 source meuk/globalmeuk.sh
 
+echo "[.] Incompentent bastard "
+
 scanfile=${1:-}
 
 #Currently limited to Debian but you can set it to ssh, Ubunutu, 22 or whatever.
@@ -11,7 +13,6 @@ if [ -z "$scanfile" ]; then
   exit;
 fi
 
-echo "[.] Incompentent bastard "
 if [ ! -d 'meuk/rsa' ]; then
     echo "[.] One moment. Fetching weak debian rsa keys"
     wget https://github.com/g0tmi1k/debian-ssh/blob/master/common_keys/debian_ssh_rsa_2048_x86.tar.bz2

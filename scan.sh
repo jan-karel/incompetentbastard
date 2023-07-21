@@ -2,6 +2,8 @@
 
 source meuk/globalmeuk.sh
 
+echo "[.] Incompentent bastard "
+
 localnic=${1:-}
 naam=${2:-}
 HOSTS=${3:-}

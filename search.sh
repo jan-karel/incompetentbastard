@@ -2,6 +2,8 @@
 
 source meuk/globalmeuk.sh
 
+echo "[.] Incompentent bastard "
+
 naam=${1:-}
 zoek=${2:-}
 

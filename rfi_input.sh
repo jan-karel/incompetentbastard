@@ -3,6 +3,8 @@
 
 source meuk/globalmeuk.sh
 
+echo "[.] Incompentent bastard "
+
 localnic=${1:-}
 HOST=${2:-}
 LPORT=${3:-}

@@ -5,6 +5,8 @@ source meuk/globalmeuk.sh
 sessie=${1:-}
 opdracht=${2:-}
 
+echo "[.] Incompentent bastard "
+
 screen -list
 
 echo 'find your commands in http/commands'

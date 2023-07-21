@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
-
-
+# Jan-Karel Visser
+# LGPLv3 licensed
+# https://jan-karel.nl
+# https://hacksec.nl
 
 source meuk/globalmeuk.sh
 
@@ -9,7 +11,8 @@ echo "[.] Incompentent bastard "
 scanfile=${1:-}
 
 if [ -z "$scanfile" ]; then
-  echo "naam?"
+  echo "[!] Please provide the name of the nmap file"
+  echo "[!] You failed..."
   exit;
 fi
 

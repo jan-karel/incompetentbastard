@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
+# Jan-Karel Visser
+# LGPLv3 licensed
+# https://jan-karel.nl
+# https://hacksec.nl
 
 source meuk/globalmeuk.sh
 

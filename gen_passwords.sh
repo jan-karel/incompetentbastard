@@ -18,7 +18,7 @@ echo '' > meuk/wordlists/passwords.txt
 
 #echo date+%Y
 
-echo "[.] Incompentent bastard "
+echo "[*] Incompentent Bastard v${VERSIE}"
 echo "[.] Creating variations on ${#commonpasswords[@]} common passwords..."
 for x in ${commonpasswords[@]}; do
 
@@ -40,7 +40,7 @@ for x in ${commonpasswords[@]}; do
 			echo $x$y >> meuk/wordlists/passwords.txt
 			echo ${x^}$y >> meuk/wordlists/passwords.txt
 	done
-	for f in 1 2 3 04 05 06 07 08 69 666; do
+	for f in 1 2 3 04 05 06 07 08 007 008 009 42 69 88 444 555 666; do
 
 		echo "${x}0${f}" >> meuk/wordlists/passwords.txt
 		echo "${x^}0${f}" >> meuk/wordlists/passwords.txt

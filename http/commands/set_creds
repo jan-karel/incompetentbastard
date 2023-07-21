@@ -1,0 +1,1 @@
+$username = 'Administrator';$password = 'CHANGEME';$securePassword = ConvertTo-SecureString $password -AsPlainText -Force; $credential = New-Object System.Management.Automation.PSCredential $username, $securePassword;

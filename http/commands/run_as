@@ -1,0 +1,1 @@
+Start-Process cmd.exe -NoNewWindow -Credential $credential -ArgumentList ('/k',"whoami")

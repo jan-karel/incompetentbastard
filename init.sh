@@ -45,7 +45,7 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
 else
 	screen -L -Logfile meuk/logs/smb.log -dmS smb impacket-smbserver share http -smb2support
 	screen -L -Logfile meuk/logs/http.log -dmS http sh -c "cd http && python3 -m http.server 80"
-	screen -L -Logfile meuk/logs/metasploit.log -dmS metasploit sh -c "msfdb start && stty sane; msfconsole"
+	screen -L -Logfile meuk/logs/metasploit.log -dmS metasploit sh -c "sudo msfdb start && stty sane; msfconsole"
 fi 
 
 

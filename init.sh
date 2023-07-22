@@ -15,7 +15,7 @@ locatie="$PWD"
 #folders aanmaken
 mkdir -p raw/recon raw/route raw/screenshots raw/tls raw/nmap raw/wget meuk/logs meuk/wordlists raw/tooling
 
-echo 'no' | msfdb init
+echo 'no' | sudo msfdb init
 
 
 #rapportage aanmaken

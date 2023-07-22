@@ -6,7 +6,7 @@
 
 source meuk/globalmeuk.sh
 
-echo "[*] Incompentent Bastard v${VERSIE}"
+#echo "[*] Incompentent Bastard v${VERSIE}"
 
 naam=${1:-}
 zoek=${2:-}

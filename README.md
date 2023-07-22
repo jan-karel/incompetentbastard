@@ -88,14 +88,29 @@ This one utilizes `php://input%00`
 
 ### ./gen_passwords.sh
 
-todo
+Just run `./gen_passwords.sh`
+
+Generates a password list of basic passwords with common variations. You might want to change the values in commonpasswords and take a close look to your cewl output.
+
+When you are stuck on PNPT this might give you a clue.... Thank me later ;)
 
 ## Python scripts onboard
 
-### metaspx.py
+### methaspx.py
+
+Builds an aspx shell
+
 ### invoke-shellcode.py
+
+Invokes shellcode
+
 ### meterpreter.py
+
+Builds a custom exe with payload
+
 ### powershell.py
+
+Generate some custom powershell scripts
 
 
 

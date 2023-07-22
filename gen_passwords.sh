@@ -7,13 +7,10 @@
 source meuk/globalmeuk.sh
 
 #adjust to your needs
-#commonpasswords=('admin' 'administrator' 'beheer' 'helpdesk' 'support' 'guest' 'nimda' 'lente' 'zomer' 'herfst' 'winter' 'spring' 'summer' 'winter' 'autumn' 'password' 'p4ssw0rd' 'p@ssw0rd' 'welcome' 'welkom' 'qwerty' '1q2w3e')
+commonpasswords=('admin' 'nimda' 'administrator' 'beheer' 'helpdesk' 'support' 'guest' 'nimda' 'lente' 'zomer' 'herfst' 'winter' 'spring' 'summer' 'winter' 'autumn' 'password' 'p4ssw0rd' 'p@ssw0rd' 'welcome' 'welkom' 'qwerty' '1q2w3e')
 
-#idiots mode, always try when you'r stuck ;)
+#idiots mode, always try when you'r stuck but better take a good look at cewl ;)
 #commonpasswords=('654321' 'monkey' '27653' '1qaz2wsx' '123321' 'qwertyuiop' 'superman' 'asdfghjkl' 'qwerty' 'pass' 'password','iloveyou', 'dragon','princess' 'letmein','1q2w3e4r')
-
-
-commonpasswords=('admin' 'administrator' 'nimda' 'lente' 'helpdesk' 'support' 'guest' 'spring' 'summer' 'winter' 'autumn' 'password' 'p4ssw0rd' 'p@ssw0rd' 'welcome' 'welkom' 'qwerty' '1q2w3e')
 
 #reset the password lists, insert blanc password
 echo '' > meuk/wordlists/passwords.txt
@@ -29,7 +26,7 @@ for x in ${commonpasswords[@]}; do
 	echo ${x^} >> meuk/wordlists/passwords.txt
 
 
-	for y in '.' '?' '!' '@' '#' '$'; do
+	for y in '.' '?' '!' '@' '#' '$' '^' '-' '_'; do
 
 		for tt in $(date +'%Y') $(date +'%y'); do
 
@@ -51,7 +48,7 @@ for x in ${commonpasswords[@]}; do
 		echo "${x^}${f}" >> meuk/wordlists/passwords.txt
 
 
-		for fy in '.' '!' '@' '#' '$'; do
+		for fy in '.' '?' '!' '@' '#' '$' '^' '-' '_'; do
 
 		echo "${x}0${f}${fy}" >> meuk/wordlists/passwords.txt
 		echo "${x^}0${f}${fy}" >> meuk/wordlists/passwords.txt

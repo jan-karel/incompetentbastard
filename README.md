@@ -1,4 +1,4 @@
-# incompetentbastard
+# Incompetent Bastard
 
 *Not so fine (you'll find out) bash and python scripts for incompetent bastards, like myself.*
 
@@ -13,6 +13,23 @@ This script will
 
 
 ...
+
+
+```
+# screen -list                                                                                                                    
+There are screens on:
+	1708.metasploit	(07/22/2022 10:02:47 AM)	(Detached)
+	1704.http	(07/22/2022 10:02:47 AM)	(Detached)
+	1701.smb	(07/22/2022 10:02:47 AM)	(Detached)
+	1699.vpn	(07/22/2022 10:02:47 AM)	(Detached)
+4 Sockets in /run/screen/S-root.
+```
+
+And off you go.
+
+
+
+
 
 ### ./scan.sh (always use this function second)
 
@@ -33,7 +50,7 @@ Find all host's Up:
 Find all MS SMB shares:
 ```./search.sh mylocalnetwork microsoft-ds```
 
-Find all Samba share
+Find all Samba shares
 ```./search.sh mylocalnetwork Samba```
 
 Etc. Use your imagination. 
@@ -102,7 +119,10 @@ Builds an aspx shell
 
 ### invoke-shellcode.py
 
-Invokes shellcode
+Adjusted from: 
+https://github.com/PowerShellMafia/PowerSploit/blob/master/CodeExecution/Invoke-Shellcode.ps1
+
+Invokes a reverse 32x or 64x reverse TCP shell
 
 ### meterpreter.py
 

@@ -13,7 +13,7 @@ locatie="$PWD"
 #just in kaas
 #rm -rf $locatie/raw
 #folders aanmaken
-mkdir -p raw/recon raw/route raw/screenshots raw/tls raw/nmap raw/wget meuk/logs meuk/wordlists raw/tooling
+mkdir -p raw/recon raw/route raw/screenshots raw/tls raw/nmap raw/wget meuk/logs meuk/wordlists raw/tooling http/payloads
 
 echo 'no' | sudo msfdb init
 
@@ -31,6 +31,7 @@ fi
 #vpn
 
 if [ -e "${locatie}/meuk/client.ovpn" ]; then
+
 	if [[ "$OSTYPE" == "darwin"* ]]; then
 	 	screen -dmS vpn openvpn meuk/client.ovpn
 	else
@@ -48,7 +49,7 @@ else
 	screen -L -Logfile meuk/logs/metasploit.log -dmS metasploit sh -c "stty sane; msfconsole"
 fi 
 
-
+echo '[+] Logging tool versions...'
 #versies zetten
 wafw00f --version > raw/tooling/wafw00f-versie.txt
 cat raw/tooling/wafw00f-versie.txt | sed "s/\x1b[^m]*m//g" > raw/tooling/wafw00f-versie.txt

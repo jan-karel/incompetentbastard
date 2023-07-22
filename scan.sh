@@ -58,13 +58,8 @@ uname -r > raw/local/unamer.txt
 ifconfig > raw/local/ifconfig.txt 
 cat raw/local/ifconfig.txt
 
-getpublicip 4 > raw/local/${naam}_remoteip.txt
-getpublicip 6 > raw/local/${naam}_remoteipv6.txt
-
-echo "Publieke adressen"
-cat raw/local/${naam}_remoteip.txt
-cat raw/local/${naam}_remoteipv6.txt
-
+getpublicip 4 > raw/local/remoteip.txt
+getpublicip 6 > raw/local/remoteipv6.txt
 
 
 NMAP_HOST=${HOSTS//,/' '}
@@ -76,7 +71,7 @@ sed -i 's/.$/}/' raw/nmap/${naam}_tcp-poorten.txt
 sed -i 's/"/{/g' raw/nmap/${naam}_tcp-poorten.txt
 
 
-nmaptocsv -i raw/nmap/quick_scan_tcp.nmap -f fqdn-service-version-os > raw/nmap/${naam}_tcp-versies.txt
+nmaptocsv -i raw/nmap/${naam}_quick_scan_tcp.nmap -f fqdn-service-version-os > raw/nmap/${naam}_tcp-versies.txt
 sed -i 's/";"/},{/g' raw/nmap/${naam}_tcp-versies.txt
 sed -i 's/.$/}/' raw/nmap/${naam}_tcp-versies.txt
 sed -i 's/"/{/g' raw/nmap/${naam}_tcp-versies.txt
@@ -84,7 +79,7 @@ sed -i 's/"/{/g' raw/nmap/${naam}_tcp-versies.txt
 
 #cat raw/nmap/quick_scan_tcp
 nmap -e $localnic $NMAP_OPDRACHT_UDP $NMAP_HOST -oA raw/nmap/${naam}_quick_scan_udp
-nmaptocsv -i raw/nmap/quick_scan_udp.nmap -f ip-fqdn-port-protocol-service > raw/nmap/${naam}_udp-poorten.txt
+nmaptocsv -i raw/nmap/${naam}_quick_scan_udp.nmap -f ip-fqdn-port-protocol-service > raw/nmap/${naam}_udp-poorten.txt
 sed -i 's/";"/},{/g' raw/nmap/${naam}_udp-poorten.txt
 sed -i 's/.$/}/' raw/nmap/${naam}_udp-poorten.txt
 sed -i 's/"/{/g' raw/nmap/${naam}_udp-poorten.txt

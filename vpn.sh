@@ -6,7 +6,7 @@
 
 source meuk/globalmeuk.sh
 
-echo "[.] Incompentent bastard v$(VERSIE)"
+echo "[*] Incompentent Bastard v${VERSIE}"
 
 systeem=${1:-}
 

@@ -89,3 +89,12 @@ sed -i 's/";"/},{/g' raw/${naam}_scope.csv
 sed -i 's/.$/}/' raw/${naam}_scope.csv
 sed -i 's/"/{/g' raw/${naam}_scope.csv
 #done
+
+
+rest
+
+
+
+
+
+

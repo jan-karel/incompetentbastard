@@ -7,7 +7,7 @@
 source meuk/globalmeuk.sh
 
 echo "[*] Incompentent Bastard v${VERSIE}"
-
+echo "[.] For already created screens... just use screen -x"
 naam=${1:-}
 opdracht=${2:-}
 
@@ -24,4 +24,5 @@ fi
 fixscreen $naam $opdracht
 
 sleep 1
+
 screen -r "$naam"

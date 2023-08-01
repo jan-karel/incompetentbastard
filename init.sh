@@ -41,12 +41,18 @@ fi
 
 if [[ "$OSTYPE" == "darwin"* ]]; then
 	screen -dmS smb smbserver.py share http -smb2support
-	screen -dmS http sh -c "cd http && python3 -m http.server 80"
+
+
+	#screen -dmS http sh -c "cd http && python3 -m http.server 80"
+	screen -dmS http sh -c "flask db migrate; flask db upgrade; flask db init;flask run --host=0.0.0.0 --port=80 --debug > meuk/logs/http.log"
 	screen -dmS metasploit sh -c "stty sane; msfconsole"
+	screen -dmS tcpdump -c "stty sane; tcpdump -i any icmp -w raw/icmp.pcap"
 else
 	screen -L -Logfile meuk/logs/smb.log -dmS smb impacket-smbserver share http -smb2support
-	screen -L -Logfile meuk/logs/http.log -dmS http sh -c "cd http && python3 -m http.server 80"
+	#screen -L -Logfile meuk/logs/http.log -dmS http sh -c "cd http && python3 -m http.server 80"
+	screen -L -Logfile meuk/logs/http.log -dmS http sh -c "flask db migrate; flask db upgrade; flask db init;flask run --host=0.0.0.0 --port=80 --debug"
 	screen -L -Logfile meuk/logs/metasploit.log -dmS metasploit sh -c "stty sane; msfconsole"
+	screen -dmS tcpdump -c "stty sane; tcpdump -i any icmp -w raw/icmp.pcap"
 fi 
 
 echo '[+] Logging tool versions...'

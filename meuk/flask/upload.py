@@ -25,5 +25,6 @@ def meukuploads():
 
 
 @upload_bp.route("/uploadform", methods=["GET","POST"])
+@upload_bp.route("/uploadform/", methods=["GET","POST"])
 def meukupload():
     return 'ik ben het formulier'

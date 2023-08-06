@@ -7,15 +7,6 @@ from flask import current_app as app
 from app import db
 
 
-
-class db_instellingen(db.Model):
-    """Bevindingen model."""
-    __tablename__ = 'db_instellingen'
-    id = db.Column(db.Integer, primary_key=True)
-    localhost = db.Column(db.String(255), default='http://127.0.0.1')
-    ikzelf = db.Column(db.String(255))
-    allowlist = db.Column(db.Text(), default='*')
-
 class db_xxs_cookies(db.Model):
     """Bevindingen model."""
     __tablename__ = 'db_xxs_cookies'
@@ -91,3 +82,57 @@ class db_xxs_commands(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     host = db.Column(db.String(32), default='*')
     opdracht = db.Column(db.Text())
+
+
+
+class db_instellingen(db.Model):
+    """Bevindingen model."""
+    __tablename__ = 'db_instellingen'
+    id = db.Column(db.Integer, primary_key=True)
+    localhost = db.Column(db.String(255), default='http://127.0.0.1')
+    ikzelf = db.Column(db.String(255))
+    allowlist = db.Column(db.Text(), default='*')
+
+
+class db_bevindingen_templates(db.Model):
+    """Bevindingen model."""
+    __tablename__ = 'db_bevindingen_templates'
+    id = db.Column(db.Integer, primary_key=True)
+    titel = db.Column(db.String(255))
+    cwe = db.Column(db.String(5))
+    owasp = db.Column(db.String(255))
+    mitre = db.Column(db.String(10))
+    cvss = db.Column(db.String(255))
+    basescore = db.Column(db.String(10))
+    kans = db.Column(db.String(5))
+    impact = db.Column(db.String(5))
+    nlbeschrijving = db.Column(db.Text())
+    enbeschrijving = db.Column(db.Text())
+    nlimpactkort = db.Column(db.String(255))
+    enimpactkort = db.Column(db.String(255))
+    nlimpact = db.Column(db.Text())
+    enimpact = db.Column(db.Text())
+    nlaanbevelingkort = db.Column(db.String(255))
+    enaanbevelingkort = db.Column(db.String(255))
+    nlaanbeveling = db.Column(db.Text())
+    enaanbeveling = db.Column(db.Text())
+    referenties = db.Column(db.Text())
+
+    def __repr__(self):
+        return '<db_bevindingen_templates %r>' % self.titel
+
+
+class db_bevindingen(db.Model):
+    """Bevindingen model."""
+    __tablename__ = 'db_bevinding'
+    id = db.Column(db.Integer, primary_key=True)
+    naam = db.Column(db.String(255))
+    invoegen = db.Column(db.Text())
+    ref = db.Column(db.String(20))
+    uitwerken = db.Column(db.Text())
+    locatie = db.Column(db.String(255))
+    gebruikersvlag = db.Column(db.String(255))
+    rootvlag = db.Column(db.String(255))
+
+
+

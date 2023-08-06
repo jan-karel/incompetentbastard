@@ -33,7 +33,7 @@ def create_app():
     #login_manager.init_app(app)
     #csrf = CSRFProtect(app)
     bootstrap = Bootstrap(app)
-    migrate = Migrate(app, db)
+    migrate = Migrate(app, db, render_as_batch=True)
     #cache = Cache(app)
 
 
@@ -48,22 +48,24 @@ def create_app():
         from meuk.flask import download
         from meuk.flask import upload
         from meuk.flask import xxs
+        from meuk.flask import csrf
         #from meuk.flask import rfi
-        #from meuk.flask import sqli2
-        #from meuk.flask import c2
+        from meuk.flask import sqli2
+        from meuk.flask import ssrf
+        from meuk.flask import findings
+        from meuk.flask import admin
+	#from meuk.flask import c2
         # Register Blueprints
         app.register_blueprint(index.index_bp)
         app.register_blueprint(xxe.xxe_bp)
         app.register_blueprint(download.download_bp)
         app.register_blueprint(upload.upload_bp)
         app.register_blueprint(xxs.xxs_bp)
+        app.register_blueprint(csrf.csrf_bp)
         #app.register_blueprint(rfi.rfi_bp)
-        #app.register_blueprint(sqli2.sqli2_bp)
-
-
-
-
-
+        app.register_blueprint(sqli2.sqli2_bp)
+        app.register_blueprint(ssrf.ssrf_bp)
+        app.register_blueprint(findings.findings_bp)
         return app
 
 

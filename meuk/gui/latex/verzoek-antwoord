@@ -1,0 +1,9 @@
+Het volgende verzoek:
+\begin{lstlisting}[caption=Request]
+Insert Response
+\end{lstlisting}
+
+Gaf het volgende antwoord:
+\begin{lstlisting}[caption=Response]
+Insert Response
+\end{lstlisting}

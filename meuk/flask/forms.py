@@ -30,6 +30,8 @@ class BevindingForm(FlaskForm):
     ref = HiddenField('ref')
     uitwerken = TextAreaField('Werk de bevinding uit...')
     locatie = StringField('Host')
+    basescore = StringField('CVSS basescore')
+    cvss = StringField('CVSS string', render_kw={'onclick':'cvssklik(this.value)', 'readonly':None})
     gebruikersvlag = StringField('User flag')
     rootvlag = StringField('Root flag')
     submit = SubmitField('Opslaan')

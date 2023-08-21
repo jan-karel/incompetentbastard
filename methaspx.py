@@ -51,7 +51,7 @@ decodingFunc = f"""for (int i = 0; i < buf.Length; i++)
 }}"""
 
 template = template.replace('[xorreplace]', decodingFunc)
-schrijven('http/payloads/meth.aspx', $template)
+schrijven('http/payloads/meth.aspx', template)
 
 
 

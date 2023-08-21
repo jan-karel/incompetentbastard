@@ -23,6 +23,19 @@ def nulvul(num):
     return str(num).zfill(3)
 
 
+@app.template_filter('inhoudweergeven')
+def inhoud_weergeven(bestand, edit=False):
+    try:
+        naam=bestand.rsplit('/', 1)[1]
+        inhoud = lezen(bestand)
+        if edit:
+            naam = '<a href="#" class="modalweergeven" data-rel="/dashboard/bestanden/?bewerk='+bestand+'" data-title="'+naam+'">'+naam+'</a>'
+            return '<p>'+naam+'</p><pre>'+inhoud+'</pre>'
+        else:
+            return inhoud
+    except:
+        return ''
+
 @app.template_filter('zet_pill')
 def zet_pill(tab, pag):
     if pag == 'verwerkt':
@@ -50,6 +63,19 @@ index_bp = Blueprint('index_bp', __name__,
                     static_folder='static')
 
 
+#favicon
+@index_bp.route('/favicon.ico')
+@index_bp.route('/static/favicon.ico')
+def favicon():
+    pagina =  send_from_directory('favicon.ico')
+    return str(pagina)
+
+@index_bp.route('/dashboard/raw/screenshots/<path:plaatje>')
+def plaatje(plaatje):
+    pagina =  send_from_directory('raw/screenshots/', plaatje)
+    return pagina
+
+
 #basic website
 @index_bp.route('/', defaults={'cms_pag': 'index'}, methods=['GET', 'POST'])
 @index_bp.route('/<cms_pag>')
@@ -65,6 +91,10 @@ def index(cms_pag):
         return '<html><title>hallo wereld</title><body><h1>Een moment a.u.b.</h1><script src="/x.js"></script></body></html>'
 
     else:
+
+
+
+
         #use our normal pages
         hooked = db_xxs_hooked.query.all()
         cookies = db_xxs_cookies.query.order_by('datum').all()
@@ -81,15 +111,17 @@ def index(cms_pag):
         js2=base64.b64encode(bytes(jspagina, 'utf-8'))
         js2 = str(js2, 'utf-8')
 
+        commands=glob.glob('http/commands/*')
+        nmap=glob.glob('raw/nmap/*_quick_scan_tcp.nmap')
+
+
+
+
+
         #overzichtweergeven
-        pagina = render_template('dashboard.html', cms_pag=cms_pag, bevindingen=bevindingen, cookies=cookies, keylogger=keylogger, localstorage=localstorage,  hooked=hooked, aantalhooked=len(hooked), template=template, shells=shells, quotes=quotes(), js1=js1, js2=js2, appdata=appdata)
+        pagina = render_template('dashboard.html', cms_pag=cms_pag, bevindingen=bevindingen, cookies=cookies, keylogger=keylogger, localstorage=localstorage,  hooked=hooked, aantalhooked=len(hooked), template=template, shells=shells, quotes=quotes(), js1=js1, js2=js2, appdata=appdata, commands=commands, nmap=nmap)
         return pagina
 
-#favicon
-@index_bp.route('/favicon.ico')
-@index_bp.route('/static/favicon.ico')
-def favicon():
-    pagina =  send_from_directory('favicon.ico')
-    return str(pagina)
+
 
 

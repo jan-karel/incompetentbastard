@@ -131,6 +131,8 @@ class db_bevindingen(db.Model):
     ref = db.Column(db.String(20))
     uitwerken = db.Column(db.Text())
     locatie = db.Column(db.String(255))
+    basescore = db.Column(db.String(10))
+    cvss = db.Column(db.String(255))
     gebruikersvlag = db.Column(db.String(255))
     rootvlag = db.Column(db.String(255))
 

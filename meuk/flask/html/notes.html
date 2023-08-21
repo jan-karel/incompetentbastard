@@ -1,0 +1,16 @@
+{% if template %}
+{%for x in bevinding %}
+\subsection'[{'{{x.naam}}'}]'
+{{x.invoegen | safe}}
+
+\uitwerking'[{'bev{{x.id}}'}]'
+
+{% endfor %}
+{% else %}
+{%for x in bevinding %}
+\subsection'[{'{{x.naam}}'}]'
+
+{{x.inhoud | safe}}
+{% endfor %}
+{% endif %}
+

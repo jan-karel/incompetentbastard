@@ -1,0 +1,360 @@
+.kritiek {background-color:purple;text-align: center;color:white; font-weight: bold}
+.hoog {background-color:red;text-align: center;color:white; font-weight: bold}
+.midden {background-color:orange;text-align: center;color:black; font-weight: bold}
+.laag {background-color:green;text-align: center;color:white; font-weight: bold}
+.info {background-color:blue;text-align: center;color:white; font-weight: bold}
+
+
+/* CVSSv3 Calculator Styles */
+.cvss-formula{
+    position: relative;
+    margin-bottom: 34px;
+}
+.cvss-formula-title{
+    display: inline-block;
+    background-color: #dfe3e6;
+    padding: 5px 15px;
+    margin: 0 0 0 10px;
+}
+.cvss-formuls-body{
+    width: 100%;
+    padding: 15px;
+    position: relative;
+    border: 3px solid #dfe3e6;
+    -webkit-border-radius: 3px;
+    -moz-border-radius: 3px;
+    border-radius: 3px;
+}
+.cvss-formla-value{
+    outline: none;
+    box-sizing: border-box;
+    height: 40px;
+    line-height: 24px;
+    width: calc(100% - 65px);
+    resize: none;
+    margin: 0 65px 0 0;
+    border: none;
+    padding: 8px 15px 8px 0;
+    display: inline-block;
+    vertical-align: middle;
+    border-right: 1px solid #dfe3e6;
+}
+.cvss-formula-reset{
+    position: absolute;
+    top: 50%;
+    right: 0px;
+    width: 60px;
+    height: 40px;
+    line-height: 40px;
+    padding: 0;
+    margin: -20px 10px 0;
+    text-align: center;
+    border: none;
+    background: none;
+    display: inline-block;
+    vertical-align: middle;
+    color: #5a5a5a;
+}
+.cvss-formula-reset:hover{
+    background-color: #f2f7fa;
+}
+/**/
+
+/**/
+.cvss-section{
+    position: relative;
+    margin-bottom: 20px;
+}
+.cvss-section-header{
+    padding: 0 0 20px;
+}
+.cvss-section-title{
+    display: inline-block;
+    font-size: 30px;
+    color: #000;
+}
+.scoreRating{
+    margin-left: 20px;
+    display: inline-block;
+    height: 46px;
+    padding: 0 20px;
+    line-height: 46px;
+    -webkit-border-radius: 25px;
+    -moz-border-radius: 25px;
+    border-radius: 25px;
+    color: #ffffff;
+    font-size: 16px;
+}
+.scoreRating > b{
+    font-size: 18px;
+}
+.scoreRating.none{
+    border: 1px solid #5fbbff;
+    background-color: #f2f7fa;
+    color: #5fbbff;
+}
+.scoreRating.low{
+    background-color: #97e247;
+}
+.scoreRating.medium{
+    background-color: #fed421;
+}
+.scoreRating.high{
+    background-color: #ff8c1a;
+}
+.scoreRating.critical{
+    background-color: #ee1f00;
+}
+/**/
+.panel.panel-cvss{
+    display: inline-block;
+    -webkit-border-radius: 3px;
+    -moz-border-radius: 3px;
+    border-radius: 3px;
+    margin-right: 15px;
+    border: none;
+}
+.panel.panel-cvss .panel-heading{
+    background-color: #dee7f0;
+    color: #000;
+    padding: 3px 12px;
+}
+.panel.panel-cvss .panel-body{
+    background-color: #f2f7fa;
+    color: #5a5a5a;
+    padding: 10px 12px;
+}
+/**/
+
+.cvss-radio{
+    display: inline-block;
+}
+.cvss-radio:not(:last-child){
+    margin-right: 15px;
+}
+.cvss-radio-label{
+    margin: 0;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.cvss-radio-input {
+    display: none;
+}
+.cvss-radio-input + label:before {
+    content: "";
+    display: inline-block;
+    vertical-align: middle;
+    margin-right: 5px;
+    width: 32px;
+    height: 32px;
+    line-height: 32px;
+    text-align: center;
+    font-size: 16px;
+    font-family: ariel, sans-serif;
+    font-weight: lighter;
+    color: #5a5a5a;
+    border-radius: 50%;
+    background: #f2f7fa;
+    border: 1px solid #5a5a5a;
+    -webkit-border-radius: 50%;
+    -moz-border-radius: 50%;
+    border-radius: 50%;
+    -webkit-transition: all 0.7s ease;
+    -moz-transition: all 0.7s ease;
+    -ms-transition: all 0.7s ease;
+    -o-transition: all 0.7s ease;
+    transition: all 0.7s ease;
+}
+.cvss-radio-input:checked + label{
+    cursor: default;
+}
+.cvss-radio-input:checked + label:before{
+    background: #5a5a5a;
+    color: #fff;
+    -webkit-transition: all 0.3s ease;
+    -moz-transition: all 0.3s ease;
+    -ms-transition: all 0.3s ease;
+    -o-transition: all 0.3s ease;
+    transition: all 0.3s ease;
+}
+
+.cvss-radio-input.val-n + label:before{
+    content: "N";
+}
+.cvss-radio-input.val-a + label:before{
+    content: "A";
+}
+.cvss-radio-input.val-p + label:before{
+    content: "P";
+}
+.cvss-radio-input.val-l + label:before{
+    content: "L";
+}
+.cvss-radio-input.val-h + label:before{
+    content: "H";
+}
+.cvss-radio-input.val-r + label:before{
+    content: "R";
+}
+.cvss-radio-input.val-u + label:before{
+    content: "U";
+}
+.cvss-radio-input.val-c + label:before{
+    content: "C";
+}
+.cvss-radio-input.val-x + label:before{
+    content: "X";
+}
+.cvss-radio-input.val-o + label:before{
+    content: "O";
+}
+.cvss-radio-input.val-t + label:before{
+    content: "T";
+}
+.cvss-radio-input.val-w + label:before{
+    content: "W";
+}
+.cvss-radio-input.val-m + label:before{
+    content: "M";
+}
+
+/*
+input.cvss-radio-input[type=radio]{
+    margin: 0 3px 0 0;
+    line-height: 31px;
+}
+.cvss-radio-input{
+    width: 32px;
+    height: 32px;
+    vertical-align: middle;
+    border: none;
+    background: none;
+    text-align: center;
+    font-size: 16px;
+    font-family: ariel, sans-serif;
+    font-weight: lighter;
+    position: relative;
+}
+.cvss-radio-input:before{
+    content: "";
+    display: block;
+    position: absolute;
+    width: 32px;
+    height: 32px;
+    color: #5a5a5a;
+    border-radius: 50%;
+    background: #f2f7fa;
+    border: 1px solid #5a5a5a;
+    -webkit-border-radius: 50%;
+    -moz-border-radius: 50%;
+    border-radius: 50%;
+    top: 0;
+    left: 0;
+    -webkit-transition: all 0.7s ease;
+    -moz-transition: all 0.7s ease;
+    -ms-transition: all 0.7s ease;
+    -o-transition: all 0.7s ease;
+    transition: all 0.7s ease;
+}
+.cvss-radio-label input[type='radio']:checked:before{
+    background: #5a5a5a;
+    color: #fff;
+    -webkit-transition: all 0.3s ease;
+    -moz-transition: all 0.3s ease;
+    -ms-transition: all 0.3s ease;
+    -o-transition: all 0.3s ease;
+    transition: all 0.3s ease;
+}
+
+.cvss-radio-input.val-n:before{
+    content: "N";
+}
+.cvss-radio-input.val-a:before{
+    content: "A";
+}
+.cvss-radio-input.val-p:before{
+    content: "P";
+}
+.cvss-radio-input.val-l:before{
+    content: "L";
+}
+.cvss-radio-input.val-h:before{
+    content: "H";
+}
+.cvss-radio-input.val-r:before{
+    content: "R";
+}
+.cvss-radio-input.val-u:before{
+    content: "U";
+}
+.cvss-radio-input.val-c:before{
+    content: "C";
+}
+.cvss-radio-input.val-x:before{
+    content: "X";
+}
+.cvss-radio-input.val-o:before{
+    content: "O";
+}
+.cvss-radio-input.val-t:before{
+    content: "T";
+}
+.cvss-radio-input.val-w:before{
+    content: "W";
+}
+.cvss-radio-input.val-m:before{
+    content: "M";
+}
+*/
+/* Golossary */
+.golossary{
+    margin: 20px 0;
+    border-top: 2px solid #dfe3e6;
+}
+.golossary-title{
+    font-size: 20px;
+    color: #000000;
+}
+.golossary .collaps-menu{
+    margin: 0 20px;
+}
+.golossary .collaps-menu .collaps-btn{
+    color: #9b9b9b;
+    border-bottom: 1px dashed #9b9b9b;
+    text-decoration: none;
+}
+.golossary .collaps-menu .collaps-btn > span{
+    display: none;
+}
+.golossary .collaps-menu .collaps-btn:after{
+    content: "\25B2";
+    font-size: 12px;
+    margin: 0 0 0 3px;
+}
+.golossary .collaps-menu .collaps-btn.collapsed:after{
+    content: "\25BC";
+}
+.golossary .collaps-menu .collaps-btn:not(.collapsed) .hide-txt{
+    display: inline;
+}
+.golossary .collaps-menu .collaps-btn.collapsed .show-txt{
+    display: inline;
+}
+.golossary .sectionTitle{
+    color: #000000;
+    font-weight: bold;
+    font-size: 18px;
+    margin: 15px 0 10px;
+}
+.metricBlock{
+    margin-bottom: 20px;
+}
+.metricBlock .metricTitle{
+    margin-bottom: 5px;
+    color: #000000;
+    font-weight: bold;
+}
+.metricBlock p{
+    font-size: 12px;
+}

@@ -1,0 +1,56 @@
+
+{% if aantal == 1 %}
+{% for x in bevinding %}
+\subsection'[{'{{x.naam}}'}]'
+\label'[{'bev{{x.id}}'}]'
+{% endfor %}
+{% else %}
+
+\subsection'[{'{{template.titel}}'}]'
+
+{% endif %}
+
+\bevindingkop'[{'{{ bevnums | bevindingnums}}'}]''[{'{{ template.owasp | owaspcategorie }}'}]''[{'{{template.cwe}}'}]'
+
+
+
+
+
+
+
+{{template.nlbeschrijving | safe}}
+
+
+{%for x in bevinding %}
+
+{% if aantal > 1 %}
+
+\subsubsection{{x.id | nulvul}}  {{x.naam}}'}]'
+\label'[{'bev{{x.id}}'}]'
+{% else %}
+
+{{x.uitwerken | safe}}
+
+{% endif %}
+
+{% endfor %}
+
+
+\subsubsection{Risico}
+
+Risico inschatting
+
+\subsubsection{impact}
+
+{{template.nlimpact | safe}}
+
+
+
+\subsubsection{aanbeveling}
+{{template.nlaanbeveling | safe}}
+
+\subsubsection{Referenties}
+{{template.referenties | safe}}
+
+\newpage
+

@@ -1,0 +1,40 @@
+
+
+{%for x in bevinding %}
+\subsubsection'{'{{x.naam}}'}'
+
+{{x.beschrijving}}
+
+
+{% endfor %}
+
+
+
+\newpage
+TABEL met bevindingen
+
+
+
+
+
+{%for x in bevinding %}
+\subsubsection'{' {{x.num | nulvul}}  {{x.naam}} '}'
+
+{% endfor %}
+
+
+Risico
+
+Risico inschatting
+
+impact
+
+
+
+aanbeveling
+
+
+
+referenties
+
+\newpage

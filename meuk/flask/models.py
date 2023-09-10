@@ -136,5 +136,32 @@ class db_bevindingen(db.Model):
     gebruikersvlag = db.Column(db.String(255))
     rootvlag = db.Column(db.String(255))
 
+class db_notes(db.Model):
+    """Bevindingen model."""
+    __tablename__ = 'db_notes'
+    id = db.Column(db.Integer, primary_key=True)
+    naam = db.Column(db.String(255))
+    uitwerken = db.Column(db.Text())
+
+class db_agents(db.Model):
+    """Bevindingen model."""
+    __tablename__ = 'db_agents'
+    id = db.Column(db.Integer, primary_key=True)
+    agent = db.Column(db.String(255))
+    uitwerken = db.Column(db.Text())
+
+class db_commands(db.Model):
+    """Bevindingen model."""
+    __tablename__ = 'db_commands'
+    id = db.Column(db.Integer, primary_key=True)
+    agent = db.Column(db.String(255))
+    response = db.Column(db.Text())
+    command = db.Column(db.Text())
+
+
+
+
+
+
 
 

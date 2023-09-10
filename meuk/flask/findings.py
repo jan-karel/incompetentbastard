@@ -52,6 +52,18 @@ def refnaam(t):
 
     return 'Geen referentie gevonden!!!'
 
+
+@findings_bp.route('/dashboard/zet_ip/<hostip>', methods=['GET', 'POST'])
+def zet_ip(hostip):
+
+    appdata.localhost = 'http://'+hostip
+    db.session.commit()
+    return '[WOOOOOOOOOOOO] http://'+hostip
+
+
+
+
+
 @findings_bp.route('/dashboard/findings/add/<bevinding_id>', methods=['GET', 'POST'])
 def bevinding_toevoegen(bevinding_id):
 

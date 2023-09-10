@@ -47,6 +47,26 @@ def zet_pill(tab, pag):
                 return 'class="active"'
     return ''
 
+
+
+@app.template_filter('zet_ip')
+def zet_ip(num):
+    return str(num).split('//')[1]
+
+
+@app.template_filter('winbas64')
+def winbas64(stringh):
+    strinh = stringh.replace('[host]',appdata.localhost)
+    b1 = strinh.encode('utf-16-le')
+    b64a = base64.b64encode(b1)
+    return str(b64a,'utf-8')
+
+
+
+    return str(num).split('//')[1]
+
+
+
 @app.template_filter('bevindingen_halen')
 def bevindingen_halen(num, b):
    

@@ -18,7 +18,7 @@ if [ -z "$naam" ]; then
 fi
 
 if [ -z "$opdracht" ]; then
-  opdracht='/bin/sh -i'
+  opdracht='/bin/bash -i'
 fi 
 
 fixscreen $naam $opdracht

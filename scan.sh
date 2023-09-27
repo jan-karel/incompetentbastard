@@ -64,7 +64,7 @@ getpublicip 6 > raw/local/remoteipv6.txt
 if [[ "$OSTYPE" == "darwin"* ]]; then
 
 	#todo
-
+	:
 else
 	nmcli dev show $localnic > raw/local/nmcli.txt
 fi

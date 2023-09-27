@@ -71,7 +71,7 @@ fi
 
 
 
-if [[ ! -f http/payloads/shell_443.txt ]]
+if [[ ! -f http/payloads/shell_443.txt ]]; then
 	screen -dmS baking_shells ./reverseshells.sh $localnic
 fi
 

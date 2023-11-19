@@ -99,6 +99,7 @@ class db_bevindingen_templates(db.Model):
     __tablename__ = 'db_bevindingen_templates'
     id = db.Column(db.Integer, primary_key=True)
     titel = db.Column(db.String(255))
+    bevtype = db.Column(db.String(255))
     cwe = db.Column(db.String(5))
     owasp = db.Column(db.String(255))
     mitre = db.Column(db.String(10))

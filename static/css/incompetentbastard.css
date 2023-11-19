@@ -4,7 +4,14 @@
 .laag {background-color:green;text-align: center;color:white; font-weight: bold}
 .info {background-color:blue;text-align: center;color:white; font-weight: bold}
 
-.web {display:none}
+
+#PowerShellOut {width:100%}
+#basic_out {width:100%}
+#meter_out {width:100%}
+
+
+.cvss-calculator {display:none}
+
 
 /* CVSSv3 Calculator Styles */
 .cvss-formula{

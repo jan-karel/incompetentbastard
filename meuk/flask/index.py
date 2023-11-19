@@ -113,7 +113,7 @@ def index(cms_pag):
     else:
 
 
-
+        appdata = db_instellingen.query.first()
 
         #use our normal pages
         hooked = db_xxs_hooked.query.all()

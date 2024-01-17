@@ -64,14 +64,14 @@ getpublicip 6 > raw/local/remoteipv6.txt
 if [[ "$OSTYPE" == "darwin"* ]]; then
 
 	#todo
-
+	:
 else
 	nmcli dev show $localnic > raw/local/nmcli.txt
 fi
 
 
 
-if [[ ! -f http/payloads/shell_443.txt ]]
+if [[ ! -f http/payloads/shell_443.txt ]]; then
 	screen -dmS baking_shells ./reverseshells.sh $localnic
 fi
 

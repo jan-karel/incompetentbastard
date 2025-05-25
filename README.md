@@ -205,4 +205,10 @@ For MacOS, this might help...
 - ` pip3 install dnsrecon asciinema nmaptocsv`
 
 
+For KALI, try....
+
+- apt install mono-xbuild
+- `pip3 install dnsrecon asciinema nmaptocsv flask_bootstrap flask_migrate flask_admin --break-system-packages`
+
+
 

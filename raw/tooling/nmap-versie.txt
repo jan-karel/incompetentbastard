@@ -1,5 +1,0 @@
-Nmap version 7.95 ( https://nmap.org )
-Platform: aarch64-unknown-linux-gnu
-Compiled with: liblua-5.4.7 openssl-3.5.0 libssh2-1.11.1 libz-1.3.1 libpcre2-10.45 libpcap-1.10.5 nmap-libdnet-1.12 ipv6
-Compiled without:
-Available nsock engines: epoll poll select

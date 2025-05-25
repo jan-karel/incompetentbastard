@@ -1,1 +1,0 @@
-DNSRecon version 1.2.0 https://www.darkoperator.com

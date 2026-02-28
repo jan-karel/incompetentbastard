@@ -10,7 +10,7 @@
 <div class="page-title">
   <div>
     <h1>XXE Lab</h1>
-    <div class="breadcrumbs"><a href="/">Home</a> / <a href="/">Dashboard</a> / XXE</div>
+    <div class="breadcrumbs"><a href="/">Start</a> / <a href="/">Dashboard</a> / XXE</div>
   </div>
 </div>
 
@@ -20,7 +20,7 @@
       <div class="kpi">
         <div>
           <div class="val accent-orange">{{ records|length }}</div>
-          <div class="sub">Total Requests</div>
+          <div class="sub">Totale verzoeken</div>
         </div>
       </div>
     </div>
@@ -40,7 +40,7 @@
       <div class="kpi">
         <div>
           <div class="val">{{ records|map(attribute='ip')|unique|list|length }}</div>
-          <div class="sub">Unique IPs</div>
+          <div class="sub">Unieke IP's</div>
         </div>
       </div>
     </div>
@@ -49,7 +49,7 @@
 
 <section class="card mt-14">
   <div class="card-head">
-    <h2>Endpoints</h2>
+    <h2>Eindpunten</h2>
   </div>
   <div class="card-body">
     <table class="table compact">
@@ -90,7 +90,7 @@
           <th>IP</th>
           <th>Bestand</th>
           <th>Methode</th>
-          <th>Data</th>
+          <th>Gegevens</th>
           <th>Datum</th>
           <th></th>
         </tr>
@@ -110,7 +110,7 @@
       </tbody>
     </table>
     {% else %}
-    <p class="help">Geen XXE data. Gebruik de DTD endpoints hierboven om XML External Entity exfiltratie te starten.</p>
+    <p class="help">Geen XXE gegevens. Gebruik de DTD eindpunten hierboven om XML External Entity exfiltratie te starten.</p>
     {% endif %}
   </div>
 </section>
@@ -130,7 +130,7 @@
 </section>
 <section class="card mt-14">
   <div class="card-head">
-    <h2>XXE Payload Generator</h2>
+    <h2>XXE Payload generator</h2>
   </div>
   <div class="card-body" id="xxe-generator">
     <div class="gen-section">

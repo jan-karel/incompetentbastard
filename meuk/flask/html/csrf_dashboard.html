@@ -1,5 +1,5 @@
 {% extends "bootstrap/base.html" %}
-{% block title %}Incompetent Bastard - CSRF Telemetry{% endblock %}
+{% block title %}Incompetent Bastard - CSRF Telemetrie{% endblock %}
 
 {% block styles %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard-modern.css') }}" />
@@ -9,8 +9,8 @@
 {% block content %}
 <div class="page-title">
   <div>
-    <h1>CSRF Telemetry</h1>
-    <div class="breadcrumbs"><a href="/">Home</a> / <a href="/">Dashboard</a> / CSRF</div>
+    <h1>CSRF Telemetrie</h1>
+    <div class="breadcrumbs"><a href="/">Start</a> / <a href="/">Dashboard</a> / CSRF</div>
   </div>
 </div>
 
@@ -20,7 +20,7 @@
       <div class="kpi">
         <div>
           <div class="val accent-orange">{{ records|length }}</div>
-          <div class="sub">Harvested Forms</div>
+          <div class="sub">Verzamelde formulieren</div>
         </div>
       </div>
     </div>
@@ -30,7 +30,7 @@
       <div class="kpi">
         <div>
           <div class="val">{{ records|selectattr('methode', 'equalto', 'POST')|list|length }}</div>
-          <div class="sub">POST Forms</div>
+          <div class="sub">POST formulieren</div>
         </div>
       </div>
     </div>
@@ -49,8 +49,8 @@
           <th>ID</th>
           <th>IP</th>
           <th>Methode</th>
-          <th>Action</th>
-          <th>Data</th>
+          <th>Actie</th>
+          <th>Gegevens</th>
           <th>Datum</th>
           <th></th>
         </tr>
@@ -84,7 +84,7 @@
       <p class="gen-note">Genereer CSRF PoC payloads: auto-submit forms, XHR, fetch, JSON CSRF, iframe, file upload. Velden als <code>key=value</code> per regel of <code>key=value&amp;key2=value2</code>.</p>
       <div class="gen-grid">
         <div><label>Action URL (doelwit)</label><input type="text" id="csrf-action" placeholder="http://target/update-profile"></div>
-        <div><label>Method</label>
+        <div><label>Methode</label>
           <select id="csrf-method"><option>POST</option><option>GET</option><option>PUT</option><option>DELETE</option><option>PATCH</option></select>
         </div>
         <div><label>Content-Type</label>

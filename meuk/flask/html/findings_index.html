@@ -1,5 +1,5 @@
 {% extends "bootstrap/base.html" %}
-{% block title %}Findings{% endblock %}
+{% block title %}Bevindingen{% endblock %}
 
 {% block styles %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/safe-overview.css') }}" />
@@ -9,38 +9,38 @@
 {% block content %}
 <div class="page-title">
   <div>
-    <h1>Findings</h1>
-    <div class="breadcrumbs"><a href="/">Home</a> / Findings</div>
+    <h1>Bevindingen</h1>
+    <div class="breadcrumbs"><a href="/">Start</a> / Bevindingen</div>
   </div>
 </div>
 
 <div class="grid cols-4 mb-14">
-  <section class="card"><div class="card-body"><div class="val">{{ findings|length }}</div><div class="sub">Total findings</div></div></section>
-  <section class="card"><div class="card-body"><div class="val">{{ templates|length }}</div><div class="sub">Templates</div></div></section>
+  <section class="card"><div class="card-body"><div class="val">{{ findings|length }}</div><div class="sub">Totaal bevindingen</div></div></section>
+  <section class="card"><div class="card-body"><div class="val">{{ templates|length }}</div><div class="sub">Sjablonen</div></div></section>
   <section class="card"><div class="card-body"><div class="val">{{ findings|selectattr('status','equalto','final')|list|length }}</div><div class="sub">Definitief</div></div></section>
   <section class="card"><div class="card-body">
-    <a class="btn btn-primary" href="/dashboard/report">Report dashboard</a>
+    <a class="btn btn-primary" href="/dashboard/report">Rapport dashboard</a>
   </div></section>
 </div>
 
 {# Import / Export / Seed #}
 <section class="card mb-14">
-  <div class="card-head"><h2>Import &amp; Export</h2></div>
+  <div class="card-head"><h2>Importeren &amp; exporteren</h2></div>
   <div class="card-body">
     <div class="grid cols-2 gap-16">
       <div>
-        <h3 class="fs-14 m-0 mb-8">Export</h3>
+        <h3 class="fs-14 m-0 mb-8">Exporteren</h3>
         <div class="d-flex gap-8 flex-wrap">
-          <a class="btn" href="/api/findings/export" target="_blank">Export findings (JSON)</a>
-          <a class="btn" href="/api/findings/evidence/export">Export evidence (ZIP)</a>
-          <a class="btn" href="/api/findings/export/csv">Export CSV</a>
+          <a class="btn" href="/api/findings/export" target="_blank">Bevindingen exporteren (JSON)</a>
+          <a class="btn" href="/api/findings/evidence/export">Bewijs exporteren (ZIP)</a>
+          <a class="btn" href="/api/findings/export/csv">CSV exporteren</a>
         </div>
       </div>
       <div>
-        <h3 class="fs-14 m-0 mb-8">Import findings</h3>
+        <h3 class="fs-14 m-0 mb-8">Bevindingen importeren</h3>
         <form action="/dashboard/findings/import" method="post" enctype="multipart/form-data" class="d-flex gap-8 items-center flex-wrap">
           <input type="file" name="file" accept=".json,application/json" required class="fs-13" />
-          <button type="submit" class="btn">Import JSON</button>
+          <button type="submit" class="btn">JSON importeren</button>
         </form>
       </div>
     </div>
@@ -58,8 +58,8 @@
 <div class="grid cols-2">
   <section class="card">
     <div class="card-head">
-      <h2>Templates</h2>
-      <a class="btn ml-auto" href="/dashboard/findings/templates/new">+ Nieuwe template</a>
+      <h2>Sjablonen</h2>
+      <a class="btn ml-auto" href="/dashboard/findings/templates/new">+ Nieuw sjabloon</a>
     </div>
     <div class="card-body">
       {% if templates %}
@@ -72,70 +72,70 @@
               <div class="help">{{ t.bevtype }}{% if t.owasp %} &bull; {{ t.owasp | owaspcategorie }}{% endif %}</div>
             </div>
             <div class="d-flex gap-6 items-center">
-              <a class="btn" href="/dashboard/findings/add/{{ t.id }}">Add finding</a>
-              <a class="btn" href="/dashboard/findings/templates/edit/{{ t.id }}">edit</a>
-              <a class="btn" href="/dashboard/findings/templates/delete/{{ t.id }}" data-confirm="Template {{ t.titel }} verwijderen?">delete</a>
+              <a class="btn" href="/dashboard/findings/add/{{ t.id }}">Bevinding toevoegen</a>
+              <a class="btn" href="/dashboard/findings/templates/edit/{{ t.id }}">bewerken</a>
+              <a class="btn" href="/dashboard/findings/templates/delete/{{ t.id }}" data-confirm="Template {{ t.titel }} verwijderen?">verwijderen</a>
             </div>
           </div>
         </li>
         {% endfor %}
       </ul>
       {% else %}
-      <p class="help">No finding templates available.</p>
+      <p class="help">Geen bevindingssjablonen beschikbaar.</p>
       {% endif %}
     </div>
   </section>
 
   <section class="card">
-    <div class="card-head"><h2>Existing Findings</h2></div>
+    <div class="card-head"><h2>Bestaande bevindingen</h2></div>
     <div class="card-body">
       {# Filter bar #}
       <div class="filter-bar">
-        <input type="text" id="filter-search" placeholder="Search name/host..." />
+        <input type="text" id="filter-search" placeholder="Zoeken op naam/host..." />
         <select id="filter-severity">
-          <option value="">All severities</option>
-          <option value="critical">Critical</option>
-          <option value="high">High</option>
-          <option value="medium">Medium</option>
-          <option value="low">Low</option>
-          <option value="none">None</option>
+          <option value="">Alle ernstniveaus</option>
+          <option value="critical">Kritiek</option>
+          <option value="high">Hoog</option>
+          <option value="medium">Gemiddeld</option>
+          <option value="low">Laag</option>
+          <option value="none">Geen</option>
         </select>
         <select id="filter-status">
-          <option value="">All statuses</option>
+          <option value="">Alle statussen</option>
           <option value="draft">Concept</option>
           <option value="final">Definitief</option>
           <option value="closed">Gesloten</option>
         </select>
         <select id="filter-remediation">
-          <option value="">All remediation</option>
+          <option value="">Alle herstel</option>
           <option value="open">Open</option>
-          <option value="in_progress">In progress</option>
-          <option value="fixed">Fixed</option>
-          <option value="verified">Verified</option>
-          <option value="accepted">Accepted</option>
+          <option value="in_progress">In uitvoering</option>
+          <option value="fixed">Opgelost</option>
+          <option value="verified">Geverifieerd</option>
+          <option value="accepted">Geaccepteerd</option>
         </select>
       </div>
       {# Batch bar #}
       <div class="batch-bar">
         <select id="batch-action">
-          <option value="">Batch action...</option>
-          <option value="set_status:draft">Set status: Concept</option>
-          <option value="set_status:final">Set status: Definitief</option>
-          <option value="set_status:closed">Set status: Gesloten</option>
-          <option value="set_remediation:open">Remediation: Open</option>
-          <option value="set_remediation:in_progress">Remediation: In progress</option>
-          <option value="set_remediation:fixed">Remediation: Fixed</option>
-          <option value="set_remediation:verified">Remediation: Verified</option>
-          <option value="delete:">Delete selected</option>
+          <option value="">Batchactie...</option>
+          <option value="set_status:draft">Status: Concept</option>
+          <option value="set_status:final">Status: Definitief</option>
+          <option value="set_status:closed">Status: Gesloten</option>
+          <option value="set_remediation:open">Herstel: Open</option>
+          <option value="set_remediation:in_progress">Herstel: In uitvoering</option>
+          <option value="set_remediation:fixed">Herstel: Opgelost</option>
+          <option value="set_remediation:verified">Herstel: Geverifieerd</option>
+          <option value="delete:">Selectie verwijderen</option>
         </select>
-        <button class="btn" id="batch-execute">Execute</button>
+        <button class="btn" id="batch-execute">Uitvoeren</button>
       </div>
       {% if findings %}
       <table class="table compact" id="findings-table">
         <thead>
           <tr>
             <th><input type="checkbox" class="batch-check-all" id="batch-check-all" /></th>
-            <th>ID</th><th>Name</th><th>Host</th><th>CVSS</th><th>Status</th><th>Remediation</th><th>Actions</th>
+            <th>ID</th><th>Naam</th><th>Host</th><th>CVSS</th><th>Status</th><th>Herstel</th><th>Acties</th>
           </tr>
         </thead>
         <tbody>
@@ -156,23 +156,23 @@
             <td>
               <select class="remediation-inline" data-finding-id="{{ f.id }}">
                 <option value="open"{% if (f.remediation_status or 'open') == 'open' %} selected{% endif %}>Open</option>
-                <option value="in_progress"{% if f.remediation_status == 'in_progress' %} selected{% endif %}>In progress</option>
-                <option value="fixed"{% if f.remediation_status == 'fixed' %} selected{% endif %}>Fixed</option>
-                <option value="verified"{% if f.remediation_status == 'verified' %} selected{% endif %}>Verified</option>
-                <option value="accepted"{% if f.remediation_status == 'accepted' %} selected{% endif %}>Accepted</option>
+                <option value="in_progress"{% if f.remediation_status == 'in_progress' %} selected{% endif %}>In uitvoering</option>
+                <option value="fixed"{% if f.remediation_status == 'fixed' %} selected{% endif %}>Opgelost</option>
+                <option value="verified"{% if f.remediation_status == 'verified' %} selected{% endif %}>Geverifieerd</option>
+                <option value="accepted"{% if f.remediation_status == 'accepted' %} selected{% endif %}>Geaccepteerd</option>
               </select>
             </td>
             <td>
-              <a href="/dashboard/findings/edit/{{ f.id }}">edit</a>
+              <a href="/dashboard/findings/edit/{{ f.id }}">bewerken</a>
               <span> &bull; </span>
-              <a href="/dashboard/findings/delete/{{ f.id }}" data-confirm="Delete finding {{ f.id }}?">delete</a>
+              <a href="/dashboard/findings/delete/{{ f.id }}" data-confirm="Bevinding {{ f.id }} verwijderen?">verwijderen</a>
             </td>
           </tr>
           {% endfor %}
         </tbody>
       </table>
       {% else %}
-      <p class="help">No findings yet.</p>
+      <p class="help">Nog geen bevindingen.</p>
       {% endif %}
     </div>
   </section>

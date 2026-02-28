@@ -129,7 +129,7 @@
       try { data = JSON.parse(xhr.responseText); } catch (e) { data = {}; }
 
       if (xhr.status === 200 && data.ok) {
-        setCreateStatus('Sessie "' + name + '" gestart (recording: ' + data.recording + ')', 'ok');
+        setCreateStatus('Sessie "' + name + '" gestart (opname: ' + data.recording + ')', 'ok');
         newSessionName.value = '';
         // Vernieuw sessie lijst en selecteer de nieuwe sessie
         setTimeout(function () { loadScreens(name); }, 500);
@@ -164,14 +164,14 @@
       detachBtn.disabled = false;
       if (xhr.status === 200) {
         if (polling) { stopPolling(); }
-        setStatus('Sessie "' + name + '" detached', 'ok');
+        setStatus('Sessie "' + name + '" losgekoppeld', 'ok');
         setTimeout(function () {
           loadScreens();
           setStatus('', '');
         }, 1500);
       } else {
         var err;
-        try { err = JSON.parse(xhr.responseText).error; } catch (e) { err = 'Detach mislukt'; }
+        try { err = JSON.parse(xhr.responseText).error; } catch (e) { err = 'Loskoppelen mislukt'; }
         setStatus(err, 'fail');
       }
     };
@@ -400,7 +400,7 @@
       var data;
       try { data = JSON.parse(xhr.responseText); } catch (e) { data = {}; }
       if (xhr.status === 200 && data.ok) {
-        setStatus('Command geinjected', 'ok');
+        setStatus('Commando geinjected', 'ok');
         showCmdFeedback(btn, 'Verstuurd!');
         setTimeout(fetchContent, 300);
       } else {
@@ -637,10 +637,10 @@
     if (!cmdSidebar) return;
     if (open) {
       cmdSidebar.classList.add('open');
-      if (toggleSidebarBtn) toggleSidebarBtn.innerHTML = 'Commands &#9664;';
+      if (toggleSidebarBtn) toggleSidebarBtn.innerHTML = 'Commando\'s &#9664;';
     } else {
       cmdSidebar.classList.remove('open');
-      if (toggleSidebarBtn) toggleSidebarBtn.innerHTML = 'Commands &#9654;';
+      if (toggleSidebarBtn) toggleSidebarBtn.innerHTML = 'Commando\'s &#9654;';
     }
   }
 
@@ -673,7 +673,7 @@
 
     function onFsChange() {
       var isFs = !!(document.fullscreenElement || document.webkitFullscreenElement);
-      fsBtn.innerHTML = isFs ? '&#x2716; Exit fullscreen' : '&#x26F6; Fullscreen';
+      fsBtn.innerHTML = isFs ? '&#x2716; Volledig scherm sluiten' : '&#x26F6; Volledig scherm';
     }
     document.addEventListener('fullscreenchange', onFsChange);
     document.addEventListener('webkitfullscreenchange', onFsChange);

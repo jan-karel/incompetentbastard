@@ -1,5 +1,5 @@
 {% extends "bootstrap/base.html" %}
-{% block title %}Screen Terminal{% endblock %}
+{% block title %}Schermterminal{% endblock %}
 
 {% block styles %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/generator.css') }}" />
@@ -9,8 +9,8 @@
 
 {% block content %}
 <div class="gen-header">
-  <div class="breadcrumbs"><a href="/">Dashboard</a> / Screen Terminal</div>
-  <h1>Screen Terminal</h1>
+  <div class="breadcrumbs"><a href="/">Dashboard</a> / Schermterminal</div>
+  <h1>Schermterminal</h1>
   <p>Interactieve web-terminal voor actieve screen sessies.</p>
 </div>
 
@@ -36,7 +36,7 @@
       <button type="button" id="create-session" class="btn btn-primary">Sessie starten</button>
       <span id="create-status" class="status"></span>
     </div>
-    <p class="text-muted fs-12 mt-4 mb-0">Start een detached screen sessie met asciinema recording. De recording verschijnt in <a href="/dashboard/recordings">Recordings</a>.</p>
+    <p class="text-muted fs-12 mt-4 mb-0">Start een detached screen sessie met asciinema opname. De opname verschijnt in <a href="/dashboard/recordings">Opnames</a>.</p>
   </div>
 </section>
 
@@ -70,11 +70,11 @@
     <div id="terminal-workspace">
       <div class="term-main">
         <div class="term-toolbar">
-          <h2 class="m-0 fs-15">Terminal Output</h2>
-          <a id="recording-link" href="#" target="_blank" class="btn-fs d-none" title="Bekijk asciinema recording">&#9658; Recording</a>
+          <h2 class="m-0 fs-15">Terminaluitvoer</h2>
+          <a id="recording-link" href="#" target="_blank" class="btn-fs d-none" title="Bekijk asciinema opname">&#9658; Opname</a>
           <span class="spacer"></span>
-          <button type="button" id="toggle-cmd-sidebar" class="btn-fs" title="Command Library sidebar">Commands &#9654;</button>
-          <button type="button" id="btn-fullscreen" class="btn-fs" title="Fullscreen">&#x26F6; Fullscreen</button>
+          <button type="button" id="toggle-cmd-sidebar" class="btn-fs" title="Commando bibliotheek sidebar">Commando's &#9654;</button>
+          <button type="button" id="btn-fullscreen" class="btn-fs" title="Volledig scherm">&#x26F6; Volledig scherm</button>
         </div>
         <div class="screen-terminal" id="screen-output"></div>
         <div class="screen-input-row">
@@ -84,14 +84,14 @@
       </div>
       <div class="term-sidebar" id="cmd-sidebar">
         <div class="term-toolbar">
-          <h2 class="m-0 fs-15">Command Library</h2>
+          <h2 class="m-0 fs-15">Commando bibliotheek</h2>
           <span class="spacer"></span>
           <input type="text" id="cmd-filter" class="input input-xs w-140" placeholder="Filter..." />
-          <button type="button" id="close-cmd-sidebar" class="btn-fs" title="Sluit sidebar">&#x2715;</button>
+          <button type="button" id="close-cmd-sidebar" class="btn-fs" title="Sidebar sluiten">&#x2715;</button>
         </div>
         <div class="d-flex gap-6 mb-4 flex-shrink-0">
-          <input type="text" id="replace-find" class="input flex-1 input-xs" placeholder="Find IP/URL" />
-          <input type="text" id="replace-with" class="input flex-1 input-xs" placeholder="Replace" />
+          <input type="text" id="replace-find" class="input flex-1 input-xs" placeholder="IP/URL zoeken" />
+          <input type="text" id="replace-with" class="input flex-1 input-xs" placeholder="Vervangen" />
         </div>
         <label class="label-inline flex-shrink-0">
           <input type="checkbox" id="replace-https" /> http &rarr; https

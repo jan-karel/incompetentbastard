@@ -1,5 +1,5 @@
 {% extends "bootstrap/base.html" %}
-{% block title %}Reverse Shells Generator{% endblock %}
+{% block title %}Reverse shells generator{% endblock %}
 
 {% block styles %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/generator.css') }}" />
@@ -7,8 +7,8 @@
 
 {% block content %}
 <div class="gen-header">
-  <div class="breadcrumbs"><a href="/">Dashboard</a> / Reverse Shells Generator</div>
-  <h1>Reverse Shells Generator</h1>
+  <div class="breadcrumbs"><a href="/">Start</a> / Reverse shells generator</div>
+  <h1>Reverse shells generator</h1>
   <p>Genereer reverse shells in bash, PHP, Python, Perl, Ruby + msfvenom payloads (.exe, .elf, .macho, .asp, .jsp, .war), MSF handlers en tool-delivery commands.</p>
 </div>
 
@@ -18,18 +18,18 @@
     <form id="gen-form" data-api="/api/reverseshells/generate">
       <div class="gen-form">
         <div class="field">
-          <label for="lhost">IP of interface <span class="help">(verplicht)</span></label>
+          <label for="lhost">IP of interfacenaam <span class="help">(verplicht)</span></label>
           <input class="input" type="text" id="lhost" name="lhost" placeholder="10.0.0.1 of tun0" required />
           <span class="help">IP-adres of netwerk interface (bijv. eth0, tun0).</span>
         </div>
         <div class="field">
-          <label for="lport">Port</label>
+          <label for="lport">Poort</label>
           <input class="input" type="text" id="lport" name="lport" value="443" placeholder="443" />
         </div>
         <div class="field">
           <label for="bestand">Bestandsnaam prefix</label>
           <input class="input" type="text" id="bestand" name="bestand" value="shell" placeholder="shell" />
-          <span class="help">Output: http/payloads/{prefix}_{port}.txt</span>
+          <span class="help">Uitvoer: http/payloads/{prefix}_{poort}.txt</span>
         </div>
       </div>
       <div class="gen-actions">
@@ -99,7 +99,7 @@
 
 <!-- File Downloads -->
 <section class="card mt-14">
-  <div class="card-head"><h2>Tool Downloads</h2></div>
+  <div class="card-head"><h2>Gereedschapdownloads</h2></div>
   <div class="card-body">
     <div id="download-sections">
       <p class="text-muted">Vul LHOST in en klik "Overzicht vernieuwen" om download commands te genereren.</p>
@@ -118,7 +118,7 @@
 </section>
 
 <section class="card mt-14">
-  <div class="card-head"><h2>Output</h2></div>
+  <div class="card-head"><h2>Uitvoer</h2></div>
   <div class="card-body">
     <pre id="gen-output" class="gen-output"></pre>
   </div>

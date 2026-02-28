@@ -114,7 +114,7 @@
     e.preventDefault();
     const url = (cachedHost || window.location.origin) + btn.dataset.url;
     if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(url).then(() => btnFeedback(btn, "Copied!"));
+      navigator.clipboard.writeText(url).then(() => btnFeedback(btn, "Gekopieerd!"));
     } else {
       const ta = document.createElement("textarea");
       ta.value = url;
@@ -124,7 +124,7 @@
       ta.select();
       document.execCommand("copy");
       document.body.removeChild(ta);
-      btnFeedback(btn, "Copied!");
+      btnFeedback(btn, "Gekopieerd!");
     }
   });
 
@@ -211,7 +211,7 @@
           body.className = "loot-body";
           const table = document.createElement("table");
           table.className = "file-table";
-          table.innerHTML = "<thead><tr><th>Name</th><th>Size</th><th>Modified</th><th>Actions</th></tr></thead>";
+          table.innerHTML = "<thead><tr><th>Naam</th><th>Grootte</th><th>Gewijzigd</th><th>Acties</th></tr></thead>";
           const tbody = document.createElement("tbody");
           for (const f of files) {
             const tr = document.createElement("tr");
@@ -223,10 +223,10 @@
               "<td>" + formatSize(f.size) + "</td>" +
               "<td>" + formatDate(f.modified) + "</td>" +
               '<td class="file-actions">' +
-                '<a class="btn-action" href="' + escapeHtml(f.url) + '" title="Download">&#8595;</a>' +
-                '<button class="btn-action btn-copy-url" data-url="' + escapeHtml(f.url) + '" title="Copy URL">&#128203;</button>' +
+                '<a class="btn-action" href="' + escapeHtml(f.url) + '" title="Downloaden">&#8595;</a>' +
+                '<button class="btn-action btn-copy-url" data-url="' + escapeHtml(f.url) + '" title="Kopieer URL">&#128203;</button>' +
                 (f.previewable
-                  ? '<button class="btn-action btn-preview" data-cat="loot" data-file="' + escapeHtml(ip + "/" + f.name) + '" title="Preview">&#128065;</button>'
+                  ? '<button class="btn-action btn-preview" data-cat="loot" data-file="' + escapeHtml(ip + "/" + f.name) + '" title="Voorbeeld">&#128065;</button>'
                   : "") +
               "</td>";
             tbody.appendChild(tr);
@@ -277,7 +277,7 @@
     for (const file of files) {
       const item = document.createElement("div");
       item.className = "upload-item";
-      item.textContent = file.name + "  \u23F3 uploading...";
+      item.textContent = file.name + "  \u23F3 uploaden...";
       if (uploadList) uploadList.appendChild(item);
 
       const fd = new FormData();
@@ -285,7 +285,7 @@
       fetch("/upload", { method: "POST", body: fd })
         .then(r => {
           if (r.ok) {
-            item.textContent = file.name + "  \u2713 uploaded";
+            item.textContent = file.name + "  \u2713 geupload";
             item.classList.add("success");
           } else {
             return r.text().then(t => {
@@ -295,7 +295,7 @@
           }
         })
         .catch(() => {
-          item.textContent = file.name + "  \u2717 upload failed";
+          item.textContent = file.name + "  \u2717 upload mislukt";
           item.classList.add("error");
         });
     }

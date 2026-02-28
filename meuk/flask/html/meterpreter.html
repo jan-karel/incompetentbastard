@@ -1,5 +1,5 @@
 {% extends "bootstrap/base.html" %}
-{% block title %}Meterpreter Generator{% endblock %}
+{% block title %}Meterpreter generator{% endblock %}
 
 {% block styles %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/generator.css') }}" />
@@ -7,8 +7,8 @@
 
 {% block content %}
 <div class="gen-header">
-  <div class="breadcrumbs"><a href="/">Dashboard</a> / Meterpreter Generator</div>
-  <h1>Meterpreter Generator</h1>
+  <div class="breadcrumbs"><a href="/">Start</a> / Meterpreter generator</div>
+  <h1>Meterpreter generator</h1>
   <p>Genereer XOR-encrypted C# meterpreter shellcode via msfvenom, compileer met msbuild. Output: meuk/meth/bin/Debug/meth.exe</p>
 </div>
 
@@ -51,7 +51,7 @@
 </section>
 
 <section class="card mt-14">
-  <div class="card-head"><h2>Output</h2></div>
+  <div class="card-head"><h2>Uitvoer</h2></div>
   <div class="card-body">
     <pre id="gen-output" class="gen-output"></pre>
   </div>

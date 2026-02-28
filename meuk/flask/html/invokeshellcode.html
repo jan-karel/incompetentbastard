@@ -1,5 +1,5 @@
 {% extends "bootstrap/base.html" %}
-{% block title %}Invoke-Shellcode Generator{% endblock %}
+{% block title %}Invoke-Shellcode generator{% endblock %}
 
 {% block styles %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/generator.css') }}" />
@@ -7,8 +7,8 @@
 
 {% block content %}
 <div class="gen-header">
-  <div class="breadcrumbs"><a href="/">Dashboard</a> / Invoke-Shellcode Generator</div>
-  <h1>Invoke-Shellcode Generator</h1>
+  <div class="breadcrumbs"><a href="/">Start</a> / Invoke-Shellcode generator</div>
+  <h1>Invoke-Shellcode generator</h1>
   <p>Genereer een PowerShell Invoke-Shellcode.ps1 met msfvenom shellcode (x32 + x64 reverse_tcp). Output: http/payloads/invoke-shellcode.ps1</p>
 </div>
 
@@ -43,7 +43,7 @@
 </section>
 
 <section class="card mt-14">
-  <div class="card-head"><h2>Output</h2></div>
+  <div class="card-head"><h2>Uitvoer</h2></div>
   <div class="card-body">
     <pre id="gen-output" class="gen-output"></pre>
   </div>

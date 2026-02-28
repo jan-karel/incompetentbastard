@@ -1,5 +1,5 @@
 {% extends "bootstrap/base.html" %}
-{% block title %}Report Dashboard{% endblock %}
+{% block title %}Rapport dashboard{% endblock %}
 
 {% block styles %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/safe-overview.css') }}" />
@@ -11,16 +11,16 @@
 {% block content %}
 <div class="page-title">
   <div>
-    <h1>Report Dashboard</h1>
-    <div class="breadcrumbs"><a href="/">Home</a> / <a href="/dashboard/findings">Findings</a> / Report</div>
+    <h1>Rapport dashboard</h1>
+    <div class="breadcrumbs"><a href="/">Start</a> / <a href="/dashboard/findings">Bevindingen</a> / Rapport</div>
   </div>
 </div>
 
 {# ── Tab navigatie ─────────────────────────────────── #}
 <div class="rapport-tabs">
   <button class="rapport-tab active" data-tab="tab-instellingen">Instellingen</button>
-  <button class="rapport-tab" data-tab="tab-findings">Findings &amp; Notes</button>
-  <button class="rapport-tab" data-tab="tab-genereer">Genereer &amp; Download</button>
+  <button class="rapport-tab" data-tab="tab-findings">Bevindingen &amp; notities</button>
+  <button class="rapport-tab" data-tab="tab-genereer">Genereer &amp; download</button>
 </div>
 
 {# ══════════════════════════════════════════════════════ #}
@@ -219,7 +219,7 @@
 </div>{# /tab-instellingen #}
 
 {# ══════════════════════════════════════════════════════ #}
-{# TAB 2: Findings & Notes                               #}
+{# TAB 2: Bevindingen & notities                          #}
 {# ══════════════════════════════════════════════════════ #}
 <div class="rapport-tab-content" id="tab-findings">
 
@@ -227,14 +227,14 @@
 {% set final_count = findings|selectattr('status','equalto','final')|list|length %}
 <section class="card mb-14">
   <div class="card-head">
-    <h2>Findings</h2>
+    <h2>Bevindingen</h2>
     <span class="help" id="findings-counter">{{ final_count }} definitief van {{ findings|length }}</span>
   </div>
   <div class="card-body">
     {% if findings %}
     <table class="table compact" id="rapport-findings-table">
       <thead>
-        <tr><th>ID</th><th>Name</th><th>Host</th><th>CVSS</th><th>Status</th><th></th></tr>
+        <tr><th>ID</th><th>Naam</th><th>Host</th><th>CVSS</th><th>Status</th><th></th></tr>
       </thead>
       <tbody>
         {% for f in findings|reverse %}
@@ -254,14 +254,14 @@
             </select>
           </td>
           <td>
-            <button class="btn btn-sm" data-edit-finding="{{ f.id }}">edit</button>
+            <button class="btn btn-sm" data-edit-finding="{{ f.id }}">bewerken</button>
           </td>
         </tr>
         {% endfor %}
       </tbody>
     </table>
     {% else %}
-    <p class="help">Nog geen findings. <a href="/dashboard/findings">Voeg findings toe</a>.</p>
+    <p class="help">Geen bevindingen. <a href="/dashboard/findings">Voeg bevindingen toe</a>.</p>
     {% endif %}
   </div>
 </section>
@@ -270,7 +270,7 @@
 {% set notes_in_rapport = notes|selectattr('rapport')|list|length %}
 <section class="card mb-14">
   <div class="card-head">
-    <h2>Notes</h2>
+    <h2>Notities</h2>
     <span class="help" id="notes-counter">{{ notes_in_rapport }} in rapport</span>
   </div>
   <div class="card-body">
@@ -278,24 +278,24 @@
     <ul id="rapport-notes-list" class="notes-drag-list">
       {% for note in notes %}
       <li class="notes-drag-item{% if note.rapport %} notes-in-rapport{% endif %}" draggable="true" data-id="{{ note.id }}">
-        <span class="drag-handle" title="Drag to reorder">&#10495;</span>
-        <label class="rapport-toggle" title="Include in rapport">
+        <span class="drag-handle" title="Sleep om te herschikken">&#10495;</span>
+        <label class="rapport-toggle" title="Opnemen in rapport">
           <input type="checkbox" data-note-id="{{ note.id }}" {% if note.rapport %}checked{% endif %} />
           <span class="rapport-label">Rapport</span>
         </label>
         <span class="note-name">{{ note.naam }}</span>
         <span class="note-preview">{{ (note.uitwerken or '')[:80] }}</span>
         <span class="note-actions">
-          <button class="btn btn-sm" data-edit-note="{{ note.id }}">edit</button>
+          <button class="btn btn-sm" data-edit-note="{{ note.id }}">bewerken</button>
         </span>
       </li>
       {% endfor %}
     </ul>
     {% else %}
-    <p class="help">Nog geen notes.</p>
+    <p class="help">Geen notities.</p>
     {% endif %}
     <div class="mt-8">
-      <button class="btn btn-sm" id="btn-add-note">+ Note toevoegen</button>
+      <button class="btn btn-sm" id="btn-add-note">+ Notitie toevoegen</button>
     </div>
   </div>
 </section>
@@ -304,7 +304,7 @@
 <div id="rap-finding-modal" class="modal-overlay d-none">
   <div class="modal-box modal-md">
     <div class="modal-head">
-      <h3>Finding bewerken</h3>
+      <h3>Bevinding bewerken</h3>
       <button class="modal-close-btn" id="rap-finding-close">&times;</button>
     </div>
     <div class="modal-body" id="rap-finding-body">
@@ -317,14 +317,14 @@
 <div id="rap-note-modal" class="modal-overlay d-none">
   <div class="modal-box">
     <div class="modal-head">
-      <h3 id="rap-note-title">Note bewerken</h3>
+      <h3 id="rap-note-title">Notitie bewerken</h3>
       <button class="modal-close-btn" id="rap-note-close">&times;</button>
     </div>
     <div class="modal-body">
       <input type="hidden" id="rap-note-id" />
       <div class="form-group">
         <label for="rap-note-naam">Naam</label>
-        <input type="text" id="rap-note-naam" class="form-control" placeholder="Note titel..." />
+        <input type="text" id="rap-note-naam" class="form-control" placeholder="Notitietitel..." />
       </div>
       <div class="form-group">
         <label for="rap-note-uitwerken">Inhoud</label>
@@ -341,17 +341,17 @@
 </div>{# /tab-findings #}
 
 {# ══════════════════════════════════════════════════════ #}
-{# TAB 3: Genereer & Download                            #}
+{# TAB 3: Genereer & download                            #}
 {# ══════════════════════════════════════════════════════ #}
 <div class="rapport-tab-content" id="tab-genereer">
 
 {# KPI rij #}
 <div class="grid cols-4 mb-14">
-  <section class="card"><div class="card-body"><div class="val">{{ findings|length }}</div><div class="sub">Total findings</div></div></section>
+  <section class="card"><div class="card-body"><div class="val">{{ findings|length }}</div><div class="sub">Totaal bevindingen</div></div></section>
   <section class="card"><div class="card-body"><div class="val" id="kpi-final">{{ findings|selectattr('status','equalto','final')|list|length }}</div><div class="sub">Definitief</div></div></section>
   <section class="card"><div class="card-body"><div class="val" id="kpi-versie">-</div><div class="sub">Versie</div></div></section>
   <section class="card"><div class="card-body">
-    <a class="btn" href="/dashboard/findings">Findings beheren</a>
+    <a class="btn" href="/dashboard/findings">Bevindingen beheren</a>
   </div></section>
 </div>
 
@@ -366,22 +366,22 @@
 
 {# ── Metrics dashboard ───────────────────────────── #}
 <div class="grid cols-3 mb-14" id="metrics-section">
-  <section class="card"><div class="card-body"><div class="val" id="metric-total">-</div><div class="sub">Final findings</div></div></section>
+  <section class="card"><div class="card-body"><div class="val" id="metric-total">-</div><div class="sub">Definitieve bevindingen</div></div></section>
   <section class="card"><div class="card-body">
-    <h3 class="fs-14 m-0 mb-8">Severity</h3>
+    <h3 class="fs-14 m-0 mb-8">Ernst</h3>
     <div id="metric-severity" class="d-flex gap-8 flex-wrap"></div>
   </div></section>
   <section class="card"><div class="card-body">
-    <h3 class="fs-14 m-0 mb-8">Remediation</h3>
+    <h3 class="fs-14 m-0 mb-8">Herstel</h3>
     <div id="metric-remediation" class="d-flex gap-8 flex-wrap"></div>
   </div></section>
 </div>
 
 {# ── Generate + Download ─────────────────────────── #}
 <section class="card mb-14">
-  <div class="card-head"><h2>Genereer rapport</h2></div>
+  <div class="card-head"><h2>Rapport genereren</h2></div>
   <div class="card-body">
-    <button class="btn btn-primary" id="btn-generate-report" type="button">Generate report</button>
+    <button class="btn btn-primary" id="btn-generate-report" type="button">Rapport genereren</button>
     <span id="generate-status" class="help ml-8"></span>
     <div class="mt-8">
       <label class="fs-12"><input type="checkbox" id="include-draft"> Concepten meenemen</label>
@@ -405,7 +405,7 @@
 
 {# ── Report versions ──────────────────────────────── #}
 <section class="card mb-14">
-  <div class="card-head"><h2>Report versions</h2></div>
+  <div class="card-head"><h2>Rapportversies</h2></div>
   <div class="card-body">
     <div id="versions-list" class="help">Laden...</div>
   </div>
@@ -683,7 +683,7 @@
         if (!d.errors.length && !d.warnings.length) {
           html = '<p style="color:var(--success,#22c55e)">&#10004; Geen problemen gevonden</p>';
         }
-        html += "<p class='help'>" + (d.findings_count || 0) + " findings klaar voor rapport</p>";
+        html += "<p class='help'>" + (d.findings_count || 0) + " bevindingen klaar voor rapport</p>";
         resultsEl.innerHTML = html;
       });
   });

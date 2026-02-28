@@ -1,5 +1,5 @@
 {% extends "bootstrap/base.html" %}
-{% block title %}PowerShell Generator{% endblock %}
+{% block title %}PowerShell generator{% endblock %}
 
 {% block styles %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/generator.css') }}" />
@@ -7,8 +7,8 @@
 
 {% block content %}
 <div class="gen-header">
-  <div class="breadcrumbs"><a href="/">Dashboard</a> / PowerShell Generator</div>
-  <h1>PowerShell Generator</h1>
+  <div class="breadcrumbs"><a href="/">Start</a> / PowerShell generator</div>
+  <h1>PowerShell generator</h1>
   <p>Genereer PowerShell reverse shells, AMSI bypass scripts en base64-encoded payloads via msfvenom. Output: http/payloads/amsi-bypass.ps1, amsi-shell.ps1</p>
 </div>
 
@@ -56,7 +56,7 @@
 </section>
 
 <section class="card mt-14">
-  <div class="card-head"><h2>Output</h2></div>
+  <div class="card-head"><h2>Uitvoer</h2></div>
   <div class="card-body">
     <pre id="gen-output" class="gen-output"></pre>
   </div>

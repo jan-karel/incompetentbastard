@@ -304,7 +304,7 @@
       var link = document.createElement('a');
       link.className = 'btn-copy';
       link.href = p.url;
-      link.textContent = 'Download';
+      link.textContent = 'Downloaden';
       link.setAttribute('download', p.name);
 
       snippet.appendChild(code);

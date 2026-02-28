@@ -1,5 +1,5 @@
 {% extends "bootstrap/base.html" %}
-{% block title %}Files{% endblock %}
+{% block title %}Bestanden{% endblock %}
 
 {% block styles %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/files.css') }}" />
@@ -8,8 +8,8 @@
 {% block content %}
 <div class="page-title">
   <div>
-    <h1>Files</h1>
-    <div class="breadcrumbs"><a href="/">Home</a> / Files</div>
+    <h1>Bestanden</h1>
+    <div class="breadcrumbs"><a href="/">Start</a> / Bestanden</div>
   </div>
 </div>
 
@@ -30,7 +30,7 @@
     <div class="card-body">
       {% if tools_mini %}
       <table class="file-table">
-        <thead><tr><th>Name</th><th>Size</th><th>Modified</th><th>Actions</th></tr></thead>
+        <thead><tr><th>Naam</th><th>Grootte</th><th>Gewijzigd</th><th>Acties</th></tr></thead>
         <tbody>
           {% for f in tools_mini %}
           <tr class="file-row" data-name="{{ f.name|lower }}" data-url="{{ f.url }}">
@@ -38,10 +38,10 @@
             <td>{{ f.size|filesizeformat }}</td>
             <td>{{ f.modified|int }}</td>
             <td class="file-actions">
-              <a class="btn-action" href="{{ f.url }}" title="Download">&#8595;</a>
-              <button class="btn-action btn-copy-url" data-url="{{ f.url }}" title="Copy URL">&#128203;</button>
+              <a class="btn-action" href="{{ f.url }}" title="Downloaden">&#8595;</a>
+              <button class="btn-action btn-copy-url" data-url="{{ f.url }}" title="URL kopiëren">&#128203;</button>
               {% if f.previewable %}
-              <button class="btn-action btn-preview" data-cat="tools_mini" data-file="{{ f.name }}" title="Preview">&#128065;</button>
+              <button class="btn-action btn-preview" data-cat="tools_mini" data-file="{{ f.name }}" title="Voorbeeld">&#128065;</button>
               {% endif %}
             </td>
           </tr>
@@ -59,7 +59,7 @@
     <div class="card-body">
       {% if tools %}
       <table class="file-table">
-        <thead><tr><th>Name</th><th>Size</th><th>Modified</th><th>Actions</th></tr></thead>
+        <thead><tr><th>Naam</th><th>Grootte</th><th>Gewijzigd</th><th>Acties</th></tr></thead>
         <tbody>
           {% for f in tools %}
           <tr class="file-row" data-name="{{ f.name|lower }}" data-url="{{ f.url }}">
@@ -67,10 +67,10 @@
             <td>{{ f.size|filesizeformat }}</td>
             <td>{{ f.modified|int }}</td>
             <td class="file-actions">
-              <a class="btn-action" href="{{ f.url }}" title="Download">&#8595;</a>
-              <button class="btn-action btn-copy-url" data-url="{{ f.url }}" title="Copy URL">&#128203;</button>
+              <a class="btn-action" href="{{ f.url }}" title="Downloaden">&#8595;</a>
+              <button class="btn-action btn-copy-url" data-url="{{ f.url }}" title="URL kopiëren">&#128203;</button>
               {% if f.previewable %}
-              <button class="btn-action btn-preview" data-cat="tools" data-file="{{ f.name }}" title="Preview">&#128065;</button>
+              <button class="btn-action btn-preview" data-cat="tools" data-file="{{ f.name }}" title="Voorbeeld">&#128065;</button>
               {% endif %}
             </td>
           </tr>
@@ -91,7 +91,7 @@
     <div class="card-body">
       {% if payloads %}
       <table class="file-table">
-        <thead><tr><th>Name</th><th>Size</th><th>Modified</th><th>Actions</th></tr></thead>
+        <thead><tr><th>Naam</th><th>Grootte</th><th>Gewijzigd</th><th>Acties</th></tr></thead>
         <tbody>
           {% for f in payloads %}
           <tr class="file-row" data-name="{{ f.name|lower }}" data-url="{{ f.url }}">
@@ -99,10 +99,10 @@
             <td>{{ f.size|filesizeformat }}</td>
             <td>{{ f.modified|int }}</td>
             <td class="file-actions">
-              <a class="btn-action" href="{{ f.url }}" title="Download">&#8595;</a>
-              <button class="btn-action btn-copy-url" data-url="{{ f.url }}" title="Copy URL">&#128203;</button>
+              <a class="btn-action" href="{{ f.url }}" title="Downloaden">&#8595;</a>
+              <button class="btn-action btn-copy-url" data-url="{{ f.url }}" title="URL kopiëren">&#128203;</button>
               {% if f.previewable %}
-              <button class="btn-action btn-preview" data-cat="payloads" data-file="{{ f.name }}" title="Preview">&#128065;</button>
+              <button class="btn-action btn-preview" data-cat="payloads" data-file="{{ f.name }}" title="Voorbeeld">&#128065;</button>
               {% endif %}
             </td>
           </tr>
@@ -144,7 +144,7 @@
 <div class="modal-overlay d-none" id="preview-modal">
   <div class="modal-box modal-lg">
     <div class="modal-head">
-      <h3 id="preview-title">Preview</h3>
+      <h3 id="preview-title">Voorbeeld</h3>
       <button class="modal-close-btn" id="btn-preview-close">&times;</button>
     </div>
     <div class="modal-body flex-1 overflow-auto">

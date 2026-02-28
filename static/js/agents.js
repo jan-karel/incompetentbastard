@@ -49,10 +49,10 @@
   }
 
   function timeDelta(seconds) {
-    if (seconds < 60) return seconds + 's ago';
-    if (seconds < 3600) return Math.floor(seconds / 60) + 'm ago';
-    if (seconds < 86400) return Math.floor(seconds / 3600) + 'h ago';
-    return Math.floor(seconds / 86400) + 'd ago';
+    if (seconds < 60) return seconds + 's geleden';
+    if (seconds < 3600) return Math.floor(seconds / 60) + 'm geleden';
+    if (seconds < 86400) return Math.floor(seconds / 3600) + 'u geleden';
+    return Math.floor(seconds / 86400) + 'd geleden';
   }
 
   // ── Agent list polling ──────────────────────────────────────
@@ -71,7 +71,7 @@
 
         agentListEl.innerHTML = '';
         if (agents.length === 0) {
-          agentListEl.innerHTML = '<p class="help">Geen agents verbonden.</p>';
+          agentListEl.innerHTML = '<p class="help">Geen agenten verbonden.</p>';
           return;
         }
         agents.forEach(function (a) {
@@ -143,7 +143,7 @@
       } else if (c.status === 'sent') {
         html += '<div class="cmd-pending">[wacht op resultaat...]</div>';
       } else {
-        html += '<div class="cmd-pending">[queued]</div>';
+        html += '<div class="cmd-pending">[in wachtrij]</div>';
       }
     });
     shellOutput.innerHTML = html;
@@ -159,7 +159,7 @@
       body: JSON.stringify({ command: cmdText })
     }).then(function () {
       shellOutput.innerHTML += '<div class="cmd-line">$ ' + escapeHtml(cmdText) + '</div>' +
-                               '<div class="cmd-pending">[queued]</div>';
+                               '<div class="cmd-pending">[in wachtrij]</div>';
       shellOutput.scrollTop = shellOutput.scrollHeight;
       lastHistoryLen = 0;
     }).catch(function () {});
@@ -185,7 +185,7 @@
   // ── Delete agent ────────────────────────────────────────────
   deleteBtn.addEventListener('click', function () {
     if (!selectedAgent) return;
-    if (!confirm('Agent verwijderen? Alle command history wordt gewist.')) return;
+    if (!confirm('Agent verwijderen? Alle commando geschiedenis wordt gewist.')) return;
     fetch('/api/agents/' + selectedAgent, { method: 'DELETE' })
       .then(function () {
         selectedAgent = null;
@@ -281,29 +281,29 @@
   var CATEGORY_PREFIXES = [
     { prefix: 'amsi_',      label: 'AMSI Bypass' },
     { prefix: 'av_',        label: 'AV Bypass' },
-    { prefix: 'adcs_',      label: 'AD CS Attacks' },
+    { prefix: 'adcs_',      label: 'AD CS aanvallen' },
     { prefix: 'ad_',        label: 'Active Directory' },
     { prefix: 'applocker_', label: 'AppLocker Bypass' },
-    { prefix: 'cred_',      label: 'Credential Dumping' },
+    { prefix: 'cred_',      label: 'Credential dumping' },
     { prefix: 'enum_',      label: 'Enumeratie' },
     { prefix: 'exploit_',   label: 'Exploits' },
-    { prefix: 'get_',       label: 'Tool Downloads' },
+    { prefix: 'get_',       label: 'Tool downloads' },
     { prefix: 'inject_',    label: 'Process Injection' },
     { prefix: 'kerb_',      label: 'Kerberos' },
-    { prefix: 'lateral_',   label: 'Lateral Movement (Windows)' },
-    { prefix: 'linux_',     label: 'Linux Post-Exploitation' },
-    { prefix: 'mssql_',     label: 'MSSQL Attacks' },
-    { prefix: 'net_',       label: 'Network Evasion' },
-    { prefix: 'passwd_',    label: 'Password Attacks' },
-    { prefix: 'persist_',   label: 'Persistence' },
-    { prefix: 'privesc_',   label: 'Privilege Escalation' },
+    { prefix: 'lateral_',   label: 'Laterale beweging (Windows)' },
+    { prefix: 'linux_',     label: 'Linux post-exploitatie' },
+    { prefix: 'mssql_',     label: 'MSSQL aanvallen' },
+    { prefix: 'net_',       label: 'Netwerk evasie' },
+    { prefix: 'passwd_',    label: 'Wachtwoord aanvallen' },
+    { prefix: 'persist_',   label: 'Persistentie' },
+    { prefix: 'privesc_',   label: 'Privilege escalatie' },
     { prefix: 'ps_cradle_', label: 'PowerShell Cradles' },
     { prefix: 'ps',         label: 'PowerShell Payloads' },
     { prefix: 'msf',        label: 'Metasploit' },
-    { prefix: 'proof_',     label: 'Proof / Flags' },
-    { prefix: 'recon_',     label: 'Reconnaissance' },
-    { prefix: 'shell_',     label: 'Reverse Shells' },
-    { prefix: 'tunnel_',    label: 'Tunneling / Pivoting' },
+    { prefix: 'proof_',     label: 'Bewijs / Flags' },
+    { prefix: 'recon_',     label: 'Verkenning' },
+    { prefix: 'shell_',     label: 'Reverse shells' },
+    { prefix: 'tunnel_',    label: 'Tunneling / pivoting' },
     { prefix: 'web_ssti_',  label: 'Web: SSTI' },
     { prefix: 'web_sqli_',  label: 'Web: SQL Injection' },
     { prefix: 'web_cmdi_',  label: 'Web: Command Injection' },
@@ -311,7 +311,7 @@
     { prefix: 'web_xxe_',   label: 'Web: XXE' },
     { prefix: 'web_ssrf_',  label: 'Web: SSRF' },
     { prefix: 'web_lfi_',   label: 'Web: LFI / Traversal' },
-    { prefix: 'web_deser_', label: 'Web: Deserialization' },
+    { prefix: 'web_deser_', label: 'Web: Deserialisatie' },
     { prefix: 'web_',       label: 'Web: Overig' }
   ];
 
@@ -345,7 +345,7 @@
 
     var copyBtn = document.createElement('button');
     copyBtn.className = 'btn-copy';
-    copyBtn.textContent = 'Kopieer';
+    copyBtn.textContent = 'kopieer';
     copyBtn.setAttribute('type', 'button');
     (function (content, b) {
       b.addEventListener('click', function () { copyToClipboard(applyReplacements(content), b); });
@@ -391,7 +391,7 @@
     }
 
     if (filtered.length === 0) {
-      cmdList.innerHTML = '<p style="color:var(--muted)">Geen commands gevonden' + (term ? ' voor "' + escapeHtml(term) + '"' : '') + '.</p>';
+      cmdList.innerHTML = '<p style="color:var(--muted)">Geen commando\'s gevonden' + (term ? ' voor "' + escapeHtml(term) + '"' : '') + '.</p>';
       return;
     }
 
@@ -470,11 +470,11 @@
     if (open) {
       cmdSidebar.classList.add('open');
       workspace.classList.add('sidebar-open');
-      if (toggleSidebarBtn) toggleSidebarBtn.innerHTML = 'Commands &#9664;';
+      if (toggleSidebarBtn) toggleSidebarBtn.innerHTML = 'Commando\'s &#9664;';
     } else {
       cmdSidebar.classList.remove('open');
       workspace.classList.remove('sidebar-open');
-      if (toggleSidebarBtn) toggleSidebarBtn.innerHTML = 'Commands &#9654;';
+      if (toggleSidebarBtn) toggleSidebarBtn.innerHTML = 'Commando\'s &#9654;';
     }
   }
 

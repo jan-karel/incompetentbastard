@@ -1,5 +1,5 @@
 {% extends "bootstrap/base.html" %}
-{% block title %}Edit Note{% endblock %}
+{% block title %}Notitie bewerken{% endblock %}
 
 {% block styles %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/safe-overview.css') }}" />
@@ -9,8 +9,8 @@
 {% block content %}
 <div class="page-title">
   <div>
-    <h1>Edit Note</h1>
-    <div class="breadcrumbs"><a href="/">Home</a> / <a href="/dashboard/notes">Notes</a> / Edit</div>
+    <h1>Notitie bewerken</h1>
+    <div class="breadcrumbs"><a href="/">Start</a> / <a href="/dashboard/notes">Notities</a> / Bewerken</div>
   </div>
 </div>
 
@@ -19,17 +19,17 @@
   <div class="card-body">
     <form action="/dashboard/notes/edit/{{ note.id }}" method="post">
       <div class="mb-10">
-        <label for="naam"><strong>Name</strong></label>
+        <label for="naam"><strong>Naam</strong></label>
         <input class="form-control" type="text" id="naam" name="naam" value="{{ note.naam }}" required />
       </div>
       <div class="mb-10">
-        <label for="uitwerken"><strong>Content</strong></label>
+        <label for="uitwerken"><strong>Inhoud</strong></label>
         <div data-latex-toolbar="uitwerken" data-mode="note" data-project-images-url="/api/screenshots"></div>
         <textarea class="form-control" id="uitwerken" name="uitwerken" rows="24">{{ note.uitwerken or '' }}</textarea>
       </div>
       <div class="d-flex gap-8">
-        <button type="submit" class="btn btn-primary">Save</button>
-        <a href="/dashboard/notes" class="btn">Cancel</a>
+        <button type="submit" class="btn btn-primary">Opslaan</button>
+        <a href="/dashboard/notes" class="btn">Annuleren</a>
       </div>
     </form>
   </div>

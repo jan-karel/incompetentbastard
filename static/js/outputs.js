@@ -35,7 +35,7 @@
       return;
     }
 
-    meta.textContent = data.path + (data.truncated ? " (truncated)" : "");
+    meta.textContent = data.path + (data.truncated ? " (afgekapt)" : "");
     content.textContent = data.content || "";
   };
 
@@ -49,13 +49,13 @@
     try {
       await navigator.clipboard.writeText(content.textContent || "");
       const old = copyBtn.textContent;
-      copyBtn.textContent = "copied";
+      copyBtn.textContent = "gekopieerd";
       setTimeout(() => {
         copyBtn.textContent = old;
       }, 1000);
     } catch (_err) {
       const old = copyBtn.textContent;
-      copyBtn.textContent = "failed";
+      copyBtn.textContent = "mislukt";
       setTimeout(() => {
         copyBtn.textContent = old;
       }, 1000);

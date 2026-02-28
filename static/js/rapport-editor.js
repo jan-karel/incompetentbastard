@@ -92,7 +92,7 @@
           el.innerHTML = "Nog geen versies. Genereer eerst een rapport.";
           return;
         }
-        var html = '<table class="table compact"><thead><tr><th>Timestamp</th><th>Bestanden</th></tr></thead><tbody>';
+        var html = '<table class="table compact"><thead><tr><th>Tijdstempel</th><th>Bestanden</th></tr></thead><tbody>';
         items.forEach(function (v) {
           html += "<tr><td>" + v.timestamp + "</td><td>" + (v.files || []).join(", ") + "</td></tr>";
         });
@@ -241,7 +241,7 @@
     noteEditId.value = id || "";
     noteEditNaam.value = naam || "";
     noteEditUitwerken.value = uitwerken || "";
-    noteModalTitle.textContent = id ? "Note bewerken" : "Note toevoegen";
+    noteModalTitle.textContent = id ? "Notitie bewerken" : "Notitie toevoegen";
     noteModal.style.display = "flex";
     noteEditNaam.focus();
   }

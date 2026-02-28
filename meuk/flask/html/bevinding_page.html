@@ -1,5 +1,5 @@
 {% extends "bootstrap/base.html" %}
-{% block title %}Finding{% endblock %}
+{% block title %}Bevinding{% endblock %}
 
 {% block styles %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/finding-form.css') }}" />
@@ -11,8 +11,8 @@
 {% block content %}
 <div class="page-title">
   <div>
-    <h1>Finding Editor</h1>
-    <div class="breadcrumbs"><a href="/">Home</a> / Finding</div>
+    <h1>Bevindingseditor</h1>
+    <div class="breadcrumbs"><a href="/">Start</a> / Bevinding</div>
   </div>
 </div>
 
@@ -28,29 +28,29 @@
 {% if form.id.data %}
 {# Evidence gallery #}
 <section class="card" style="margin-top:14px">
-  <div class="card-head"><h2>Evidence</h2></div>
+  <div class="card-head"><h2>Bewijs</h2></div>
   <div class="card-body">
     <div class="evidence-gallery" id="evidence-gallery"></div>
     <div style="margin-top:8px">
       <input type="file" id="evidence-file" accept="image/*,.pdf,.txt,.csv,.json,.xml,.zip" />
-      <button class="btn" id="btn-upload-evidence" type="button">Upload</button>
+      <button class="btn" id="btn-upload-evidence" type="button">Uploaden</button>
     </div>
   </div>
 </section>
 
 {# Finding relaties #}
 <section class="card" style="margin-top:14px">
-  <div class="card-head"><h2>Related findings</h2></div>
+  <div class="card-head"><h2>Gerelateerde bevindingen</h2></div>
   <div class="card-body">
     <div id="relations-list"></div>
     <div style="margin-top:8px;display:flex;gap:8px;align-items:center">
-      <input type="number" id="related-finding-id" class="form-control" placeholder="Finding ID" style="width:120px" />
+      <input type="number" id="related-finding-id" class="form-control" placeholder="Bevinding ID" style="width:120px" />
       <select id="relation-type" class="form-control" style="width:140px">
-        <option value="related">Related</option>
-        <option value="chain">Chain</option>
-        <option value="duplicate">Duplicate</option>
+        <option value="related">Gerelateerd</option>
+        <option value="chain">Keten</option>
+        <option value="duplicate">Duplicaat</option>
       </select>
-      <button class="btn" id="btn-add-relation" type="button">Link</button>
+      <button class="btn" id="btn-add-relation" type="button">Koppelen</button>
     </div>
   </div>
 </section>

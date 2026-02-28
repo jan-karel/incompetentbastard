@@ -1,5 +1,5 @@
 {% extends "bootstrap/base.html" %}
-{% block title %}Notes{% endblock %}
+{% block title %}Notities{% endblock %}
 
 {% block styles %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/safe-overview.css') }}" />
@@ -10,53 +10,53 @@
 {% block content %}
 <div class="page-title">
   <div>
-    <h1>Notes</h1>
-    <div class="breadcrumbs"><a href="/">Home</a> / Notes</div>
+    <h1>Notities</h1>
+    <div class="breadcrumbs"><a href="/">Start</a> / Notities</div>
   </div>
 </div>
 
 <div class="grid cols-2">
   <section class="card">
-    <div class="card-head"><h2>Add Note</h2></div>
+    <div class="card-head"><h2>Notitie toevoegen</h2></div>
     <div class="card-body">
       <form action="/dashboard/notes/add" method="post">
         <div class="mb-10">
-          <label for="naam"><strong>Name</strong></label>
-          <input class="form-control" type="text" id="naam" name="naam" required placeholder="Note title..." />
+          <label for="naam"><strong>Naam</strong></label>
+          <input class="form-control" type="text" id="naam" name="naam" required placeholder="Notitietitel..." />
         </div>
         <div class="mb-10">
-          <label for="uitwerken"><strong>Content</strong></label>
+          <label for="uitwerken"><strong>Inhoud</strong></label>
           <div data-latex-toolbar="uitwerken" data-mode="note" data-project-images-url="/api/screenshots"></div>
-          <textarea class="form-control" id="uitwerken" name="uitwerken" rows="8" placeholder="Write your note here..."></textarea>
+          <textarea class="form-control" id="uitwerken" name="uitwerken" rows="8" placeholder="Schrijf hier je notitie..."></textarea>
         </div>
-        <button type="submit" class="btn btn-primary">Save note</button>
+        <button type="submit" class="btn btn-primary">Notitie opslaan</button>
       </form>
     </div>
   </section>
 
   <section class="card">
-    <div class="card-head"><h2>Existing Notes</h2></div>
+    <div class="card-head"><h2>Bestaande notities</h2></div>
     <div class="card-body">
       {% if notes %}
       <ul id="notes-list" class="notes-drag-list">
         {% for note in notes %}
         <li class="notes-drag-item{% if note.rapport %} notes-in-rapport{% endif %}" draggable="true" data-id="{{ note.id }}">
-          <span class="drag-handle" title="Drag to reorder">&#10495;</span>
-          <label class="rapport-toggle" title="Include in rapport">
+          <span class="drag-handle" title="Sleep om te herschikken">&#10495;</span>
+          <label class="rapport-toggle" title="Opnemen in rapport">
             <input type="checkbox" data-note-id="{{ note.id }}" {% if note.rapport %}checked{% endif %} />
             <span class="rapport-label">Rapport</span>
           </label>
           <span class="note-name">{{ note.naam }}</span>
           <span class="note-actions">
-            <a href="/dashboard/notes/edit/{{ note.id }}">edit</a>
+            <a href="/dashboard/notes/edit/{{ note.id }}">bewerken</a>
             <span> &bull; </span>
-            <a href="/dashboard/notes/delete/{{ note.id }}" data-confirm="Delete note '{{ note.naam }}'?">delete</a>
+            <a href="/dashboard/notes/delete/{{ note.id }}" data-confirm="Notitie '{{ note.naam }}' verwijderen?">verwijderen</a>
           </span>
         </li>
         {% endfor %}
       </ul>
       {% else %}
-      <p class="help">No notes yet.</p>
+      <p class="help">Nog geen notities.</p>
       {% endif %}
     </div>
   </section>

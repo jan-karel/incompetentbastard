@@ -20,12 +20,12 @@
 
   var catLabels = {
     pages: 'Pagina\'s',
-    findings: 'Findings',
-    notes: 'Notes',
-    commands: 'Commands',
-    recordings: 'Recordings',
+    findings: 'Bevindingen',
+    notes: 'Notities',
+    commands: 'Commando\'s',
+    recordings: 'Opnames',
     loot: 'Loot',
-    outputs: 'Outputs'
+    outputs: 'Uitvoer'
   };
 
   var catOrder = ['pages', 'findings', 'notes', 'commands', 'recordings', 'loot', 'outputs'];

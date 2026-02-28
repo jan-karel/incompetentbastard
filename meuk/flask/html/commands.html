@@ -1,5 +1,5 @@
 {% extends "bootstrap/base.html" %}
-{% block title %}Command Library{% endblock %}
+{% block title %}Commando bibliotheek{% endblock %}
 
 {% block styles %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/generator.css') }}" />
@@ -8,9 +8,9 @@
 
 {% block content %}
 <div class="gen-header">
-  <div class="breadcrumbs"><a href="/">Dashboard</a> / Command Library</div>
-  <h1>Command Library</h1>
-  <p>Bekijk commands en injecteer ze in actieve screen sessies (zoals commands.sh).</p>
+  <div class="breadcrumbs"><a href="/">Dashboard</a> / Commando bibliotheek</div>
+  <h1>Commando bibliotheek</h1>
+  <p>Bekijk commando's en injecteer ze in actieve screen sessies (zoals commands.sh).</p>
 </div>
 
 <section class="card">
@@ -30,11 +30,11 @@
     </div>
     <div class="gen-form mt-10">
       <div class="field">
-        <label for="replace-find">Find</label>
+        <label for="replace-find">Zoeken</label>
         <input class="input" type="text" id="replace-find" placeholder="bijv. 10.0.0.1" />
       </div>
       <div class="field">
-        <label for="replace-with">Replace</label>
+        <label for="replace-with">Vervangen</label>
         <input class="input" type="text" id="replace-with" placeholder="bijv. 192.168.1.50" />
       </div>
     </div>
@@ -44,7 +44,7 @@
         http:// naar https:// omzetten
       </label>
     </div>
-    <p class="text-muted fs-12 mt-4 mb-0">IP/URL in commands vervangen bij injectie. Preview wordt getoond in de command content.</p>
+    <p class="text-muted fs-12 mt-4 mb-0">IP/URL in commando's vervangen bij injectie. Voorbeeld wordt getoond in de commando-inhoud.</p>
     <div class="gen-actions">
       <button type="button" id="refresh-screens" class="btn">Sessies vernieuwen</button>
       <span id="inject-status" class="status"></span>
@@ -54,9 +54,9 @@
 
 <section class="card mt-14">
   <div class="card-head">
-    <h2>Commands</h2>
+    <h2>Commando's</h2>
     <div class="shell-file-picker">
-      <input type="text" id="cmd-filter" class="input min-w-200" placeholder="Filter..." />
+      <input type="text" id="cmd-filter" class="input min-w-200" placeholder="Filter commando's..." />
     </div>
   </div>
   <div class="card-body">

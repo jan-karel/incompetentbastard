@@ -1,5 +1,5 @@
 {% extends "bootstrap/base.html" %}
-{% block title %}Incompetent Bastard - XSS Telemetry{% endblock %}
+{% block title %}Incompetent Bastard - XSS Telemetrie{% endblock %}
 
 {% block styles %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard-modern.css') }}" />
@@ -9,8 +9,8 @@
 {% block content %}
 <div class="page-title">
   <div>
-    <h1>XSS Telemetry</h1>
-    <div class="breadcrumbs"><a href="/">Home</a> / <a href="/">Dashboard</a> / XSS</div>
+    <h1>XSS Telemetrie</h1>
+    <div class="breadcrumbs"><a href="/">Start</a> / <a href="/">Dashboard</a> / XSS</div>
   </div>
 </div>
 
@@ -20,7 +20,7 @@
       <div class="kpi">
         <div>
           <div class="val accent-orange">{{ aantalhooked }}</div>
-          <div class="sub">Active Clients (5m)</div>
+          <div class="sub">Actieve clients (5m)</div>
         </div>
       </div>
     </div>
@@ -60,13 +60,13 @@
 <div class="grid cols-2 mt-14">
   <section class="card">
     <div class="card-head">
-      <h2>Hooked Clients <small>(laatste 5 min)</small></h2>
+      <h2>Gehookte clients <small>(laatste 5 min)</small></h2>
     </div>
     <div class="card-body">
       {% if hooked %}
       <table class="table compact">
         <thead>
-          <tr><th>IP</th><th>User-Agent</th><th>Last seen</th></tr>
+          <tr><th>IP</th><th>User-Agent</th><th>Laatst gezien</th></tr>
         </thead>
         <tbody>
           {% for h in hooked|reverse %}
@@ -168,7 +168,7 @@
 <div class="c2-panel">
   <section class="card">
     <div class="card-head">
-      <h2>C2 Command Console</h2>
+      <h2>C2 Commando Console</h2>
     </div>
     <div class="card-body">
       <div class="c2-toolbar">
@@ -179,18 +179,18 @@
       </div>
       <textarea id="c2-cmd" class="c2-textarea" placeholder="document.cookie" rows="3"></textarea>
       <div class="c2-quick-commands" id="c2-quick">
-        <span class="fs-12 text-muted mr-4">Quick:</span>
+        <span class="fs-12 text-muted mr-4">Snel:</span>
       </div>
 
       <div class="c2-payload-section">
         <div class="c2-payload-head">
-          <span class="fs-12 text-muted mr-4">Payload delivery:</span>
+          <span class="fs-12 text-muted mr-4">Payload-levering:</span>
           <select id="c2-payload-select">
             <option value="">-- kies payload --</option>
           </select>
           <select id="c2-delivery-method">
-            <option value="iframe">Hidden iframe</option>
-            <option value="anchor">Anchor download</option>
+            <option value="iframe">Verborgen iframe</option>
+            <option value="anchor">Ankerdownload</option>
             <option value="window">Window.open</option>
             <option value="ps_cradle">PS Cradle (IEX)</option>
             <option value="certutil">certutil + exec</option>
@@ -205,10 +205,10 @@
           <thead>
             <tr>
               <th>ID</th>
-              <th>Target</th>
-              <th>Command</th>
+              <th>Doel</th>
+              <th>Commando</th>
               <th>Status</th>
-              <th>Result</th>
+              <th>Resultaat</th>
               <th></th>
             </tr>
           </thead>

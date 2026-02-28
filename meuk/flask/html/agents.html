@@ -1,5 +1,5 @@
 {% extends "bootstrap/base.html" %}
-{% block title %}Agent Dashboard{% endblock %}
+{% block title %}Agent dashboard{% endblock %}
 
 {% block styles %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/generator.css') }}" />
@@ -9,15 +9,15 @@
 
 {% block content %}
 <div class="gen-header">
-  <div class="breadcrumbs"><a href="/">Dashboard</a> / Agents</div>
-  <h1>Agent Dashboard</h1>
+  <div class="breadcrumbs"><a href="/">Start</a> / Agenten</div>
+  <h1>Agent dashboard</h1>
   <p>Beheer remote agents vanuit de audit scripts.</p>
 </div>
 
 <div class="grid cols-3">
   <section class="card">
     <div class="card-body">
-      <div class="kpi"><div><div class="val" id="kpi-active">0</div><div class="sub">Active</div></div></div>
+      <div class="kpi"><div><div class="val" id="kpi-active">0</div><div class="sub">Actief</div></div></div>
     </div>
   </section>
   <section class="card">
@@ -27,14 +27,14 @@
   </section>
   <section class="card">
     <div class="card-body">
-      <div class="kpi"><div><div class="val" id="kpi-dead">0</div><div class="sub">Dead</div></div></div>
+      <div class="kpi"><div><div class="val" id="kpi-dead">0</div><div class="sub">Inactief</div></div></div>
     </div>
   </section>
 </div>
 
 <div class="agent-workspace" id="agent-workspace">
   <section class="card agent-list-card">
-    <div class="card-head"><h2>Agents</h2></div>
+    <div class="card-head"><h2>Agenten</h2></div>
     <div class="card-body">
       <div id="agent-list" class="agent-list">
         <p class="help">Laden...</p>
@@ -46,23 +46,23 @@
     <div class="card-head">
       <h2 id="shell-title">Shell</h2>
       <span class="flex-1"></span>
-      <a id="recording-link" href="#" target="_blank" class="btn btn-sm d-none">&#9658; Recording</a>
-      <button type="button" id="toggle-cmd-sidebar" class="btn btn-sm">Commands &#9654;</button>
+      <a id="recording-link" href="#" target="_blank" class="btn btn-sm d-none">&#9658; Opname</a>
+      <button type="button" id="toggle-cmd-sidebar" class="btn btn-sm">Commando's &#9654;</button>
       <button type="button" id="delete-agent" class="btn btn-danger btn-sm">Verwijder</button>
     </div>
     <div class="card-body shell-body">
       <div class="shell-terminal" id="shell-output"></div>
       <div class="shell-input-row">
         <input type="text" id="shell-cmd" placeholder="Typ een commando..." />
-        <button type="button" id="send-cmd" class="btn btn-primary">Send</button>
-        <button type="button" id="clear-shell" class="btn">Clear</button>
+        <button type="button" id="send-cmd" class="btn btn-primary">Verstuur</button>
+        <button type="button" id="clear-shell" class="btn">Wissen</button>
       </div>
     </div>
   </section>
 
   <div class="agent-cmd-sidebar" id="cmd-sidebar">
     <div class="sidebar-toolbar">
-      <h3 class="m-0 fs-14">Command Library</h3>
+      <h3 class="m-0 fs-14">Commando bibliotheek</h3>
       <span class="flex-1"></span>
       <button type="button" id="close-cmd-sidebar" class="btn btn-sm">&#x2715;</button>
     </div>
@@ -70,8 +70,8 @@
       <input type="text" id="cmd-filter" class="input flex-1 input-sm" placeholder="Filter..." />
     </div>
     <div class="d-flex gap-6 mb-4">
-      <input type="text" id="replace-find" class="input flex-1 input-sm" placeholder="Find IP/URL" />
-      <input type="text" id="replace-with" class="input flex-1 input-sm" placeholder="Replace" />
+      <input type="text" id="replace-find" class="input flex-1 input-sm" placeholder="IP/URL zoeken" />
+      <input type="text" id="replace-with" class="input flex-1 input-sm" placeholder="Vervangen" />
     </div>
     <label class="label-inline">
       <input type="checkbox" id="replace-https" /> http &rarr; https

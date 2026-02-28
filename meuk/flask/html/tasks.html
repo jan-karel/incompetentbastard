@@ -1,5 +1,5 @@
 {% extends "bootstrap/base.html" %}
-{% block title %}Task Runner{% endblock %}
+{% block title %}Taakuitvoerder{% endblock %}
 
 {% block styles %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/tasks-modern.css') }}" />
@@ -8,8 +8,8 @@
 {% block content %}
 <div class="page-title">
   <div>
-    <h1>Task Runner</h1>
-    <div class="breadcrumbs"><a href="/">Home</a> / Tasks</div>
+    <h1>Taakuitvoerder</h1>
+    <div class="breadcrumbs"><a href="/">Start</a> / Taken</div>
   </div>
 </div>
 
@@ -41,7 +41,7 @@
         <button id="run-btn" class="btn btn-primary" type="button">Start taak</button>
       </div>
 
-      <div id="status" class="task-status">Status: idle</div>
+      <div id="status" class="task-status">Status: inactief</div>
     </div>
   </section>
 
@@ -64,7 +64,7 @@
 
 <section class="card mt-14">
   <div class="card-head">
-    <h2>Output</h2>
+    <h2>Uitvoer</h2>
   </div>
   <div class="card-body">
     <pre id="output" class="code-block"></pre>

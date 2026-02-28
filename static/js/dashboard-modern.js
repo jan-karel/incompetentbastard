@@ -41,9 +41,9 @@
       if (!el) return;
       try {
         await navigator.clipboard.writeText(el.textContent || "");
-        copyFeedback(btn, "copied", "copied");
+        copyFeedback(btn, "gekopieerd", "copied");
       } catch (_err) {
-        copyFeedback(btn, "failed", null);
+        copyFeedback(btn, "mislukt", null);
       }
     });
   }
@@ -143,7 +143,7 @@
       });
       selectHtml += '</select>';
       row.innerHTML =
-        '<input type="text" class="form-control scope-target-input" data-st-target="' + i + '" placeholder="Target (IP, URL, hostname)" value="' + (st.target || "").replace(/"/g, "&quot;") + '" />' +
+        '<input type="text" class="form-control scope-target-input" data-st-target="' + i + '" placeholder="Doel (IP, URL, hostnaam)" value="' + (st.target || "").replace(/"/g, "&quot;") + '" />' +
         selectHtml +
         '<input type="text" class="form-control scope-target-input" data-st-beschrijving="' + i + '" placeholder="Beschrijving" value="' + (st.beschrijving || "").replace(/"/g, "&quot;") + '" />' +
         '<button type="button" class="btn scope-target-del-btn" data-st-del="' + i + '">\u2715</button>';
@@ -228,10 +228,10 @@
   }
 
   function timeDelta(seconds) {
-    if (seconds < 60) return seconds + "s ago";
-    if (seconds < 3600) return Math.floor(seconds / 60) + "m ago";
-    if (seconds < 86400) return Math.floor(seconds / 3600) + "h ago";
-    return Math.floor(seconds / 86400) + "d ago";
+    if (seconds < 60) return seconds + "s geleden";
+    if (seconds < 3600) return Math.floor(seconds / 60) + "m geleden";
+    if (seconds < 86400) return Math.floor(seconds / 3600) + "u geleden";
+    return Math.floor(seconds / 86400) + "d geleden";
   }
 
   function fetchDashboardAgents() {

@@ -1,5 +1,5 @@
 {% extends "bootstrap/base.html" %}
-{% block title %}Macro v2 Generator{% endblock %}
+{% block title %}Macro v2 generator{% endblock %}
 
 {% block styles %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/generator.css') }}" />
@@ -7,8 +7,8 @@
 
 {% block content %}
 <div class="gen-header">
-  <div class="breadcrumbs"><a href="/">Dashboard</a> / Macro v2 Generator</div>
-  <h1>Office Macro v2 Generator</h1>
+  <div class="breadcrumbs"><a href="/">Start</a> / Macro v2 generator</div>
+  <h1>Office macro v2 generator</h1>
   <p>Genereer VBA macro shellcode via msfvenom met LURI ondersteuning. Upload optioneel een .docx of .xlsx template om een macro-enabled document te maken.</p>
 </div>
 
@@ -56,7 +56,7 @@
 </section>
 
 <section class="card mt-14">
-  <div class="card-head"><h2>Output</h2></div>
+  <div class="card-head"><h2>Uitvoer</h2></div>
   <div class="card-body">
     <pre id="gen-output" class="gen-output"></pre>
   </div>

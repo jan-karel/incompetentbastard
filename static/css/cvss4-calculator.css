@@ -1,0 +1,58 @@
+.cvss4-calculator{
+  margin-top:12px;
+  padding:16px;
+  background:var(--surface-2);
+  border:1px solid var(--border);
+  border-radius:8px;
+}
+.cvss4-calculator.hidden{display:none}
+.cvss4-sections{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px}
+.cvss4-section{
+  padding:12px;
+  background:var(--surface);
+  border-radius:6px;
+}
+.cvss4-section-title{
+  font-weight:600;
+  font-size:13px;
+  margin-bottom:10px;
+  color:var(--muted);
+}
+.cvss4-metrics{display:flex;flex-direction:column;gap:8px}
+.cvss4-metric{
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+}
+.cvss4-metric-name{
+  font-size:12px;
+  color:var(--muted);
+}
+.cvss4-metric select{
+  padding:6px 8px;
+  font-size:13px;
+  border:1px solid var(--border);
+  border-radius:4px;
+  background:var(--surface);
+  color:var(--text);
+}
+.cvss4-result{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  font-size:14px;
+}
+
+/* Severity badges */
+.badge.sev-critical{background:#dc2626;color:#fff}
+.badge.sev-high{background:#ea580c;color:#fff}
+.badge.sev-medium{background:#d97706;color:#fff}
+.badge.sev-low{background:#2563eb;color:#fff}
+.badge.sev-none{background:#6b7280;color:#fff}
+.badge{
+  display:inline-block;
+  padding:2px 10px;
+  border-radius:4px;
+  font-size:12px;
+  font-weight:600;
+}

@@ -1,0 +1,133 @@
+/* rapport-editor.css — extra styling for inline findings/notes editing on rapport dashboard */
+
+/* ── Tab navigatie ────────────────────────────── */
+.rapport-tabs {
+  display: flex;
+  border-bottom: 2px solid var(--border, #ddd);
+  margin-bottom: 16px;
+  gap: 0;
+}
+.rapport-tab {
+  padding: 10px 20px;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--muted, #64748b);
+  background: none;
+  border-top: none;
+  border-left: none;
+  border-right: none;
+}
+.rapport-tab.active {
+  border-bottom-color: var(--primary, #3b82f6);
+  color: var(--fg, #1e293b);
+}
+.rapport-tab:hover {
+  color: var(--fg, #1e293b);
+}
+.rapport-tab-content {
+  display: none;
+}
+.rapport-tab-content.active {
+  display: block;
+}
+
+/* ── Versie badge ────────────────────────────── */
+.versie-status-badge {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.versie-status-badge.concept { background: #fef3c7; color: #92400e; }
+.versie-status-badge.definitief { background: #d1fae5; color: #065f46; }
+.versie-status-badge.herzien { background: #dbeafe; color: #1e40af; }
+
+/* ── Finding rows ─────────────────────────────── */
+tr.rapport-included { background: rgba(34,197,94,.08); }
+tr.rapport-included td:first-child { border-left: 3px solid var(--success, #22c55e); }
+
+/* ── Severity badges ──────────────────────────── */
+.severity-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+.severity-badge.critical { background: #820000; color: #fff; }
+.severity-badge.high     { background: #e60000; color: #fff; }
+.severity-badge.medium   { background: #f09600; color: #000; }
+.severity-badge.low      { background: #ffdc00; color: #000; }
+.severity-badge.info     { background: #00be00; color: #000; }
+
+/* ── Compact buttons ──────────────────────────── */
+.btn-sm {
+  padding: 3px 10px;
+  font-size: 12px;
+  border-radius: 4px;
+}
+
+/* ── Note preview text ────────────────────────── */
+.note-preview {
+  color: var(--muted, #94a3b8);
+  font-size: 12px;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 400px;
+}
+
+/* ── Note modal form spacing ──────────────────── */
+#rap-note-modal .modal-body .form-group { margin-bottom: 12px; }
+#rap-note-modal .modal-body label { display: block; font-weight: 600; margin-bottom: 4px; font-size: 13px; }
+#rap-note-modal .modal-body .btn-row { display: flex; gap: 8px; margin-top: 14px; }
+
+/* ── Rapport instellingen layout helpers (CSP-safe replacements for inline styles) ── */
+.mt-8    { margin-top: 8px; }
+.mt-22   { margin-top: 22px; }
+.ml-8    { margin-left: 8px; }
+.gap-12  { gap: 12px; }
+.fw-normal { font-weight: normal; }
+
+.rap-section-h3 {
+  margin: 0 0 8px 0;
+  font-size: 14px;
+}
+.rap-section-h3-mt {
+  margin: 16px 0 8px 0;
+  font-size: 14px;
+}
+
+/* ── Scenario row (dynamically rendered) ─────── */
+.scenario-row {
+  border: 1px solid var(--border, #ddd);
+  padding: 8px;
+  margin-bottom: 6px;
+  border-radius: 4px;
+}
+.scenario-row-head {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 4px;
+}
+.scenario-row-head input { flex: 1; }
+.scenario-del-btn { padding: 2px 8px; }
+
+/* ── Scope target row (dynamically rendered) ── */
+.scope-target-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 6px;
+}
+.scope-target-input { flex: 1; }
+.scope-target-type { width: 130px; flex: none; }
+.scope-target-del-btn { padding: 2px 8px; flex: none; }

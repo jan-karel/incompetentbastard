@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>{% block title %}Dashboard{% endblock %}</title>
+  <meta name="description" content="Incompetend Bastard" />
+  <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='niceadmin/assets/img/favicon.svg') }}" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='niceadmin/assets/css/style.css') }}" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/global-tools.css') }}" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/latexeditor.css') }}" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/cvss4-calculator.css') }}" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/utility.css') }}" />
+  {% block styles %}{% endblock %}
+</head>
+<body>
+<a class="skip-link" href="#main">Naar inhoud</a>
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+<div class="app">
+  <aside class="sidebar" role="navigation" aria-label="Sidebar">
+    <div class="brand">
+      <div class="brand-mark" aria-hidden="true"> <img src="{{ url_for('static', filename='favicon.ico') }}"> </div>
+      <div class="brand-name">Incompetent<span>Bastard</span></div>
+    </div>
+
+    <div class="nav-section">Navigatie</div>
+    <div class="nav">
+      <a href="/"><span class="left">Dashboard</span></a>
+      <a href="/dashboard/findings"><span class="left">Bevindingen</span></a>
+      <a href="/dashboard/notes"><span class="left">Notities</span></a>
+      <a href="/dashboard/xxs"><span class="left">XXS</span></a>
+      <a href="/dashboard/agents"><span class="left">Agents</span></a>
+      <a href="/dashboard/screen"><span class="left">Screen</span></a>
+      <a href="/dashboard/tasks"><span class="left">Tasks</span></a>
+      <a href="/dashboard/outputs"><span class="left">Outputs</span></a>
+      <a href="/dashboard/files"><span class="left">Files</span></a>
+      <a href="/dashboard/admin"><span class="left">Admin</span></a>
+    </div>
+  </aside>
+
+  <div class="main">
+    <div id="overlay" class="overlay" hidden></div>
+    <header class="header" role="banner">
+      <div class="header-inner">
+        <div class="h-left">
+          <button id="sidebarToggle" class="iconbtn" type="button" aria-label="Sidebar openen/sluiten">☰</button>
+          <div id="searchWrap" class="search">
+            <span class="s-ico">🔎</span>
+            <input id="searchBox" type="search" placeholder="Zoeken…" aria-label="Search" />
+            <button id="searchClear" class="clear" type="button" aria-label="Clear search">✕</button>
+          </div>
+        </div>
+
+        <div class="h-right">
+          <button type="button" id="btn-new-finding" class="header-action" title="Nieuwe bevinding">+ Bevinding</button>
+          <button type="button" id="btn-new-note" class="header-action" title="Nieuwe notitie">+ Notitie</button>
+          <button id="btn-fieldmanual" class="iconbtn" type="button" aria-label="Field Manual (Ctrl+K)" title="Field Manual (Ctrl+K)">&#128214;</button>
+          <button id="btn-settings" class="iconbtn" type="button" aria-label="Settings" title="Settings">&#9881;</button>
+          <button id="themeToggle" class="iconbtn" type="button" aria-label="Theme toggle">◐</button>
+          {% block navbar %}{% endblock %}
+        </div>
+      </div>
+    </header>
+
+    <main id="main" class="content">
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+</div>
+
+<div id="settings-modal" class="modal-overlay d-none">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h3>Toegang</h3>
+      <button id="btn-settings-close" class="modal-close-btn">&times;</button>
+    </div>
+    <div class="modal-body">
+      <label class="toggle-row">
+        <span>Public uploads</span>
+        <input type="checkbox" id="tog-upload" />
+      </label>
+      <label class="toggle-row">
+        <span>Public downloads</span>
+        <input type="checkbox" id="tog-download" />
+      </label>
+      <label class="toggle-row">
+        <span>Public payloads</span>
+        <input type="checkbox" id="tog-payloads" />
+      </label>
+      <p class="help">Wijzigingen worden direct opgeslagen (localhost-only).</p>
+    </div>
+  </div>
+</div>
+
+<div id="fm-modal" class="modal-overlay d-none">
+  <div class="modal-box modal-lg">
+    <div class="modal-head">
+      <h3>Field Manual</h3>
+      <button id="btn-fm-close" class="modal-close-btn">&times;</button>
+    </div>
+    <div class="fm-toolbar">
+      <input id="fm-filter" type="text" placeholder="Search commands..." />
+      <div class="fm-replace-row">
+        <input id="fm-find" type="text" placeholder="Find..." />
+        <input id="fm-replace" type="text" placeholder="Replace..." />
+        <label class="fm-https-label" title="Replace http:// with https://">
+          <input id="fm-https" type="checkbox" /> https
+        </label>
+      </div>
+    </div>
+    <div id="fm-commands" class="fm-commands"></div>
+  </div>
+</div>
+
+<div id="note-modal" class="modal-overlay d-none">
+  <div class="modal-box modal-md">
+    <div class="modal-head">
+      <h3>Nieuwe notitie</h3>
+      <button id="btn-note-close" class="modal-close-btn">&times;</button>
+    </div>
+    <div class="modal-body">
+      <label for="note-naam" class="form-label">Naam</label>
+      <input id="note-naam" type="text" class="form-control" placeholder="Notitie naam" />
+      <label for="note-uitwerken" class="form-label mt-12">Content</label>
+      <div data-latex-toolbar="note-uitwerken" data-mode="note" data-project-images-url="/api/screenshots"></div>
+      <textarea id="note-uitwerken" rows="10" class="form-control" placeholder="Inhoud..."></textarea>
+      <div class="mt-12 d-flex gap-8 justify-end align-center">
+        <span id="note-status" class="status"></span>
+        <button id="btn-note-save" class="btn btn-primary" type="button">Opslaan</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="finding-modal" class="modal-overlay d-none">
+  <div class="modal-box modal-md">
+    <div class="modal-head">
+      <h3>Nieuwe bevinding</h3>
+      <button id="btn-finding-close" class="modal-close-btn">&times;</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="finding-csrf" name="csrf_token" value="{{ csrf_token() }}" />
+      <label for="finding-template" class="form-label">Template</label>
+      <select id="finding-template" class="form-control">
+        <option value="">-- geen template --</option>
+      </select>
+      <label for="finding-naam" class="form-label mt-12">Naam</label>
+      <input id="finding-naam" type="text" class="form-control" placeholder="Bevinding naam" />
+      <label for="finding-locatie" class="form-label mt-12">Host</label>
+      <input id="finding-locatie" type="text" class="form-control" placeholder="IP / hostname" />
+      <div class="mt-12" data-cvss4-calculator>
+        <div class="cvss4-result">
+          <button type="button" data-cvss-toggle class="btn">CVSS 4.0 Calculator</button>
+          <span data-cvss-score>-</span>
+          <span data-cvss-severity class="badge">-</span>
+        </div>
+        <input type="hidden" id="finding-cvss" data-cvss-vector />
+        <input type="hidden" id="finding-basescore" name="basescore" />
+      </div>
+      <label for="finding-uitwerken" class="form-label mt-12">Beschrijving</label>
+      <div data-latex-toolbar="finding-uitwerken" data-mode="finding" data-project-images-url="/api/screenshots"></div>
+      <textarea id="finding-uitwerken" rows="10" class="form-control" placeholder="Uitwerking..."></textarea>
+      <div class="mt-12 d-flex gap-8 justify-end align-center">
+        <span id="finding-status" class="status"></span>
+        <button id="btn-finding-save" class="btn btn-primary" type="button">Opslaan</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<button id="toTop" class="top" type="button" aria-label="Back to top"><span aria-hidden="true">↑</span></button>
+<script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='niceadmin/assets/js/main.js') }}"></script>
+<script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='js/confirm-handler.js') }}"></script>
+<script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='js/global-search.js') }}"></script>
+<script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='js/cvss4-calculator.js') }}"></script>
+<script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='js/latexeditor.js') }}"></script>
+<script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='js/global-tools.js') }}"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

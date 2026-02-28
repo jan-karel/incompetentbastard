@@ -1,0 +1,13 @@
+# User Hunting - Vind waar DA sessies actief zijn
+# Vind machines waar je local admin bent:
+Find-LocalAdminAccess -Verbose
+# Alternatief via WMI (als SMB/RPC geblokkeerd):
+Find-WMILocalAdminAccess
+Find-PSRemotingLocalAdminAccess
+# Vind waar DA sessies draaien:
+Find-DomainUserLocation -Verbose
+Find-DomainUserLocation -UserGroupIdentity "RDPUsers"
+# Vind DA sessie + check of je admin hebt:
+Find-DomainUserLocation -CheckAccess
+# Stealth (alleen file/DFS servers):
+Find-DomainUserLocation -Stealth

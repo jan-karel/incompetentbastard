@@ -1,0 +1,176 @@
+/* ── Files page styles ───────────────────────────────── */
+
+.files-toolbar {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.files-toolbar input[type="text"] {
+  flex: 1;
+  min-width: 160px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border, #334155);
+  background: var(--surface, #1e293b);
+  color: var(--text, #e2e8f0);
+  font: inherit;
+  font-size: 13px;
+}
+
+/* ── Tab bar ────────────────────────────────────────── */
+.tab-bar {
+  display: flex;
+  gap: 4px;
+}
+
+.tab {
+  padding: 7px 16px;
+  border: 1px solid var(--border, #334155);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted, #94a3b8);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.tab:hover { color: var(--text, #f1f5f9); border-color: var(--primary, #3b82f6); }
+.tab.active {
+  background: var(--primary, #3b82f6);
+  color: #fff;
+  border-color: var(--primary, #3b82f6);
+}
+
+/* ── Tab panels ─────────────────────────────────────── */
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+
+/* ── File table ─────────────────────────────────────── */
+.file-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.file-table th {
+  text-align: left;
+  padding: 8px 10px;
+  border-bottom: 2px solid var(--border, #334155);
+  color: var(--muted, #94a3b8);
+  font-weight: 600;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.file-table td {
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border, #334155);
+}
+.file-table tbody tr:hover {
+  background: rgba(255,255,255,.03);
+}
+
+/* ── File action buttons ────────────────────────────── */
+.file-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.btn-action {
+  font-size: 13px;
+  padding: 3px 8px;
+  border: 1px solid var(--border, #334155);
+  border-radius: 6px;
+  background: var(--surface, #1e293b);
+  color: var(--muted, #94a3b8);
+  cursor: pointer;
+  text-decoration: none;
+  line-height: 1.2;
+  display: inline-flex;
+  align-items: center;
+}
+.btn-action:hover { border-color: var(--primary, #3b82f6); color: var(--text, #f1f5f9); }
+.btn-action.copied { background: var(--success, #22c55e); color: #fff; border-color: transparent; }
+
+/* ── Upload dropzone ────────────────────────────────── */
+.upload-dropzone {
+  border: 2px dashed var(--border, #334155);
+  border-radius: 12px;
+  padding: 40px 20px;
+  text-align: center;
+  color: var(--muted, #94a3b8);
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.upload-dropzone:hover,
+.upload-dropzone.dragover {
+  border-color: var(--primary, #3b82f6);
+  background: rgba(59,130,246,.06);
+  color: var(--text, #f1f5f9);
+}
+
+/* ── Upload list ────────────────────────────────────── */
+.upload-list {
+  margin-top: 12px;
+}
+.upload-item {
+  padding: 8px 12px;
+  border: 1px solid var(--border, #334155);
+  border-radius: 8px;
+  margin-bottom: 6px;
+  font-size: 13px;
+  color: var(--muted, #94a3b8);
+}
+.upload-item.success { color: var(--success, #22c55e); border-color: var(--success, #22c55e); }
+.upload-item.error { color: #ef4444; border-color: #ef4444; }
+
+/* ── Loot groups ────────────────────────────────────── */
+.loot-group {
+  margin-bottom: 8px;
+}
+
+.loot-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  cursor: pointer;
+  border-radius: 6px;
+  user-select: none;
+  transition: background 0.15s;
+}
+.loot-header:hover {
+  background: rgba(255,255,255,.04);
+}
+.loot-header.collapsed .fm-chevron {
+  transform: rotate(-90deg);
+}
+
+.loot-ip {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text, #f1f5f9);
+  font-family: monospace;
+}
+
+.loot-body {
+  padding: 4px 0 4px 18px;
+}
+
+/* ── Preview ────────────────────────────────────────── */
+.preview-code {
+  margin: 0;
+  padding: 12px;
+  background: #0f172a;
+  color: #e2e8f0;
+  font-size: 12px;
+  white-space: pre-wrap;
+  word-break: break-all;
+  border-radius: 8px;
+  max-height: none;
+  overflow: auto;
+}

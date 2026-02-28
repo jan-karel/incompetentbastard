@@ -1,0 +1,22 @@
+# SSTI Detectie - Template engine identificatie
+# Stap 1: Test of template injection mogelijk is
+{{7*7}}
+${7*7}
+<%= 7*7 %>
+#{7*7}
+*{7*7}
+# Stap 2: Engine identificeren via type coercion
+# Jinja2/Twig: {{7*'7'}} -> '7777777' (Jinja2) of 49 (Twig)
+# Freemarker: ${"freemarker"} -> freemarker (Java string)
+# Pug: #{7*7} -> 49 (indentation-based syntax)
+# Handlebars: {{this}} -> [object Object]
+# ERB (Ruby): <%= 7*7 %> -> 49
+# Stap 3: Beslisboom
+# {{7*7}}=49 -> Jinja2 of Twig?
+#   {{7*'7'}}='7777777' -> Jinja2 (Python)
+#   {{7*'7'}}=49 -> Twig (PHP)
+# ${7*7}=49 -> Freemarker (Java) of Smarty (PHP)?
+#   ${"test"} werkt -> Freemarker
+# #{7*7}=49 -> Pug/Jade (Node.js) of Ruby
+# Tip: Gebruik Burp Suite Intruder met SSTI wordlist voor fuzzing
+# Tip: Check foutmeldingen - onthullen vaak template engine naam+versie

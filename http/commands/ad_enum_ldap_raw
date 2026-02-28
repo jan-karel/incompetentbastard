@@ -1,0 +1,41 @@
+# Raw LDAP AD Enumeratie - zonder PowerView (DirectorySearcher / ldapsearch)
+# === PowerShell DirectorySearcher (geen modules nodig) ===
+# Alle gebruikers:
+powershell -c "([adsisearcher]'(objectCategory=user)').FindAll() | % { $_.Properties.samaccountname }"
+# Alle computers:
+powershell -c "([adsisearcher]'(objectCategory=computer)').FindAll() | % { $_.Properties.cn }"
+# Alle groepen:
+powershell -c "([adsisearcher]'(objectCategory=group)').FindAll() | % { $_.Properties.cn }"
+# Domain Admins leden:
+powershell -c "([adsisearcher]'(&(objectCategory=user)(memberOf=CN=Domain Admins,CN=Users,DC=domain,DC=local))').FindAll() | % { $_.Properties.samaccountname }"
+# Gebruikers met SPN (Kerberoastable):
+powershell -c "([adsisearcher]'(&(objectCategory=user)(servicePrincipalName=*))').FindAll() | % { $_.Properties.samaccountname; $_.Properties.serviceprincipalname }"
+# Gebruikers met DONT_REQ_PREAUTH (AS-REP Roastable):
+powershell -c "([adsisearcher]'(&(objectCategory=user)(userAccountControl:1.2.840.113556.1.4.803:=4194304))').FindAll() | % { $_.Properties.samaccountname }"
+# Uitgeschakelde accounts:
+powershell -c "([adsisearcher]'(&(objectCategory=user)(userAccountControl:1.2.840.113556.1.4.803:=2))').FindAll() | % { $_.Properties.samaccountname }"
+# Wachtwoord nooit verloopt:
+powershell -c "([adsisearcher]'(&(objectCategory=user)(userAccountControl:1.2.840.113556.1.4.803:=65536))').FindAll() | % { $_.Properties.samaccountname }"
+# === .NET DirectoryEntry (specifieke LDAP path) ===
+# Domain info:
+powershell -c "$d = [System.DirectoryServices.ActiveDirectory.Domain]::GetCurrentDomain(); $d.Name; $d.DomainControllers"
+# Forest info:
+powershell -c "[System.DirectoryServices.ActiveDirectory.Forest]::GetCurrentForest() | % { $_.Domains; $_.GlobalCatalogs }"
+# Trust relaties:
+powershell -c "([System.DirectoryServices.ActiveDirectory.Domain]::GetCurrentDomain()).GetAllTrustRelationships()"
+# === Linux ldapsearch ===
+# Anoniem:
+ldapsearch -x -H ldap://DC_IP -b "DC=domain,DC=local" "(objectClass=*)"
+# Authenticated:
+ldapsearch -x -H ldap://DC_IP -D "user@domain.local" -w 'PASSWORD' -b "DC=domain,DC=local" "(objectCategory=user)" sAMAccountName
+# Domain Admins:
+ldapsearch -x -H ldap://DC_IP -D "user@domain.local" -w 'PASSWORD' -b "DC=domain,DC=local" "(&(objectCategory=user)(memberOf=CN=Domain Admins,CN=Users,DC=domain,DC=local))" sAMAccountName
+# Password policy:
+ldapsearch -x -H ldap://DC_IP -D "user@domain.local" -w 'PASSWORD' -b "DC=domain,DC=local" "(objectClass=domainDNS)" ms-DS-MachineAccountQuota minPwdLength lockoutThreshold
+# === windapsearch (Python) ===
+windapsearch -d domain.local --dc-ip DC_IP -u user@domain.local -p PASSWORD --da
+windapsearch -d domain.local --dc-ip DC_IP -u user@domain.local -p PASSWORD --computers
+windapsearch -d domain.local --dc-ip DC_IP -u user@domain.local -p PASSWORD --groups
+# Tip: [adsisearcher] werkt op elk domein-joined Windows zonder extra tools
+# Tip: LDAP filter 1.2.840.113556.1.4.803 = bitwise AND operator
+# Tip: Gebruik ldapsearch -LLL voor schonere output

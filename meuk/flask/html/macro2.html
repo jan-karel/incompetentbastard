@@ -1,0 +1,68 @@
+{% extends "bootstrap/base.html" %}
+{% block title %}Macro v2 Generator{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/generator.css') }}" />
+{% endblock %}
+
+{% block content %}
+<div class="gen-header">
+  <div class="breadcrumbs"><a href="/">Dashboard</a> / Macro v2 Generator</div>
+  <h1>Office Macro v2 Generator</h1>
+  <p>Genereer VBA macro shellcode via msfvenom met LURI ondersteuning. Upload optioneel een .docx of .xlsx template om een macro-enabled document te maken.</p>
+</div>
+
+<section class="card">
+  <div class="card-head"><h2>Configuratie</h2></div>
+  <div class="card-body">
+    <form id="gen-form" data-api="/api/macro2/generate" enctype="multipart/form-data">
+      <div class="gen-form">
+        <div class="field">
+          <label for="lhost">LHOST <span class="help">(verplicht)</span></label>
+          <input class="input" type="text" id="lhost" name="lhost" placeholder="10.0.0.1" required />
+        </div>
+        <div class="field">
+          <label for="lport">LPORT</label>
+          <input class="input" type="text" id="lport" name="lport" value="443" placeholder="443" />
+        </div>
+        <div class="field">
+          <label for="luri">LURI</label>
+          <input class="input" type="text" id="luri" name="luri" value="/" placeholder="/" />
+          <span class="help">URI pad voor staged payload.</span>
+        </div>
+        <div class="field span-2">
+          <label for="payload">Payload</label>
+          <select class="input" id="payload" name="payload">
+            {% for p in payloads %}
+            <option value="{{ p }}" {% if p == 'windows/meterpreter/reverse_https' %}selected{% endif %}>{{ p }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="field span-2">
+          <label for="template">Template <span class="help">(optioneel, .docx of .xlsx)</span></label>
+          <input class="input" type="file" id="template" name="template" accept=".docx,.xlsx" />
+          <span class="help">Upload een Word of Excel document voor macro injectie.</span>
+        </div>
+      </div>
+      <div class="gen-actions">
+        <button type="submit" id="gen-btn" class="btn btn-primary">Genereer macro v2</button>
+        <span id="gen-status" class="status"></span>
+      </div>
+    </form>
+    <div id="gen-download" class="gen-download">
+      <a id="gen-dl-link" href="#" class="btn btn-success">Download gegenereerd document</a>
+    </div>
+  </div>
+</section>
+
+<section class="card mt-14">
+  <div class="card-head"><h2>Output</h2></div>
+  <div class="card-body">
+    <pre id="gen-output" class="gen-output"></pre>
+  </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='js/generator.js') }}"></script>
+{% endblock %}

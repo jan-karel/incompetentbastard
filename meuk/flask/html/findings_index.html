@@ -1,0 +1,229 @@
+{% extends "bootstrap/base.html" %}
+{% block title %}Findings{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/safe-overview.css') }}" />
+<link rel="stylesheet" href="{{ url_for('static', filename='css/findings-filter.css') }}" />
+{% endblock %}
+
+{% block content %}
+<div class="page-title">
+  <div>
+    <h1>Findings</h1>
+    <div class="breadcrumbs"><a href="/">Home</a> / Findings</div>
+  </div>
+</div>
+
+<div class="grid cols-4 mb-14">
+  <section class="card"><div class="card-body"><div class="val">{{ findings|length }}</div><div class="sub">Total findings</div></div></section>
+  <section class="card"><div class="card-body"><div class="val">{{ templates|length }}</div><div class="sub">Templates</div></div></section>
+  <section class="card"><div class="card-body"><div class="val">{{ findings|selectattr('status','equalto','final')|list|length }}</div><div class="sub">Definitief</div></div></section>
+  <section class="card"><div class="card-body">
+    <a class="btn btn-primary" href="/dashboard/report">Report dashboard</a>
+  </div></section>
+</div>
+
+{# Import / Export / Seed #}
+<section class="card mb-14">
+  <div class="card-head"><h2>Import &amp; Export</h2></div>
+  <div class="card-body">
+    <div class="grid cols-2 gap-16">
+      <div>
+        <h3 class="fs-14 m-0 mb-8">Export</h3>
+        <div class="d-flex gap-8 flex-wrap">
+          <a class="btn" href="/api/findings/export" target="_blank">Export findings (JSON)</a>
+          <a class="btn" href="/api/findings/evidence/export">Export evidence (ZIP)</a>
+          <a class="btn" href="/api/findings/export/csv">Export CSV</a>
+        </div>
+      </div>
+      <div>
+        <h3 class="fs-14 m-0 mb-8">Import findings</h3>
+        <form action="/dashboard/findings/import" method="post" enctype="multipart/form-data" class="d-flex gap-8 items-center flex-wrap">
+          <input type="file" name="file" accept=".json,application/json" required class="fs-13" />
+          <button type="submit" class="btn">Import JSON</button>
+        </form>
+      </div>
+    </div>
+    <hr class="hr-sep" />
+    <div>
+      <h3 class="fs-14 m-0 mb-8">Standaard bevindingen</h3>
+      <p class="help m-0 mb-8">Overschrijf alle finding templates met de 227 standaard bevindingen uit hacksec-patched (OWASP, CWE, CVSS 4.0).</p>
+      <form action="/dashboard/findings/templates/seed" method="post" data-confirm-submit="Alle bestaande templates worden overschreven. Doorgaan?" class="d-inline">
+        <button type="submit" class="btn btn-primary">Laad standaard bevindingen</button>
+      </form>
+    </div>
+  </div>
+</section>
+
+<div class="grid cols-2">
+  <section class="card">
+    <div class="card-head">
+      <h2>Templates</h2>
+      <a class="btn ml-auto" href="/dashboard/findings/templates/new">+ Nieuwe template</a>
+    </div>
+    <div class="card-body">
+      {% if templates %}
+      <ul class="list-plain">
+        {% for t in templates %}
+        <li>
+          <div class="row-line">
+            <div>
+              <strong>[{{ '%03d'|format(t.id) }}] {{ t.titel }}</strong>
+              <div class="help">{{ t.bevtype }}{% if t.owasp %} &bull; {{ t.owasp | owaspcategorie }}{% endif %}</div>
+            </div>
+            <div class="d-flex gap-6 items-center">
+              <a class="btn" href="/dashboard/findings/add/{{ t.id }}">Add finding</a>
+              <a class="btn" href="/dashboard/findings/templates/edit/{{ t.id }}">edit</a>
+              <a class="btn" href="/dashboard/findings/templates/delete/{{ t.id }}" data-confirm="Template {{ t.titel }} verwijderen?">delete</a>
+            </div>
+          </div>
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p class="help">No finding templates available.</p>
+      {% endif %}
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card-head"><h2>Existing Findings</h2></div>
+    <div class="card-body">
+      {# Filter bar #}
+      <div class="filter-bar">
+        <input type="text" id="filter-search" placeholder="Search name/host..." />
+        <select id="filter-severity">
+          <option value="">All severities</option>
+          <option value="critical">Critical</option>
+          <option value="high">High</option>
+          <option value="medium">Medium</option>
+          <option value="low">Low</option>
+          <option value="none">None</option>
+        </select>
+        <select id="filter-status">
+          <option value="">All statuses</option>
+          <option value="draft">Concept</option>
+          <option value="final">Definitief</option>
+          <option value="closed">Gesloten</option>
+        </select>
+        <select id="filter-remediation">
+          <option value="">All remediation</option>
+          <option value="open">Open</option>
+          <option value="in_progress">In progress</option>
+          <option value="fixed">Fixed</option>
+          <option value="verified">Verified</option>
+          <option value="accepted">Accepted</option>
+        </select>
+      </div>
+      {# Batch bar #}
+      <div class="batch-bar">
+        <select id="batch-action">
+          <option value="">Batch action...</option>
+          <option value="set_status:draft">Set status: Concept</option>
+          <option value="set_status:final">Set status: Definitief</option>
+          <option value="set_status:closed">Set status: Gesloten</option>
+          <option value="set_remediation:open">Remediation: Open</option>
+          <option value="set_remediation:in_progress">Remediation: In progress</option>
+          <option value="set_remediation:fixed">Remediation: Fixed</option>
+          <option value="set_remediation:verified">Remediation: Verified</option>
+          <option value="delete:">Delete selected</option>
+        </select>
+        <button class="btn" id="batch-execute">Execute</button>
+      </div>
+      {% if findings %}
+      <table class="table compact" id="findings-table">
+        <thead>
+          <tr>
+            <th><input type="checkbox" class="batch-check-all" id="batch-check-all" /></th>
+            <th>ID</th><th>Name</th><th>Host</th><th>CVSS</th><th>Status</th><th>Remediation</th><th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for f in findings|reverse %}
+          <tr data-name="{{ f.naam }}" data-host="{{ f.locatie }}" data-status="{{ f.status or 'draft' }}" data-remediation="{{ f.remediation_status or 'open' }}" data-severity="">
+            <td><input type="checkbox" class="batch-check" data-id="{{ f.id }}" /></td>
+            <td>{{ f.id | nulvul }}</td>
+            <td>{{ f.naam }}</td>
+            <td>{{ f.locatie }}</td>
+            <td>{{ f.basescore or '-' }}</td>
+            <td>
+              <select class="status-inline" data-finding-id="{{ f.id }}">
+                <option value="draft"{% if (f.status or 'draft') == 'draft' %} selected{% endif %}>Concept</option>
+                <option value="final"{% if f.status == 'final' %} selected{% endif %}>Definitief</option>
+                <option value="closed"{% if f.status == 'closed' %} selected{% endif %}>Gesloten</option>
+              </select>
+            </td>
+            <td>
+              <select class="remediation-inline" data-finding-id="{{ f.id }}">
+                <option value="open"{% if (f.remediation_status or 'open') == 'open' %} selected{% endif %}>Open</option>
+                <option value="in_progress"{% if f.remediation_status == 'in_progress' %} selected{% endif %}>In progress</option>
+                <option value="fixed"{% if f.remediation_status == 'fixed' %} selected{% endif %}>Fixed</option>
+                <option value="verified"{% if f.remediation_status == 'verified' %} selected{% endif %}>Verified</option>
+                <option value="accepted"{% if f.remediation_status == 'accepted' %} selected{% endif %}>Accepted</option>
+              </select>
+            </td>
+            <td>
+              <a href="/dashboard/findings/edit/{{ f.id }}">edit</a>
+              <span> &bull; </span>
+              <a href="/dashboard/findings/delete/{{ f.id }}" data-confirm="Delete finding {{ f.id }}?">delete</a>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <p class="help">No findings yet.</p>
+      {% endif %}
+    </div>
+  </section>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='js/findings-filter.js') }}"></script>
+<script nonce="{{ csp_nonce }}">
+(function() {
+  "use strict";
+
+  // ── Inline status change ────────────────────────
+  document.querySelectorAll(".status-inline").forEach(function(sel) {
+    sel.addEventListener("change", function() {
+      var id = sel.getAttribute("data-finding-id");
+      var status = sel.value;
+      fetch("/api/findings/" + id + "/status", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({status: status})
+      })
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        if (d.ok) {
+          sel.style.borderColor = "var(--success, #22c55e)";
+          setTimeout(function() { sel.style.borderColor = ""; }, 1200);
+        }
+      });
+    });
+  });
+
+  // ── Inline remediation change ────────────────────
+  document.querySelectorAll(".remediation-inline").forEach(function(sel) {
+    sel.addEventListener("change", function() {
+      var id = sel.getAttribute("data-finding-id");
+      var status = sel.value;
+      fetch("/api/findings/" + id + "/remediation", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({status: status})
+      })
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        if (d.ok) {
+          sel.style.borderColor = "var(--success, #22c55e)";
+          setTimeout(function() { sel.style.borderColor = ""; }, 1200);
+        }
+      });
+    });
+  });
+})();
+</script>
+{% endblock %}

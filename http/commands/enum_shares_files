@@ -1,0 +1,10 @@
+# Shares en bestanden enumereren
+# Shares zoeken:
+Invoke-ShareFinder -Verbose
+# Gevoelige bestanden zoeken:
+Invoke-FileFinder -Verbose
+# File servers:
+Get-NetFileServer
+# Local groups op een machine (admin nodig op non-DC):
+Get-NetLocalGroup -ComputerName target
+Get-NetLocalGroupMember -ComputerName target -GroupName Administrators

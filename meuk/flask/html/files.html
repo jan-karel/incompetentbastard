@@ -1,0 +1,157 @@
+{% extends "bootstrap/base.html" %}
+{% block title %}Files{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/files.css') }}" />
+{% endblock %}
+
+{% block content %}
+<div class="page-title">
+  <div>
+    <h1>Files</h1>
+    <div class="breadcrumbs"><a href="/">Home</a> / Files</div>
+  </div>
+</div>
+
+<div class="files-toolbar">
+  <input type="text" id="file-filter" placeholder="Filter bestanden..." autocomplete="off" />
+  <div class="tab-bar">
+    <button class="tab active" data-tab="tools">Tools</button>
+    <button class="tab" data-tab="payloads">Payloads</button>
+    <button class="tab" data-tab="loot">Loot</button>
+    <button class="tab" data-tab="upload">Upload</button>
+  </div>
+</div>
+
+<!-- Tools tab -->
+<div class="tab-panel active" id="panel-tools">
+  <section class="card">
+    <div class="card-head"><h2>Tools Mini</h2></div>
+    <div class="card-body">
+      {% if tools_mini %}
+      <table class="file-table">
+        <thead><tr><th>Name</th><th>Size</th><th>Modified</th><th>Actions</th></tr></thead>
+        <tbody>
+          {% for f in tools_mini %}
+          <tr class="file-row" data-name="{{ f.name|lower }}" data-url="{{ f.url }}">
+            <td>{{ f.name }}</td>
+            <td>{{ f.size|filesizeformat }}</td>
+            <td>{{ f.modified|int }}</td>
+            <td class="file-actions">
+              <a class="btn-action" href="{{ f.url }}" title="Download">&#8595;</a>
+              <button class="btn-action btn-copy-url" data-url="{{ f.url }}" title="Copy URL">&#128203;</button>
+              {% if f.previewable %}
+              <button class="btn-action btn-preview" data-cat="tools_mini" data-file="{{ f.name }}" title="Preview">&#128065;</button>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <p class="help">Geen bestanden in <code>http/tools/mini</code>.</p>
+      {% endif %}
+    </div>
+  </section>
+
+  <section class="card mt-16">
+    <div class="card-head"><h2>Tools</h2></div>
+    <div class="card-body">
+      {% if tools %}
+      <table class="file-table">
+        <thead><tr><th>Name</th><th>Size</th><th>Modified</th><th>Actions</th></tr></thead>
+        <tbody>
+          {% for f in tools %}
+          <tr class="file-row" data-name="{{ f.name|lower }}" data-url="{{ f.url }}">
+            <td>{{ f.name }}</td>
+            <td>{{ f.size|filesizeformat }}</td>
+            <td>{{ f.modified|int }}</td>
+            <td class="file-actions">
+              <a class="btn-action" href="{{ f.url }}" title="Download">&#8595;</a>
+              <button class="btn-action btn-copy-url" data-url="{{ f.url }}" title="Copy URL">&#128203;</button>
+              {% if f.previewable %}
+              <button class="btn-action btn-preview" data-cat="tools" data-file="{{ f.name }}" title="Preview">&#128065;</button>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <p class="help">Geen bestanden in <code>http/tools</code>.</p>
+      {% endif %}
+    </div>
+  </section>
+</div>
+
+<!-- Payloads tab -->
+<div class="tab-panel" id="panel-payloads">
+  <section class="card">
+    <div class="card-head"><h2>Payloads</h2></div>
+    <div class="card-body">
+      {% if payloads %}
+      <table class="file-table">
+        <thead><tr><th>Name</th><th>Size</th><th>Modified</th><th>Actions</th></tr></thead>
+        <tbody>
+          {% for f in payloads %}
+          <tr class="file-row" data-name="{{ f.name|lower }}" data-url="{{ f.url }}">
+            <td>{{ f.name }}</td>
+            <td>{{ f.size|filesizeformat }}</td>
+            <td>{{ f.modified|int }}</td>
+            <td class="file-actions">
+              <a class="btn-action" href="{{ f.url }}" title="Download">&#8595;</a>
+              <button class="btn-action btn-copy-url" data-url="{{ f.url }}" title="Copy URL">&#128203;</button>
+              {% if f.previewable %}
+              <button class="btn-action btn-preview" data-cat="payloads" data-file="{{ f.name }}" title="Preview">&#128065;</button>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <p class="help">Geen bestanden in <code>http/payloads</code>.</p>
+      {% endif %}
+    </div>
+  </section>
+</div>
+
+<!-- Loot tab -->
+<div class="tab-panel" id="panel-loot">
+  <section class="card">
+    <div class="card-head"><h2>Loot</h2></div>
+    <div class="card-body" id="loot-container">
+      <p class="help">Laden...</p>
+    </div>
+  </section>
+</div>
+
+<!-- Upload tab -->
+<div class="tab-panel" id="panel-upload">
+  <section class="card">
+    <div class="card-head"><h2>Upload</h2></div>
+    <div class="card-body">
+      <div class="upload-dropzone" id="upload-dropzone">
+        Sleep bestanden hierheen of klik om te kiezen
+        <input type="file" id="upload-input" multiple class="d-none" />
+      </div>
+      <div class="upload-list" id="upload-list"></div>
+    </div>
+  </section>
+</div>
+
+<!-- Preview modal -->
+<div class="modal-overlay d-none" id="preview-modal">
+  <div class="modal-box modal-lg">
+    <div class="modal-head">
+      <h3 id="preview-title">Preview</h3>
+      <button class="modal-close-btn" id="btn-preview-close">&times;</button>
+    </div>
+    <div class="modal-body flex-1 overflow-auto">
+      <pre class="preview-code" id="preview-content"></pre>
+    </div>
+  </div>
+</div>
+
+<script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='js/files.js') }}"></script>
+{% endblock %}

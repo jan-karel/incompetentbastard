@@ -1,0 +1,13 @@
+# Domain trusts en forests enumereren
+# Trusts:
+Get-DomainTrust
+Get-ADTrust -Filter *
+# Forest info:
+Get-Forest
+Get-ForestDomain
+Get-ForestGlobalCatalog
+Get-ForestTrust
+# AD Module:
+Get-ADForest | select Domains,GlobalCatalogs
+(Get-ADForest).Domains
+Get-ADTrust -Filter 'msDS-TrustForestTrustInfo -ne "$null"'

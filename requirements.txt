@@ -1,0 +1,11 @@
+Flask
+Flask-SQLAlchemy
+Flask-Migrate
+Flask-Admin
+Flask-WTF
+requests
+urllib3
+beautifulsoup4
+sh
+cvss
+python-pptx

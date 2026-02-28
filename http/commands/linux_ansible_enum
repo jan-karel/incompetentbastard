@@ -1,0 +1,5 @@
+# Ansible credential enumeratie
+find / -name "*.yml" -path "*/ansible/*" 2>/dev/null | head -20
+find / -name "vault*" -path "*/ansible/*" 2>/dev/null
+cat /etc/ansible/hosts 2>/dev/null
+grep -ri "ansible_ssh_pass\|ansible_become_pass\|vault_password" /etc/ansible/ 2>/dev/null

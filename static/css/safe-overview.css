@@ -1,0 +1,65 @@
+.table.compact th,
+.table.compact td {
+  padding: 8px;
+}
+
+.list-plain {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.list-plain li {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.list-plain.small li {
+  font-size: 13px;
+}
+
+.row-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.val {
+  font-size: 28px;
+  font-weight: 700;
+}
+
+.sub {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.help {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.status-inline {
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--text);
+  border-radius: 6px;
+  padding: 4px 6px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: border-color 0.3s;
+}
+
+.form-label {
+  display: block;
+  font-size: 13px;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+
+.hr-sep {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 16px 0;
+}

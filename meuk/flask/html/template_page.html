@@ -1,0 +1,114 @@
+{% extends "bootstrap/base.html" %}
+{% block title %}Template{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/finding-form.css') }}" />
+<link rel="stylesheet" href="{{ url_for('static', filename='css/cvss4-calculator.css') }}" />
+<link rel="stylesheet" href="{{ url_for('static', filename='css/latexeditor.css') }}" />
+{% endblock %}
+
+{% block content %}
+<div class="page-title">
+  <div>
+    <h1>Template Editor</h1>
+    <div class="breadcrumbs"><a href="/">Home</a> / <a href="/dashboard/findings">Findings</a> / Template</div>
+  </div>
+</div>
+
+<section class="card">
+  <div class="card-head">
+    <h2>{{ title }}</h2>
+  </div>
+  <div class="card-body">
+    <form action="/dashboard/findings/templates/save" method="post" class="finding-form">
+      {{ form.hidden_tag() }}
+
+      <div class="form-grid">
+        <div>
+          <label for="titel">Titel</label>
+          {{ form.titel(id='titel', class='form-control') }}
+        </div>
+        <div>
+          <label for="bevtype">Type / code</label>
+          {{ form.bevtype(id='bevtype', class='form-control') }}
+        </div>
+      </div>
+
+      <div class="form-grid">
+        <div>
+          <label for="owasp">OWASP Top 10</label>
+          {{ form.owasp(id='owasp', class='form-control') }}
+        </div>
+        <div>
+          <label for="cwe">CWE</label>
+          {{ form.cwe(id='cwe', class='form-control', placeholder='bijv. 79') }}
+        </div>
+        <div>
+          <label for="mitre">MITRE ATT&amp;CK</label>
+          {{ form.mitre(id='mitre', class='form-control', placeholder='bijv. T1059') }}
+        </div>
+      </div>
+
+      {# CVSS 4.0 Calculator #}
+      <div data-cvss4-calculator>
+        <div class="cvss4-result">
+          <button type="button" data-cvss-toggle class="btn">CVSS 4.0 Calculator</button>
+          <span data-cvss-score>-</span>
+          <span data-cvss-severity class="badge">-</span>
+        </div>
+        {{ form.cvss(id='cvss', class='form-control', data_cvss_vector='') }}
+        {{ form.basescore(id='basescore', class='form-control') }}
+      </div>
+
+      <div>
+        <label for="nlbeschrijving">Beschrijving (NL)</label>
+        <div data-latex-toolbar="nlbeschrijving" data-mode="finding" data-project-images-url="/api/screenshots"></div>
+        {{ form.nlbeschrijving(id='nlbeschrijving', rows='6', class='form-control') }}
+      </div>
+
+      <div>
+        <label for="enbeschrijving">Beschrijving (EN)</label>
+        <div data-latex-toolbar="enbeschrijving" data-mode="finding" data-project-images-url="/api/screenshots"></div>
+        {{ form.enbeschrijving(id='enbeschrijving', rows='6', class='form-control') }}
+      </div>
+
+      <div>
+        <label for="nlimpact">Impact (NL)</label>
+        {{ form.nlimpact(id='nlimpact', rows='4', class='form-control') }}
+      </div>
+
+      <div>
+        <label for="enimpact">Impact (EN)</label>
+        {{ form.enimpact(id='enimpact', rows='4', class='form-control') }}
+      </div>
+
+      <div>
+        <label for="nlaanbeveling">Aanbeveling (NL)</label>
+        <div data-latex-toolbar="nlaanbeveling" data-mode="finding" data-project-images-url="/api/screenshots"></div>
+        {{ form.nlaanbeveling(id='nlaanbeveling', rows='4', class='form-control') }}
+      </div>
+
+      <div>
+        <label for="enaanbeveling">Aanbeveling (EN)</label>
+        <div data-latex-toolbar="enaanbeveling" data-mode="finding" data-project-images-url="/api/screenshots"></div>
+        {{ form.enaanbeveling(id='enaanbeveling', rows='4', class='form-control') }}
+      </div>
+
+      <div>
+        <label for="referenties">Referenties</label>
+        {{ form.referenties(id='referenties', rows='3', class='form-control', placeholder='Eén referentie per regel') }}
+      </div>
+
+      <div class="form-actions">
+        {{ form.submit(class='btn btn-primary') }}
+        <a class="btn" href="/dashboard/findings">Annuleren</a>
+      </div>
+    </form>
+  </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='js/cvss4-calculator.js') }}"></script>
+<script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='js/latexeditor.js') }}"></script>
+{% endblock %}

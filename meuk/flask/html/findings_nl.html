@@ -49,6 +49,17 @@ Risico inschatting
 \subsubsection{aanbeveling}
 {{template.nlaanbeveling | safe}}
 
+{% for x in bevinding %}
+{% if evidence.get(x.id) %}
+\subsubsection'[{'Bewijs ({{ x.naam }})'}]'
+\begin'[{'itemize'}]'
+{% for e in evidence[x.id] %}
+\item '[{'{{ e.original_filename }}'}]'
+{% endfor %}
+\end'[{'itemize'}]'
+{% endif %}
+{% endfor %}
+
 \subsubsection{Referenties}
 {{template.referenties | safe}}
 

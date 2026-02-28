@@ -1,0 +1,17 @@
+{% macro quick_form(form, action='', method='post') -%}
+<form action="{{ action }}" method="{{ method }}">
+  {{ form.hidden_tag() }}
+  {% for field in form if field.type not in ['CSRFTokenField', 'HiddenField', 'SubmitField'] %}
+  <div class="mb-10">
+    {% if field.label %}<label>{{ field.label.text }}</label>{% endif %}
+    {{ field(class='form-control') }}
+    {% if field.errors %}
+      <small class="text-error">{{ field.errors|join(', ') }}</small>
+    {% endif %}
+  </div>
+  {% endfor %}
+  {% for field in form if field.type == 'SubmitField' %}
+    {{ field(class='btn btn-primary') }}
+  {% endfor %}
+</form>
+{%- endmacro %}

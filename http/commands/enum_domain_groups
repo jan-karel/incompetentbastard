@@ -1,0 +1,10 @@
+# Domain groups enumereren
+# PowerView:
+Get-DomainGroup | select Name
+Get-DomainGroup *admin* | select Name
+Get-DomainGroupMember -Identity "Domain Admins" -Recurse | select MemberName
+# AD Module:
+Get-ADGroup -Filter 'Name -like "*admin*"' | select Name
+Get-ADGroupMember -Identity "Domain Admins" -Recursive | select Name
+# Groep membership van een user:
+Get-DomainGroup -UserName "targetuser"

@@ -1,0 +1,51 @@
+.output-list {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  max-height: 520px;
+  overflow: auto;
+  padding: 6px;
+}
+
+.output-item {
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 8px;
+  display: grid;
+  gap: 4px;
+  margin-bottom: 6px;
+  cursor: pointer;
+}
+
+.output-item:hover {
+  border-color: var(--border);
+  background: color-mix(in srgb, var(--card) 92%, #000 8%);
+}
+
+.output-item.active {
+  border-color: var(--primary);
+}
+
+.output-item small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.code-block {
+  margin: 10px 0 0;
+  min-height: 360px;
+  max-height: 560px;
+  overflow: auto;
+  background: #0f172a;
+  color: #e2e8f0;
+  padding: 12px;
+  border-radius: 8px;
+  font-size: 12px;
+}
+
+.help {
+  color: var(--muted);
+  font-size: 13px;
+}

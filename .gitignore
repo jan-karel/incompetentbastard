@@ -1,2 +1,13 @@
 .DS_STORE
-
+__pycache__/
+*.py[cod]
+*.swp
+.pytest_cache/
+.venv/
+venv/
+.env
+meuk/flask/db/*.sqlite
+raw/loot/
+raw/screenshots/
+meuk/logs/
+rapport/

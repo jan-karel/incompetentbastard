@@ -1,0 +1,31 @@
+# OSINT / Passive Reconnaissance
+# === recon-ng framework ===
+recon-ng
+# marketplace search github
+# marketplace install recon/domains-hosts/google_site_web
+# modules load recon/domains-hosts/google_site_web
+# options set SOURCE target.com
+# run
+# === theHarvester (emails, subdomains, IPs) ===
+theHarvester -d target.com -b google,bing,linkedin -l 500
+theHarvester -d target.com -b all
+# === Shodan CLI ===
+shodan search hostname:target.com
+shodan host TARGET_IP
+shodan search "Apache" net:TARGET_RANGE/24
+# === Google Dorks ===
+# site:target.com filetype:pdf
+# site:target.com filetype:xlsx
+# site:target.com ext:php inurl:admin
+# site:target.com intitle:"index of" "parent directory"
+# site:target.com inurl:login
+# site:target.com ext:sql | ext:db | ext:bak
+# === Netcraft ===
+# https://searchdns.netcraft.com/?restriction=site+contains&host=target.com
+# === Whois ===
+whois target.com
+whois TARGET_IP
+# === Certificate Transparency ===
+# https://crt.sh/?q=%.target.com
+curl -s "https://crt.sh/?q=%25.target.com&output=json" | jq '.[].name_value' | sort -u
+# Tip: Start altijd met passive recon voordat je scant

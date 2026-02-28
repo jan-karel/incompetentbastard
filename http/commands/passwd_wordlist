@@ -1,0 +1,41 @@
+# Wordlist Generatie - crunch, cewl, John rules, Hashcat
+# === Crunch (patroon-gebaseerde woordlijsten) ===
+# Syntax: crunch <min> <max> <charset> -o output.txt
+crunch 8 8 aA1! -o wordlist.txt
+# Met patroon (-t):
+# @ = lowercase, , = uppercase, % = nummer, ^ = symbool
+crunch 10 10 -t Company%%^^ -o company_passwords.txt
+crunch 8 8 -t @@@@%%%% -o names_numbers.txt
+# Specifieke charset:
+crunch 6 6 0123456789 -o pins.txt
+# === CeWL (website scraping voor woordlijsten) ===
+cewl https://TARGET_SITE -d 3 -m 5 -w cewl_wordlist.txt
+# Met e-mailadressen:
+cewl https://TARGET_SITE -d 3 -m 5 -e --email_file emails.txt -w cewl_wordlist.txt
+# Met usernames:
+cewl https://TARGET_SITE --meta --meta_file meta.txt -w cewl_wordlist.txt
+# === John the Ripper Rules ===
+# Pas regels toe op bestaande woordlijst:
+john --wordlist=wordlist.txt --rules=best64 --stdout > mutated.txt
+john --wordlist=wordlist.txt --rules=KoreLogic --stdout > mutated.txt
+# Custom rule in john.conf:
+# [List.Rules:Custom]
+# Az"[0-9][0-9]"  (voeg 2 cijfers toe)
+# c                (capitalize)
+# $[!@#$%]         (voeg symbool toe)
+john --wordlist=wordlist.txt --rules=Custom --stdout > mutated.txt
+# === Hashcat Rules ===
+# Toepassen:
+hashcat -r /usr/share/hashcat/rules/best64.rule --stdout wordlist.txt > mutated.txt
+# Meerdere regels combineren:
+hashcat -r rule1.rule -r rule2.rule --stdout wordlist.txt > mutated.txt
+# Nuttige ingebouwde rules:
+# /usr/share/hashcat/rules/best64.rule
+# /usr/share/hashcat/rules/rockyou-30000.rule
+# /usr/share/hashcat/rules/OneRuleToRuleThemAll.rule
+# === Veelgebruikte woordlijsten ===
+# /usr/share/wordlists/rockyou.txt
+# /usr/share/seclists/Passwords/Common-Credentials/
+# /usr/share/seclists/Usernames/Names/names.txt
+# Tip: Combineer cewl output met crunch patterns voor bedrijfsspecifieke lijsten
+# Tip: Seizoen+Jaar patronen: Summer2024!, Winter2024!, Welkom2024!

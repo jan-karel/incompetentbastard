@@ -1,0 +1,31 @@
+# DNS Reconnaissance - Zone Transfers en Enumeration
+# === Zone Transfer (AXFR) ===
+host -l target.com ns1.target.com
+dig axfr target.com @ns1.target.com
+# === dnsrecon ===
+dnsrecon -d target.com -t axfr
+# Brute force subdomains:
+dnsrecon -d target.com -t brt -D /usr/share/seclists/Discovery/DNS/subdomains-top1million-5000.txt
+# Standaard enum:
+dnsrecon -d target.com
+# === dnsenum ===
+dnsenum target.com
+dnsenum --dnsserver ns1.target.com target.com
+# === Handmatig DNS records opvragen ===
+host target.com
+host -t MX target.com
+host -t TXT target.com
+host -t NS target.com
+host -t AAAA target.com
+# === dig specifieke records ===
+dig target.com ANY
+dig target.com MX
+dig target.com TXT
+dig @ns1.target.com target.com AXFR
+# === Reverse DNS sweep ===
+dnsrecon -r TARGET_RANGE/24
+# Of handmatig:
+for ip in $(seq 1 254); do host 10.0.0.$ip; done | grep -v "not found"
+# === Subdomain brute force ===
+gobuster dns -d target.com -w /usr/share/seclists/Discovery/DNS/subdomains-top1million-5000.txt -t 50
+# Tip: Zone transfers zijn zeldzaam maar zeer waardevol als ze werken

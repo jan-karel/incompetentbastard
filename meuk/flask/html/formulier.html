@@ -1,15 +1,47 @@
-{% import "bootstrap/wtf.html" as wtf %}
+{% extends "bootstrap/base.html" %}
+{% block title %}Formulier{% endblock %}
 
-<span id="samenvatting_tekst" data-rel="/overzicht/{{engagement}}/{{actie}}/0"></span>
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/finding-form.css') }}" />
+{% endblock %}
 
-  {{ form.csrf_token }}
+{% block content %}
+<div class="page-title">
+  <div>
+    <h1>Formulier</h1>
+    <div class="breadcrumbs"><a href="/">Home</a> / Formulier</div>
+  </div>
+</div>
 
-{{ form.naam }}
+<section class="card">
+  <div class="card-head">
+    <h2>Input</h2>
+  </div>
+  <div class="card-body">
+    <span id="samenvatting_tekst" data-rel="/overzicht/{{engagement}}/{{actie}}/0"></span>
 
-{{ form.owasp }}
-
-{{ form.risico }}
-{{ form.inhoud(rows=12,class='form-control') }}
-
-
-{{ form.submit() }}
+    <form method="post" class="finding-form">
+      {{ form.csrf_token }}
+      <div>
+        <label>Naam</label>
+        {{ form.naam(class='form-control') }}
+      </div>
+      <div>
+        <label>OWASP</label>
+        {{ form.owasp(class='form-control') }}
+      </div>
+      <div>
+        <label>Risico</label>
+        {{ form.risico(class='form-control') }}
+      </div>
+      <div>
+        <label>Inhoud</label>
+        {{ form.inhoud(rows=12, class='form-control') }}
+      </div>
+      <div class="form-actions">
+        {{ form.submit(class='btn btn-primary') }}
+      </div>
+    </form>
+  </div>
+</section>
+{% endblock %}

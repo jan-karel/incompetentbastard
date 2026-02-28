@@ -1,0 +1,146 @@
+{% extends "bootstrap/base.html" %}
+{% block title %}Incompetent Bastard - SSRF Lab{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard-modern.css') }}" />
+<link rel="stylesheet" href="{{ url_for('static', filename='css/lab-generator.css') }}" />
+{% endblock %}
+
+{% block content %}
+<div class="page-title">
+  <div>
+    <h1>SSRF Lab</h1>
+    <div class="breadcrumbs"><a href="/">Home</a> / <a href="/">Dashboard</a> / SSRF</div>
+  </div>
+</div>
+
+<div class="grid cols-3">
+  <section class="card">
+    <div class="card-body">
+      <div class="kpi">
+        <div>
+          <div class="val accent-orange">{{ records|length }}</div>
+          <div class="sub">Total Redirects</div>
+        </div>
+      </div>
+    </div>
+  </section>
+  <section class="card">
+    <div class="card-body">
+      <div class="kpi">
+        <div>
+          <div class="val">{{ records|selectattr('bron', 'equalto', 'callback')|list|length }}</div>
+          <div class="sub">Callbacks</div>
+        </div>
+      </div>
+    </div>
+  </section>
+  <section class="card">
+    <div class="card-body">
+      <div class="kpi">
+        <div>
+          <div class="val">{{ records|map(attribute='ip')|unique|list|length }}</div>
+          <div class="sub">Unique IPs</div>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<section class="card mt-14">
+  <div class="card-head">
+    <h2>Redirect Endpoints</h2>
+  </div>
+  <div class="card-body">
+    <table class="table compact">
+      <thead>
+        <tr><th>Route</th><th>Bron</th><th>Doel</th></tr>
+      </thead>
+      <tbody>
+        {% for ep in endpoints %}
+        <tr>
+          <td><code>{{ ep.route }}</code></td>
+          <td>{{ ep.bron }}</td>
+          <td class="max-w-400 truncate">{{ ep.doel }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="card mt-14">
+  <div class="card-head">
+    <h2>Request Log</h2>
+  </div>
+  <div class="card-body">
+    {% if records %}
+    <table class="table compact">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>IP</th>
+          <th>Bron</th>
+          <th>Doel</th>
+          <th>Callback Data</th>
+          <th>Datum</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in records %}
+        <tr>
+          <td>{{ r.id }}</td>
+          <td>{{ r.ip }}</td>
+          <td>{{ r.bron }}</td>
+          <td class="max-w-300 truncate">{{ r.doel }}</td>
+          <td class="max-w-200 truncate">{{ r.callback_data or '' }}</td>
+          <td>{{ r.datum }}</td>
+          <td><button class="btn-sm btn-danger ssrf-delete" data-id="{{ r.id }}">&#x2715;</button></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="help">Geen SSRF data. Laat een kwetsbare applicatie redirecten via een van de endpoints hierboven.</p>
+    {% endif %}
+  </div>
+</section>
+<section class="card mt-14">
+  <div class="card-head">
+    <h2>SSRF Payload Generator</h2>
+  </div>
+  <div class="card-body" id="ssrf-generator">
+    <div class="gen-section">
+      <p class="gen-note">Genereer SSRF payloads, IP bypass varianten en protocol wrappers voor copy-paste.</p>
+      <div class="gen-grid">
+        <div><label>Target IP</label><input type="text" id="ssrf-target" placeholder="169.254.169.254" value="169.254.169.254"></div>
+        <div><label>Target poort</label><input type="text" id="ssrf-port" placeholder="80" value="80"></div>
+        <div><label>Path</label><input type="text" id="ssrf-path" placeholder="/latest/meta-data/" value="/latest/meta-data/"></div>
+        <div><label>Callback URL (jouw host)</label><input type="text" id="ssrf-callback" placeholder="http://ATTACKER"></div>
+        <div><label>Intern host (scan)</label><input type="text" id="ssrf-internal" placeholder="127.0.0.1" value="127.0.0.1"></div>
+        <div><label>Interne poort</label><input type="text" id="ssrf-int-port" placeholder="8080" value="8080"></div>
+        <div><label>Bestand (file://)</label><input type="text" id="ssrf-file" placeholder="/etc/passwd" value="/etc/passwd"></div>
+      </div>
+      <div class="gen-actions">
+        <button class="btn-sm" id="ssrf-gen-btn">Genereer SSRF Payloads</button>
+      </div>
+    </div>
+    <div id="ssrf-gen-output"></div>
+  </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='js/ssrf-generator.js') }}"></script>
+<script nonce="{{ csp_nonce }}">
+document.querySelectorAll('.ssrf-delete').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    var id = this.dataset.id;
+    fetch('/api/ssrf/' + id, {method: 'DELETE'}).then(function() {
+      btn.closest('tr').remove();
+    });
+  });
+});
+</script>
+{% endblock %}

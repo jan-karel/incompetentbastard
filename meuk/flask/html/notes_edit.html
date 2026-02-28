@@ -1,0 +1,41 @@
+{% extends "bootstrap/base.html" %}
+{% block title %}Edit Note{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/safe-overview.css') }}" />
+<link rel="stylesheet" href="{{ url_for('static', filename='css/latexeditor.css') }}" />
+{% endblock %}
+
+{% block content %}
+<div class="page-title">
+  <div>
+    <h1>Edit Note</h1>
+    <div class="breadcrumbs"><a href="/">Home</a> / <a href="/dashboard/notes">Notes</a> / Edit</div>
+  </div>
+</div>
+
+<section class="card">
+  <div class="card-head"><h2>{{ note.naam }}</h2></div>
+  <div class="card-body">
+    <form action="/dashboard/notes/edit/{{ note.id }}" method="post">
+      <div class="mb-10">
+        <label for="naam"><strong>Name</strong></label>
+        <input class="form-control" type="text" id="naam" name="naam" value="{{ note.naam }}" required />
+      </div>
+      <div class="mb-10">
+        <label for="uitwerken"><strong>Content</strong></label>
+        <div data-latex-toolbar="uitwerken" data-mode="note" data-project-images-url="/api/screenshots"></div>
+        <textarea class="form-control" id="uitwerken" name="uitwerken" rows="24">{{ note.uitwerken or '' }}</textarea>
+      </div>
+      <div class="d-flex gap-8">
+        <button type="submit" class="btn btn-primary">Save</button>
+        <a href="/dashboard/notes" class="btn">Cancel</a>
+      </div>
+    </form>
+  </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='js/latexeditor.js') }}"></script>
+{% endblock %}

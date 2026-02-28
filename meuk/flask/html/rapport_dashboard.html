@@ -1,0 +1,739 @@
+{% extends "bootstrap/base.html" %}
+{% block title %}Report Dashboard{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/safe-overview.css') }}" />
+<link rel="stylesheet" href="{{ url_for('static', filename='css/notes-overview.css') }}" />
+<link rel="stylesheet" href="{{ url_for('static', filename='css/finding-form.css') }}" />
+<link rel="stylesheet" href="{{ url_for('static', filename='css/rapport-editor.css') }}" />
+{% endblock %}
+
+{% block content %}
+<div class="page-title">
+  <div>
+    <h1>Report Dashboard</h1>
+    <div class="breadcrumbs"><a href="/">Home</a> / <a href="/dashboard/findings">Findings</a> / Report</div>
+  </div>
+</div>
+
+{# ── Tab navigatie ─────────────────────────────────── #}
+<div class="rapport-tabs">
+  <button class="rapport-tab active" data-tab="tab-instellingen">Instellingen</button>
+  <button class="rapport-tab" data-tab="tab-findings">Findings &amp; Notes</button>
+  <button class="rapport-tab" data-tab="tab-genereer">Genereer &amp; Download</button>
+</div>
+
+{# ══════════════════════════════════════════════════════ #}
+{# TAB 1: Instellingen                                   #}
+{# ══════════════════════════════════════════════════════ #}
+<div class="rapport-tab-content active" id="tab-instellingen">
+
+{# Versie #}
+<section class="card mb-14">
+  <div class="card-head"><h2>Versie</h2></div>
+  <div class="card-body">
+    <div class="grid cols-2 gap-16">
+      <div>
+        <label class="form-label" for="rap-versie">Versienummer</label>
+        <input id="rap-versie" type="text" class="form-control" data-rap="rapport_versie" placeholder="bijv. 1.0" />
+      </div>
+      <div>
+        <label class="form-label" for="rap-versie-status">Status</label>
+        <select id="rap-versie-status" class="form-control" data-rap="rapport_versie_status">
+          <option value="concept">Concept</option>
+          <option value="definitief">Definitief</option>
+          <option value="herzien">Herzien</option>
+        </select>
+      </div>
+    </div>
+  </div>
+</section>
+
+{# Managementsamenvatting — prominent #}
+<section class="card mb-14">
+  <div class="card-head"><h2>Managementsamenvatting</h2></div>
+  <div class="card-body">
+    <textarea id="rap-samenvatting" class="form-control" data-rap="rapport_management_samenvatting" rows="8" placeholder="Vrije tekst voor de managementsamenvatting in het rapport..."></textarea>
+  </div>
+</section>
+
+{# Basisgegevens #}
+<section class="card mb-14">
+  <div class="card-head"><h2>Basisgegevens</h2></div>
+  <div class="card-body">
+    <div class="grid cols-2 gap-16">
+      <div>
+        <label class="form-label" for="rap-titel">Titel</label>
+        <input id="rap-titel" type="text" class="form-control" data-rap="rapport_titel" />
+      </div>
+      <div>
+        <label class="form-label" for="rap-subtitel">Subtitel</label>
+        <input id="rap-subtitel" type="text" class="form-control" data-rap="rapport_subtitel" />
+      </div>
+      <div>
+        <label class="form-label" for="rap-auteur">Auteur</label>
+        <input id="rap-auteur" type="text" class="form-control" data-rap="rapport_auteur" />
+      </div>
+      <div>
+        <label class="form-label" for="rap-project">Project</label>
+        <input id="rap-project" type="text" class="form-control" data-rap="rapport_project" />
+      </div>
+      <div>
+        <label class="form-label" for="rap-omgeving">Omgeving omschrijving</label>
+        <input id="rap-omgeving" type="text" class="form-control" data-rap="rapport_omgeving" />
+      </div>
+      <div>
+        <label class="form-label" for="rap-classificatie">Classificatie (TLP)</label>
+        <select id="rap-classificatie" class="form-control tlp-select" data-rap="rapport_classificatie">
+          <option value="TLP:RED" data-tlp-bg="#FF2B2B" data-tlp-fg="#fff">TLP:RED</option>
+          <option value="TLP:AMBER+STRICT" data-tlp-bg="#FFC000" data-tlp-fg="#000">TLP:AMBER+STRICT</option>
+          <option value="TLP:AMBER" data-tlp-bg="#FFC000" data-tlp-fg="#000">TLP:AMBER</option>
+          <option value="TLP:GREEN" data-tlp-bg="#33FF00" data-tlp-fg="#000">TLP:GREEN</option>
+          <option value="TLP:CLEAR" data-tlp-bg="#fff" data-tlp-fg="#000">TLP:CLEAR</option>
+        </select>
+      </div>
+    </div>
+  </div>
+</section>
+
+{# Scope targets #}
+<section class="card mb-14">
+  <div class="card-head"><h2>Scope Targets</h2></div>
+  <div class="card-body">
+    <div id="scope-targets-list"></div>
+    <button type="button" id="btn-add-scope-target" class="btn mt-8">+ Target toevoegen</button>
+  </div>
+</section>
+
+{# Test details #}
+<section class="card mb-14">
+  <div class="card-head"><h2>Test details</h2></div>
+  <div class="card-body">
+    <div class="grid cols-2 gap-16">
+      <div>
+        <label class="form-label" for="rap-taal">Taal</label>
+        <select id="rap-taal" class="form-control" data-rap="rapport_taal">
+          <option value="nl">Nederlands</option>
+          <option value="en">English</option>
+        </select>
+      </div>
+      <div>
+        <label class="toggle-row mt-22">
+          <input type="checkbox" id="rap-isdraft" data-rap="rapport_isdraft" />
+          <span>Concept (draft)</span>
+        </label>
+      </div>
+      <div>
+        <label class="form-label" for="rap-variant">Template variant</label>
+        <select id="rap-variant" class="form-control" data-rap="rapport_template_variant">
+          <option value="detailed">Detailed (alles)</option>
+          <option value="executive">Executive (KPI + critical/high)</option>
+          <option value="board">Board (KPI + top 3)</option>
+        </select>
+      </div>
+      <div>
+        <label class="form-label" for="rap-testtype">Type test</label>
+        <select id="rap-testtype" class="form-control" data-rap="rapport_testtype">
+          <option value="pentest">Penetratietest</option>
+          <option value="redteam">Red Team Assessment</option>
+        </select>
+      </div>
+      <div>
+        <label class="form-label">Scope type</label>
+        <div id="rap-testscope-group" class="d-flex gap-12 flex-wrap mt-4">
+          <label class="fw-normal"><input type="checkbox" value="blackbox" data-scope> Black Box</label>
+          <label class="fw-normal"><input type="checkbox" value="greybox" data-scope> Grey Box</label>
+          <label class="fw-normal"><input type="checkbox" value="whitebox" data-scope> White Box</label>
+        </div>
+      </div>
+    </div>
+    <div class="grid cols-2 gap-16 mt-12">
+      <div>
+        <label class="form-label" for="rap-start-date">Test startdatum</label>
+        <input id="rap-start-date" type="date" class="form-control" data-rap="rapport_test_start_date" />
+      </div>
+      <div>
+        <label class="form-label" for="rap-end-date">Test einddatum</label>
+        <input id="rap-end-date" type="date" class="form-control" data-rap="rapport_test_end_date" />
+      </div>
+    </div>
+  </div>
+</section>
+
+{# Rules of Engagement #}
+<section class="card mb-14">
+  <div class="card-head"><h2>Rules of Engagement</h2></div>
+  <div class="card-body">
+    <textarea id="rap-roe" class="form-control" data-rap="rapport_roe" rows="4" placeholder="Beschrijf de Rules of Engagement..."></textarea>
+  </div>
+</section>
+
+{# Logo upload #}
+<section class="card mb-14">
+  <div class="card-head"><h2>Logo</h2></div>
+  <div class="card-body">
+    <form id="logo-upload-form" class="d-flex gap-8 items-center">
+      <input type="file" id="logo-file" accept="image/*" class="fs-13" />
+      <button type="submit" class="btn">Upload logo</button>
+      <span id="logo-status" class="help"></span>
+    </form>
+  </div>
+</section>
+
+{# Red Team sectie (conditioneel) #}
+<div id="redteam-fields" class="d-none">
+  <section class="card mb-14">
+    <div class="card-head"><h2>Red Team — Legs Up</h2></div>
+    <div class="card-body">
+      <div class="grid cols-1 gap-8">
+        <div>
+          <label class="form-label">Assumed Breach Startpunten</label>
+          <textarea class="form-control" data-rap="rapport_legsup_startpunt" rows="3" placeholder="Beschrijf assumed breach startpunten..."></textarea>
+        </div>
+        <div>
+          <label class="form-label">Privilege Niveaus</label>
+          <textarea class="form-control" data-rap="rapport_legsup_privileges" rows="3" placeholder="Beschrijf privilege niveaus bij start..."></textarea>
+        </div>
+        <div>
+          <label class="form-label">Verstrekte Informatie</label>
+          <textarea class="form-control" data-rap="rapport_legsup_informatie" rows="3" placeholder="Beschrijf verstrekte informatie/voordelen..."></textarea>
+        </div>
+      </div>
+    </div>
+  </section>
+  <section class="card mb-14">
+    <div class="card-head"><h2>Red Team — Scenario's</h2></div>
+    <div class="card-body">
+      <div id="scenarios-list"></div>
+      <button type="button" id="btn-add-scenario" class="btn mt-8">+ Scenario toevoegen</button>
+    </div>
+  </section>
+</div>
+
+{# Opslaan knop #}
+<div class="mb-14">
+  <button type="button" id="btn-rap-save" class="btn btn-primary">Opslaan</button>
+  <span id="rap-status" class="help ml-8"></span>
+</div>
+
+</div>{# /tab-instellingen #}
+
+{# ══════════════════════════════════════════════════════ #}
+{# TAB 2: Findings & Notes                               #}
+{# ══════════════════════════════════════════════════════ #}
+<div class="rapport-tab-content" id="tab-findings">
+
+{# ── Findings tabel ────────────────────────────────── #}
+{% set final_count = findings|selectattr('status','equalto','final')|list|length %}
+<section class="card mb-14">
+  <div class="card-head">
+    <h2>Findings</h2>
+    <span class="help" id="findings-counter">{{ final_count }} definitief van {{ findings|length }}</span>
+  </div>
+  <div class="card-body">
+    {% if findings %}
+    <table class="table compact" id="rapport-findings-table">
+      <thead>
+        <tr><th>ID</th><th>Name</th><th>Host</th><th>CVSS</th><th>Status</th><th></th></tr>
+      </thead>
+      <tbody>
+        {% for f in findings|reverse %}
+        {% set sev = severity_map.get(f.id, 'info') %}
+        <tr{% if f.status == 'final' %} class="rapport-included"{% endif %} data-finding-id="{{ f.id }}">
+          <td>{{ '%03d'|format(f.id) }}</td>
+          <td>{{ f.naam }}</td>
+          <td>{{ f.locatie }}</td>
+          <td>
+            <span class="severity-badge {{ sev }}">{{ f.basescore or '0' }}</span>
+          </td>
+          <td>
+            <select class="status-inline" data-finding-id="{{ f.id }}">
+              <option value="draft"{% if (f.status or 'draft') == 'draft' %} selected{% endif %}>Concept</option>
+              <option value="final"{% if f.status == 'final' %} selected{% endif %}>Definitief</option>
+              <option value="closed"{% if f.status == 'closed' %} selected{% endif %}>Gesloten</option>
+            </select>
+          </td>
+          <td>
+            <button class="btn btn-sm" data-edit-finding="{{ f.id }}">edit</button>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="help">Nog geen findings. <a href="/dashboard/findings">Voeg findings toe</a>.</p>
+    {% endif %}
+  </div>
+</section>
+
+{# ── Notes lijst ───────────────────────────────────── #}
+{% set notes_in_rapport = notes|selectattr('rapport')|list|length %}
+<section class="card mb-14">
+  <div class="card-head">
+    <h2>Notes</h2>
+    <span class="help" id="notes-counter">{{ notes_in_rapport }} in rapport</span>
+  </div>
+  <div class="card-body">
+    {% if notes %}
+    <ul id="rapport-notes-list" class="notes-drag-list">
+      {% for note in notes %}
+      <li class="notes-drag-item{% if note.rapport %} notes-in-rapport{% endif %}" draggable="true" data-id="{{ note.id }}">
+        <span class="drag-handle" title="Drag to reorder">&#10495;</span>
+        <label class="rapport-toggle" title="Include in rapport">
+          <input type="checkbox" data-note-id="{{ note.id }}" {% if note.rapport %}checked{% endif %} />
+          <span class="rapport-label">Rapport</span>
+        </label>
+        <span class="note-name">{{ note.naam }}</span>
+        <span class="note-preview">{{ (note.uitwerken or '')[:80] }}</span>
+        <span class="note-actions">
+          <button class="btn btn-sm" data-edit-note="{{ note.id }}">edit</button>
+        </span>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="help">Nog geen notes.</p>
+    {% endif %}
+    <div class="mt-8">
+      <button class="btn btn-sm" id="btn-add-note">+ Note toevoegen</button>
+    </div>
+  </div>
+</section>
+
+{# ── Finding edit modal ── #}
+<div id="rap-finding-modal" class="modal-overlay d-none">
+  <div class="modal-box modal-md">
+    <div class="modal-head">
+      <h3>Finding bewerken</h3>
+      <button class="modal-close-btn" id="rap-finding-close">&times;</button>
+    </div>
+    <div class="modal-body" id="rap-finding-body">
+      {# Loaded via AJAX #}
+    </div>
+  </div>
+</div>
+
+{# ── Note edit/add modal ── #}
+<div id="rap-note-modal" class="modal-overlay d-none">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h3 id="rap-note-title">Note bewerken</h3>
+      <button class="modal-close-btn" id="rap-note-close">&times;</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="rap-note-id" />
+      <div class="form-group">
+        <label for="rap-note-naam">Naam</label>
+        <input type="text" id="rap-note-naam" class="form-control" placeholder="Note titel..." />
+      </div>
+      <div class="form-group">
+        <label for="rap-note-uitwerken">Inhoud</label>
+        <textarea id="rap-note-uitwerken" class="form-control" rows="6" placeholder="Inhoud..."></textarea>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-primary" id="rap-note-save">Opslaan</button>
+        <button class="btn" id="rap-note-cancel">Annuleren</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div>{# /tab-findings #}
+
+{# ══════════════════════════════════════════════════════ #}
+{# TAB 3: Genereer & Download                            #}
+{# ══════════════════════════════════════════════════════ #}
+<div class="rapport-tab-content" id="tab-genereer">
+
+{# KPI rij #}
+<div class="grid cols-4 mb-14">
+  <section class="card"><div class="card-body"><div class="val">{{ findings|length }}</div><div class="sub">Total findings</div></div></section>
+  <section class="card"><div class="card-body"><div class="val" id="kpi-final">{{ findings|selectattr('status','equalto','final')|list|length }}</div><div class="sub">Definitief</div></div></section>
+  <section class="card"><div class="card-body"><div class="val" id="kpi-versie">-</div><div class="sub">Versie</div></div></section>
+  <section class="card"><div class="card-body">
+    <a class="btn" href="/dashboard/findings">Findings beheren</a>
+  </div></section>
+</div>
+
+{# ── Validatie panel ──────────────────────────────── #}
+<section class="card mb-14">
+  <div class="card-head"><h2>Pre-generatie check</h2></div>
+  <div class="card-body" id="validation-panel">
+    <button class="btn" id="btn-validate" type="button">Valideer</button>
+    <div id="validation-results" class="mt-8"></div>
+  </div>
+</section>
+
+{# ── Metrics dashboard ───────────────────────────── #}
+<div class="grid cols-3 mb-14" id="metrics-section">
+  <section class="card"><div class="card-body"><div class="val" id="metric-total">-</div><div class="sub">Final findings</div></div></section>
+  <section class="card"><div class="card-body">
+    <h3 class="fs-14 m-0 mb-8">Severity</h3>
+    <div id="metric-severity" class="d-flex gap-8 flex-wrap"></div>
+  </div></section>
+  <section class="card"><div class="card-body">
+    <h3 class="fs-14 m-0 mb-8">Remediation</h3>
+    <div id="metric-remediation" class="d-flex gap-8 flex-wrap"></div>
+  </div></section>
+</div>
+
+{# ── Generate + Download ─────────────────────────── #}
+<section class="card mb-14">
+  <div class="card-head"><h2>Genereer rapport</h2></div>
+  <div class="card-body">
+    <button class="btn btn-primary" id="btn-generate-report" type="button">Generate report</button>
+    <span id="generate-status" class="help ml-8"></span>
+    <div class="mt-8">
+      <label class="fs-12"><input type="checkbox" id="include-draft"> Concepten meenemen</label>
+    </div>
+    <div class="d-flex gap-6 flex-wrap mt-8">
+      <a class="btn" href="/api/report/download/html">HTML</a>
+      <a class="btn" href="/api/report/download/pdf">PDF</a>
+      <a class="btn" href="/api/report/download/docx">DOCX</a>
+      <a class="btn" href="/api/report/download/odt">ODT</a>
+      <a class="btn" href="/api/report/download/md">MD</a>
+      <a class="btn" href="/api/report/download/tex">TEX</a>
+      <a class="btn" href="/api/report/download/stix">STIX</a>
+      <a class="btn" href="/api/report/download/sarif">SARIF</a>
+      <a class="btn" href="/api/report/download/pptx">PPTX</a>
+      <a class="btn" href="/api/report/download/epub">EPUB</a>
+      <a class="btn" href="/api/findings/export/csv">CSV</a>
+      <a class="btn" href="/taxii2/collections/findings/objects/" target="_blank">TAXII</a>
+    </div>
+  </div>
+</section>
+
+{# ── Report versions ──────────────────────────────── #}
+<section class="card mb-14">
+  <div class="card-head"><h2>Report versions</h2></div>
+  <div class="card-body">
+    <div id="versions-list" class="help">Laden...</div>
+  </div>
+</section>
+
+</div>{# /tab-genereer #}
+
+{% endblock %}
+
+{% block scripts %}
+<script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='js/rapport-editor.js') }}"></script>
+<script nonce="{{ csp_nonce }}">
+(function() {
+  "use strict";
+
+  // ── Tab switching ──────────────────────────────
+  document.querySelectorAll(".rapport-tab").forEach(function(tab) {
+    tab.addEventListener("click", function() {
+      var target = tab.getAttribute("data-tab");
+      document.querySelectorAll(".rapport-tab").forEach(function(t) { t.classList.remove("active"); });
+      document.querySelectorAll(".rapport-tab-content").forEach(function(c) { c.classList.remove("active"); });
+      tab.classList.add("active");
+      var panel = document.getElementById(target);
+      if (panel) panel.classList.add("active");
+    });
+  });
+
+  // ── Scope checkboxen helpers ────────────────────
+  function loadScopeCheckboxes(val) {
+    var parts = (val || "blackbox").split(",");
+    document.querySelectorAll("[data-scope]").forEach(function(cb) {
+      cb.checked = parts.indexOf(cb.value) !== -1;
+    });
+  }
+  function collectScope() {
+    var vals = [];
+    document.querySelectorAll("[data-scope]").forEach(function(cb) {
+      if (cb.checked) vals.push(cb.value);
+    });
+    return vals.length ? vals.join(",") : "blackbox";
+  }
+
+  // ── Scenario's helpers ────────────────────────
+  var _scenarios = [];
+  function renderScenarios(list) {
+    _scenarios = list || [];
+    var container = document.getElementById("scenarios-list");
+    if (!container) return;
+    container.innerHTML = "";
+    _scenarios.forEach(function(sc, i) {
+      var row = document.createElement("div");
+      row.className = "scenario-row";
+      row.innerHTML =
+        '<div class="scenario-row-head">' +
+        '<input type="text" class="form-control" data-sc-naam="' + i + '" placeholder="Scenario naam" value="' + (sc.naam || "").replace(/"/g, "&quot;") + '" />' +
+        '<button type="button" class="btn scenario-del-btn" data-sc-del="' + i + '">&#x2715;</button>' +
+        '</div>' +
+        '<textarea class="form-control" data-sc-beschrijving="' + i + '" rows="2" placeholder="Beschrijving...">' + (sc.beschrijving || "").replace(/</g, "&lt;") + '</textarea>';
+      container.appendChild(row);
+    });
+    container.querySelectorAll("[data-sc-del]").forEach(function(btn) {
+      btn.addEventListener("click", function() {
+        var idx = parseInt(btn.getAttribute("data-sc-del"));
+        _scenarios.splice(idx, 1);
+        renderScenarios(_scenarios);
+      });
+    });
+  }
+  function collectScenarios() {
+    var result = [];
+    var container = document.getElementById("scenarios-list");
+    if (!container) return result;
+    _scenarios.forEach(function(sc, i) {
+      var naamEl = container.querySelector('[data-sc-naam="' + i + '"]');
+      var beschEl = container.querySelector('[data-sc-beschrijving="' + i + '"]');
+      if (naamEl) {
+        result.push({
+          naam: naamEl.value || "",
+          beschrijving: beschEl ? beschEl.value || "" : ""
+        });
+      }
+    });
+    return result;
+  }
+  var btnAddScenario = document.getElementById("btn-add-scenario");
+  if (btnAddScenario) btnAddScenario.addEventListener("click", function() {
+    _scenarios = collectScenarios();
+    _scenarios.push({naam: "", beschrijving: ""});
+    renderScenarios(_scenarios);
+  });
+
+  // ── Scope targets helpers ─────────────────────
+  var _scopeTargets = [];
+  function renderScopeTargets(list) {
+    _scopeTargets = list || [];
+    var container = document.getElementById("scope-targets-list");
+    if (!container) return;
+    container.innerHTML = "";
+    _scopeTargets.forEach(function(st, i) {
+      var row = document.createElement("div");
+      row.className = "scope-target-row";
+      var typeOpts = ["host", "netwerk", "url", "applicatie"];
+      var selectHtml = '<select class="form-control scope-target-type" data-st-type="' + i + '">';
+      typeOpts.forEach(function(t) {
+        selectHtml += '<option value="' + t + '"' + (t === (st.type || "host") ? ' selected' : '') + '>' + t + '</option>';
+      });
+      selectHtml += '</select>';
+      row.innerHTML =
+        '<input type="text" class="form-control scope-target-input" data-st-target="' + i + '" placeholder="Target (IP, URL, hostname)" value="' + (st.target || "").replace(/"/g, "&quot;") + '" />' +
+        selectHtml +
+        '<input type="text" class="form-control scope-target-input" data-st-beschrijving="' + i + '" placeholder="Beschrijving" value="' + (st.beschrijving || "").replace(/"/g, "&quot;") + '" />' +
+        '<button type="button" class="btn scope-target-del-btn" data-st-del="' + i + '">&#x2715;</button>';
+      container.appendChild(row);
+    });
+    container.querySelectorAll("[data-st-del]").forEach(function(btn) {
+      btn.addEventListener("click", function() {
+        _scopeTargets = collectScopeTargets();
+        _scopeTargets.splice(parseInt(btn.getAttribute("data-st-del")), 1);
+        renderScopeTargets(_scopeTargets);
+      });
+    });
+  }
+  function collectScopeTargets() {
+    var result = [];
+    var container = document.getElementById("scope-targets-list");
+    if (!container) return result;
+    _scopeTargets.forEach(function(st, i) {
+      var tEl = container.querySelector('[data-st-target="' + i + '"]');
+      var tyEl = container.querySelector('[data-st-type="' + i + '"]');
+      var bEl = container.querySelector('[data-st-beschrijving="' + i + '"]');
+      if (tEl) {
+        result.push({
+          target: tEl.value || "",
+          type: tyEl ? tyEl.value || "host" : "host",
+          beschrijving: bEl ? bEl.value || "" : ""
+        });
+      }
+    });
+    return result;
+  }
+  var btnAddScopeTarget = document.getElementById("btn-add-scope-target");
+  if (btnAddScopeTarget) btnAddScopeTarget.addEventListener("click", function() {
+    _scopeTargets = collectScopeTargets();
+    _scopeTargets.push({target: "", type: "host", beschrijving: ""});
+    renderScopeTargets(_scopeTargets);
+  });
+
+  // ── Conditionele redteam velden ───────────────
+  var testtypeSel = document.getElementById("rap-testtype");
+  var redteamFields = document.getElementById("redteam-fields");
+  function toggleRedteamFields() {
+    if (redteamFields && testtypeSel) {
+      if (testtypeSel.value === "redteam") {
+        redteamFields.classList.remove("d-none");
+      } else {
+        redteamFields.classList.add("d-none");
+      }
+    }
+  }
+  if (testtypeSel) testtypeSel.addEventListener("change", toggleRedteamFields);
+
+  // ── Versie KPI updaten ─────────────────────────
+  function updateVersieKpi(versie, status) {
+    var kpiEl = document.getElementById("kpi-versie");
+    if (kpiEl) {
+      if (versie) {
+        kpiEl.textContent = versie;
+        var badge = document.createElement("span");
+        badge.className = "versie-status-badge " + status;
+        badge.textContent = status.charAt(0).toUpperCase() + status.slice(1);
+        kpiEl.textContent = versie + " ";
+        kpiEl.appendChild(badge);
+      } else {
+        kpiEl.textContent = "-";
+      }
+    }
+  }
+
+  // ── Rapport instellingen laden & opslaan ────────
+  function loadRapportSettings() {
+    return fetch("/api/settings")
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        document.querySelectorAll("[data-rap]").forEach(function(el) {
+          var key = el.getAttribute("data-rap");
+          if (el.type === "checkbox" && !el.hasAttribute("data-scope")) {
+            el.checked = !!d[key];
+          } else if (el.tagName === "SELECT" || el.tagName === "INPUT" || el.tagName === "TEXTAREA") {
+            el.value = d[key] || "";
+          }
+        });
+        loadScopeCheckboxes(d.rapport_testscope || "blackbox");
+        renderScenarios(d.rapport_scenarios || []);
+        renderScopeTargets(d.rapport_scope_targets || []);
+        toggleRedteamFields();
+        updateVersieKpi(d.rapport_versie || "", d.rapport_versie_status || "concept");
+      });
+  }
+
+  function saveRapportSettings() {
+    var payload = {};
+    document.querySelectorAll("[data-rap]").forEach(function(el) {
+      var key = el.getAttribute("data-rap");
+      if (el.type === "checkbox" && !el.hasAttribute("data-scope")) {
+        payload[key] = el.checked;
+      } else if (el.tagName === "SELECT" || el.tagName === "INPUT" || el.tagName === "TEXTAREA") {
+        payload[key] = el.value;
+      }
+    });
+    payload.rapport_testscope = collectScope();
+    payload.rapport_scenarios = collectScenarios();
+    payload.rapport_scope_targets = collectScopeTargets();
+    var statusEl = document.getElementById("rap-status");
+    fetch("/api/settings", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify(payload)
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      if (d.ok && statusEl) {
+        statusEl.textContent = "Opgeslagen!";
+        statusEl.style.color = "var(--success, #22c55e)";
+        setTimeout(function() { statusEl.textContent = ""; }, 2000);
+        updateVersieKpi(payload.rapport_versie || "", payload.rapport_versie_status || "concept");
+      }
+    })
+    .catch(function() {
+      if (statusEl) {
+        statusEl.textContent = "Fout bij opslaan";
+        statusEl.style.color = "var(--danger, #ef4444)";
+      }
+    });
+  }
+
+  var btnSave = document.getElementById("btn-rap-save");
+  if (btnSave) btnSave.addEventListener("click", saveRapportSettings);
+
+  // ── TLP kleur styling ───────────────────────────
+  var tlpSel = document.getElementById("rap-classificatie");
+  function updateTlpColor() {
+    if (!tlpSel) return;
+    var opt = tlpSel.options[tlpSel.selectedIndex];
+    if (opt) {
+      tlpSel.style.backgroundColor = opt.getAttribute("data-tlp-bg") || "";
+      tlpSel.style.color = opt.getAttribute("data-tlp-fg") || "";
+      tlpSel.style.fontWeight = "bold";
+    }
+  }
+  if (tlpSel) tlpSel.addEventListener("change", updateTlpColor);
+
+  // Load settings on page load, then update TLP color
+  loadRapportSettings().then(updateTlpColor);
+
+  // ── Validatie panel ────────────────────────────
+  var btnValidate = document.getElementById("btn-validate");
+  if (btnValidate) btnValidate.addEventListener("click", function() {
+    var resultsEl = document.getElementById("validation-results");
+    if (!resultsEl) return;
+    resultsEl.innerHTML = "Controleren...";
+    fetch("/api/report/validate")
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        var html = "";
+        if (d.errors && d.errors.length) {
+          html += '<div style="color:var(--danger,#ef4444);margin-bottom:8px">';
+          d.errors.forEach(function(e) { html += "<p>&#10060; " + e + "</p>"; });
+          html += "</div>";
+        }
+        if (d.warnings && d.warnings.length) {
+          html += '<div style="color:var(--warning,#f59e0b)">';
+          d.warnings.forEach(function(w) { html += "<p>&#9888; " + w + "</p>"; });
+          html += "</div>";
+        }
+        if (!d.errors.length && !d.warnings.length) {
+          html = '<p style="color:var(--success,#22c55e)">&#10004; Geen problemen gevonden</p>';
+        }
+        html += "<p class='help'>" + (d.findings_count || 0) + " findings klaar voor rapport</p>";
+        resultsEl.innerHTML = html;
+      });
+  });
+
+  // ── Metrics laden ──────────────────────────────
+  function loadMetrics() {
+    fetch("/api/report/metrics")
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        var totalEl = document.getElementById("metric-total");
+        if (totalEl) totalEl.textContent = d.total || 0;
+        var sevEl = document.getElementById("metric-severity");
+        if (sevEl) {
+          var sevColors = {critical:"#820000",high:"#e60000",medium:"#f09600",low:"#ffdc00",none:"#00be00"};
+          var html = "";
+          Object.keys(d.severity || {}).forEach(function(k) {
+            html += '<span style="padding:2px 8px;border-radius:3px;background:' + (sevColors[k]||"#eee") + ';color:#fff;font-size:12px">' + k + ": " + d.severity[k] + "</span> ";
+          });
+          sevEl.innerHTML = html;
+        }
+        var remEl = document.getElementById("metric-remediation");
+        if (remEl) {
+          var html2 = "";
+          Object.keys(d.remediation || {}).forEach(function(k) {
+            html2 += '<span style="padding:2px 8px;border-radius:3px;background:#e5e7eb;font-size:12px">' + k + ": " + d.remediation[k] + "</span> ";
+          });
+          remEl.innerHTML = html2;
+        }
+      });
+  }
+  loadMetrics();
+
+  // ── Logo upload ────────────────────────────────
+  var logoForm = document.getElementById("logo-upload-form");
+  if (logoForm) logoForm.addEventListener("submit", function(e) {
+    e.preventDefault();
+    var fileInput = document.getElementById("logo-file");
+    var statusEl = document.getElementById("logo-status");
+    if (!fileInput || !fileInput.files.length) return;
+    var fd = new FormData();
+    fd.append("file", fileInput.files[0]);
+    fetch("/api/report/logo", {method: "POST", body: fd})
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        if (d.ok && statusEl) {
+          statusEl.textContent = "Logo geupload!";
+          statusEl.style.color = "var(--success, #22c55e)";
+        }
+      });
+  });
+})();
+</script>
+{% endblock %}

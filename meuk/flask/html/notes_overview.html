@@ -1,0 +1,69 @@
+{% extends "bootstrap/base.html" %}
+{% block title %}Notes{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/safe-overview.css') }}" />
+<link rel="stylesheet" href="{{ url_for('static', filename='css/latexeditor.css') }}" />
+<link rel="stylesheet" href="{{ url_for('static', filename='css/notes-overview.css') }}" />
+{% endblock %}
+
+{% block content %}
+<div class="page-title">
+  <div>
+    <h1>Notes</h1>
+    <div class="breadcrumbs"><a href="/">Home</a> / Notes</div>
+  </div>
+</div>
+
+<div class="grid cols-2">
+  <section class="card">
+    <div class="card-head"><h2>Add Note</h2></div>
+    <div class="card-body">
+      <form action="/dashboard/notes/add" method="post">
+        <div class="mb-10">
+          <label for="naam"><strong>Name</strong></label>
+          <input class="form-control" type="text" id="naam" name="naam" required placeholder="Note title..." />
+        </div>
+        <div class="mb-10">
+          <label for="uitwerken"><strong>Content</strong></label>
+          <div data-latex-toolbar="uitwerken" data-mode="note" data-project-images-url="/api/screenshots"></div>
+          <textarea class="form-control" id="uitwerken" name="uitwerken" rows="8" placeholder="Write your note here..."></textarea>
+        </div>
+        <button type="submit" class="btn btn-primary">Save note</button>
+      </form>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card-head"><h2>Existing Notes</h2></div>
+    <div class="card-body">
+      {% if notes %}
+      <ul id="notes-list" class="notes-drag-list">
+        {% for note in notes %}
+        <li class="notes-drag-item{% if note.rapport %} notes-in-rapport{% endif %}" draggable="true" data-id="{{ note.id }}">
+          <span class="drag-handle" title="Drag to reorder">&#10495;</span>
+          <label class="rapport-toggle" title="Include in rapport">
+            <input type="checkbox" data-note-id="{{ note.id }}" {% if note.rapport %}checked{% endif %} />
+            <span class="rapport-label">Rapport</span>
+          </label>
+          <span class="note-name">{{ note.naam }}</span>
+          <span class="note-actions">
+            <a href="/dashboard/notes/edit/{{ note.id }}">edit</a>
+            <span> &bull; </span>
+            <a href="/dashboard/notes/delete/{{ note.id }}" data-confirm="Delete note '{{ note.naam }}'?">delete</a>
+          </span>
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p class="help">No notes yet.</p>
+      {% endif %}
+    </div>
+  </section>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='js/latexeditor.js') }}"></script>
+<script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='js/notes.js') }}"></script>
+{% endblock %}

@@ -1,0 +1,26 @@
+# Local Privilege Escalation enumeratie
+# === PowerUp (alle checks tegelijk) ===
+powershell -c "Import-Module .\PowerUp.ps1; Invoke-AllChecks"
+# Specifieke checks:
+# Unquoted service paths:
+Get-ServiceUnquoted -Verbose
+# Writable service binaries:
+Get-ModifiableServiceFile -Verbose
+# Modifiable service configs:
+Get-ModifiableService -Verbose
+# === WinPEAS (uitgebreide enumeratie) ===
+.\winPEASx64.exe
+# Alleen specifieke checks:
+.\winPEASx64.exe servicesinfo
+.\winPEASx64.exe userinfo
+# === PrivescCheck (PowerShell alternatief) ===
+powershell -c "Import-Module .\PrivescCheck.ps1; Invoke-PrivescCheck -Extended"
+# === Handmatige checks ===
+# AlwaysInstallElevated:
+reg query HKLM\SOFTWARE\Policies\Microsoft\Windows\Installer /v AlwaysInstallElevated
+reg query HKCU\SOFTWARE\Policies\Microsoft\Windows\Installer /v AlwaysInstallElevated
+# Unquoted service paths:
+wmic service get name,displayname,pathname,startmode | findstr /i "auto" | findstr /i /v "C:\Windows\\"
+# Scheduled tasks:
+schtasks /query /fo LIST /v | findstr /i "task to run\|run as user"
+# Tip: Draai PowerUp EN WinPEAS voor maximale dekking

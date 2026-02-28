@@ -1,0 +1,486 @@
+\documentclass[10pt,a4paper]{article}
+
+% -------------------------------------------------- %
+% Packages                                           %
+% -------------------------------------------------- %
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+[% if taal == 'en' %]
+\usepackage[english]{babel}
+[% else %]
+\usepackage[dutch]{babel}
+[% endif %]
+\usepackage{geometry}
+\geometry{a4paper, margin=2.5cm}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{fancyhdr}
+\usepackage{array}
+\usepackage{longtable}
+\usepackage{booktabs}
+\usepackage{ifthen}
+
+% Rapport package (bevindingen met CVSS-kleuren)
+\usepackage{opmaak/packages/rapport}
+
+% -------------------------------------------------- %
+% Metadata                                           %
+% -------------------------------------------------- %
+\newcommand{\rapporttitel}{[[ titel ]]}
+\newcommand{\rapportsubtitel}{[[ subtitel ]]}
+\newcommand{\rapportauteur}{[[ auteur ]]}
+\newcommand{\rapportproject}{[[ project ]]}
+\newcommand{\rapportdatum}{[[ datum ]]}
+\newcommand{\rapportclassificatie}{[[ classificatie ]]}
+\newcommand{\rapporttlpkleur}{[[ tlp_color ]]}
+
+\hypersetup{
+  pdftitle={\rapporttitel},
+  pdfauthor={\rapportauteur},
+}
+
+% -------------------------------------------------- %
+% Pagina-opmaak                                      %
+% -------------------------------------------------- %
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small \rapporttitel}
+\fancyhead[R]{\small \textcolor{\rapporttlpkleur}{\rapportclassificatie}}
+\fancyfoot[L]{\small \rapportauteur}
+\fancyfoot[C]{\small \rapportproject}
+\fancyfoot[R]{\small \thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\footrulewidth}{0.4pt}
+
+\graphicspath{[[ '{' ]]evidence/[[ '}' ]]}
+
+% -------------------------------------------------- %
+% Document                                           %
+% -------------------------------------------------- %
+\begin{document}
+
+% --- Voorblad ---
+\begin{titlepage}
+  \centering
+  \vspace*{4cm}
+  {\Huge\bfseries \rapporttitel \par}
+  \vspace{1cm}
+  {\Large \rapportsubtitel \par}
+  \vspace{2cm}
+  {\large \rapportproject \par}
+  \vspace{1cm}
+  {\large \rapportauteur \par}
+  \vspace{1cm}
+  {\large \rapportdatum \par}
+  \vspace{2cm}
+  [% if is_draft %]
+  [% if taal == 'en' %]
+  {\Large\textcolor{ored}{DRAFT} \par}
+  [% else %]
+  {\Large\textcolor{ored}{CONCEPT} \par}
+  [% endif %]
+  [% endif %]
+  \vfill
+  [% if taal == 'en' %]
+  {\small Classification: \textcolor{\rapporttlpkleur}{\rapportclassificatie} \par}
+  [% else %]
+  {\small Classificatie: \textcolor{\rapporttlpkleur}{\rapportclassificatie} \par}
+  [% endif %]
+\end{titlepage}
+
+% --- Inhoudsopgave ---
+\tableofcontents
+\newpage
+
+% --- Inleiding ---
+[% if taal == 'en' %]
+\section{Introduction}
+[% else %]
+\section{Inleiding}
+[% endif %]
+
+[% if testtype == 'redteam' %]
+[% if taal == 'en' %]
+This report contains the findings of the red team assessment performed on \rapportproject.
+The objective was to simulate a realistic attack to evaluate the detection and response capabilities
+of the organisation, as well as to identify vulnerabilities in people, processes and technology.
+[% else %]
+Dit rapport bevat de bevindingen van het red team assessment uitgevoerd op \rapportproject.
+Het doel was het simuleren van een realistische aanval om de detectie- en responscapaciteiten
+van de organisatie te evalueren, evenals het identificeren van kwetsbaarheden in mensen,
+processen en technologie.
+[% endif %]
+[% else %]
+[% if taal == 'en' %]
+This report contains the findings of the penetration test performed on \rapportproject.
+The objective was to identify vulnerabilities that could compromise the confidentiality,
+integrity and availability of the systems.
+[% else %]
+Dit rapport bevat de bevindingen van de penetratietest uitgevoerd op \rapportproject.
+Het doel van de test was het identificeren van kwetsbaarheden die de vertrouwelijkheid,
+integriteit en beschikbaarheid van de systemen kunnen aantasten.
+[% endif %]
+[% endif %]
+
+[% if taal == 'en' %]
+The test was performed by \rapportauteur{} on \rapportdatum.
+[% else %]
+De test is uitgevoerd door \rapportauteur{} op \rapportdatum.
+[% endif %]
+
+\subsection{Scope}
+
+[% if taal == 'en' %]
+The following systems were part of the test:
+[% else %]
+De volgende systemen zijn onderdeel van de test:
+[% endif %]
+\begin{itemize}
+[% for loc in scoped_hosts %]
+  \item [[ loc | latex_escape ]]
+[% endfor %]
+[% if not scoped_hosts %]
+[% if taal == 'en' %]
+  \item See findings for specific locations
+[% else %]
+  \item Zie bevindingen voor specifieke locaties
+[% endif %]
+[% endif %]
+\end{itemize}
+
+[% if management_samenvatting %]
+% --- Managementsamenvatting ---
+[% if taal == 'en' %]
+\section{Executive Summary}
+[% else %]
+\section{Managementsamenvatting}
+[% endif %]
+
+[[ management_samenvatting ]]
+
+[% endif %]
+% --- Methodologie ---
+[% if taal == 'en' %]
+\section{Methodology}
+[% else %]
+\section{Methodologie}
+[% endif %]
+
+[% if testtype == 'redteam' %]
+[% if taal == 'en' %]
+The red team assessment was performed in accordance with the MITRE ATT\&CK framework and the Cyber Kill Chain.
+The test consisted of the following phases:
+
+\begin{enumerate}
+  \item \textbf{Reconnaissance} -- OSINT and target identification
+  \item \textbf{Weaponisation} -- Prepare tooling and payloads
+  \item \textbf{Delivery} -- Obtain initial access
+  \item \textbf{Exploitation} -- Exploit vulnerabilities
+  \item \textbf{Installation} -- Establish persistence
+  \item \textbf{Command \& Control} -- Set up C2 channel
+  \item \textbf{Actions on Objectives} -- Achieve goals
+\end{enumerate}
+[% else %]
+Het red team assessment is uitgevoerd conform het MITRE ATT\&CK framework en de Cyber Kill Chain.
+De test bestond uit de volgende fasen:
+
+\begin{enumerate}
+  \item \textbf{Verkenning} -- OSINT en doelidentificatie
+  \item \textbf{Bewapening} -- Tooling en payloads voorbereiden
+  \item \textbf{Aflevering} -- Initiele toegang verkrijgen
+  \item \textbf{Exploitatie} -- Kwetsbaarheden benutten
+  \item \textbf{Installatie} -- Persistentie vestigen
+  \item \textbf{Commando \& Controle} -- C2-kanaal opzetten
+  \item \textbf{Acties op doel} -- Doelstellingen realiseren
+\end{enumerate}
+[% endif %]
+[% else %]
+[% if taal == 'en' %]
+The penetration test was performed in accordance with the OWASP Testing Guide and PTES (Penetration Testing
+Execution Standard). The test consisted of the following phases:
+
+\begin{enumerate}
+  \item \textbf{Reconnaissance} -- Gather information about the target environment
+  \item \textbf{Scanning} -- Identify services and vulnerabilities
+  \item \textbf{Exploitation} -- Confirm vulnerabilities
+  \item \textbf{Post-exploitation} -- Determine impact
+  \item \textbf{Reporting} -- Document findings
+\end{enumerate}
+[% else %]
+De penetratietest is uitgevoerd conform de OWASP Testing Guide en PTES (Penetration Testing
+Execution Standard). De test bestond uit de volgende fasen:
+
+\begin{enumerate}
+  \item \textbf{Verkenning} -- Informatie verzamelen over de doelomgeving
+  \item \textbf{Scanning} -- Diensten en kwetsbaarheden identificeren
+  \item \textbf{Exploitatie} -- Kwetsbaarheden bevestigen
+  \item \textbf{Post-exploitatie} -- Impact bepalen
+  \item \textbf{Rapportage} -- Documenteren
+\end{enumerate}
+[% endif %]
+[% endif %]
+
+[% for scope in testscopes %]
+[% if scope == 'whitebox' %]
+[% if taal == 'en' %]
+The test was (partially) performed as a white box assessment. The testers had full access to source code,
+architecture documentation and configurations. This allows for a thorough analysis of all security layers.
+[% else %]
+De test is (deels) uitgevoerd als white box assessment. De testers hadden volledige toegang tot broncode,
+architectuurdocumentatie en configuraties. Dit maakt een grondige analyse mogelijk van alle
+beveiligingslagen.
+[% endif %]
+[% elif scope == 'greybox' %]
+[% if taal == 'en' %]
+The test was (partially) performed as a grey box assessment. The testers had limited information, such as
+network topology, user accounts or API documentation. This simulates an attacker with limited internal knowledge.
+[% else %]
+De test is (deels) uitgevoerd als grey box assessment. De testers hadden beperkte informatie, zoals
+netwerktopologie, gebruikersaccounts of API-documentatie. Dit simuleert een aanvaller met
+beperkte interne kennis.
+[% endif %]
+[% else %]
+[% if taal == 'en' %]
+The test was (partially) performed as a black box assessment. The testers had no prior information about the
+internal workings, source code or architecture of the target environment. This simulates the perspective of
+an external attacker.
+[% else %]
+De test is (deels) uitgevoerd als black box assessment. De testers hadden vooraf geen informatie over de
+interne werking, broncode of architectuur van de doelomgeving. Dit simuleert het perspectief van
+een externe aanvaller.
+[% endif %]
+[% endif %]
+[% endfor %]
+
+[% if testtype == 'redteam' and (legsup_startpunt or legsup_privileges or legsup_informatie) %]
+% --- Legs Up ---
+\section{Legs Up}
+
+[% if legsup_startpunt %]
+[% if taal == 'en' %]
+\subsection{Assumed Breach Starting Points}
+[% else %]
+\subsection{Assumed Breach Startpunten}
+[% endif %]
+
+[[ legsup_startpunt | latex_escape ]]
+
+[% endif %]
+[% if legsup_privileges %]
+[% if taal == 'en' %]
+\subsection{Privilege Levels}
+[% else %]
+\subsection{Privilege Niveaus}
+[% endif %]
+
+[[ legsup_privileges | latex_escape ]]
+
+[% endif %]
+[% if legsup_informatie %]
+[% if taal == 'en' %]
+\subsection{Provided Information}
+[% else %]
+\subsection{Verstrekte Informatie}
+[% endif %]
+
+[[ legsup_informatie | latex_escape ]]
+
+[% endif %]
+[% endif %]
+
+[% if testtype == 'redteam' and scenarios %]
+% --- Scenario's ---
+[% if taal == 'en' %]
+\section{Scenarios}
+[% else %]
+\section{Scenario's}
+[% endif %]
+
+[% for sc in scenarios %]
+\subsection{[[ sc.naam | latex_escape ]]}
+
+[[ sc.beschrijving | latex_escape ]]
+
+[% endfor %]
+[% endif %]
+
+% --- Risicoinschatting ---
+[% if taal == 'en' %]
+\section{Risk Assessment}
+
+The severity of findings is determined using the CVSS 4.0 framework
+(Common Vulnerability Scoring System). The following classification is used:
+
+\begin{center}
+\begin{tabular}{|l|c|l|}
+  \hline
+  \textbf{Classification} & \textbf{CVSS Score} & \textbf{Colour} \\
+  \hline
+  Critical & 9.0 -- 10.0 & \textcolor{odarkred}{Dark red} \\
+  High & 7.0 -- 8.9 & \textcolor{ored}{Red} \\
+  Medium & 4.0 -- 6.9 & \textcolor{oorange}{Orange} \\
+  Low & 0.1 -- 3.9 & \textcolor{oyellow}{Yellow} \\
+  Informational & 0.0 & \textcolor{ogreen}{Green} \\
+  \hline
+\end{tabular}
+\end{center}
+[% else %]
+\section{Risicoinschatting}
+
+De ernst van bevindingen wordt bepaald aan de hand van het CVSS 4.0 framework
+(Common Vulnerability Scoring System). De volgende classificatie wordt gehanteerd:
+
+\begin{center}
+\begin{tabular}{|l|c|l|}
+  \hline
+  \textbf{Classificatie} & \textbf{CVSS Score} & \textbf{Kleur} \\
+  \hline
+  Kritiek & 9.0 -- 10.0 & \textcolor{odarkred}{Donkerrood} \\
+  Hoog & 7.0 -- 8.9 & \textcolor{ored}{Rood} \\
+  Midden & 4.0 -- 6.9 & \textcolor{oorange}{Oranje} \\
+  Laag & 0.1 -- 3.9 & \textcolor{oyellow}{Geel} \\
+  Nihil & 0.0 & \textcolor{ogreen}{Groen} \\
+  \hline
+\end{tabular}
+\end{center}
+[% endif %]
+
+% --- Samenvatting bevindingen ---
+[% if taal == 'en' %]
+\section{Summary of Findings}
+
+A total of \textbf{[[ findings|length ]]} findings were identified:
+
+\begin{center}
+\begin{tabular}{|l|c|}
+  \hline
+  \textbf{Classification} & \textbf{Count} \\
+  \hline
+  \textcolor{odarkred}{Critical} & [[ counts.critical ]] \\
+  \textcolor{ored}{High} & [[ counts.high ]] \\
+  \textcolor{oorange}{Medium} & [[ counts.medium ]] \\
+  \textcolor{oyellow}{Low} & [[ counts.low ]] \\
+  \textcolor{ogreen}{Informational} & [[ counts.none ]] \\
+  \hline
+  \textbf{Total} & \textbf{[[ findings|length ]]} \\
+  \hline
+\end{tabular}
+\end{center}
+[% else %]
+\section{Samenvatting bevindingen}
+
+In totaal zijn \textbf{[[ findings|length ]]} bevindingen geidentificeerd:
+
+\begin{center}
+\begin{tabular}{|l|c|}
+  \hline
+  \textbf{Classificatie} & \textbf{Aantal} \\
+  \hline
+  \textcolor{odarkred}{Kritiek} & [[ counts.critical ]] \\
+  \textcolor{ored}{Hoog} & [[ counts.high ]] \\
+  \textcolor{oorange}{Midden} & [[ counts.medium ]] \\
+  \textcolor{oyellow}{Laag} & [[ counts.low ]] \\
+  \textcolor{ogreen}{Nihil} & [[ counts.none ]] \\
+  \hline
+  \textbf{Totaal} & \textbf{[[ findings|length ]]} \\
+  \hline
+\end{tabular}
+\end{center}
+[% endif %]
+
+\newpage
+
+% --- Verkenning & ontdekking (notities) ---
+[% if notes %]
+[% if taal == 'en' %]
+\section{Reconnaissance \& Discovery}
+[% else %]
+\section{Verkenning \& ontdekking}
+[% endif %]
+
+[% for note in notes %]
+\subsection{[[ note.naam | latex_escape ]]}
+
+[[ note.uitwerken | latex_escape ]]
+
+[% endfor %]
+\newpage
+[% endif %]
+
+% --- Bevindingen ---
+[% if taal == 'en' %]
+\section{Findings}
+[% else %]
+\section{Bevindingen}
+[% endif %]
+
+[% for severity_label, group in grouped_findings %]
+[% if group %]
+[% if taal == 'en' %]
+\subsection{[[ severity_label ]] findings}
+[% else %]
+\subsection{[[ severity_label ]] bevindingen}
+[% endif %]
+
+[% for item in group %]
+\ibfinding{[[ item.id ]]}%
+  {[[ item.titel | latex_escape ]]}%
+  {[[ item.basescore ]]}%
+  {[[ item.beschrijving | latex_escape ]]}%
+  {[[ item.impact | latex_escape ]]}%
+  {[[ item.aanbeveling | latex_escape ]]}
+
+[% if item.locatie %]
+[% if taal == 'en' %]
+\noindent\textbf{Location:} \texttt{[[ item.locatie | latex_escape ]]}
+[% else %]
+\noindent\textbf{Locatie:} \texttt{[[ item.locatie | latex_escape ]]}
+[% endif %]
+\vspace{0.3em}
+[% endif %]
+
+[% if item.owasp %]
+\noindent\textbf{OWASP:} [[ item.owasp | latex_escape ]] \quad
+[% endif %]
+[% if item.cwe %]
+\textbf{CWE:} [[ item.cwe | latex_escape ]] \quad
+[% endif %]
+[% if item.cvss_vector %]
+\textbf{CVSS Vector:} \texttt{\small [[ item.cvss_vector | latex_escape ]]}
+[% endif %]
+
+[% for ev in item.evidence %]
+\ibevidence{[[ ev.path ]]}{[[ ev.caption | latex_escape ]]}
+[% endfor %]
+
+\newpage
+[% endfor %]
+[% endif %]
+[% endfor %]
+
+% --- Aanbevelingen ---
+[% if taal == 'en' %]
+\section{Recommendations Overview}
+
+\begin{longtable}{|c|p{5cm}|c|p{7cm}|}
+  \hline
+  \textbf{ID} & \textbf{Finding} & \textbf{CVSS} & \textbf{Recommendation} \\
+  \hline
+  \endhead
+[% else %]
+\section{Overzicht aanbevelingen}
+
+\begin{longtable}{|c|p{5cm}|c|p{7cm}|}
+  \hline
+  \textbf{ID} & \textbf{Bevinding} & \textbf{CVSS} & \textbf{Aanbeveling} \\
+  \hline
+  \endhead
+[% endif %]
+[% for item in findings %]
+  [[ '%03d' | format(item.id) ]] & [[ item.titel | latex_escape ]] & [[ item.basescore ]] & [[ item.aanbeveling | latex_escape ]] \\
+  \hline
+[% endfor %]
+\end{longtable}
+
+\end{document}

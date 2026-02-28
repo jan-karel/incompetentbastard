@@ -1,0 +1,23 @@
+# AD CS (Active Directory Certificate Services) Enumeratie
+# === Certify.exe (Ghostpack) ===
+# Alle Certificate Authorities in het domain:
+.\Certify.exe cas
+# Alle certificate templates:
+.\Certify.exe find
+# Alleen kwetsbare templates:
+.\Certify.exe find /vulnerable
+# Templates met enrollee supplies subject (ESC1):
+.\Certify.exe find /enrolleeSuppliesSubject
+# Huidige user certificates:
+.\Certify.exe find /clientauth
+# === Certipy (Python, vanuit Linux) ===
+certipy find -u user@domain.local -p Password123! -dc-ip DC_IP
+# Alleen kwetsbare:
+certipy find -u user@domain.local -p Password123! -dc-ip DC_IP -vulnerable
+# === Handmatig via LDAP ===
+# Templates:
+certutil -v -template > templates.txt
+# CAs:
+certutil -config - -ping
+# Tip: ESC1-ESC8 zijn de bekende misconfigs - focus op /vulnerable output
+# Tip: Upload BloodHound-compatible output voor visuele analyse

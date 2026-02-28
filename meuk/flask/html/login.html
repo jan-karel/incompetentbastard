@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Login - Incompetent Bastard</title>
+  <style nonce="{{ csp_nonce }}">
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:system-ui,-apple-system,sans-serif;background:#1a1a2e;color:#e0e0e0;display:flex;align-items:center;justify-content:center;min-height:100vh}
+    .card{background:#16213e;border-radius:8px;padding:2rem;width:100%;max-width:360px;box-shadow:0 4px 24px rgba(0,0,0,.4)}
+    h1{font-size:1.4rem;margin-bottom:1.5rem;text-align:center;color:#a0c4ff}
+    label{display:block;font-size:.85rem;margin-bottom:.3rem;color:#8899aa}
+    input[type=text],input[type=password]{width:100%;padding:.6rem .8rem;border:1px solid #2a3a5c;border-radius:4px;background:#0f1a30;color:#e0e0e0;font-size:.95rem;margin-bottom:1rem}
+    input:focus{outline:none;border-color:#4a8fe7}
+    button{width:100%;padding:.7rem;background:#4a8fe7;color:#fff;border:none;border-radius:4px;font-size:1rem;cursor:pointer;font-weight:600}
+    button:hover{background:#3a7fd7}
+    .error{background:#3d1111;border:1px solid #6b2020;color:#ff8888;padding:.6rem;border-radius:4px;margin-bottom:1rem;font-size:.85rem}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Incompetent Bastard</h1>
+    {% if error %}
+    <div class="error">{{ error }}</div>
+    {% endif %}
+    <form method="post">
+      <label for="username">Gebruikersnaam</label>
+      <input type="text" id="username" name="username" autocomplete="username" required autofocus />
+      <label for="password">Wachtwoord</label>
+      <input type="password" id="password" name="password" autocomplete="current-password" required />
+      {% if request.args.get('next') %}
+      <input type="hidden" name="next" value="{{ request.args.get('next') }}" />
+      {% endif %}
+      <button type="submit">Inloggen</button>
+    </form>
+  </div>
+</body>
+</html>

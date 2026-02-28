@@ -1,0 +1,29 @@
+# SMTP User Enumeration - VRFY/EXPN/RCPT TO
+# === Handmatig via netcat ===
+nc -nv TARGET_IP 25
+# VRFY root
+# VRFY admin
+# VRFY postmaster
+# VRFY user
+# === EXPN (mailing list leden) ===
+# EXPN all-users
+# === RCPT TO (als VRFY uitgeschakeld) ===
+# MAIL FROM:<test@test.com>
+# RCPT TO:<admin@target.com>    (250 = bestaat, 550 = niet)
+# === smtp-user-enum tool ===
+smtp-user-enum -M VRFY -U /usr/share/seclists/Usernames/Names/names.txt -t TARGET_IP
+smtp-user-enum -M RCPT -U users.txt -D target.com -t TARGET_IP
+smtp-user-enum -M EXPN -U users.txt -t TARGET_IP
+# === Nmap NSE scripts ===
+nmap -p 25 --script smtp-enum-users TARGET_IP
+nmap -p 25 --script smtp-commands TARGET_IP
+nmap -p 25 --script smtp-open-relay TARGET_IP
+# === Python script (snelle enum) ===
+# import socket
+# s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+# s.connect(('TARGET_IP', 25))
+# s.recv(1024)
+# s.send(b'VRFY admin\r\n')
+# print(s.recv(1024))
+# Tip: VRFY en EXPN worden vaak uitgeschakeld - gebruik dan RCPT TO
+# Tip: Poort 25 (SMTP), 465 (SMTPS), 587 (submission)

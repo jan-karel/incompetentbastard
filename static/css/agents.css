@@ -1,0 +1,180 @@
+.grid.cols-3 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.agent-workspace {
+  display: grid;
+  grid-template-columns: 380px 1fr;
+  gap: 14px;
+  margin-top: 14px;
+  min-height: 500px;
+}
+.agent-workspace.sidebar-open {
+  grid-template-columns: 380px 1fr 380px;
+}
+
+.agent-list-card {
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.agent-list-card .card-body {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.agent-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.agent-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  border-radius: 6px;
+  transition: background 0.15s;
+}
+.agent-item:hover {
+  background: var(--surface-2, #1e293b);
+}
+.agent-item.selected {
+  background: var(--primary-bg, #1e3a5f);
+  border-color: var(--primary, #3b82f6);
+}
+
+.agent-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.agent-dot.active { background: #4caf50; }
+.agent-dot.idle   { background: #ff9800; }
+.agent-dot.dead   { background: #f44336; }
+
+.agent-meta {
+  flex: 1;
+  min-width: 0;
+}
+.agent-meta .agent-name {
+  font-weight: 600;
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.agent-meta .agent-info {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.agent-time {
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+/* Shell panel */
+.agent-shell-card {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.shell-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.shell-terminal {
+  background: #0f172a;
+  color: #e2e8f0;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 13px;
+  line-height: 1.5;
+  padding: 12px;
+  border-radius: 6px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+  flex: 1;
+  min-height: 0;
+  border: 1px solid var(--border, #333);
+}
+.shell-terminal:empty::after {
+  content: 'Selecteer een agent om commando\'s te sturen...';
+  color: #555;
+}
+
+.shell-input-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+  flex-shrink: 0;
+}
+.shell-input-row input {
+  flex: 1;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 13px;
+  background: #0f172a;
+  color: #e2e8f0;
+  border: 1px solid var(--border, #333);
+  padding: 8px 12px;
+  border-radius: 4px;
+}
+.shell-input-row input::placeholder {
+  color: #555;
+}
+
+.cmd-line {
+  color: #60a5fa;
+}
+.cmd-output {
+  color: #e2e8f0;
+}
+.cmd-pending {
+  color: #666;
+  font-style: italic;
+}
+
+.btn-sm {
+  font-size: 12px;
+  padding: 4px 10px;
+}
+
+/* Command Library Sidebar */
+.agent-cmd-sidebar {
+  display: none;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--card, #1e293b);
+  border: 1px solid var(--border, #333);
+  border-radius: 8px;
+  padding: 12px;
+}
+.agent-cmd-sidebar.open {
+  display: flex;
+}
+.sidebar-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  flex-shrink: 0;
+}
+.cmd-list-scroll {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+}

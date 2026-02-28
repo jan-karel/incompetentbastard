@@ -1,0 +1,211 @@
+.action-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.snippet {
+  margin-bottom: 12px;
+}
+
+.snippet-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.code-block {
+  margin: 0;
+  max-height: 220px;
+  overflow: auto;
+  background: #0f172a;
+  color: #e2e8f0;
+  padding: 10px;
+  border-radius: 8px;
+  font-size: 12px;
+}
+
+.table.compact th,
+.table.compact td {
+  padding: 8px;
+}
+
+.list-plain {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.list-plain li {
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.list-plain.small li {
+  font-size: 13px;
+}
+
+.telemetry-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.command-list {
+  max-height: 380px;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px;
+}
+
+.command-item {
+  border-bottom: 1px solid var(--border);
+  padding: 6px 0;
+}
+
+.command-item:last-child {
+  border-bottom: none;
+}
+
+.command-item summary {
+  cursor: pointer;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.btn-copy-cmd {
+  font-size: 11px;
+  padding: 2px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--muted);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.btn-copy-cmd:hover { border-color: var(--primary); color: var(--heading); }
+.btn-copy-cmd.copied { background: var(--success, #22c55e); color: #fff; border-color: transparent; }
+
+/* ── 5-column KPI grid ─────────────────────────────────── */
+.grid.cols-5 {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 14px;
+}
+
+/* ── KPI colour accents ───────────────────────────────── */
+.kpi .val.accent-green  { color: #4caf50; }
+.kpi .val.accent-orange { color: #ff9800; }
+.kpi .val.accent-blue   { color: #3b82f6; }
+
+/* ── Agent panel ──────────────────────────────────────── */
+.agent-panel {
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.agent-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  border-radius: 4px;
+  transition: background 0.15s;
+}
+.agent-row:last-child { border-bottom: none; }
+.agent-row:hover { background: var(--surface-2, #1e293b); }
+
+.agent-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.agent-dot.active { background: #4caf50; }
+.agent-dot.idle   { background: #ff9800; }
+.agent-dot.dead   { background: #6b7280; }
+
+.agent-meta {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+}
+.agent-name {
+  font-weight: 600;
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.agent-info {
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.agent-time {
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* ── Compact telemetry ────────────────────────────────── */
+.telemetry-compact {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.telemetry-stat {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.telemetry-count {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--heading, #f1f5f9);
+}
+
+.telemetry-label {
+  font-size: 12px;
+  color: var(--muted, #94a3b8);
+}
+
+.telemetry-latest {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+
+/* ── Scope target rows (modal) ────────────────────────── */
+.scope-target-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 6px;
+}
+.scope-target-input { flex: 1; }
+.scope-target-type { width: 130px; flex: none; }
+.scope-target-del-btn { padding: 2px 8px; flex: none; }
+
+@media (max-width: 1100px) {
+  .grid.cols-5 { grid-template-columns: repeat(3, 1fr); }
+}
+@media (max-width: 900px) {
+  .grid.cols-5 { grid-template-columns: repeat(2, 1fr); }
+  .telemetry-compact { flex-direction: column; gap: 8px; }
+}

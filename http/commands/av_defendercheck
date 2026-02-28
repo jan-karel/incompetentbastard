@@ -1,0 +1,20 @@
+# AV Bypass workflow - Signature detectie + obfuscatie
+# === Stap 1: Scan binary met DefenderCheck ===
+# Vindt exact welke bytes gedetecteerd worden
+DefenderCheck.exe C:\path\to\binary.exe
+# === Stap 2: Scan PowerShell script met AMSITrigger ===
+# Vindt welke strings AMSI triggeren
+AmsiTrigger_x64.exe -i C:\path\to\script.ps1
+# Verbose output:
+AmsiTrigger_x64.exe -i C:\path\to\script.ps1 -f 3
+# === Stap 3: Pas gedetecteerde strings aan ===
+# Find & Replace in Visual Studio of teksteditor
+# Rename functies, variabelen, strings die gedetecteerd worden
+# === Stap 4: Obfuscate binary met ConfuserEx ===
+# Open ConfuserEx GUI -> drag binary -> Protect
+# === Stap 5: Hertest tot AMSI_RESULT_NOT_DETECTED ===
+DefenderCheck.exe C:\path\to\modified_binary.exe
+AmsiTrigger_x64.exe -i C:\path\to\modified_script.ps1
+# Tip: Iteratief proces - scan, pas aan, scan opnieuw
+# Tip: Strings splitsen: "Invoke-Mimikatz" -> "Inv"+"oke-Mim"+"ikatz"
+# Tip: Encoding: [System.Convert]::FromBase64String() voor obfuscatie

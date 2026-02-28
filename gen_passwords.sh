@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 # Jan-Karel Visser
-# LGPLv3 licensed
+# AGPL-3.0-or-later licensed
 # https://jan-karel.nl
 # https://hacksec.nl
 
 source meuk/globalmeuk.sh
+startrec "$@"
 
 #adjust to your needs
 commonpasswords=('admin' 'nimda' 'administrator' 'beheer' 'helpdesk' 'support' 'guest' 'nimda' 'lente' 'zomer' 'herfst' 'winter' 'spring' 'summer' 'winter' 'autumn' 'password' 'p4ssw0rd' 'p@ssw0rd' 'welcome' 'welkom' 'qwerty' '1q2w3e')

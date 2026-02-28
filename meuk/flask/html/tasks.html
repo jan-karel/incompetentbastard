@@ -1,0 +1,77 @@
+{% extends "bootstrap/base.html" %}
+{% block title %}Task Runner{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/tasks-modern.css') }}" />
+{% endblock %}
+
+{% block content %}
+<div class="page-title">
+  <div>
+    <h1>Task Runner</h1>
+    <div class="breadcrumbs"><a href="/">Home</a> / Tasks</div>
+  </div>
+</div>
+
+<div class="grid cols-2">
+  <section class="card">
+    <div class="card-head">
+      <h2>Taak selecteren</h2>
+    </div>
+    <div class="card-body">
+      <div class="task-controls">
+        <label for="task-group-select">Groep</label>
+        <select id="task-group-select" class="form-control">
+          {% for gid, glabel in groups.items() %}
+          <option value="{{ gid }}">{{ glabel }}</option>
+          {% endfor %}
+        </select>
+
+        <label for="task-select">Taak</label>
+        <select id="task-select" class="form-control">
+          {% for name, task in tasks.items() %}
+          <option value="{{ name }}" data-group="{{ task.get('group', 'dev') }}">{{ task.label }}</option>
+          {% endfor %}
+        </select>
+
+        <div id="task-desc" class="task-desc"></div>
+
+        <div id="task-args"></div>
+
+        <button id="run-btn" class="btn btn-primary" type="button">Start taak</button>
+      </div>
+
+      <div id="status" class="task-status">Status: idle</div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <h2>Beschikbare scripts</h2>
+    </div>
+    <div class="card-body">
+      {% for gid, tasklist in grouped.items() %}
+      <div class="task-group-label">{{ groups.get(gid, gid) }}</div>
+      <ul class="list-plain small">
+        {% for t in tasklist %}
+        <li><strong>{{ t.label }}</strong>{% if t.get('desc') %} <span class="help">{{ t.desc }}</span>{% endif %}</li>
+        {% endfor %}
+      </ul>
+      {% endfor %}
+    </div>
+  </section>
+</div>
+
+<section class="card mt-14">
+  <div class="card-head">
+    <h2>Output</h2>
+  </div>
+  <div class="card-body">
+    <pre id="output" class="code-block"></pre>
+  </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='js/tasks-modern.js') }}"></script>
+{% endblock %}

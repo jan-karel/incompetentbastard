@@ -1,0 +1,48 @@
+{% extends "bootstrap/base.html" %}
+{% block title %}Outputs{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/outputs.css') }}" />
+{% endblock %}
+
+{% block content %}
+<div class="page-title">
+  <div>
+    <h1>Script Outputs</h1>
+    <div class="breadcrumbs"><a href="/">Home</a> / Outputs</div>
+  </div>
+</div>
+
+<div class="grid cols-2">
+  <section class="card">
+    <div class="card-head"><h2>Bestanden</h2></div>
+    <div class="card-body">
+      <input id="output-filter" class="form-control" type="text" placeholder="Filter op naam of pad..." />
+      <div id="output-list" class="output-list mt-10">
+        {% for o in outputs %}
+        <button class="output-item" type="button" data-id="{{ o.id }}" data-search="{{ (o.path ~ ' ' ~ o.name)|lower }}">
+          <strong>{{ o.name }}</strong>
+          <small>{{ o.path }}</small>
+          <small>{{ o.size }} bytes</small>
+        </button>
+        {% endfor %}
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <h2>Inhoud</h2>
+      <button id="copy-output" class="btn btn-link" type="button">copy</button>
+    </div>
+    <div class="card-body">
+      <div id="output-meta" class="help">Selecteer een bestand links.</div>
+      <pre id="output-content" class="code-block"></pre>
+    </div>
+  </section>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='js/outputs.js') }}"></script>
+{% endblock %}

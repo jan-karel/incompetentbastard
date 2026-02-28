@@ -1,0 +1,112 @@
+{% extends "bootstrap/base.html" %}
+{% block title %}Screen Terminal{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/generator.css') }}" />
+<link rel="stylesheet" href="{{ url_for('static', filename='css/commands.css') }}" />
+<link rel="stylesheet" href="{{ url_for('static', filename='css/screen-terminal.css') }}" />
+{% endblock %}
+
+{% block content %}
+<div class="gen-header">
+  <div class="breadcrumbs"><a href="/">Dashboard</a> / Screen Terminal</div>
+  <h1>Screen Terminal</h1>
+  <p>Interactieve web-terminal voor actieve screen sessies.</p>
+</div>
+
+<section class="card">
+  <div class="card-head"><h2>Nieuwe sessie starten</h2></div>
+  <div class="card-body">
+    <div class="gen-form">
+      <div class="field">
+        <label for="new-session-name">Sessie naam</label>
+        <input class="input" type="text" id="new-session-name" placeholder="bijv. pentest1" />
+      </div>
+      <div class="field">
+        <label for="new-session-shell">Shell</label>
+        <select class="input" id="new-session-shell">
+          <option value="">Standaard ($SHELL)</option>
+          <option value="bash">/bin/bash</option>
+          <option value="sh">/bin/sh</option>
+          <option value="zsh">/bin/zsh</option>
+        </select>
+      </div>
+    </div>
+    <div class="gen-actions screen-controls">
+      <button type="button" id="create-session" class="btn btn-primary">Sessie starten</button>
+      <span id="create-status" class="status"></span>
+    </div>
+    <p class="text-muted fs-12 mt-4 mb-0">Start een detached screen sessie met asciinema recording. De recording verschijnt in <a href="/dashboard/recordings">Recordings</a>.</p>
+  </div>
+</section>
+
+<section class="card mt-14">
+  <div class="card-head"><h2>Screen Sessie</h2></div>
+  <div class="card-body">
+    <div class="gen-form">
+      <div class="field">
+        <label for="screen-select">Actieve sessies</label>
+        <select class="input" id="screen-select">
+          <option value="">-- laden... --</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="screen-custom">Of handmatig</label>
+        <input class="input" type="text" id="screen-custom" placeholder="sessie naam" />
+      </div>
+    </div>
+    <div class="gen-actions screen-controls">
+      <button type="button" id="refresh-screens" class="btn">Vernieuw</button>
+      <button type="button" id="start-polling" class="btn btn-primary">Start</button>
+      <button type="button" id="stop-polling" class="btn" disabled>Stop</button>
+      <button type="button" id="detach-session" class="btn ml-auto">Detach sessie</button>
+      <span id="screen-status" class="status"></span>
+    </div>
+  </div>
+</section>
+
+<section class="card mt-14">
+  <div class="card-body p-0">
+    <div id="terminal-workspace">
+      <div class="term-main">
+        <div class="term-toolbar">
+          <h2 class="m-0 fs-15">Terminal Output</h2>
+          <a id="recording-link" href="#" target="_blank" class="btn-fs d-none" title="Bekijk asciinema recording">&#9658; Recording</a>
+          <span class="spacer"></span>
+          <button type="button" id="toggle-cmd-sidebar" class="btn-fs" title="Command Library sidebar">Commands &#9654;</button>
+          <button type="button" id="btn-fullscreen" class="btn-fs" title="Fullscreen">&#x26F6; Fullscreen</button>
+        </div>
+        <div class="screen-terminal" id="screen-output"></div>
+        <div class="screen-input-row">
+          <input type="text" id="screen-cmd" placeholder="Typ een commando en druk Enter..." disabled />
+          <button type="button" id="send-cmd" class="btn btn-primary" disabled>Verstuur</button>
+        </div>
+      </div>
+      <div class="term-sidebar" id="cmd-sidebar">
+        <div class="term-toolbar">
+          <h2 class="m-0 fs-15">Command Library</h2>
+          <span class="spacer"></span>
+          <input type="text" id="cmd-filter" class="input input-xs w-140" placeholder="Filter..." />
+          <button type="button" id="close-cmd-sidebar" class="btn-fs" title="Sluit sidebar">&#x2715;</button>
+        </div>
+        <div class="d-flex gap-6 mb-4 flex-shrink-0">
+          <input type="text" id="replace-find" class="input flex-1 input-xs" placeholder="Find IP/URL" />
+          <input type="text" id="replace-with" class="input flex-1 input-xs" placeholder="Replace" />
+        </div>
+        <label class="label-inline flex-shrink-0">
+          <input type="checkbox" id="replace-https" /> http &rarr; https
+        </label>
+        <div class="cmd-list-scroll">
+          <div id="cmd-list">
+            <p class="text-muted">Laden...</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='js/screen-terminal.js') }}"></script>
+{% endblock %}

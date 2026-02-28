@@ -1,0 +1,12 @@
+# GPO enumeratie
+# PowerView:
+Get-DomainGPO | select DisplayName,Name
+Get-DomainGPO -ComputerIdentity targetcomputer
+# Restricted Groups / interessante GPO configuraties:
+Get-DomainGPOLocalGroup
+# Users in local group via GPO:
+Get-DomainGPOComputerLocalGroupMapping -ComputerIdentity targetcomputer
+# Waar is een user local admin via GPO:
+Get-DomainGPOUserLocalGroupMapping -Identity targetuser -Verbose
+# OUs:
+Get-DomainOU | select Name,DistinguishedName

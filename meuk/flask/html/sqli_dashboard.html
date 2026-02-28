@@ -1,0 +1,555 @@
+{% extends "bootstrap/base.html" %}
+{% block title %}Incompetent Bastard - SQLi Lab{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard-modern.css') }}" />
+<link rel="stylesheet" href="{{ url_for('static', filename='css/sqli-dashboard.css') }}" />
+<link rel="stylesheet" href="{{ url_for('static', filename='css/lab-generator.css') }}" />
+{% endblock %}
+
+{% block content %}
+<div class="page-title">
+  <div>
+    <h1>SQLi Lab</h1>
+    <div class="breadcrumbs"><a href="/">Home</a> / <a href="/">Dashboard</a> / SQLi</div>
+  </div>
+</div>
+
+<div class="grid cols-3">
+  <section class="card">
+    <div class="card-body">
+      <div class="kpi">
+        <div>
+          <div class="val accent-orange">{{ records|length }}</div>
+          <div class="sub">Total Injections</div>
+        </div>
+      </div>
+    </div>
+  </section>
+  <section class="card">
+    <div class="card-body">
+      <div class="kpi">
+        <div>
+          <div class="val">{{ secondorder_records|length }}</div>
+          <div class="sub">Second-Order</div>
+        </div>
+      </div>
+    </div>
+  </section>
+  <section class="card">
+    <div class="card-body">
+      <div class="kpi">
+        <div>
+          <div class="val">{{ link_records|length }}</div>
+          <div class="sub">Linked Servers</div>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<div class="sqli-tabs">
+  <button class="sqli-tab active" data-tab="injection-log">Injection Log</button>
+  <button class="sqli-tab" data-tab="second-order">Second-Order</button>
+  <button class="sqli-tab" data-tab="mssql">MSSQL</button>
+  <button class="sqli-tab" data-tab="linked-servers">Linked Servers</button>
+  <button class="sqli-tab" data-tab="generator">Generator</button>
+  <button class="sqli-tab" data-tab="cheatsheet">Cheatsheet</button>
+</div>
+
+<!-- Tab: Injection Log -->
+<div class="sqli-panel active" id="tab-injection-log">
+<section class="card">
+  <div class="card-head"><h2>Injection Log</h2></div>
+  <div class="card-body">
+    {% if records %}
+    <table class="table compact">
+      <thead>
+        <tr>
+          <th>ID</th><th>IP</th><th>Doel</th><th>Methode</th><th>Payload</th><th>Status</th><th>Response</th><th>Datum</th><th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in records %}
+        <tr>
+          <td>{{ r.id }}</td>
+          <td>{{ r.ip }}</td>
+          <td class="max-w-200 truncate">{{ r.doel }}</td>
+          <td>{{ r.methode }}</td>
+          <td class="max-w-200 truncate"><code>{{ r.payload }}</code></td>
+          <td>{{ r.status }}</td>
+          <td class="max-w-300 truncate">{{ r.response[:200] if r.response else '' }}</td>
+          <td>{{ r.datum }}</td>
+          <td><button class="btn-sm btn-danger sqli-delete" data-id="{{ r.id }}">&#x2715;</button></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="help">Geen SQLi data. Gebruik <code>/sqli2/inject?url=DOEL&amp;param=id&amp;payload=1'OR'1'='1</code></p>
+    {% endif %}
+  </div>
+</section>
+</div>
+
+<!-- Tab: Second-Order -->
+<div class="sqli-panel" id="tab-second-order">
+<section class="card">
+  <div class="card-head"><h2>Second-Order SQLi</h2></div>
+  <div class="card-body">
+    <div class="inline-form" id="so-form">
+      <div><label>Label</label><input type="text" id="so-label" placeholder="profiel update -> admin"></div>
+      <div><label>Store URL</label><input type="text" id="so-store-url" placeholder="http://target/register"></div>
+      <div><label>Param</label><input type="text" id="so-param" placeholder="username"></div>
+      <div><label>Payload</label><input type="text" id="so-payload" placeholder="admin'--"></div>
+      <div><label>Method</label>
+        <select id="so-method"><option>POST</option><option>GET</option></select>
+      </div>
+      <div><button class="btn-sm" id="so-store-btn">Store</button></div>
+    </div>
+    <div class="inline-form" id="so-trigger-form" style="border-top:1px solid var(--border,#333);padding-top:8px">
+      <div><label>Store ID</label><input type="text" id="so-store-id" placeholder="1"></div>
+      <div><label>Trigger URL</label><input type="text" id="so-trigger-url" placeholder="http://target/admin/search"></div>
+      <div><label>Method</label>
+        <select id="so-trigger-method"><option>GET</option><option>POST</option></select>
+      </div>
+      <div><button class="btn-sm" id="so-trigger-btn">Trigger</button></div>
+      <div><button class="btn-sm" id="so-verify-btn">Verify</button></div>
+    </div>
+    <div class="result-box" id="so-result"></div>
+
+    {% if secondorder_records %}
+    <table class="table compact" style="margin-top:14px">
+      <thead>
+        <tr><th>ID</th><th>Label</th><th>Payload</th><th>Stap</th><th>Status</th><th>Store URL</th><th>Trigger URL</th><th>Datum</th><th></th></tr>
+      </thead>
+      <tbody id="so-tbody">
+        {% for r in secondorder_records %}
+        <tr data-id="{{ r.id }}">
+          <td>{{ r.id }}</td>
+          <td>{{ r.label }}</td>
+          <td class="max-w-200 truncate"><code>{{ r.payload }}</code></td>
+          <td>{{ r.stap }}</td>
+          <td><span class="badge badge-{{ r.status }}">{{ r.status }}</span></td>
+          <td class="max-w-200 truncate">{{ r.doel_store or '' }}</td>
+          <td class="max-w-200 truncate">{{ r.doel_trigger or '' }}</td>
+          <td>{{ r.datum }}</td>
+          <td><button class="btn-sm btn-danger so-delete" data-id="{{ r.id }}">&#x2715;</button></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="help" id="so-empty" style="margin-top:14px">Geen second-order data.</p>
+    {% endif %}
+  </div>
+</section>
+</div>
+
+<!-- Tab: MSSQL -->
+<div class="sqli-panel" id="tab-mssql">
+<section class="card">
+  <div class="card-head"><h2>MSSQL Technieken</h2></div>
+  <div class="card-body">
+    <div class="inline-form" id="mssql-form">
+      <div><label>Doel URL</label><input type="text" id="ms-url" placeholder="http://target/page?id=1"></div>
+      <div><label>Param</label><input type="text" id="ms-param" placeholder="id"></div>
+      <div><label>Techniek</label>
+        <select id="ms-technique">
+          <option value="xpcmdshell">xp_cmdshell</option>
+          <option value="unc">UNC Injection</option>
+          <option value="exec">Custom Query</option>
+        </select>
+      </div>
+      <div id="ms-cmd-wrap"><label>Command/Query</label><input type="text" id="ms-command" placeholder="whoami"></div>
+      <div id="ms-listener-wrap" style="display:none"><label>Listener IP</label><input type="text" id="ms-listener" placeholder="10.0.0.1"></div>
+      <div id="ms-unc-tech-wrap" style="display:none"><label>UNC Techniek</label>
+        <select id="ms-unc-tech"><option>dirtree</option><option>fileexist</option><option>subdirs</option></select>
+      </div>
+      <div><button class="btn-sm" id="ms-exec-btn">Uitvoeren</button></div>
+    </div>
+    <div class="result-box" id="ms-result"></div>
+  </div>
+</section>
+</div>
+
+<!-- Tab: Linked Servers -->
+<div class="sqli-panel" id="tab-linked-servers">
+<section class="card">
+  <div class="card-head"><h2>MSSQL Linked Servers</h2></div>
+  <div class="card-body">
+    <div class="inline-form" id="link-form">
+      <div><label>Doel URL</label><input type="text" id="lnk-url" placeholder="http://target/page?id=1"></div>
+      <div><label>Param</label><input type="text" id="lnk-param" placeholder="id"></div>
+      <div><label>Chain (comma-separated)</label><input type="text" id="lnk-chain" placeholder="SRV02,SRV03"></div>
+      <div><label>Query/Command</label><input type="text" id="lnk-query" placeholder="SELECT @@servername"></div>
+      <div><label>Methode</label>
+        <select id="lnk-methode">
+          <option value="openquery">OPENQUERY</option>
+          <option value="exec_at">EXEC AT</option>
+        </select>
+      </div>
+      <div style="display:flex;gap:4px;align-items:end">
+        <button class="btn-sm" id="lnk-discover-btn">Discover</button>
+        <button class="btn-sm" id="lnk-crawl-btn">Crawl</button>
+        <button class="btn-sm btn-danger" id="lnk-rce-btn">RCE</button>
+      </div>
+    </div>
+    <div class="result-box" id="lnk-result"></div>
+
+    {% if link_records %}
+    <table class="table compact" style="margin-top:14px">
+      <thead>
+        <tr><th>ID</th><th>Instance</th><th>Linked To</th><th>Keten</th><th>Sysadmin</th><th>Methode</th><th>Resultaat</th><th>Datum</th><th></th></tr>
+      </thead>
+      <tbody id="lnk-tbody">
+        {% for r in link_records %}
+        <tr data-id="{{ r.id }}">
+          <td>{{ r.id }}</td>
+          <td class="max-w-200 truncate">{{ r.instance }}</td>
+          <td>{{ r.linked_to }}</td>
+          <td class="chain-visual">
+            {% set keten = r.keten %}
+            {% if keten and keten != '[]' %}
+              {% for srv in keten|replace('[','') |replace(']','')|replace('"','')|split(',') %}
+                {% if not loop.first %}<span class="arrow">&#8594;</span>{% endif %}{{ srv|trim }}
+              {% endfor %}
+            {% else %}-{% endif %}
+          </td>
+          <td>{% if r.sysadmin %}<span class="badge badge-sysadmin">SA</span>{% else %}-{% endif %}</td>
+          <td>{{ r.methode }}</td>
+          <td class="max-w-300 truncate">{{ r.resultaat[:200] if r.resultaat else '' }}</td>
+          <td>{{ r.datum }}</td>
+          <td><button class="btn-sm btn-danger lnk-delete" data-id="{{ r.id }}">&#x2715;</button></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="help" id="lnk-empty" style="margin-top:14px">Geen linked server data.</p>
+    {% endif %}
+  </div>
+</section>
+</div>
+
+<!-- Tab: Generator -->
+<div class="sqli-panel" id="tab-generator">
+
+<!-- Sectie 1: General SQL -->
+<section class="card">
+  <div class="card-head"><h2>SQL Query Generator</h2></div>
+  <div class="card-body">
+    <div class="gen-section">
+      <h3>Parameters</h3>
+      <div class="gen-grid">
+        <div><label>Database type</label>
+          <select id="gen-dbtype"><option>MSSQL</option><option>MySQL</option><option>PostgreSQL</option><option>Oracle</option></select>
+        </div>
+        <div><label>Database / Schema</label><input type="text" id="gen-database" placeholder="master"></div>
+        <div><label>Schema (PG/Oracle)</label><input type="text" id="gen-schema" placeholder="public"></div>
+        <div><label>Table</label><input type="text" id="gen-table" placeholder="users"></div>
+        <div><label>Columns</label><input type="text" id="gen-columns" placeholder="*"></div>
+        <div><label>Keyword (search)</label><input type="text" id="gen-keyword" placeholder="pass"></div>
+        <div><label>File path</label><input type="text" id="gen-filepath" placeholder="/etc/passwd"></div>
+        <div><label>File content</label><input type="text" id="gen-content" placeholder="webshell..."></div>
+        <div><label>Command (RCE)</label><input type="text" id="gen-command" placeholder="id"></div>
+      </div>
+      <h3>Injection context</h3>
+      <p class="gen-note">Kies 'raw' voor directe queries (HeidiSQL, sqlcmd, etc.) of een injection-type voor via een webapplicatie.</p>
+      <div class="gen-grid">
+        <div><label>Injection type</label>
+          <select id="gen-injection">
+            <option value="raw">Raw (direct)</option>
+            <option value="union">UNION</option>
+            <option value="stacked">Stacked</option>
+            <option value="error">Error-based</option>
+            <option value="blind_bool">Blind (boolean)</option>
+            <option value="blind_time">Blind (time)</option>
+          </select>
+        </div>
+        <div><label>Prefix</label><input type="text" id="gen-prefix" placeholder=""></div>
+        <div><label>Suffix</label><input type="text" id="gen-suffix" placeholder=""></div>
+        <div><label># Kolommen (UNION)</label><input type="text" id="gen-numcols" placeholder="3"></div>
+      </div>
+      <div class="gen-actions">
+        <button class="btn-sm" id="gen-sql-btn">Genereer Queries</button>
+      </div>
+    </div>
+    <div id="gen-sql-output"></div>
+  </div>
+</section>
+
+<hr class="gen-sep">
+
+<!-- Sectie 2: MSSQL Advanced -->
+<section class="card">
+  <div class="card-head"><h2>MSSQL Advanced</h2></div>
+  <div class="card-body">
+    <div class="gen-section">
+      <div class="gen-grid">
+        <div><label>Command</label><input type="text" id="gen-ms-command" placeholder="whoami"></div>
+        <div><label>Listener IP</label><input type="text" id="gen-ms-listener" placeholder="10.0.0.1"></div>
+        <div><label>Linked Server</label><input type="text" id="gen-ms-linkedsrv" placeholder="LINKED_SERVER"></div>
+        <div><label>Injection type</label>
+          <select id="gen-ms-injection">
+            <option value="raw">Raw (direct)</option>
+            <option value="stacked">Stacked</option>
+            <option value="union">UNION</option>
+          </select>
+        </div>
+        <div><label>Prefix</label><input type="text" id="gen-ms-prefix" placeholder=""></div>
+        <div><label>Suffix</label><input type="text" id="gen-ms-suffix" placeholder=""></div>
+        <div><label># Kolommen</label><input type="text" id="gen-ms-numcols" placeholder="3"></div>
+      </div>
+      <div class="gen-actions">
+        <button class="btn-sm" id="gen-mssql-btn">Genereer MSSQL Queries</button>
+      </div>
+    </div>
+    <div id="gen-mssql-output"></div>
+  </div>
+</section>
+
+<hr class="gen-sep">
+
+<!-- Sectie 3: Linked Server Nested Queries -->
+<section class="card">
+  <div class="card-head"><h2>MSSQL Linked Server — Nested Queries</h2></div>
+  <div class="card-body">
+    <div class="gen-section">
+      <p class="gen-note">Voer een keten van linked servers in (bijv. SRV02,SRV03). De generator bouwt automatisch geneste OPENQUERY en EXEC AT syntax met correcte quote-escaping per nesting-niveau.</p>
+      <div class="gen-grid">
+        <div><label>Chain (comma-separated)</label><input type="text" id="gen-link-chain" placeholder="SRV02,SRV03"></div>
+        <div><label>Inner Query</label><input type="text" id="gen-link-query" placeholder="SELECT @@servername"></div>
+        <div><label>Command (RCE)</label><input type="text" id="gen-link-command" placeholder="whoami"></div>
+        <div><label>Injection type</label>
+          <select id="gen-link-injection">
+            <option value="raw">Raw (direct)</option>
+            <option value="stacked">Stacked</option>
+            <option value="union">UNION</option>
+          </select>
+        </div>
+        <div><label>Prefix</label><input type="text" id="gen-link-prefix" placeholder=""></div>
+        <div><label>Suffix</label><input type="text" id="gen-link-suffix" placeholder=""></div>
+        <div><label># Kolommen</label><input type="text" id="gen-link-numcols" placeholder="3"></div>
+      </div>
+      <div class="gen-actions">
+        <button class="btn-sm" id="gen-link-btn">Genereer Linked Server Queries</button>
+      </div>
+    </div>
+    <div id="gen-link-output"></div>
+  </div>
+</section>
+
+</div>
+
+<!-- Tab: Cheatsheet -->
+<div class="sqli-panel" id="tab-cheatsheet">
+<section class="card">
+  <div class="card-head"><h2>Cheatsheet</h2></div>
+  <div class="card-body">
+    <div id="cheatsheet-content"><p class="help">Laden...</p></div>
+  </div>
+</section>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='js/sqli-generator.js') }}"></script>
+<script nonce="{{ csp_nonce }}">
+(function(){
+  // Tab switching
+  var tabs = document.querySelectorAll('.sqli-tab');
+  var panels = document.querySelectorAll('.sqli-panel');
+  tabs.forEach(function(tab){
+    tab.addEventListener('click', function(){
+      tabs.forEach(function(t){t.classList.remove('active')});
+      panels.forEach(function(p){p.classList.remove('active')});
+      tab.classList.add('active');
+      var panel = document.getElementById('tab-' + tab.dataset.tab);
+      if(panel) panel.classList.add('active');
+      // Lazy-load cheatsheet
+      if(tab.dataset.tab === 'cheatsheet' && !csLoaded) loadCheatsheet();
+    });
+  });
+
+  // Delete injection log
+  document.querySelectorAll('.sqli-delete').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var id = this.dataset.id;
+      fetch('/api/sqli/' + id, {method:'DELETE'}).then(function(){ btn.closest('tr').remove(); });
+    });
+  });
+
+  // Delete second-order
+  document.querySelectorAll('.so-delete').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var id = this.dataset.id;
+      fetch('/api/sqli/secondorder/' + id, {method:'DELETE'}).then(function(){ btn.closest('tr').remove(); });
+    });
+  });
+
+  // Delete linked server
+  document.querySelectorAll('.lnk-delete').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var id = this.dataset.id;
+      fetch('/api/sqli/links/' + id, {method:'DELETE'}).then(function(){ btn.closest('tr').remove(); });
+    });
+  });
+
+  // -- Second-Order: Store --
+  document.getElementById('so-store-btn').addEventListener('click', function(){
+    var box = document.getElementById('so-result');
+    box.style.display = 'block';
+    box.textContent = 'Storing payload...';
+    fetch('/sqli2/secondorder/store', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        label: document.getElementById('so-label').value,
+        url: document.getElementById('so-store-url').value,
+        param: document.getElementById('so-param').value,
+        payload: document.getElementById('so-payload').value,
+        method: document.getElementById('so-method').value,
+      })
+    }).then(function(r){return r.json();}).then(function(d){
+      box.textContent = JSON.stringify(d, null, 2);
+      if(d.id) document.getElementById('so-store-id').value = d.id;
+    }).catch(function(e){ box.textContent = 'Error: ' + e; });
+  });
+
+  // -- Second-Order: Trigger --
+  document.getElementById('so-trigger-btn').addEventListener('click', function(){
+    var box = document.getElementById('so-result');
+    box.style.display = 'block';
+    box.textContent = 'Triggering...';
+    fetch('/sqli2/secondorder/trigger', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        store_id: document.getElementById('so-store-id').value,
+        url: document.getElementById('so-trigger-url').value,
+        method: document.getElementById('so-trigger-method').value,
+      })
+    }).then(function(r){return r.json();}).then(function(d){
+      box.textContent = JSON.stringify(d, null, 2);
+    }).catch(function(e){ box.textContent = 'Error: ' + e; });
+  });
+
+  // -- Second-Order: Verify --
+  document.getElementById('so-verify-btn').addEventListener('click', function(){
+    var storeId = document.getElementById('so-store-id').value;
+    if(!storeId){alert('Vul Store ID in');return;}
+    var box = document.getElementById('so-result');
+    box.style.display = 'block';
+    box.textContent = 'Verifying...';
+    var triggerUrl = document.getElementById('so-trigger-url').value;
+    var qp = triggerUrl ? '?url=' + encodeURIComponent(triggerUrl) : '';
+    fetch('/sqli2/secondorder/verify/' + storeId + qp)
+    .then(function(r){return r.json();}).then(function(d){
+      box.textContent = JSON.stringify(d, null, 2);
+    }).catch(function(e){ box.textContent = 'Error: ' + e; });
+  });
+
+  // -- MSSQL technique toggle --
+  var msTech = document.getElementById('ms-technique');
+  msTech.addEventListener('change', function(){
+    var isUnc = this.value === 'unc';
+    document.getElementById('ms-cmd-wrap').style.display = isUnc ? 'none' : '';
+    document.getElementById('ms-listener-wrap').style.display = isUnc ? '' : 'none';
+    document.getElementById('ms-unc-tech-wrap').style.display = isUnc ? '' : 'none';
+  });
+
+  // -- MSSQL: Exec --
+  document.getElementById('ms-exec-btn').addEventListener('click', function(){
+    var box = document.getElementById('ms-result');
+    box.style.display = 'block';
+    box.textContent = 'Executing...';
+    var tech = msTech.value;
+    var url, body;
+    if(tech === 'xpcmdshell'){
+      url = '/sqli2/mssql/xpcmdshell';
+      body = {url: document.getElementById('ms-url').value, param: document.getElementById('ms-param').value, command: document.getElementById('ms-command').value};
+    } else if(tech === 'unc'){
+      url = '/sqli2/mssql/unc';
+      body = {url: document.getElementById('ms-url').value, param: document.getElementById('ms-param').value, listener_ip: document.getElementById('ms-listener').value, technique: document.getElementById('ms-unc-tech').value};
+    } else {
+      url = '/sqli2/mssql/exec';
+      body = {url: document.getElementById('ms-url').value, param: document.getElementById('ms-param').value, query: document.getElementById('ms-command').value, technique: 'stacked'};
+    }
+    fetch(url, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)})
+    .then(function(r){return r.json();}).then(function(d){
+      box.textContent = JSON.stringify(d, null, 2);
+    }).catch(function(e){ box.textContent = 'Error: ' + e; });
+  });
+
+  // -- Linked Servers: Discover --
+  document.getElementById('lnk-discover-btn').addEventListener('click', function(){
+    var box = document.getElementById('lnk-result');
+    box.style.display = 'block';
+    box.textContent = 'Discovering...';
+    fetch('/sqli2/mssql/links/discover', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({url: document.getElementById('lnk-url').value, param: document.getElementById('lnk-param').value})
+    }).then(function(r){return r.json();}).then(function(d){
+      box.textContent = JSON.stringify(d, null, 2);
+    }).catch(function(e){ box.textContent = 'Error: ' + e; });
+  });
+
+  // -- Linked Servers: Crawl --
+  document.getElementById('lnk-crawl-btn').addEventListener('click', function(){
+    var box = document.getElementById('lnk-result');
+    box.style.display = 'block';
+    box.textContent = 'Crawling chain...';
+    fetch('/sqli2/mssql/links/crawl', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        url: document.getElementById('lnk-url').value,
+        param: document.getElementById('lnk-param').value,
+        chain: document.getElementById('lnk-chain').value,
+        query: document.getElementById('lnk-query').value,
+        methode: document.getElementById('lnk-methode').value,
+      })
+    }).then(function(r){return r.json();}).then(function(d){
+      box.textContent = JSON.stringify(d, null, 2);
+    }).catch(function(e){ box.textContent = 'Error: ' + e; });
+  });
+
+  // -- Linked Servers: RCE --
+  document.getElementById('lnk-rce-btn').addEventListener('click', function(){
+    var box = document.getElementById('lnk-result');
+    box.style.display = 'block';
+    box.textContent = 'Executing RCE via chain...';
+    fetch('/sqli2/mssql/links/rce', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        url: document.getElementById('lnk-url').value,
+        param: document.getElementById('lnk-param').value,
+        chain: document.getElementById('lnk-chain').value,
+        command: document.getElementById('lnk-query').value,
+      })
+    }).then(function(r){return r.json();}).then(function(d){
+      box.textContent = JSON.stringify(d, null, 2);
+    }).catch(function(e){ box.textContent = 'Error: ' + e; });
+  });
+
+  // -- Cheatsheet lazy-load --
+  var csLoaded = false;
+  function loadCheatsheet(){
+    csLoaded = true;
+    fetch('/api/sqli/cheatsheet').then(function(r){return r.json();}).then(function(data){
+      var html = '';
+      for(var db in data){
+        html += '<h3>' + db + '</h3><table class="table compact"><tbody>';
+        var queries = data[db];
+        for(var k in queries){
+          html += '<tr><td><strong>' + k + '</strong></td><td><code>' + queries[k].replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</code></td></tr>';
+        }
+        html += '</tbody></table>';
+      }
+      document.getElementById('cheatsheet-content').innerHTML = html;
+    });
+  }
+})();
+</script>
+{% endblock %}

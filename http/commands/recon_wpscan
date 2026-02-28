@@ -1,0 +1,25 @@
+# WPScan - WordPress Vulnerability Scanner
+# === Basis scan ===
+wpscan --url http://TARGET --enumerate ap,at,cb,dbe
+# === User enumeratie ===
+wpscan --url http://TARGET --enumerate u
+# === Plugin enumeratie (agressief) ===
+wpscan --url http://TARGET --enumerate ap --plugins-detection aggressive
+# === Theme enumeratie ===
+wpscan --url http://TARGET --enumerate at
+# === Password brute force ===
+wpscan --url http://TARGET -U admin -P /usr/share/wordlists/rockyou.txt
+# Met meerdere users:
+wpscan --url http://TARGET -U users.txt -P /usr/share/wordlists/rockyou.txt --password-attack xmlrpc
+# === Met API token (vulnerability database) ===
+wpscan --url http://TARGET --api-token YOUR_TOKEN --enumerate vp,vt
+# === Specifieke plugin/theme checken ===
+wpscan --url http://TARGET --enumerate p --plugins-list plugin-list.txt
+# === Handmatige WordPress checks ===
+# Version: curl -s http://TARGET/readme.html
+# Users via REST API: curl -s http://TARGET/wp-json/wp/v2/users
+# XML-RPC: curl -s http://TARGET/xmlrpc.php
+# Login: http://TARGET/wp-login.php
+# Admin: http://TARGET/wp-admin/
+# Tip: --api-token geeft CVE details bij gevonden kwetsbaarheden
+# Tip: Na login: Appearance -> Theme Editor -> 404.php voor webshell

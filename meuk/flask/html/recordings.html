@@ -1,0 +1,46 @@
+{% extends "bootstrap/base.html" %}
+{% block title %}Session Recordings{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/generator.css') }}" />
+<link rel="stylesheet" href="{{ url_for('static', filename='css/asciinema-player.css') }}" />
+<link rel="stylesheet" href="{{ url_for('static', filename='css/recordings.css') }}" />
+{% endblock %}
+
+{% block content %}
+<div class="gen-header">
+  <div class="breadcrumbs"><a href="/">Dashboard</a> / Session Recordings</div>
+  <h1>Session Recordings</h1>
+  <p>Asciinema opnames van screen sessies. Klik op een recording om af te spelen.</p>
+</div>
+
+<section class="card">
+  <div class="card-head">
+    <h2>Recordings</h2>
+    <input type="text" id="rec-filter" class="input" placeholder="Zoek recordings..." style="margin-left:auto;min-width:200px;padding:4px 10px;font-size:12px" />
+    <button type="button" id="refresh-btn" class="btn" style="font-size:12px">Vernieuwen</button>
+  </div>
+  <div class="card-body">
+    <div id="rec-list" class="rec-list">
+      <p style="color:var(--muted)">Laden...</p>
+    </div>
+  </div>
+</section>
+
+<section class="card" style="margin-top: 14px;" id="player-card">
+  <div class="card-head">
+    <h2 id="player-title">Player</h2>
+    <button type="button" id="fullscreen-btn" class="btn btn-fullscreen" style="display:none">Fullscreen</button>
+  </div>
+  <div class="card-body">
+    <div id="player-container" class="player-wrap" data-initial-file="{{ play | tojson if play is defined and play else '' }}">
+      <p style="color:var(--muted)">Selecteer een recording hierboven om af te spelen.</p>
+    </div>
+  </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='js/asciinema-player.min.js') }}"></script>
+<script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='js/recordings.js') }}"></script>
+{% endblock %}

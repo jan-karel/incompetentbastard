@@ -1,0 +1,110 @@
+/* ── Utility classes ── replaces inline styles for strict CSP ── */
+
+/* Display */
+.d-none    { display: none; }
+.d-block   { display: block; }
+.d-flex    { display: flex; }
+.d-inline  { display: inline; }
+.d-inline-flex { display: inline-flex; }
+
+/* Flex */
+.flex-1       { flex: 1; }
+.flex-wrap    { flex-wrap: wrap; }
+.items-center { align-items: center; }
+.justify-end  { justify-content: flex-end; }
+.gap-4  { gap: 4px; }
+.gap-6  { gap: 6px; }
+.gap-8  { gap: 8px; }
+.gap-10 { gap: 10px; }
+.gap-16 { gap: 16px; }
+
+/* Margin */
+.m-0    { margin: 0; }
+.mt-2   { margin-top: 2px; }
+.mt-4   { margin-top: 4px; }
+.mt-6   { margin-top: 6px; }
+.mt-10  { margin-top: 10px; }
+.mt-12  { margin-top: 12px; }
+.mt-14  { margin-top: 14px; }
+.mt-16  { margin-top: 16px; }
+.mb-0   { margin-bottom: 0; }
+.mb-4   { margin-bottom: 4px; }
+.mb-6   { margin-bottom: 6px; }
+.mb-8   { margin-bottom: 8px; }
+.mb-10  { margin-bottom: 10px; }
+.mb-14  { margin-bottom: 14px; }
+.mr-4  { margin-right: 4px; }
+.ml-auto { margin-left: auto; }
+.mx-14  { margin-left: 14px; margin-right: 14px; }
+
+/* Padding */
+.p-0    { padding: 0; }
+.py-10  { padding-top: 10px; padding-bottom: 10px; }
+.px-14  { padding-left: 14px; padding-right: 14px; }
+
+/* Width */
+.w-full    { width: 100%; }
+.w-140     { width: 140px; }
+.min-w-200 { min-width: 200px; }
+.max-w-300 { max-width: 300px; }
+.max-w-800 { max-width: 800px; }
+
+/* Typography */
+.fs-11 { font-size: 11px; }
+.fs-12 { font-size: 12px; }
+.fs-13 { font-size: 13px; }
+.fs-14 { font-size: 14px; }
+.fs-15 { font-size: 15px; }
+.text-muted { color: var(--muted, #94a3b8); }
+.text-error { color: #b42318; }
+
+/* Overflow */
+.truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Cursor */
+.cursor-pointer { cursor: pointer; }
+
+/* Min-height */
+.min-h-60 { min-height: 60px; }
+
+/* Specific patterns used by multiple templates */
+.hr-sep {
+  border-color: var(--border, #334155);
+  margin: 14px 0;
+}
+
+.label-inline {
+  font-size: 11px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  margin-bottom: 8px;
+  color: var(--muted, #94a3b8);
+}
+
+.label-check {
+  font-size: 13px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.input-sm {
+  padding: 4px 8px;
+  font-size: 12px;
+}
+
+.input-xs {
+  padding: 3px 8px;
+  font-size: 12px;
+}
+
+.flex-shrink-0 { flex-shrink: 0; }
+
+.overflow-auto { overflow: auto; }

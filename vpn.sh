@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Jan-Karel Visser
-# LGPLv3 licensed
+# AGPL-3.0-or-later licensed
 # https://jan-karel.nl
 # https://hacksec.nl
 

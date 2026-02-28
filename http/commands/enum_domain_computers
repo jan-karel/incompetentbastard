@@ -1,0 +1,11 @@
+# Domain computers enumereren
+# PowerView:
+Get-DomainComputer | select Name,OperatingSystem,DNSHostName
+Get-DomainComputer -OperatingSystem "*Server 2022*" | select Name
+Get-DomainComputer -Ping | select Name
+# AD Module:
+Get-ADComputer -Filter * -Properties OperatingSystem | select Name,OperatingSystem
+# Unconstrained delegation:
+Get-DomainComputer -UnConstrained | select Name
+# Constrained delegation:
+Get-DomainComputer -TrustedToAuth | select Name,msDS-AllowedToDelegateTo

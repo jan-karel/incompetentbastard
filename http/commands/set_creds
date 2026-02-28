@@ -1,1 +1,15 @@
-$username = 'Administrator';$password = 'CHANGEME';$securePassword = ConvertTo-SecureString $password -AsPlainText -Force; $credential = New-Object System.Management.Automation.PSCredential $username, $securePassword;
+# PowerShell Credential Object aanmaken
+# Gebruik met Start-Process, Invoke-Command, Enter-PSSession etc.
+$username = 'DOMAIN\username'
+$password = 'CHANGEME'
+$securePassword = ConvertTo-SecureString $password -AsPlainText -Force
+$credential = New-Object System.Management.Automation.PSCredential $username, $securePassword
+# One-liner:
+$credential = New-Object System.Management.Automation.PSCredential('DOMAIN\username',(ConvertTo-SecureString 'CHANGEME' -AsPlainText -Force))
+# Interactief (met prompt):
+$credential = Get-Credential
+# Gebruik voorbeelden:
+# Invoke-Command -ComputerName TARGET_IP -Credential $credential -ScriptBlock { whoami }
+# Enter-PSSession -ComputerName TARGET_IP -Credential $credential
+# Start-Process cmd.exe -Credential $credential -ArgumentList '/k whoami'
+# Tip: Wijzig DOMAIN\username en CHANGEME naar echte waarden

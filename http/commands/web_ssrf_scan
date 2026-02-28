@@ -8,7 +8,7 @@
 # 5432 (PostgreSQL), 6379 (Redis), 8080 (Tomcat)
 # 8443 (Alt HTTPS), 9200 (Elasticsearch), 27017 (MongoDB)
 # === Subnet scanning ===
-# Probeer: http://10.0.0.1:PORT, http://172.16.0.1:PORT, http://192.168.1.1:PORT
+# Probeer: http://ATTACKER_IP:PORT, http://172.16.0.1:PORT, http://192.168.1.1:PORT
 # === Python SSRF scanner ===
 # import requests
 # for port in [22,80,443,3306,5432,6379,8080,9200]:

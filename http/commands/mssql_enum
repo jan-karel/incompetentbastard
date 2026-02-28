@@ -6,12 +6,12 @@ Get-SQLInstanceDomain | Get-SQLConnectionTestThreaded -Verbose
 # Stap 3: Server info ophalen
 Get-SQLInstanceDomain | Get-SQLServerInfo -Verbose
 # Stap 4: Check huidige rechten
-Invoke-SQLAudit -Instance 'TARGET,1433' -Verbose
+Invoke-SQLAudit -Instance 'TARGET_IP,1433' -Verbose
 # Stap 5: Database enumeratie
-Get-SQLDatabase -Instance 'TARGET,1433' -Verbose
-Get-SQLTable -Instance 'TARGET,1433' -DatabaseName master -Verbose
+Get-SQLDatabase -Instance 'TARGET_IP,1433' -Verbose
+Get-SQLTable -Instance 'TARGET_IP,1433' -DatabaseName master -Verbose
 # Stap 6: Linked servers ontdekken
-Get-SQLServerLinkCrawl -Instance 'TARGET,1433' -Verbose
+Get-SQLServerLinkCrawl -Instance 'TARGET_IP,1433' -Verbose
 # Stap 7: Check for sysadmin
-Get-SQLQuery -Instance 'TARGET,1433' -Query "SELECT IS_SRVROLEMEMBER('sysadmin')"
+Get-SQLQuery -Instance 'TARGET_IP,1433' -Query "SELECT IS_SRVROLEMEMBER('sysadmin')"
 # Tip: SQL Server service accounts hebben vaak hoge privileges in AD

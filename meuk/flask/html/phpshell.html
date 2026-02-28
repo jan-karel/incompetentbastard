@@ -1,0 +1,58 @@
+{% extends "bootstrap/base.html" %}
+{% block title %}PHP Webshell generator{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/generator.css') }}" />
+{% endblock %}
+
+{% block content %}
+<div class="gen-header">
+  <div class="breadcrumbs"><a href="/">Start</a> / PHP Webshell generator</div>
+  <h1>PHP Webshell generator</h1>
+  <p>Genereer een wachtwoordbeveiligde PHP webshell met optionele upload en file browser functionaliteit. Output: http/payloads/shell.php</p>
+</div>
+
+<section class="card">
+  <div class="card-head"><h2>Configuratie</h2></div>
+  <div class="card-body">
+    <form id="gen-form" data-api="/api/phpshell/generate">
+      <div class="gen-form">
+        <div class="field">
+          <label for="password">Wachtwoord <span class="help">(verplicht)</span></label>
+          <input class="input" type="text" id="password" name="password" placeholder="geheim" required />
+        </div>
+        <div class="field">
+          <label for="password_field">Veldnaam</label>
+          <input class="input" type="text" id="password_field" name="password_field" value="k" placeholder="k" />
+          <span class="help">POST parameter naam voor authenticatie.</span>
+        </div>
+        <div class="field span-2">
+          <label>Features</label>
+          <div class="gen-checks">
+            <label><input type="checkbox" name="features" value="upload" /> Upload functie</label>
+            <label><input type="checkbox" name="features" value="filebrowser" /> File browser</label>
+          </div>
+        </div>
+      </div>
+      <div class="gen-actions">
+        <button type="submit" id="gen-btn" class="btn btn-primary">Genereer PHP Webshell</button>
+        <span id="gen-status" class="status"></span>
+      </div>
+    </form>
+    <div id="gen-download" class="gen-download">
+      <a id="gen-dl-link" href="#" class="btn btn-success">Download shell.php</a>
+    </div>
+  </div>
+</section>
+
+<section class="card mt-14">
+  <div class="card-head"><h2>Uitvoer</h2></div>
+  <div class="card-body">
+    <pre id="gen-output" class="gen-output"></pre>
+  </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='js/generator.js') }}"></script>
+{% endblock %}

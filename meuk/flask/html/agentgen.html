@@ -1,0 +1,112 @@
+{% extends "bootstrap/base.html" %}
+{% block title %}Agent generator{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/generator.css') }}" />
+{% endblock %}
+
+{% block content %}
+<div class="gen-header">
+  <div class="breadcrumbs"><a href="/">Start</a> / Agent generator</div>
+  <h1>Agent generator</h1>
+  <p>Genereer standalone C2 agent scripts in Bash, PowerShell, Python, C#, Go, Rust of Ruby. De agent checkt in bij het dashboard, pollt voor commando's en stuurt output terug. Output: http/payloads/agent.{sh,ps1,py,cs,go,rs,rb}</p>
+</div>
+
+<section class="card">
+  <div class="card-head"><h2>Configuratie</h2></div>
+  <div class="card-body">
+    <form id="gen-form" data-api="/api/agentgen/generate">
+      <div class="gen-form">
+        <div class="field">
+          <label for="callback">Callback URL <span class="help">(verplicht)</span></label>
+          <input class="input" type="text" id="callback" name="callback" placeholder="http://10.0.0.1:5000" required />
+        </div>
+        <div class="field">
+          <label for="language">Taal</label>
+          <select class="input" id="language" name="language">
+            <option value="bash" selected>Bash</option>
+            <option value="powershell">PowerShell</option>
+            <option value="python">Python</option>
+            <option value="csharp">C# (.NET)</option>
+            <option value="go">Go</option>
+            <option value="rust">Rust</option>
+            <option value="ruby">Ruby</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="freq">Poll frequentie (seconden)</label>
+          <input class="input" type="text" id="freq" name="freq" value="3" placeholder="3" />
+          <span class="help">1&ndash;3600 seconden</span>
+        </div>
+        <div class="field">
+          <label for="label">Label <span class="help">(optioneel)</span></label>
+          <input class="input" type="text" id="label" name="label" placeholder="agent-bash" />
+          <span class="help">Alleen letters, cijfers, _ en -</span>
+        </div>
+        <div class="field">
+          <label for="jitter">Jitter (%)</label>
+          <input class="input" type="number" id="jitter" name="jitter" value="0" min="0" max="50" />
+          <span class="help">0&ndash;50%. Randomiseert sleep interval</span>
+        </div>
+        <div class="field">
+          <label for="killdate">Kill date <span class="help">(optioneel)</span></label>
+          <input class="input" type="date" id="killdate" name="killdate" />
+          <span class="help">Agent stopt na deze datum</span>
+        </div>
+        <div class="field">
+          <label for="retry_max">Backoff max</label>
+          <input class="input" type="number" id="retry_max" name="retry_max" value="5" min="1" max="20" />
+          <span class="help">Max sleep multiplier bij onbereikbare C2 (1=uit)</span>
+        </div>
+        <div class="field span-2">
+          <label>Opties</label>
+          <div class="gen-checks">
+            <label><input type="checkbox" id="amsi" name="amsi" value="1" /> AMSI bypass (alleen PowerShell)</label>
+            <label><input type="checkbox" name="obfuscate" value="1" /> Base64 obfuscatie</label>
+            <label><input type="checkbox" name="proxy_aware" value="1" /> Proxy aware</label>
+          </div>
+        </div>
+        <div class="field">
+          <label for="persist">Persistentie</label>
+          <select class="input" id="persist" name="persist">
+            <option value="" selected>Geen</option>
+            <option value="crontab">Crontab (Linux)</option>
+            <option value="registry">Registry Run key (Windows)</option>
+            <option value="schtasks">Scheduled Task (Windows)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="proxy">Proxy URL <span class="help">(optioneel)</span></label>
+          <input class="input" type="text" id="proxy" name="proxy" placeholder="http://proxy:8080" />
+          <span class="help">Leeg = systeem proxy detectie als "proxy aware" is aangevinkt</span>
+        </div>
+      </div>
+      <div class="gen-actions">
+        <button type="submit" id="gen-btn" class="btn btn-primary">Genereer Agent</button>
+        <span id="gen-status" class="status"></span>
+      </div>
+    </form>
+    <div id="gen-download" class="gen-download">
+      <a id="gen-dl-link" href="#" class="btn btn-success">Download gegenereerd bestand</a>
+    </div>
+  </div>
+</section>
+
+<section class="card mt-14">
+  <div class="card-head"><h2>Uitvoer</h2></div>
+  <div class="card-body">
+    <pre id="gen-output" class="gen-output"></pre>
+  </div>
+</section>
+
+<section class="card mt-14" id="gen-preview-section" style="display:none">
+  <div class="card-head"><h2>Script preview</h2></div>
+  <div class="card-body">
+    <pre id="gen-preview" class="gen-output"></pre>
+  </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='js/generator.js') }}"></script>
+{% endblock %}

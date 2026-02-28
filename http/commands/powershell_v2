@@ -1,1 +1,11 @@
+# PowerShell v2 - Oudere versie zonder AMSI/ScriptBlock logging
+# PowerShell 2.0 heeft geen AMSI, geen ScriptBlock logging, geen CLM
 powershell.exe -version 2 -ExecutionPolicy bypass
+# Check of v2 beschikbaar is:
+reg query "HKLM\SOFTWARE\Microsoft\PowerShell\1\PowerShellEngine" /v PowerShellVersion
+# Of via DISM:
+dism /online /get-features | findstr PowerShellV2
+# Tip: Vereist .NET Framework 2.0 (niet altijd geinstalleerd op moderne Windows)
+# Tip: Op Windows 10+/Server 2016+ is v2 vaak verwijderd of uitgeschakeld
+# Tip: Event ID 400 logt PowerShell engine start (v2 zichtbaar)
+# Tip: Beter alternatief: AMSI bypass via reflection of patching

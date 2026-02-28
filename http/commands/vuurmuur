@@ -1,1 +1,17 @@
+# Windows Firewall - Uitschakelen (vereist admin)
+# Alle profielen (domain, private, public) uitschakelen:
 NetSh Advfirewall set allprofiles state off
+# Specifiek profiel uitschakelen:
+NetSh Advfirewall set domainprofile state off
+NetSh Advfirewall set privateprofile state off
+NetSh Advfirewall set publicprofile state off
+# Via PowerShell:
+Set-NetFirewallProfile -Profile Domain,Public,Private -Enabled False
+# Firewall regel toevoegen ipv uitschakelen (minder opvallend):
+netsh advfirewall firewall add rule name="allow_all" dir=in action=allow protocol=TCP localport=443
+netsh advfirewall firewall add rule name="allow_rdp" dir=in action=allow protocol=TCP localport=3389
+# Status controleren:
+NetSh Advfirewall show allprofiles state
+# Tip: Uitschakelen genereert Event ID 4950 (firewall setting changed)
+# Tip: Beter: voeg specifieke regels toe ipv de hele firewall uit te zetten
+# Tip: Opruimen: netsh advfirewall firewall delete rule name="allow_all"

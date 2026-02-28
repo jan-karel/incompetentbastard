@@ -27,11 +27,11 @@
 
 {% if form.id.data %}
 {# Evidence gallery #}
-<section class="card" style="margin-top:14px">
+<section class="card mt-14">
   <div class="card-head"><h2>Bewijs</h2></div>
   <div class="card-body">
     <div class="evidence-gallery" id="evidence-gallery"></div>
-    <div style="margin-top:8px">
+    <div class="mt-8">
       <input type="file" id="evidence-file" accept="image/*,.pdf,.txt,.csv,.json,.xml,.zip" />
       <button class="btn" id="btn-upload-evidence" type="button">Uploaden</button>
     </div>
@@ -39,13 +39,13 @@
 </section>
 
 {# Finding relaties #}
-<section class="card" style="margin-top:14px">
+<section class="card mt-14" data-advanced-fields>
   <div class="card-head"><h2>Gerelateerde bevindingen</h2></div>
   <div class="card-body">
     <div id="relations-list"></div>
-    <div style="margin-top:8px;display:flex;gap:8px;align-items:center">
-      <input type="number" id="related-finding-id" class="form-control" placeholder="Bevinding ID" style="width:120px" />
-      <select id="relation-type" class="form-control" style="width:140px">
+    <div class="mt-8 d-flex gap-8 items-center">
+      <input type="number" id="related-finding-id" class="form-control w-140" placeholder="Bevinding ID" />
+      <select id="relation-type" class="form-control w-140">
         <option value="related">Gerelateerd</option>
         <option value="chain">Keten</option>
         <option value="duplicate">Duplicaat</option>

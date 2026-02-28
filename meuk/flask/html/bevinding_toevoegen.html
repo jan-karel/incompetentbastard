@@ -43,39 +43,46 @@
     </div>
   </div>
 
-  <div class="form-grid three">
-    <div>
-      <label for="remediation_status">Herstelstatus</label>
-      {{ form.remediation_status(id='remediation_status', class='form-control') }}
-    </div>
-    <div>
-      <label for="remediation_target_date">Doeldatum</label>
-      {{ form.remediation_target_date(id='remediation_target_date', class='form-control') }}
-    </div>
-    <div>
-      <label for="remediation_owner">Herstelverantwoordelijke</label>
-      {{ form.remediation_owner(id='remediation_owner', class='form-control') }}
-    </div>
-  </div>
+  <label class="label-check mt-4" data-advanced-toggle>
+    <input type="checkbox" id="advanced-mode-toggle" />
+    Geavanceerd
+  </label>
 
-  <div class="form-grid three">
-    <div>
-      <label for="data_classification">Gegevensclassificatie</label>
-      {{ form.data_classification(id='data_classification', class='form-control') }}
+  <div data-advanced-fields>
+    <div class="form-grid three">
+      <div>
+        <label for="remediation_status">Herstelstatus</label>
+        {{ form.remediation_status(id='remediation_status', class='form-control') }}
+      </div>
+      <div>
+        <label for="remediation_target_date">Doeldatum</label>
+        {{ form.remediation_target_date(id='remediation_target_date', class='form-control') }}
+      </div>
+      <div>
+        <label for="remediation_owner">Herstelverantwoordelijke</label>
+        {{ form.remediation_owner(id='remediation_owner', class='form-control') }}
+      </div>
     </div>
-    <div>
-      <label for="remediation_effort">Herstelinspanning</label>
-      {{ form.remediation_effort(id='remediation_effort', class='form-control') }}
-    </div>
-    <div>
-      <label for="affected_assets">Betrokken assets</label>
-      {{ form.affected_assets(id='affected_assets', rows='2', class='form-control') }}
-    </div>
-  </div>
 
-  <div>
-    <label for="business_impact">Bedrijfsimpact</label>
-    {{ form.business_impact(id='business_impact', rows='3', class='form-control') }}
+    <div class="form-grid three">
+      <div>
+        <label for="data_classification">Gegevensclassificatie</label>
+        {{ form.data_classification(id='data_classification', class='form-control') }}
+      </div>
+      <div>
+        <label for="remediation_effort">Herstelinspanning</label>
+        {{ form.remediation_effort(id='remediation_effort', class='form-control') }}
+      </div>
+      <div>
+        <label for="affected_assets">Betrokken assets</label>
+        {{ form.affected_assets(id='affected_assets', rows='2', class='form-control') }}
+      </div>
+    </div>
+
+    <div>
+      <label for="business_impact">Bedrijfsimpact</label>
+      {{ form.business_impact(id='business_impact', rows='3', class='form-control') }}
+    </div>
   </div>
 
   <div>

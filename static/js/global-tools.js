@@ -450,6 +450,35 @@
     }
   });
 
+  // ═══════════════════════════════════════════════════════
+  // Advanced mode toggle (localStorage)
+  // ═══════════════════════════════════════════════════════
+  const _ADV_KEY = "ib-advanced-mode";
+
+  function applyAdvancedMode() {
+    const on = localStorage.getItem(_ADV_KEY) === "1";
+    document.querySelectorAll("[data-advanced-toggle] input[type=checkbox]").forEach(cb => { cb.checked = on; });
+    if (on) {
+      document.body.classList.add("advanced-mode");
+    } else {
+      document.body.classList.remove("advanced-mode");
+    }
+  }
+
+  applyAdvancedMode();
+
+  document.addEventListener("change", (e) => {
+    const toggle = e.target.closest("[data-advanced-toggle]");
+    if (!toggle) return;
+    const cb = toggle.querySelector("input[type=checkbox]");
+    if (!cb) return;
+    localStorage.setItem(_ADV_KEY, cb.checked ? "1" : "0");
+    applyAdvancedMode();
+  });
+
+  // Re-apply after AJAX content insertion (MutationObserver)
+  new MutationObserver(() => applyAdvancedMode()).observe(document.body, { childList: true, subtree: true });
+
   // ── Keyboard shortcuts ────────────────────────────────
   document.addEventListener("keydown", (e) => {
     // Escape closes any open modal

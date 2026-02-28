@@ -1,1 +1,15 @@
-Start-Process cmd.exe -NoNewWindow -Credential $credential -ArgumentList ('/k',"whoami")
+# RunAs - Commando uitvoeren als andere gebruiker (PowerShell)
+# Vereist: $credential variabele (zie set_creds)
+# CMD als andere gebruiker:
+Start-Process cmd.exe -NoNewWindow -Credential $credential -ArgumentList ('/k','whoami')
+# PowerShell als andere gebruiker:
+Start-Process powershell.exe -NoNewWindow -Credential $credential -ArgumentList ('-ep','bypass','-c','whoami')
+# Programma starten als andere gebruiker:
+Start-Process C:\Windows\tasks\meth.exe -Credential $credential
+# Via runas (cmd):
+runas /user:DOMAIN\username cmd.exe
+# runas met netonly (alleen netwerk authenticatie):
+runas /netonly /user:DOMAIN\username cmd.exe
+# Tip: /netonly is handig voor AD tools vanuit een niet-domain joined machine
+# Tip: Bij "access denied": check of gebruiker lokaal mag inloggen
+# Tip: Start-Process -Verb RunAs → UAC prompt (elevation)

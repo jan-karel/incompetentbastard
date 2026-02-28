@@ -1,1 +1,22 @@
+# Windows - Snelle enumeratie na initiële toegang
+# Systeem info + environment + wachtwoorden in bestanden
 systeminfo && set && findstr /spin "password" *.*
+# Gebruikers en groepen:
+whoami /all
+net user
+net localgroup Administrators
+# Netwerk:
+ipconfig /all
+route print
+netstat -ano
+# Draaiende processen en services:
+tasklist /v
+wmic service get name,displayname,pathname,startmode | findstr /i "auto"
+# Scheduled tasks:
+schtasks /query /fo LIST /v
+# Geinstalleerde software:
+wmic product get name,version
+# Onbeveiligde service paths:
+wmic service get name,displayname,pathname,startmode | findstr /i /v "C:\Windows\\" | findstr /i /v """
+# Tip: Gebruik winPEAS voor uitgebreide enumeratie
+# Tip: PowerUp.ps1: Invoke-AllChecks voor privesc vectoren

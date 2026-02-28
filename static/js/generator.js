@@ -22,6 +22,67 @@
   var currentRunId = null;
   var pollTimer = null;
 
+  // Dynamisch formulier — agentgen specifiek
+  var languageSelect = document.getElementById('language');
+  var amsiCheckbox = document.getElementById('amsi');
+  var persistSelect = document.getElementById('persist');
+  var previewSection = document.getElementById('gen-preview-section');
+  var previewEl = document.getElementById('gen-preview');
+
+  // Persist opties per taal
+  var persistValid = {
+    bash: ['crontab'],
+    powershell: ['registry', 'schtasks'],
+    python: ['crontab', 'registry', 'schtasks'],
+    csharp: ['registry', 'schtasks'],
+    go: ['crontab', 'schtasks'],
+    rust: ['crontab'],
+    ruby: ['crontab']
+  };
+
+  function updateFormForLanguage() {
+    if (!languageSelect) return;
+    var lang = languageSelect.value;
+
+    // AMSI: alleen voor powershell
+    if (amsiCheckbox) {
+      if (lang !== 'powershell') {
+        amsiCheckbox.checked = false;
+        amsiCheckbox.disabled = true;
+        amsiCheckbox.closest('label').style.opacity = '0.45';
+      } else {
+        amsiCheckbox.disabled = false;
+        amsiCheckbox.closest('label').style.opacity = '1';
+      }
+    }
+
+    // Persist: verberg ongeldige opties
+    if (persistSelect) {
+      var valid = persistValid[lang] || [];
+      var options = persistSelect.querySelectorAll('option');
+      for (var i = 0; i < options.length; i++) {
+        var opt = options[i];
+        if (opt.value === '') {
+          opt.style.display = '';
+          continue;
+        }
+        if (valid.indexOf(opt.value) >= 0) {
+          opt.style.display = '';
+        } else {
+          opt.style.display = 'none';
+          if (opt.selected) {
+            persistSelect.value = '';
+          }
+        }
+      }
+    }
+  }
+
+  if (languageSelect) {
+    languageSelect.addEventListener('change', updateFormForLanguage);
+    updateFormForLanguage();
+  }
+
   function setStatus(text, cls) {
     statusEl.textContent = text;
     statusEl.className = 'status' + (cls ? ' ' + cls : '');
@@ -78,6 +139,23 @@
     dlSection.classList.remove('show');
   }
 
+  function hidePreview() {
+    if (previewSection) previewSection.style.display = 'none';
+  }
+
+  function showPreview(url) {
+    if (!previewSection || !previewEl || !url) return;
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', url);
+    xhr.onload = function () {
+      if (xhr.status === 200) {
+        previewEl.textContent = xhr.responseText;
+        previewSection.style.display = '';
+      }
+    };
+    xhr.send();
+  }
+
   function pollRun() {
     if (!currentRunId) return;
 
@@ -101,6 +179,7 @@
         btn.disabled = false;
         if (data.has_download && data.download_url) {
           showDownload(data.download_url);
+          showPreview(data.download_url);
         }
         try {
           form.dispatchEvent(new CustomEvent('generator:done', {
@@ -129,6 +208,7 @@
     }
 
     hideDownload();
+    hidePreview();
     setOutput([]);
     setStatus('Starten...', '');
     btn.disabled = true;

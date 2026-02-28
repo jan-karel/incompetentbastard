@@ -1,1 +1,13 @@
-%SystemRoot%\sysnative\WindowsPowerShell\\v1.0\powershell.exe
+# PowerShell 32-bit naar 64-bit - Ontsnappen uit WoW64 (32-bit proces)
+# Sommige exploits/webshells draaien in 32-bit; tools als Mimikatz vereisen 64-bit
+%SystemRoot%\sysnative\WindowsPowerShell\v1.0\powershell.exe
+# Volledig pad voor script uitvoering:
+%SystemRoot%\sysnative\WindowsPowerShell\v1.0\powershell.exe -ep bypass -file C:\Windows\tasks\script.ps1
+# Check huidige architectuur:
+[Environment]::Is64BitProcess
+# Check OS architectuur:
+[Environment]::Is64BitOperatingSystem
+# Tip: sysnative is een virtueel pad dat alleen werkt vanuit 32-bit processen
+# Tip: Vanuit 64-bit geeft sysnative een fout (gebruik System32 in dat geval)
+# Tip: Belangrijk bij IIS webshells (vaak 32-bit app pool)
+# Tip: cmd 64-bit: %SystemRoot%\sysnative\cmd.exe

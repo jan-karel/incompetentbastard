@@ -259,21 +259,27 @@
     }, 1200);
   }
 
-  // Inject: queue elke regel van het command als apart commando
-  function injectCommand(content, btn) {
+  // Inject: open modal, queue na bevestiging
+  function injectCommand(content, btn, cmdName) {
     if (!selectedAgent) {
       showBtnFeedback(btn, 'Geen agent!');
       return;
     }
-    var replaced = applyReplacements(content);
-    var lines = replaced.split('\n');
-    for (var i = 0; i < lines.length; i++) {
-      var line = lines[i].trim();
-      if (line && line.charAt(0) !== '#') {
-        queueCommand(line);
-      }
-    }
-    showBtnFeedback(btn, 'Verstuurd!');
+
+    window.openInjectModal({
+      commandName: cmdName || '',
+      content: content,
+      mode: 'agent',
+      initialFind: replaceFindInput ? replaceFindInput.value : '',
+      initialReplace: replaceWithInput ? replaceWithInput.value : '',
+      initialHttps: replaceHttpsCheckbox ? replaceHttpsCheckbox.checked : false,
+      onConfirm: function (lines) {
+        for (var i = 0; i < lines.length; i++) {
+          queueCommand(lines[i]);
+        }
+        showBtnFeedback(btn, 'Verstuurd!');
+      },
+    });
   }
 
   // ── Category mapping ────────────────────────────────────────
@@ -355,9 +361,9 @@
     injectBtn.className = 'btn-copy btn-inject';
     injectBtn.textContent = 'Inject';
     injectBtn.setAttribute('type', 'button');
-    (function (content, b) {
-      b.addEventListener('click', function () { injectCommand(content, b); });
-    })(cmd.content, injectBtn);
+    (function (content, b, name) {
+      b.addEventListener('click', function () { injectCommand(content, b, name); });
+    })(cmd.content, injectBtn, cmd.name);
 
     actions.appendChild(copyBtn);
     actions.appendChild(injectBtn);

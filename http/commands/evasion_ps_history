@@ -1,0 +1,16 @@
+# PowerShell History en Logging Ontwijken
+# PowerShell ConsoleHost history locatie:
+(Get-PSReadLineOption).HistorySavePath
+# History bestand verwijderen:
+Remove-Item (Get-PSReadLineOption).HistorySavePath -ErrorAction SilentlyContinue
+# History uitschakelen voor huidige sessie:
+Set-PSReadLineOption -HistorySaveStyle SaveNothing
+# ScriptBlock Logging uitschakelen (admin):
+reg add "HKLM\SOFTWARE\Policies\Microsoft\Windows\PowerShell\ScriptBlockLogging" /v EnableScriptBlockLogging /t REG_DWORD /d 0 /f
+# Transcription uitschakelen (admin):
+reg add "HKLM\SOFTWARE\Policies\Microsoft\Windows\PowerShell\Transcription" /v EnableTranscripting /t REG_DWORD /d 0 /f
+# Module Logging uitschakelen (admin):
+reg add "HKLM\SOFTWARE\Policies\Microsoft\Windows\PowerShell\ModuleLogging" /v EnableModuleLogging /t REG_DWORD /d 0 /f
+# Tip: ConsoleHost_history.txt staat in %APPDATA%\Microsoft\Windows\PowerShell\PSReadLine\
+# Tip: Check altijd of Transcription actief is voordat je tools draait
+# Tip: ScriptBlock logs staan in Event ID 4104

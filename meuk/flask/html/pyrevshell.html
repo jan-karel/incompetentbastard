@@ -1,0 +1,70 @@
+{% extends "bootstrap/base.html" %}
+{% block title %}Python Reverse Shell generator{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/generator.css') }}" />
+{% endblock %}
+
+{% block content %}
+<div class="gen-header">
+  <div class="breadcrumbs"><a href="/">Start</a> / Python Reverse Shell generator</div>
+  <h1>Python Reverse Shell generator</h1>
+  <p>Genereer een Python reverse shell payload (plain of base64 obfuscated). Geen msfvenom nodig, cross-platform. Output: http/payloads/revshell.py</p>
+</div>
+
+<section class="card">
+  <div class="card-head"><h2>Configuratie</h2></div>
+  <div class="card-body">
+    <form id="gen-form" data-api="/api/pyrevshell/generate">
+      <div class="gen-form">
+        <div class="field">
+          <label for="lhost">LHOST <span class="help">(verplicht)</span></label>
+          <input class="input" type="text" id="lhost" name="lhost" placeholder="10.0.0.1" required />
+        </div>
+        <div class="field">
+          <label for="lport">LPORT</label>
+          <input class="input" type="text" id="lport" name="lport" value="443" placeholder="443" />
+        </div>
+        <div class="field">
+          <label for="mode">Modus</label>
+          <select class="input" id="mode" name="mode">
+            <option value="plain" selected>Plain</option>
+            <option value="obfuscated">Obfuscated (base64)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="platform">Platform</label>
+          <select class="input" id="platform" name="platform">
+            <option value="linux" selected>Linux (/bin/sh)</option>
+            <option value="windows">Windows (cmd.exe)</option>
+          </select>
+        </div>
+        <div class="field span-2">
+          <label>Opties</label>
+          <div class="gen-checks">
+            <label><input type="checkbox" name="pty" value="1" /> PTY upgrade (alleen linux)</label>
+          </div>
+        </div>
+      </div>
+      <div class="gen-actions">
+        <button type="submit" id="gen-btn" class="btn btn-primary">Genereer Python Reverse Shell</button>
+        <span id="gen-status" class="status"></span>
+      </div>
+    </form>
+    <div id="gen-download" class="gen-download">
+      <a id="gen-dl-link" href="#" class="btn btn-success">Download revshell.py</a>
+    </div>
+  </div>
+</section>
+
+<section class="card mt-14">
+  <div class="card-head"><h2>Uitvoer</h2></div>
+  <div class="card-body">
+    <pre id="gen-output" class="gen-output"></pre>
+  </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='js/generator.js') }}"></script>
+{% endblock %}

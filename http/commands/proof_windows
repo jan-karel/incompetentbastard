@@ -1,1 +1,12 @@
-echo. & echo. & echo whoami: & whoami 2> nul & echo %username% 2> nul & echo. & echo Hostname: & hostname & echo. & ipconfig /all & echo. & echo proof.txt: &  type "C:\Users\Administrator\Desktop\proof.txt"
+# Windows - Proof of Compromise (bewijs verzamelen)
+# One-liner voor screenshot/rapport:
+echo. & echo. & echo whoami: & whoami 2> nul & echo %username% 2> nul & echo. & echo Hostname: & hostname & echo. & ipconfig /all & echo. & echo proof.txt: & type "C:\Users\Administrator\Desktop\proof.txt"
+# PowerShell variant (meer info):
+Write-Host "`n=== PROOF OF COMPROMISE ===" -ForegroundColor Red; Write-Host "User: $(whoami)"; Write-Host "Hostname: $(hostname)"; Write-Host "IP:"; ipconfig | Select-String "IPv4"; Write-Host "`nproof.txt:"; Get-Content C:\Users\Administrator\Desktop\proof.txt -ErrorAction SilentlyContinue
+# Extra bewijs:
+systeminfo | findstr /B /C:"OS Name" /C:"OS Version" /C:"Domain"
+net user %username%
+net localgroup Administrators
+# Tip: Maak altijd een screenshot van de output
+# Tip: Check ook: C:\Users\Administrator\Desktop\flag.txt (CTF)
+# Tip: Noteer datum/tijd voor in het rapport

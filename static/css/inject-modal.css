@@ -1,0 +1,113 @@
+/* ── Inject modal ─────────────────────────────────────── */
+.modal-foot {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 12px 18px;
+  border-top: 1px solid var(--border, #334155);
+}
+.modal-foot .status {
+  margin-right: auto;
+  font-size: 13px;
+}
+
+/* Find / Replace toolbar */
+.inject-replace-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 10px 18px;
+  border-bottom: 1px solid var(--border, #334155);
+  background: var(--surface, #1e293b);
+}
+.inject-replace-row input[type="text"] {
+  flex: 1;
+  min-width: 0;
+  padding: 5px 8px;
+  font-size: 13px;
+  color: var(--text, #f1f5f9);
+  background: var(--bg, #0f172a);
+  border: 1px solid var(--border, #334155);
+  border-radius: 4px;
+}
+.inject-replace-row input[type="text"]:focus {
+  outline: none;
+  border-color: var(--primary, #3b82f6);
+}
+.inject-https-label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--muted, #94a3b8);
+  cursor: pointer;
+  white-space: nowrap;
+  user-select: none;
+}
+
+/* Content rendering */
+.inject-label {
+  margin: 0;
+  padding: 4px 0;
+  color: var(--muted, #94a3b8);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.inject-spacer {
+  height: 8px;
+}
+
+/* Commando-regel: input + inject knop */
+.inject-cmd-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin: 3px 0;
+}
+.inject-cmd-input {
+  flex: 1;
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 6px 8px;
+  font-family: 'Cascadia Code', 'Fira Code', 'JetBrains Mono', monospace;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--text, #f1f5f9);
+  background: var(--bg, #0f172a);
+  border: 1px solid var(--border, #334155);
+  border-radius: 4px;
+}
+.inject-cmd-input:focus {
+  outline: none;
+  border-color: var(--primary, #3b82f6);
+  box-shadow: 0 0 0 2px rgba(59,130,246,.25);
+}
+
+.inject-line-btn {
+  flex-shrink: 0;
+  padding: 5px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text, #f1f5f9);
+  background: var(--primary, #3b82f6);
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: opacity .15s;
+}
+.inject-line-btn:hover { opacity: .85; }
+.inject-line-btn:disabled {
+  opacity: .4;
+  cursor: default;
+}
+.inject-line-btn.sent {
+  background: var(--success, #22c55e);
+}
+
+#inject-modal-body {
+  max-height: 60vh;
+  overflow-y: auto;
+  padding: 18px;
+}

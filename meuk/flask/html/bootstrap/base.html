@@ -11,6 +11,7 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='css/latexeditor.css') }}" />
   <link rel="stylesheet" href="{{ url_for('static', filename='css/cvss4-calculator.css') }}" />
   <link rel="stylesheet" href="{{ url_for('static', filename='css/utility.css') }}" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/inject-modal.css') }}" />
   {% block styles %}{% endblock %}
 </head>
 <body>
@@ -169,12 +170,35 @@
   </div>
 </div>
 
+<div id="inject-modal" class="modal-overlay d-none">
+  <div class="modal-box modal-md">
+    <div class="modal-head">
+      <h3 id="inject-modal-title">Commando injecteren</h3>
+      <button id="btn-inject-close" class="modal-close-btn">&times;</button>
+    </div>
+    <div class="inject-replace-row">
+      <input id="inject-find" type="text" placeholder="Find..." />
+      <input id="inject-replace" type="text" placeholder="Replace..." />
+      <label class="inject-https-label" title="Replace http:// with https://">
+        <input id="inject-https" type="checkbox" /> https
+      </label>
+    </div>
+    <div class="modal-body" id="inject-modal-body"></div>
+    <div class="modal-foot">
+      <span id="inject-modal-status" class="status"></span>
+      <button id="btn-inject-cancel" class="btn" type="button">Annuleer</button>
+      <button id="btn-inject-confirm" class="btn btn-primary" type="button">Inject alles</button>
+    </div>
+  </div>
+</div>
+
 <button id="toTop" class="top" type="button" aria-label="Back to top"><span aria-hidden="true">↑</span></button>
 <script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='niceadmin/assets/js/main.js') }}"></script>
 <script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='js/confirm-handler.js') }}"></script>
 <script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='js/global-search.js') }}"></script>
 <script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='js/cvss4-calculator.js') }}"></script>
 <script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='js/latexeditor.js') }}"></script>
+<script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='js/inject-modal.js') }}"></script>
 <script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='js/global-tools.js') }}"></script>
 {% block scripts %}{% endblock %}
 </body>

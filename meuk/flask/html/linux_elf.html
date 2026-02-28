@@ -1,0 +1,63 @@
+{% extends "bootstrap/base.html" %}
+{% block title %}Linux ELF generator{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/generator.css') }}" />
+{% endblock %}
+
+{% block content %}
+<div class="gen-header">
+  <div class="breadcrumbs"><a href="/">Start</a> / Linux ELF generator</div>
+  <h1>Linux ELF generator</h1>
+  <p>Genereer Linux ELF reverse shell binaries via msfvenom. Output: http/payloads/&lt;bestand&gt;.elf</p>
+</div>
+
+<section class="card">
+  <div class="card-head"><h2>Configuratie</h2></div>
+  <div class="card-body">
+    <form id="gen-form" data-api="/api/linux_elf/generate">
+      <div class="gen-form">
+        <div class="field">
+          <label for="lhost">LHOST <span class="help">(verplicht)</span></label>
+          <input class="input" type="text" id="lhost" name="lhost" placeholder="10.0.0.1" required />
+        </div>
+        <div class="field">
+          <label for="lport">LPORT</label>
+          <input class="input" type="text" id="lport" name="lport" value="443" placeholder="443" />
+        </div>
+        <div class="field span-2">
+          <label for="payload">Payload</label>
+          <select class="input" id="payload" name="payload">
+            {% for p in payloads %}
+            <option value="{{ p }}" {% if p == 'linux/x64/meterpreter/reverse_tcp' %}selected{% endif %}>{{ p }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="field">
+          <label for="bestand">Bestandsnaam</label>
+          <input class="input" type="text" id="bestand" name="bestand" value="shell" placeholder="shell" />
+          <span class="help">Output: http/payloads/&lt;naam&gt;.elf</span>
+        </div>
+      </div>
+      <div class="gen-actions">
+        <button type="submit" id="gen-btn" class="btn btn-primary">Genereer Linux ELF</button>
+        <span id="gen-status" class="status"></span>
+      </div>
+    </form>
+    <div id="gen-download" class="gen-download">
+      <a id="gen-dl-link" href="#" class="btn btn-success">Download gegenereerd bestand</a>
+    </div>
+  </div>
+</section>
+
+<section class="card mt-14">
+  <div class="card-head"><h2>Uitvoer</h2></div>
+  <div class="card-body">
+    <pre id="gen-output" class="gen-output"></pre>
+  </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='js/generator.js') }}"></script>
+{% endblock %}

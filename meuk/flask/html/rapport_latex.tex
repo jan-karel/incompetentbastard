@@ -253,6 +253,45 @@ een externe aanvaller.
 [% endif %]
 [% endfor %]
 
+% --- Tools en technieken ---
+[% if taal == 'en' %]
+\section{Tools and Techniques}
+
+For this assessment, use was made of \textbf{Incompetent Bastard}, an open-source project
+that provides support for security assessments such as the one described in this report.
+In addition, the following tools were used during the assessment:
+
+\begin{itemize}
+  \item \textbf{Nmap} -- Network discovery and port scanning
+  \item \textbf{Burp Suite} -- Web application security testing
+  \item \textbf{Metasploit Framework} -- Exploit development and execution
+  \item \textbf{BloodHound} -- Active Directory attack path analysis
+  \item \textbf{CrackMapExec} -- Network penetration testing
+  \item \textbf{Impacket} -- Network protocol interaction
+\end{itemize}
+
+The specific tools used may vary depending on the scope and nature of the assessment.
+All tools are used in accordance with the agreed Rules of Engagement.
+[% else %]
+\section{Tools en technieken}
+
+Voor dit onderzoek is gebruik gemaakt van \textbf{Incompetent Bastard}, een opensourceproject
+dat ondersteuning biedt bij beveiligingsonderzoeken zoals uitgewerkt in dit rapport.
+Daarnaast zijn de volgende tools ingezet tijdens het onderzoek:
+
+\begin{itemize}
+  \item \textbf{Nmap} -- Netwerk discovery en poortscan
+  \item \textbf{Burp Suite} -- Webapplicatie beveiligingstesten
+  \item \textbf{Metasploit Framework} -- Exploit ontwikkeling en uitvoering
+  \item \textbf{BloodHound} -- Active Directory aanvalspad-analyse
+  \item \textbf{CrackMapExec} -- Netwerk penetratietesten
+  \item \textbf{Impacket} -- Netwerkprotocol interactie
+\end{itemize}
+
+De specifieke tools die worden ingezet kunnen varieren afhankelijk van de scope en aard van het onderzoek.
+Alle tools worden ingezet conform de overeengekomen Rules of Engagement.
+[% endif %]
+
 [% if testtype == 'redteam' and (legsup_startpunt or legsup_privileges or legsup_informatie) %]
 % --- Legs Up ---
 \section{Legs Up}

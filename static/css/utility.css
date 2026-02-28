@@ -106,5 +106,9 @@
 }
 
 .flex-shrink-0 { flex-shrink: 0; }
+.align-self-center { align-self: center; }
 
 .overflow-auto { overflow: auto; }
+
+.border-top { border-top: 1px solid var(--border, #333); }
+.pt-12 { padding-top: 12px; }

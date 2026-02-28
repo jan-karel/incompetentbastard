@@ -8,7 +8,12 @@
     </div>
     <div>
       <label for="locatie">Host</label>
-      {{ form.locatie(id='locatie', class='form-control') }}
+      {{ form.locatie(id='locatie', class='form-control', list='locatie-scope-targets') }}
+      <datalist id="locatie-scope-targets">
+        {% for st in scope_targets|default([], true) %}
+        <option value="{{ st.target }}">{{ st.beschrijving }} ({{ st.type }})</option>
+        {% endfor %}
+      </datalist>
     </div>
   </div>
 

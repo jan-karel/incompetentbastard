@@ -13,6 +13,16 @@ import uuid
 def _get_appdata():
     return db_instellingen.query.first()
 
+
+def _get_scope_targets():
+    """Haal scope targets op uit instellingen."""
+    s = _get_appdata()
+    try:
+        return json.loads(getattr(s, 'rapport_scope_targets', '[]') or '[]')
+    except (json.JSONDecodeError, TypeError):
+        return []
+
+
 # Blueprint Configuration
 findings_bp = Blueprint('findings_bp', __name__,
                     template_folder='html',
@@ -265,10 +275,11 @@ def api_findings_templates():
 def bevinding_toevoegen(bevinding_id):
 
     form = BevindingForm(ref=bevinding_id)
+    scope_targets = _get_scope_targets()
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-        pagina = render_template('bevinding_toevoegen.html', form=form)
+        pagina = render_template('bevinding_toevoegen.html', form=form, scope_targets=scope_targets)
     else:
-        pagina = render_template('bevinding_page.html', form=form, title='Nieuwe finding')
+        pagina = render_template('bevinding_page.html', form=form, title='Nieuwe finding', scope_targets=scope_targets)
     return pagina
 
 
@@ -298,10 +309,11 @@ def bevinding_bewerken(bevinding_id):
         business_impact=getattr(item, 'business_impact', '') or '',
         remediation_effort=getattr(item, 'remediation_effort', '') or '',
     )
+    scope_targets = _get_scope_targets()
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-        pagina = render_template('bevinding_toevoegen.html', form=form)
+        pagina = render_template('bevinding_toevoegen.html', form=form, scope_targets=scope_targets)
     else:
-        pagina = render_template('bevinding_page.html', form=form, title='Finding bewerken')
+        pagina = render_template('bevinding_page.html', form=form, title='Finding bewerken', scope_targets=scope_targets)
     return pagina
 
 @findings_bp.route('/dashboard/findings/delete/<int:bevindingen_id>', methods=['GET'])

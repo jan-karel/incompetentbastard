@@ -362,11 +362,26 @@
   const findingUitwerken = document.getElementById("finding-uitwerken");
   const findingStatus = document.getElementById("finding-status");
   let findingTemplatesLoaded = false;
+  let findingScopeTargetsLoaded = false;
 
   function openFindingModal() {
     if (!findingModal) return;
     findingModal.style.display = "flex";
     if (findingNaam) findingNaam.focus();
+    if (!findingScopeTargetsLoaded) {
+      const datalist = document.getElementById("finding-scope-targets");
+      if (datalist) {
+        fetch("/api/settings").then(r => r.json()).then(d => {
+          findingScopeTargetsLoaded = true;
+          for (const st of (d.rapport_scope_targets || [])) {
+            const opt = document.createElement("option");
+            opt.value = st.target || "";
+            opt.textContent = (st.beschrijving || "") + " (" + (st.type || "host") + ")";
+            datalist.appendChild(opt);
+          }
+        }).catch(() => {});
+      }
+    }
     if (!findingTemplatesLoaded && findingTemplate) {
       fetch("/api/findings/templates")
         .then(r => r.json())

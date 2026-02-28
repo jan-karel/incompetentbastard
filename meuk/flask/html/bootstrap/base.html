@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>{% block title %}Dashboard{% endblock %}</title>
   <meta name="description" content="Incompetend Bastard" />
-  <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='niceadmin/assets/img/favicon.svg') }}" />
+  <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='hacksec.svg') }}" />
   <link rel="stylesheet" href="{{ url_for('static', filename='niceadmin/assets/css/style.css') }}" />
   <link rel="stylesheet" href="{{ url_for('static', filename='css/global-tools.css') }}" />
   <link rel="stylesheet" href="{{ url_for('static', filename='css/latexeditor.css') }}" />
@@ -19,7 +19,7 @@
 <div class="app">
   <aside class="sidebar" role="navigation" aria-label="Sidebar">
     <div class="brand">
-      <div class="brand-mark" aria-hidden="true"> <img src="{{ url_for('static', filename='favicon.ico') }}"> </div>
+      <div class="brand-mark" aria-hidden="true"> <img src="{{ url_for('static', filename='hacksec.svg') }}"> </div>
       <div class="brand-name">Incompetent<span>Bastard</span></div>
     </div>
 
@@ -147,7 +147,8 @@
       <label for="finding-naam" class="form-label mt-12">Naam</label>
       <input id="finding-naam" type="text" class="form-control" placeholder="Bevinding naam" />
       <label for="finding-locatie" class="form-label mt-12">Host</label>
-      <input id="finding-locatie" type="text" class="form-control" placeholder="IP / hostname" />
+      <input id="finding-locatie" type="text" class="form-control" placeholder="IP / hostname" list="finding-scope-targets" />
+      <datalist id="finding-scope-targets"></datalist>
       <div class="mt-12" data-cvss4-calculator>
         <div class="cvss4-result">
           <button type="button" data-cvss-toggle class="btn">CVSS 4.0 Calculator</button>

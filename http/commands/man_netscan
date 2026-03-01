@@ -1,0 +1,37 @@
+# NetScan — SoftPerfect Network Scanner (commercieel)
+# GUI-gebaseerde netwerkscanner voor host discovery, poort scanning en service enumeratie
+#
+# === Syntax ===
+# netscan.exe                (GUI modus)
+# netscan.exe /hide          (minimized starten)
+# netscan.exe /range:FILE    (IP range uit bestand laden)
+#
+# === Functionaliteit ===
+# Host discovery        Ping sweep, ARP scan
+# Port scanning         TCP poort scan op opgegeven ranges
+# Shares                NetBIOS/SMB shares opsommen
+# SNMP                  SNMP query's (community string nodig)
+# WMI                   Remote WMI informatie ophalen
+# Remote registry       Registry keys lezen (admin nodig)
+# MAC adressen          MAC adres en vendor lookup
+# Hostname resolutie    DNS en NetBIOS naam resolutie
+#
+# === Gebruik ===
+# Stap 1: Start netscan.exe
+netscan.exe
+# Stap 2: Vul IP range in (bijv. 10.0.0.1-10.0.0.254)
+# Stap 3: Stel poorten in: 21,22,80,443,445,1433,3389,5985
+# Stap 4: Klik "Start Scanning"
+# Stap 5: Exporteer resultaten via File > Save As (XML/CSV/HTML)
+#
+# === Handige instellingen ===
+# Options > Scan Type: TCP/ARP
+# Options > Additional > Enable SNMP
+# Options > Additional > Enable remote registry
+# Options > Ports: voeg pentest-relevante poorten toe
+#
+# Tip: Commerciële tool — download van softperfect.com
+# Tip: Geen installatie nodig (portable .exe)
+# Tip: Genereer veel verkeer — gebruik met mate in stealth scenario's
+# Tip: Alternatief: Invoke-Portscan (PowerShell, zie man_invoke_portscan)
+# Tip: Resultaten exporteren naar CSV voor rapportage

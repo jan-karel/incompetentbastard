@@ -1,0 +1,36 @@
+# Invoke-SessionHunter — Sessie-enumeratie zonder admin rechten
+# Vindt actieve user sessions via Remote Registry (geen admin nodig)
+# Alternatief voor Find-PSRemotingLocalAdminAccess / Invoke-UserHunter
+#
+# === Vereisten ===
+# - Remote Registry service actief op doelwit (standaard: Automatic trigger)
+# - Netwerk toegang tot doelwit (geen admin rechten nodig)
+#
+# === Syntax ===
+# Invoke-SessionHunter [-NoPortScan] [-Targets <file>] [-FailSafe]
+#
+# === Voorbeelden ===
+
+# Enumereer alle sessies in het domein
+Invoke-SessionHunter
+
+# Zonder portscan (sneller, alleen Remote Registry)
+Invoke-SessionHunter -NoPortScan
+
+# Specifieke targets
+Invoke-SessionHunter -Targets C:\targets.txt
+
+# Met FailSafe (stopt bij fouten)
+Invoke-SessionHunter -FailSafe
+
+# Zoek specifieke gebruiker
+Invoke-SessionHunter | Where-Object { $_.UserName -match 'admin' }
+
+# Zoek Domain Admin sessies
+$da = Get-DomainGroupMember 'Domain Admins' | Select -Expand MemberName
+Invoke-SessionHunter | Where-Object { $da -contains $_.UserName }
+
+# Noot: Gebruikt Remote Registry — geen admin rechten nodig op doelwit
+# Noot: Stealthier dan Invoke-UserHunter (geen SMB sessie-enumeratie)
+# Noot: Remote Registry service start automatisch bij query (Windows default)
+# Noot: Download: https://github.com/yourfriend/SessionHunter

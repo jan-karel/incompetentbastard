@@ -1,0 +1,49 @@
+# SharpHound — BloodHound data collector (C# en PowerShell)
+# Verzamelt Active Directory relaties voor aanvalspaden-analyse in BloodHound
+#
+# === Syntax (EXE) ===
+# SharpHound.exe -c <methode> [opties]
+#
+# === Syntax (PowerShell) ===
+# Import-Module .\SharpHound.ps1
+# Invoke-BloodHound -CollectionMethod <methode> [opties]
+#
+# === CollectionMethods (-c) ===
+# All          Alles verzamelen (standaard keuze)
+# Session      Alleen sessie-informatie
+# DCOnly       Alleen data van de DC (LDAP)
+# Group        Groepslidmaatschappen
+# ACL          Toegangsrechten op AD objecten
+# ObjectProps  Object eigenschappen
+# Trusts       Domein vertrouwensrelaties
+# Container    OU/Container structuur
+# GPOLocalGroup  GPO-gebaseerde lokale groepen
+#
+# === Belangrijkste opties ===
+# -d DOMAIN                Doeldomein
+# --ldapusername USER      LDAP gebruikersnaam
+# --ldappassword PASS      LDAP wachtwoord
+# --domaincontroller DC    Specifieke DC
+# --outputdirectory DIR    Uitvoermap
+# --zipfilename NAME       Naam van het zipbestand
+# --stealth                Stealth modus (minder queries)
+# --randomfilenames        Willekeurige bestandsnamen
+# --memcache               Gebruik geheugen i.p.v. schijf cache
+# --loop                   Blijf sessies verzamelen
+# --loopduration HH:MM:SS  Duur van de loop
+#
+# === Voorbeelden ===
+# -- Alles verzamelen --
+SharpHound.exe -c All -d DOMAIN
+SharpHound.exe -c All --domaincontroller DC --outputdirectory C:\temp
+# -- Stealth scan --
+SharpHound.exe -c DCOnly,ACL -d DOMAIN --stealth
+# -- Met credentials --
+SharpHound.exe -c All -d DOMAIN --ldapusername USER --ldappassword PASS --domaincontroller DC
+# -- Sessie loop (2 uur) --
+SharpHound.exe -c Session --loop --loopduration 02:00:00 -d DOMAIN
+# -- PowerShell variant --
+Import-Module .\SharpHound.ps1
+Invoke-BloodHound -CollectionMethod All -Domain DOMAIN
+Invoke-BloodHound -CollectionMethod All -DomainController DC -LDAPUser USER -LDAPPass PASS
+Invoke-BloodHound -CollectionMethod DCOnly -Stealth -OutputDirectory C:\temp

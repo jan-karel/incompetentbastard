@@ -1,0 +1,47 @@
+# ADRecon — Active Directory reconnaissance en rapportage
+# Uitgebreide AD enumeratie met export naar CSV, XML of XLSX rapport
+#
+# === Syntax ===
+# .\ADRecon.ps1 [opties]
+#
+# === Belangrijkste opties ===
+# -DomainController DC    Specifieke DC om te queryen
+# -Credential $cred       PSCredential object
+# -Method LDAP|ADWS       Querymethode (LDAP of AD Web Services)
+# -Collect ITEMS          Specifieke items verzamelen (kommagescheiden)
+# -OutputDir PATH         Uitvoermap
+# -OutputType CSV|XML|XLSX  Uitvoerformaat
+# -DomainName DOMAIN      Doeldomein
+#
+# === Collect opties ===
+# Domain        Domein informatie
+# Users         Alle gebruikers
+# Computers     Alle computers
+# Groups        Groepen en lidmaatschappen
+# OUs           Organizational Units
+# GPOs          Group Policy Objects
+# Trusts        Domein vertrouwensrelaties
+# ACLs          Toegangsrechten
+# DNSZones      DNS zones en records
+# Printers      Gepubliceerde printers
+# LAPS          LAPS wachtwoorden (als toegang)
+# BitLocker     BitLocker recovery keys (als toegang)
+#
+# === Voorbeelden ===
+# -- Volledige scan --
+.\ADRecon.ps1
+.\ADRecon.ps1 -DomainController DC -OutputDir C:\temp\adrecon
+# -- Met credentials --
+$cred = Get-Credential
+.\ADRecon.ps1 -DomainController DC -Credential $cred
+# -- Specifieke items --
+.\ADRecon.ps1 -Collect "Users,Computers,Groups,Trusts,ACLs"
+.\ADRecon.ps1 -Collect "Users,Groups,GPOs" -OutputType XLSX
+# -- LDAP methode (geen ADWS nodig) --
+.\ADRecon.ps1 -Method LDAP -DomainController DC
+# -- Vanaf niet-domein machine --
+.\ADRecon.ps1 -Method LDAP -DomainController DC -DomainName DOMAIN -Credential $cred
+# -- LAPS en BitLocker (vereist rechten) --
+.\ADRecon.ps1 -Collect "LAPS,BitLocker" -DomainController DC
+# -- Genereer rapport van bestaande data --
+.\ADRecon.ps1 -GenExcel C:\temp\adrecon\

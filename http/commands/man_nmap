@@ -1,0 +1,61 @@
+# Nmap — Netwerk scanner en service enumeratie
+# Scant netwerken op open poorten, services, OS detectie en kwetsbaarheden
+#
+# === Syntax ===
+# nmap [opties] TARGET
+#
+# === Scan types ===
+# -sS            SYN scan (stealth, half-open — standaard met root)
+# -sT            TCP connect scan (zonder root)
+# -sU            UDP scan
+# -sV            Versie detectie van services
+# -sC            Default NSE scripts draaien
+# -sn            Ping scan (host discovery, geen port scan)
+# -O             OS detectie
+# -A             Agressief: -sV -sC -O --traceroute
+#
+# === Belangrijkste opties ===
+# -p POORTEN     Poorten specificeren (-p 80,443 / -p 1-1000 / -p-)
+# -p-            Alle 65535 poorten scannen
+# --top-ports N  Top N meest voorkomende poorten
+# -Pn            Skip host discovery (altijd scannen)
+# -T0-5          Timing template (0=paranoid, 3=normal, 5=insane)
+# -oN FILE       Output normaal formaat
+# -oX FILE       Output XML formaat
+# -oG FILE       Output grepable formaat
+# -oA BASE       Alle output formaten tegelijk
+# --script=NAME  Specifiek NSE script draaien
+# -n             Geen DNS resolutie
+# -v/-vv         Verbose output
+#
+# === Voorbeelden ===
+
+# Volledige scan — alle poorten, versie, scripts
+nmap -sS -sV -sC -p- -oA scan_TARGET TARGET
+
+# Snelle scan — top 1000 poorten
+nmap -sS -sV TARGET
+
+# UDP scan — top 100 poorten
+nmap -sU --top-ports 100 -sV TARGET
+
+# Netwerk discovery — welke hosts zijn online
+nmap -sn 10.10.10.0/24
+
+# SMB kwetsbaarheden scannen
+nmap --script=smb-vuln* -p 445 TARGET
+
+# Alle kwetsbaarheidscripts
+nmap --script=vuln -p- TARGET
+
+# Web enumeratie
+nmap --script=http-enum,http-headers,http-methods -p 80,443,8080 TARGET
+
+# OS detectie
+nmap -O -sV TARGET
+
+# Scan door firewall heen (fragment packets)
+nmap -sS -f -p 80,443 TARGET
+
+# Scan vanuit lijst met targets
+nmap -sS -sV -iL targets.txt -oA results

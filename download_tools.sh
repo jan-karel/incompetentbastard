@@ -148,6 +148,68 @@ download_file "https://github.com/andrew-d/static-binaries/raw/master/binaries/l
 # nmap Windows installer
 download_file "https://nmap.org/dist/nmap-7.94-setup.exe"
 
+# socat (static Linux binary)
+download_file "https://github.com/andrew-d/static-binaries/raw/master/binaries/linux/x86_64/socat"
+
+# plink (PuTTY SSH tunneling)
+download_file "https://the.earth.li/~sgtatham/putty/latest/w64/plink.exe"
+
+# Chisel (tunneling — Windows + Linux)
+if [ ! -f "$TOOLS_DIR/chisel.exe" ]; then
+    CHISEL_VER=$(curl -fsSL --connect-timeout 10 --max-time 30 "https://api.github.com/repos/jpillora/chisel/releases/latest" 2>/dev/null | grep '"tag_name"' | sed 's/.*"v\(.*\)".*/\1/') || true
+    if [ -n "$CHISEL_VER" ]; then
+        if dl "https://github.com/jpillora/chisel/releases/download/v${CHISEL_VER}/chisel_${CHISEL_VER}_windows_amd64.gz" "$TMP_DIR/chisel.exe.gz"; then
+            gunzip -f "$TMP_DIR/chisel.exe.gz" && mv "$TMP_DIR/chisel.exe" "$TOOLS_DIR/chisel.exe"
+            log_ok "chisel.exe (v${CHISEL_VER})"
+        else
+            log_fail "chisel.exe"
+        fi
+    else
+        log_fail "chisel.exe — kon versie niet ophalen"
+    fi
+else
+    log_ok "chisel.exe (al aanwezig)"
+fi
+if [ ! -f "$TOOLS_DIR/chisel" ]; then
+    CHISEL_VER=${CHISEL_VER:-$(curl -fsSL --connect-timeout 10 --max-time 30 "https://api.github.com/repos/jpillora/chisel/releases/latest" 2>/dev/null | grep '"tag_name"' | sed 's/.*"v\(.*\)".*/\1/' || true)}
+    if [ -n "$CHISEL_VER" ]; then
+        if dl "https://github.com/jpillora/chisel/releases/download/v${CHISEL_VER}/chisel_${CHISEL_VER}_linux_amd64.gz" "$TMP_DIR/chisel.gz"; then
+            gunzip -f "$TMP_DIR/chisel.gz" && mv "$TMP_DIR/chisel" "$TOOLS_DIR/chisel"
+            log_ok "chisel (Linux, v${CHISEL_VER})"
+        else
+            log_fail "chisel (Linux)"
+        fi
+    else
+        log_fail "chisel (Linux) — kon versie niet ophalen"
+    fi
+else
+    log_ok "chisel (Linux, al aanwezig)"
+fi
+
+# GodPotato
+if [ ! -f "$TOOLS_DIR/GodPotato.exe" ]; then
+    GODP_URL=$(curl -fsSL --connect-timeout 10 --max-time 30 "https://api.github.com/repos/BeichenDream/GodPotato/releases/latest" 2>/dev/null | grep '"browser_download_url".*GodPotato-NET4.exe' | head -1 | sed 's/.*"\(https[^"]*\)".*/\1/') || true
+    if [ -n "$GODP_URL" ]; then
+        dl "$GODP_URL" "$TOOLS_DIR/GodPotato.exe" && log_ok "GodPotato.exe" || log_fail "GodPotato.exe"
+    else
+        log_fail "GodPotato.exe — kon release niet vinden"
+    fi
+else
+    log_ok "GodPotato.exe (al aanwezig)"
+fi
+
+# Kerbrute (Linux)
+if [ ! -f "$TOOLS_DIR/kerbrute" ]; then
+    KERB_URL=$(curl -fsSL --connect-timeout 10 --max-time 30 "https://api.github.com/repos/ropnop/kerbrute/releases/latest" 2>/dev/null | grep '"browser_download_url".*linux_amd64' | head -1 | sed 's/.*"\(https[^"]*\)".*/\1/') || true
+    if [ -n "$KERB_URL" ]; then
+        dl "$KERB_URL" "$TOOLS_DIR/kerbrute" && log_ok "kerbrute" || log_fail "kerbrute"
+    else
+        log_fail "kerbrute — kon release niet vinden"
+    fi
+else
+    log_ok "kerbrute (al aanwezig)"
+fi
+
 # ===== 2. SHARPCOLLECTION (pre-compiled .NET) ==============================
 log_info "=== SharpCollection (Flangvik) ==="
 
@@ -159,9 +221,19 @@ download_file "$SC/SharpWMI.exe"
 download_file "$SC/Whisker.exe"
 download_file "$SC/SharpHound.exe"
 download_file "$SC/Seatbelt.exe"
-
-# GoldenGMSA
 download_file "$SC/GoldenGMSA.exe"
+
+# Aanvullende SharpCollection tools (gerefereerd in command files)
+download_file "$SC/BetterSafetyKatz.exe"
+download_file "$SC/ForgeCert.exe"
+download_file "$SC/StandIn.exe"
+download_file "$SC/SharpDPAPI.exe"
+download_file "$SC/SweetPotato.exe"
+download_file "$SC/SharpUp.exe"
+download_file "$SC/Snaffler.exe"
+download_file "$SC/SharpChrome.exe"
+download_file "$SC/SharpRDP.exe"
+download_file "$SC/ADFSDump.exe"
 
 # SharpSQL (SharpSQLPwn in SharpCollection)
 if [ ! -f "$TOOLS_DIR/SharpSQL.exe" ]; then
@@ -222,6 +294,24 @@ download_file "https://raw.githubusercontent.com/dafthack/DomainPasswordSpray/ma
 # SharpHound.ps1 (BloodHound collector — ps1 wrapper)
 download_file "https://raw.githubusercontent.com/BloodHoundAD/BloodHound/master/Collectors/SharpHound.ps1"
 
+# dnscat2 PowerShell client (gerefereerd in net_dnscat2_client)
+download_file "https://raw.githubusercontent.com/lukebaggett/dnscat2-powershell/master/dnscat2.ps1"
+
+# Invoke-WMIExec (gerefereerd in lateral_wmi)
+download_file "https://raw.githubusercontent.com/Kevin-Robertson/Invoke-TheHash/master/Invoke-WMIExec.ps1"
+
+# Inveigh (PowerShell LLMNR/NBNS spoofer)
+download_file "https://raw.githubusercontent.com/Kevin-Robertson/Inveigh/master/Inveigh.ps1"
+
+# ADRecon
+download_file "https://raw.githubusercontent.com/adrecon/ADRecon/master/ADRecon.ps1"
+
+# Invoke-Kerberoast
+download_file "https://raw.githubusercontent.com/EmpireProject/Empire/master/data/module_source/credentials/Invoke-Kerberoast.ps1"
+
+# linux-exploit-suggester
+download_file "https://raw.githubusercontent.com/mzet-/linux-exploit-suggester/master/linux-exploit-suggester.sh"
+
 # Check-Aanbevelingen (eigen scripts — kopieer vanuit boek/ als aanwezig)
 if [ ! -f "$TOOLS_DIR/Check-Aanbevelingen-LOLBin.ps1" ] && [ -f "$SCRIPT_DIR/boek/Check-Aanbevelingen-LOLBin.ps1" ]; then
     cp "$SCRIPT_DIR/boek/Check-Aanbevelingen-LOLBin.ps1" "$TOOLS_DIR/"
@@ -262,11 +352,32 @@ fi
 # Invoke-DCSync
 download_file "https://raw.githubusercontent.com/pentestfactory/Invoke-DCSync/main/Invoke-DCSync.ps1" "Invoke-DCsync.ps1"
 
+# Coercer (Python — NTLM authentication coercion)
+download_file "https://raw.githubusercontent.com/p0dalirius/Coercer/main/coercer/__main__.py" "Coercer.py"
+
+# dementor (Python — printer bug trigger)
+download_file "https://raw.githubusercontent.com/NotMedic/NetNTLMtoSilverTicket/master/dementor.py"
+
 # Find-PSRemotingLocalAdminAccess (verwijderd uit nishang, fork)
 download_file "https://raw.githubusercontent.com/samratashok/nishang/master/Find/Find-PSRemotingLocalAdminAccess.ps1"
 
-# ===== 5. TOOLS DIE COMPILATIE VEREISEN ====================================
-log_info "=== Compilatie vereist (handmatig) ==="
+# AmsiTrigger (GitHub release)
+if [ ! -f "$TOOLS_DIR/AmsiTrigger_x64.exe" ]; then
+    AMSI_URL=$(curl -fsSL --connect-timeout 10 --max-time 30 "https://api.github.com/repos/RythmStick/AMSITrigger/releases/latest" 2>/dev/null | grep '"browser_download_url".*AmsiTrigger_x64.exe' | head -1 | sed 's/.*"\(https[^"]*\)".*/\1/') || true
+    if [ -n "$AMSI_URL" ]; then
+        dl "$AMSI_URL" "$TOOLS_DIR/AmsiTrigger_x64.exe" && log_ok "AmsiTrigger_x64.exe" || log_fail "AmsiTrigger_x64.exe"
+    else
+        log_fail "AmsiTrigger_x64.exe — kon release niet vinden"
+    fi
+else
+    log_ok "AmsiTrigger_x64.exe (al aanwezig)"
+fi
+
+# ===== 5. TOOLS DIE COMPILATIE VEREISEN / HANDMATIG ========================
+log_info "=== Handmatig (compilatie of commercieel) ==="
+
+[ -f "$TOOLS_DIR/PingCastle.exe" ] && log_ok "PingCastle.exe (al aanwezig)" || \
+    log_warn "PingCastle.exe — handmatig downloaden: https://www.pingcastle.com/download/"
 
 [ -f "$TOOLS_DIR/SpoolSample.exe" ] && log_ok "SpoolSample.exe (al aanwezig)" || \
     log_warn "SpoolSample.exe — compileer zelf: https://github.com/leechristensen/SpoolSample"
@@ -295,7 +406,9 @@ done
     log_warn "netscan.exe — commercieel: https://www.softperfect.com/products/networkscanner/"
 
 # ===== 7. CHMOD voor Linux tools ==========================================
-chmod +x "$TOOLS_DIR/linpeas.sh" "$TOOLS_DIR/PwnKit" "$TOOLS_DIR/nmap" 2>/dev/null || true
+chmod +x "$TOOLS_DIR/linpeas.sh" "$TOOLS_DIR/PwnKit" "$TOOLS_DIR/nmap" \
+         "$TOOLS_DIR/socat" "$TOOLS_DIR/chisel" "$TOOLS_DIR/kerbrute" \
+         "$TOOLS_DIR/linux-exploit-suggester.sh" 2>/dev/null || true
 
 # ===== SAMENVATTING ========================================================
 echo ""

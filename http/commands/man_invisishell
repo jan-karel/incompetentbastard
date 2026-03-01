@@ -1,0 +1,33 @@
+# Invisi-Shell — AMSI en ScriptBlock logging bypass via CLR hooking
+# Omzeilt ALLE PowerShell logging (Script Block, Module, Transcription) en AMSI via CLR profiler
+#
+# === Syntax ===
+# RunWithPathAsAdmin.bat        (met admin privileges — HKLM registry keys)
+# RunWithRegistryNonAdmin.bat   (zonder admin — HKCU registry keys)
+#
+# === Bestanden ===
+# invisi.dll                    CLR profiler DLL (moet in zelfde map staan)
+# RunWithPathAsAdmin.bat        Launcher met admin rechten
+# RunWithRegistryNonAdmin.bat   Launcher zonder admin rechten
+#
+# === Werking ===
+# Registreert invisi.dll als CLR profiler via registry
+# Spawnt nieuw PowerShell proces dat door de profiler gehookt wordt
+# Alle script-gerelateerde events worden onderschept en onderdrukt
+#
+# === Voorbeelden ===
+# Met admin rechten (plaatst keys in HKLM):
+RunWithPathAsAdmin.bat
+# Zonder admin rechten (plaatst keys in HKCU):
+RunWithRegistryNonAdmin.bat
+# Na starten — alle scripts laden zonder detectie:
+Import-Module .\PowerView.ps1
+Import-Module .\Invoke-Mimikatz.ps1
+# Sessie afsluiten en registry opruimen:
+exit
+#
+# Tip: Moet VOOR andere tools en scripts geladen worden
+# Tip: AMSI bypass apart is niet meer nodig in een Invisi-Shell sessie
+# Tip: Werkt alleen in het NIEUWE PowerShell proces — niet in bestaande sessies
+# Tip: Na 'exit' worden registry keys automatisch opgeruimd
+# Tip: Zie ook: amsi_bypass_patch, amsi_bypass_reflection, amsi_bypass_context

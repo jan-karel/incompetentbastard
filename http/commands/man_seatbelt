@@ -1,0 +1,50 @@
+# Seatbelt — Host reconnaissance / security survey (C#)
+# Verzamelt uitgebreide systeem- en gebruikersinformatie voor situational awareness
+#
+# === Syntax ===
+# Seatbelt.exe [groep|check ...] [opties]
+#
+# === Groepen ===
+# -group=all       Alle checks uitvoeren
+# -group=system    Systeemconfiguratie en beveiliging
+# -group=user      Gebruikersgerelateerde informatie
+# -group=misc      Overige checks
+# -group=chrome    Chrome gerelateerde data
+# -group=slack     Slack gerelateerde data
+# -group=remote    Remote system informatie
+#
+# === Handige individuele checks ===
+# AMSIProviders          Geregistreerde AMSI providers
+# AntiVirus              Geinstalleerde AV producten
+# AppLocker              AppLocker beleid
+# DotNet                 .NET versies
+# EnvironmentPath        PATH variabele
+# TokenPrivileges        Token privileges (SeImpersonate etc.)
+# WindowsCredentialFiles Credential bestanden
+# KeePass                KeePass configuratie
+# InterestingFiles       Interessante bestanden
+# MappedDrives           Gekoppelde schijven
+# ScheduledTasks         Geplande taken
+# Services               Diensten met schrijfrechten
+#
+# === Belangrijkste opties ===
+# -full                   Uitgebreide output
+# -computername=TARGET    Remote uitvoering
+# -username=USER          Remote credentials
+# -password=PASS          Remote credentials
+# -outputfile=FILE        Uitvoer naar bestand (JSON)
+# -q                      Stille modus (geen banner)
+#
+# === Voorbeelden ===
+# -- Volledige scan --
+Seatbelt.exe -group=all -full
+Seatbelt.exe -group=all -outputfile=C:\temp\seatbelt.json
+# -- Systeem checks --
+Seatbelt.exe -group=system -full
+# -- Specifieke checks --
+Seatbelt.exe TokenPrivileges AntiVirus AMSIProviders AppLocker
+Seatbelt.exe InterestingFiles WindowsCredentialFiles KeePass
+# -- Remote scan --
+Seatbelt.exe -group=all -computername=TARGET -username=DOMAIN\USER -password=PASS
+# -- Stille output --
+Seatbelt.exe -group=user -q -outputfile=C:\temp\user.json

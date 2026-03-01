@@ -496,4 +496,8 @@ fi
 echo ""
 verify_tools
 echo ""
-log_ok "Installatie afgerond. Start met: flask --app app:create_app run"
+log_ok "Installatie afgerond."
+echo ""
+log_info "Volgende stappen:"
+echo "  1. bash download_tools.sh     # Offensive tools ophalen (mimikatz, Rubeus, etc.)"
+echo "  2. flask --app app:create_app run --host 127.0.0.1 --port 5000"

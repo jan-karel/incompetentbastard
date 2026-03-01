@@ -1,0 +1,38 @@
+# Snaffler — Credential en secret finder in Active Directory shares
+# Doorzoekt alle bereikbare netwerkshares op wachtwoorden, keys, configs en gevoelige bestanden
+#
+# === Syntax ===
+# Snaffler.exe [-s] [-o <outputfile>] [-d <domain>] [-v <verbosity>] [-i <level>]
+#
+# === Belangrijkste opties ===
+# -s              Output naar stdout (standaard uit)
+# -o FILE         Output naar bestand (logbestand)
+# -d DOMAIN       Doeldomein (standaard: huidige domein)
+# -v VERBOSITY    Verbose level: Trace, Degub, Info (standaard), Data
+# -i LEVEL        Interest level 0-3 (0=alles, 3=alleen kritiek)
+# -n THREADS      Aantal threads (standaard: 10)
+# -y              Zoek ook in verborgen shares
+# -a              Zoek ook in admin shares (C$, ADMIN$)
+#
+# === Interest levels ===
+# 0 (Green)    Alles — veel resultaten, veel ruis
+# 1 (Yellow)   Interessant — configs, scripts, code
+# 2 (Red)      Belangrijk — credentials, keys, tokens
+# 3 (Black)    Kritiek — plaintext wachtwoorden, private keys
+#
+# === Voorbeelden ===
+# Standaard scan met output naar scherm en bestand:
+Snaffler.exe -s -o snaffler.log
+# Alleen kritieke vondsten:
+Snaffler.exe -s -o snaffler.log -i 2
+# Specifiek domein targeten:
+Snaffler.exe -s -o snaffler.log -d DOMAIN
+# Met admin shares en verborgen shares:
+Snaffler.exe -s -o snaffler.log -a -y
+# Meer threads voor snelheid:
+Snaffler.exe -s -o snaffler.log -n 20
+#
+# Tip: Draai met domain user rechten — geen admin nodig
+# Tip: Kan lang duren in grote omgevingen — gebruik -i 2 of -i 3 voor focus
+# Tip: Zoekt naar: .config, .xml, .ini, .ps1, .bat, .txt, web.config, etc.
+# Tip: Let op: genereert veel SMB verkeer — kan opvallen bij SOC

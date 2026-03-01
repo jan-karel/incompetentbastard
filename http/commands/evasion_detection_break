@@ -1,0 +1,45 @@
+# Detection chain breaking — Detectie ketens doorbreken
+# Tactic: onderbreek de correlatie tussen malicious acties door
+# benign activiteit in te voegen en tijd te laten verstrijken
+#
+# === Concept ===
+# SOC/SIEM detectie correleert events binnen tijdvensters
+# Door benign events in te voegen en pauzes in te lassen (~10 min)
+# worden malicious events niet meer aan elkaar gekoppeld
+#
+# === Technieken ===
+
+# --- SQL Injection: benign queries invoegen ---
+# Na een malicious query, voer meerdere normale queries uit:
+# Malicious: ' UNION SELECT username,password FROM users--
+# Daarna: normale zoekacties, pagina navigatie, etc.
+# Wacht ~10 minuten
+# Volgende malicious query
+
+# --- Kerberos aanvallen: spreiding ---
+# Kerberoast niet alle accounts tegelijk
+# Vraag 1-2 tickets aan → wacht 10+ minuten → volgende batch
+Rubeus.exe kerberoast /user:svc_sql /nowrap
+# ... wacht 10-15 minuten ...
+Rubeus.exe kerberoast /user:svc_web /nowrap
+
+# --- LDAP enumeratie: mix met normale queries ---
+# Wissel gerichte queries af met standaard lookups
+Get-ADUser -Filter * -Properties description  # benign
+# ... pauze ...
+Get-DomainUser -SPN  # targeted (kerberoastable)
+
+# --- Lateral movement: niet direct doorkettingen ---
+# Compromitteer host A → wacht → beweeg naar host B → wacht → doel
+# Vermijd: A → B → C → DC in snelle successie
+
+# --- Credential access: spreiding ---
+# Dump niet alles tegelijk (SAM + LSA + LSASS + DPAPI)
+# Eén bron per sessie, met pauzes ertussen
+
+# === Vuistregels ===
+# 1. Minimaal 10 minuten tussen gerelateerde malicious acties
+# 2. Voeg 3-5 benign acties in tussen elke malicious actie
+# 3. Gebruik verschillende bronnen/protocollen (niet alles via PowerShell)
+# 4. Wissel af tussen machines (niet alles vanaf dezelfde host)
+# 5. Vermijd patronen in timing (niet exact elke 10 minuten)

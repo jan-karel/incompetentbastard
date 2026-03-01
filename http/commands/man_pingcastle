@@ -1,0 +1,55 @@
+# PingCastle — AD security audit en risk assessment
+# Geautomatiseerde Active Directory beveiligingsanalyse met HTML rapport en risicoscore
+#
+# === Syntax ===
+# PingCastle.exe --healthcheck [opties]
+#
+# === Modes ===
+# --healthcheck    Volledige beveiligingsscan met rapport
+# --carto          Cartografie van domein trusts
+# --scanner        Specifieke security scanner
+# --export         Exporteer data (users, computers, etc.)
+#
+# === Belangrijkste opties ===
+# --server DOMAIN        Doeldomein (FQDN)
+# --user DOMAIN\USER     Gebruikersnaam
+# --password PASS        Wachtwoord
+# --level LEVEL          Detailniveau (Normal, Full)
+# --no-enum-limit        Geen limiet op enumeratie
+# --reachable            Test netwerk bereikbaarheid
+# --log                  Uitgebreide logging
+#
+# === Scanner types (--scanner) ===
+# aclcheck        ACL problemen detecteren
+# antivirus       AV status controleren
+# laps_bitlocker  LAPS/BitLocker configuratie
+# nullsession     Null session toegankelijkheid
+# share           Open shares scannen
+# smb             SMB configuratie controleren
+# spooler         Print spooler service status
+# startup         Startup scripts controleren
+#
+# === Rapport categorieën ===
+# Stale Objects    Verouderde/ongebruikte objecten
+# Privileged       Privilege escalatie risico's
+# Trust            Vertrouwensrelatie problemen
+# Anomalies        Configuratie afwijkingen
+#
+# === Voorbeelden ===
+# -- Standaard healthcheck --
+PingCastle.exe --healthcheck --server DOMAIN
+# -- Met credentials --
+PingCastle.exe --healthcheck --server DOMAIN --user DOMAIN\USER --password PASS
+# -- Volledige scan --
+PingCastle.exe --healthcheck --server DOMAIN --level Full --no-enum-limit
+# -- Trust cartografie --
+PingCastle.exe --carto --server DOMAIN
+# -- Specifieke scanner --
+PingCastle.exe --scanner nullsession --server DOMAIN
+PingCastle.exe --scanner share --server DOMAIN
+PingCastle.exe --scanner spooler --server DOMAIN
+PingCastle.exe --scanner laps_bitlocker --server DOMAIN
+# -- Export data --
+PingCastle.exe --export --server DOMAIN
+# -- Interactief (menu) --
+PingCastle.exe

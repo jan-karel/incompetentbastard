@@ -30,6 +30,22 @@
           <input class="input" type="text" id="luri" name="luri" value="/" placeholder="/" />
           <span class="help">URI pad voor staged payload.</span>
         </div>
+        <div class="field span-2">
+          <label>AMSI Obfuscatie</label>
+          <div class="gen-checks">
+            <label><input type="checkbox" name="amsi_obfuscate" value="1" /> Signature obfuscatie na generatie</label>
+          </div>
+        </div>
+        <div class="field">
+          <label for="obf_technique">Techniek</label>
+          <select class="input" id="obf_technique" name="obf_technique">
+            <option value="mixed" selected>Mixed</option>
+            <option value="subexpr">Subexpressie</option>
+            <option value="format">Format string</option>
+            <option value="chararray">Char array</option>
+            <option value="backtick">Backtick</option>
+          </select>
+        </div>
       </div>
       <div class="gen-actions">
         <button type="submit" id="gen-btn" class="btn btn-primary">Genereer Invoke-Shellcode</button>

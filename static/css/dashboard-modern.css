@@ -209,3 +209,5 @@
   .grid.cols-5 { grid-template-columns: repeat(2, 1fr); }
   .telemetry-compact { flex-direction: column; gap: 8px; }
 }
+
+#obf-technique-select { max-width: 180px; }

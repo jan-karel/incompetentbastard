@@ -3,11 +3,21 @@ __pycache__/
 *.py[cod]
 *.swp
 .pytest_cache/
+.ruff_cache/
 .venv/
 venv/
 .env
+
+# Binaries — niet safe voor GitHub
+http/tools/
+http/payloads/
+meuk/meth/bin/
+meuk/meth/obj/
+
+# Runtime data
 meuk/flask/db/*.sqlite
+meuk/flask/db/evidence/
+meuk/logs/
 raw/loot/
 raw/screenshots/
-meuk/logs/
 rapport/

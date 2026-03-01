@@ -99,6 +99,8 @@ class db_instellingen(db.Model):
     public_downloads = db.Column(db.Boolean, default=False)
     public_payloads = db.Column(db.Boolean, default=False)
     behind_proxy = db.Column(db.Boolean, default=False)
+    obfuscate_downloads = db.Column(db.Boolean, default=False)
+    obfuscate_technique = db.Column(db.String(20), default='mixed')
     rapport_titel = db.Column(db.String(200), default='Penetration Test Report')
     rapport_auteur = db.Column(db.String(200), default='')
     rapport_subtitel = db.Column(db.String(200), default='')

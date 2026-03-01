@@ -178,6 +178,34 @@ _TASKS = {
             {"name": "password", "label": "SSH wachtwoord", "placeholder": "", "required": False, "type": "password", "env": "SSH_PASS"},
         ],
     },
+    # --- Obfuscatie ---
+    "update_sigs": {
+        "label": "Update AMSI signatures",
+        "group": "obfuscate",
+        "desc": "Download AMSI signatures van ClamAV, YARA en Defender",
+        "cmd": ["python3", "obfuscate_ps.py", "--update-sigs", "--sources", "all"],
+        "args": [],
+    },
+    "obfuscate_ps": {
+        "label": "Obfuscate PowerShell",
+        "group": "obfuscate",
+        "desc": "Pas AMSI-obfuscatie toe op een .ps1 bestand (output: <input>-obf.ps1)",
+        "cmd": ["python3", "obfuscate_ps.py"],
+        "args": [
+            {"name": "input", "label": "Input bestand", "placeholder": "http/payloads/amsi-bypass.ps1",
+             "required": True, "pattern": "file_path"},
+        ],
+    },
+    "obfuscate_file": {
+        "label": "Obfuscate bestand (multi-taal)",
+        "group": "obfuscate",
+        "desc": "Pas AV obfuscatie toe op .php/.aspx/.py/.hta/.txt bestanden",
+        "cmd": ["python3", "obfuscate_av.py"],
+        "args": [
+            {"name": "input", "label": "Input bestand", "placeholder": "http/payloads/shell.php",
+             "required": True, "pattern": "file_path"},
+        ],
+    },
 }
 
 # Group labels for the UI
@@ -188,6 +216,7 @@ _GROUPS = {
     "brute": "Brute Force",
     "exploit": "Exploit",
     "network": "Network",
+    "obfuscate": "Obfuscatie",
 }
 
 _PATTERN_MAP = {

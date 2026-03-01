@@ -340,10 +340,39 @@
       <label class="d-block mb-6 fs-13">Host URL</label>
       <input type="text" id="host-input" class="form-control w-full" placeholder="http://10.0.0.5" />
       <div class="settings-toggles mt-16 border-top pt-12">
+        <span class="fs-12 help d-block mb-6">Toegang</span>
         <label class="d-flex gap-8 align-center fs-13 cursor-pointer">
+          <input type="checkbox" id="toggle-public-upload" />
+          Public uploads (niet-localhost mag uploaden)
+        </label>
+        <label class="d-flex gap-8 align-center fs-13 cursor-pointer mt-6">
+          <input type="checkbox" id="toggle-public-downloads" />
+          Public downloads (niet-localhost mag tools downloaden)
+        </label>
+        <label class="d-flex gap-8 align-center fs-13 cursor-pointer mt-6">
+          <input type="checkbox" id="toggle-public-payloads" />
+          Public payloads (niet-localhost mag payloads downloaden)
+        </label>
+        <label class="d-flex gap-8 align-center fs-13 cursor-pointer mt-6">
           <input type="checkbox" id="toggle-proxy" />
           Achter proxy (vertrouw X-Forwarded-For)
         </label>
+        <span class="fs-12 help d-block mt-12 mb-6">Obfuscatie</span>
+        <label class="d-flex gap-8 align-center fs-13 cursor-pointer">
+          <input type="checkbox" id="toggle-obfuscate" />
+          AV obfuscatie bij downloads (.ps1, .php, .aspx, .py, .hta, .txt)
+        </label>
+        <div class="mt-6">
+          <label class="fs-13">PowerShell techniek</label>
+          <select id="obf-technique-select" class="form-control mt-4">
+            <option value="mixed">Mixed</option>
+            <option value="subexpr">Subexpressie</option>
+            <option value="format">Format string</option>
+            <option value="chararray">Char array</option>
+            <option value="backtick">Backtick</option>
+          </select>
+          <span class="help fs-12 mt-4 d-block">Techniek geldt voor .ps1 — overige formaten gebruiken per-taal obfuscatie</span>
+        </div>
       </div>
       <div class="mt-12 d-flex gap-8 justify-end">
         <button id="btn-host-save" class="btn btn-primary" type="button">Opslaan</button>

@@ -1,3 +1,6 @@
+import io
+import logging
+import time
 from pathlib import Path
 
 from flask import Blueprint
@@ -6,6 +9,7 @@ from flask import current_app
 from flask import jsonify
 from flask import render_template
 from flask import request
+from flask import send_file
 from flask import send_from_directory
 from werkzeug.utils import secure_filename
 
@@ -15,6 +19,7 @@ from meuk.flask.security import require_dashboard_access
 
 download_bp = Blueprint("download_bp", __name__, template_folder="templates", static_folder="static")
 
+_log = logging.getLogger(__name__)
 
 _ALLOWED_LOCAL_IPS = {"127.0.0.1", "::1"}
 
@@ -25,6 +30,29 @@ _PREVIEWABLE = {
     ".pl", ".lua", ".asp", ".aspx", ".jsp", ".log", ".csv",
 }
 _MAX_PREVIEW = 50_000
+
+_VALID_TECHNIQUES = ("mixed", "subexpr", "format", "chararray", "backtick")
+_OBFUSCATABLE = {".php", ".aspx", ".py", ".hta", ".txt"}
+
+# In-memory signature cache met TTL
+_sig_cache = None
+_sig_cache_time = 0.0
+_SIG_CACHE_TTL = 300  # 5 minuten
+
+
+def _get_signatures():
+    """Haal signatures op met in-memory cache (TTL 5 min)."""
+    global _sig_cache, _sig_cache_time
+    now = time.monotonic()
+    if _sig_cache is not None and (now - _sig_cache_time) < _SIG_CACHE_TTL:
+        return _sig_cache
+    try:
+        from obfuscate_ps import build_signatures
+    except ImportError:
+        return None
+    _sig_cache = build_signatures()
+    _sig_cache_time = now
+    return _sig_cache
 
 
 def _downloads_allowed():
@@ -39,12 +67,119 @@ def _downloads_allowed():
     return dashboard_access_allowed()
 
 
+def _obfuscate_on_the_fly(file_path, technique='mixed'):
+    """Obfusceer een .ps1 bestand on-the-fly en return een BytesIO stream."""
+    try:
+        from obfuscate_ps import UTF8_BOM, detect_bom, obfuscate_file
+    except ImportError:
+        _log.warning("obfuscate_ps niet beschikbaar, obfuscatie overgeslagen")
+        return None
+
+    if not Path(file_path).is_file():
+        return None
+
+    try:
+        with open(file_path, 'rb') as f:
+            raw = f.read()
+        has_bom, content_bytes = detect_bom(raw)
+        content = content_bytes.decode('utf-8')
+    except (OSError, UnicodeDecodeError) as exc:
+        _log.warning("Kan %s niet lezen voor obfuscatie: %s", file_path, exc)
+        return None
+
+    lines = content.splitlines(keepends=True)
+    signatures = _get_signatures()
+    if signatures is None:
+        return None
+
+    new_lines, stats, _ = obfuscate_file(lines, signatures, technique)
+    if stats["lines_changed"] == 0:
+        return None
+
+    _log.info("Obfuscatie %s: %d string, %d code over %d regels (techniek=%s)",
+              Path(file_path).name, stats["string"], stats["code"],
+              stats["lines_changed"], technique)
+
+    output_bytes = ''.join(new_lines).encode('utf-8')
+    if has_bom:
+        output_bytes = UTF8_BOM + output_bytes
+    return io.BytesIO(output_bytes)
+
+
+def _obfuscate_text_on_the_fly(file_path):
+    """Obfusceer een text-based payload on-the-fly en return een BytesIO stream."""
+    try:
+        from obfuscate_av import obfuscate_text, detect_language
+    except ImportError:
+        _log.warning("obfuscate_av niet beschikbaar, obfuscatie overgeslagen")
+        return None
+
+    p = Path(file_path)
+    if not p.is_file():
+        return None
+
+    language = detect_language(p.name)
+    if language is None:
+        return None
+
+    try:
+        content = p.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError) as exc:
+        _log.warning("Kan %s niet lezen voor obfuscatie: %s", file_path, exc)
+        return None
+
+    result, stats = obfuscate_text(content, language)
+    total = stats.get("string", 0) + stats.get("code", 0)
+    if total == 0:
+        return None
+
+    _log.info("Multi-taal obfuscatie %s (%s): %d string, %d code",
+              p.name, language, stats.get("string", 0), stats.get("code", 0))
+    return io.BytesIO(result.encode("utf-8"))
+
+
 def _download_or_404(directory, filename):
     if not _downloads_allowed():
         abort(403)
 
     candidate = Path(directory) / filename
     if candidate.is_file():
+        ext = candidate.suffix.lower()
+        if ext == '.ps1':
+            obf_override = request.args.get('obf')
+            if obf_override is not None:
+                do_obfuscate = obf_override == '1'
+            else:
+                from meuk.flask.models import db_instellingen
+                s = db_instellingen.query.first()
+                do_obfuscate = bool(getattr(s, 'obfuscate_downloads', False))
+            if do_obfuscate:
+                technique_override = request.args.get('technique', '').strip()
+                if technique_override in _VALID_TECHNIQUES:
+                    technique = technique_override
+                else:
+                    from meuk.flask.models import db_instellingen
+                    s = db_instellingen.query.first()
+                    technique = getattr(s, 'obfuscate_technique', 'mixed') or 'mixed'
+                result = _obfuscate_on_the_fly(str(candidate), technique)
+                if result is not None:
+                    return send_file(result, as_attachment=True,
+                                     download_name=filename,
+                                     mimetype='application/octet-stream')
+        elif ext in _OBFUSCATABLE:
+            obf_override = request.args.get('obf')
+            if obf_override is not None:
+                do_obfuscate = obf_override == '1'
+            else:
+                from meuk.flask.models import db_instellingen
+                s = db_instellingen.query.first()
+                do_obfuscate = bool(getattr(s, 'obfuscate_downloads', False))
+            if do_obfuscate:
+                result = _obfuscate_text_on_the_fly(str(candidate))
+                if result is not None:
+                    return send_file(result, as_attachment=True,
+                                     download_name=filename,
+                                     mimetype='application/octet-stream')
         return send_from_directory(directory, filename, as_attachment=True)
     abort(404, description="[*] Incompetent Bastard v0.42\n[!] You failed!")
 

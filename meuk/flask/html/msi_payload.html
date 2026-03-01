@@ -38,6 +38,19 @@
           <input class="input" type="text" id="bestand" name="bestand" value="installer" placeholder="installer" />
           <span class="help">Output: http/payloads/&lt;naam&gt;.msi</span>
         </div>
+        <div class="field">
+          <label for="encoder">Encoder</label>
+          <select class="input" id="encoder" name="encoder">
+            <option value="">Geen</option>
+            <option value="x86/shikata_ga_nai">shikata_ga_nai (x86)</option>
+            <option value="x64/xor_dynamic">xor_dynamic (x64)</option>
+            <option value="x64/xor">xor (x64)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="iterations">Encoder iterations</label>
+          <input class="input" type="number" id="iterations" name="iterations" min="1" max="20" value="3" />
+        </div>
       </div>
       <div class="gen-actions">
         <button type="submit" id="gen-btn" class="btn btn-primary">Genereer MSI Payload</button>

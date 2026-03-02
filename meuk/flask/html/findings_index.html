@@ -62,24 +62,38 @@
       <a class="btn ml-auto" href="/dashboard/findings/templates/new">+ Nieuw sjabloon</a>
     </div>
     <div class="card-body">
-      {% if templates %}
-      <ul class="list-plain">
-        {% for t in templates %}
-        <li>
-          <div class="row-line">
-            <div>
-              <strong>[{{ '%03d'|format(t.id) }}] {{ t.titel }}</strong>
-              <div class="help">{{ t.bevtype }}{% if t.owasp %} &bull; {{ t.owasp | owaspcategorie }}{% endif %}</div>
-            </div>
-            <div class="d-flex gap-6 items-center">
-              <a class="btn" href="/dashboard/findings/add/{{ t.id }}">Bevinding toevoegen</a>
-              <a class="btn" href="/dashboard/findings/templates/edit/{{ t.id }}">bewerken</a>
-              <a class="btn" href="/dashboard/findings/templates/delete/{{ t.id }}" data-confirm="Template {{ t.titel }} verwijderen?">verwijderen</a>
-            </div>
+      {% if template_groups %}
+      <div class="tmpl-search-bar">
+        <input type="text" id="tmpl-search" class="tmpl-search" placeholder="Zoek sjabloon..." />
+        <span class="tmpl-count" id="tmpl-count">{{ templates|length }} / {{ templates|length }}</span>
+        <button type="button" class="btn" id="tmpl-expand-all" title="Alles uitklappen">Alles open</button>
+        <button type="button" class="btn" id="tmpl-collapse-all" title="Alles inklappen">Alles dicht</button>
+      </div>
+      {% for prefix, label, items in template_groups %}
+      <div class="tmpl-category" data-category="{{ prefix }}">
+        <div class="tmpl-category-header collapsed">
+          <span class="tmpl-category-chevron">&#9660;</span>
+          <span class="tmpl-category-label">{{ label }}</span>
+          <span class="tmpl-category-count">{{ items|length }}</span>
+        </div>
+        <div class="tmpl-category-body">
+          {% for t in items %}
+          <div class="tmpl-item" data-title="{{ t.titel|lower }}" data-bevtype="{{ t.bevtype|lower if t.bevtype else '' }}">
+            <span class="tmpl-item-id">{{ '%03d'|format(t.id) }}</span>
+            <span class="tmpl-item-title">{{ t.titel }}</span>
+            {% if t.basescore %}
+            {% set bs = t.basescore|float %}
+            <span class="tmpl-cvss {% if bs >= 9.0 %}tmpl-cvss-critical{% elif bs >= 7.0 %}tmpl-cvss-high{% elif bs >= 4.0 %}tmpl-cvss-medium{% else %}tmpl-cvss-low{% endif %}">{{ t.basescore }}</span>
+            {% endif %}
+            {% if t.ncsc %}<span class="tmpl-item-meta tmpl-ncsc" title="NCSC/DigiD">{{ t.ncsc | ncsc_richtlijn }}</span>{% endif %}
+            {% if t.owasp_2025 %}<span class="tmpl-item-meta tmpl-owasp-2025" title="OWASP 2025">{{ t.owasp_2025 | owaspcategorie_2025 }}</span>{% endif %}
+            <a class="btn" href="/dashboard/findings/add/{{ t.id }}">+ Bevinding</a>
+            <a class="btn" href="/dashboard/findings/templates/edit/{{ t.id }}">bewerken</a>
           </div>
-        </li>
-        {% endfor %}
-      </ul>
+          {% endfor %}
+        </div>
+      </div>
+      {% endfor %}
       {% else %}
       <p class="help">Geen bevindingssjablonen beschikbaar.</p>
       {% endif %}

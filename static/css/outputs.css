@@ -21,7 +21,7 @@
 
 .output-item:hover {
   border-color: var(--border);
-  background: color-mix(in srgb, var(--card) 92%, #000 8%);
+  background: var(--bg-alt, #f1f5f9);
 }
 
 .output-item.active {
@@ -38,8 +38,8 @@
   min-height: 360px;
   max-height: 560px;
   overflow: auto;
-  background: #0f172a;
-  color: #e2e8f0;
+  background: var(--code-bg, #1e293b);
+  color: var(--code-fg, #e2e8f0);
   padding: 12px;
   border-radius: 8px;
   font-size: 12px;

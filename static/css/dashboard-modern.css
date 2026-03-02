@@ -20,8 +20,8 @@
   margin: 0;
   max-height: 220px;
   overflow: auto;
-  background: #0f172a;
-  color: #e2e8f0;
+  background: var(--code-bg, #1e293b);
+  color: var(--code-fg, #e2e8f0);
   padding: 10px;
   border-radius: 8px;
   font-size: 12px;
@@ -100,9 +100,9 @@
 }
 
 /* ── KPI colour accents ───────────────────────────────── */
-.kpi .val.accent-green  { color: #4caf50; }
-.kpi .val.accent-orange { color: #ff9800; }
-.kpi .val.accent-blue   { color: #3b82f6; }
+.kpi .val.accent-green  { color: var(--accent-green, #22c55e); }
+.kpi .val.accent-orange { color: var(--accent-orange, #f59e0b); }
+.kpi .val.accent-blue   { color: var(--accent-blue, #3b82f6); }
 
 /* ── Agent panel ──────────────────────────────────────── */
 .agent-panel {
@@ -120,7 +120,7 @@
   transition: background 0.15s;
 }
 .agent-row:last-child { border-bottom: none; }
-.agent-row:hover { background: var(--surface-2, #1e293b); }
+.agent-row:hover { background: var(--surface-2); }
 
 .agent-dot {
   width: 8px;
@@ -128,9 +128,9 @@
   border-radius: 50%;
   flex-shrink: 0;
 }
-.agent-dot.active { background: #4caf50; }
-.agent-dot.idle   { background: #ff9800; }
-.agent-dot.dead   { background: #6b7280; }
+.agent-dot.active { background: var(--accent-green, #22c55e); }
+.agent-dot.idle   { background: var(--accent-orange, #f59e0b); }
+.agent-dot.dead   { background: var(--muted, #6b7280); }
 
 .agent-meta {
   flex: 1;
@@ -177,7 +177,7 @@
 .telemetry-count {
   font-size: 20px;
   font-weight: 700;
-  color: var(--heading, #f1f5f9);
+  color: var(--heading, #111827);
 }
 
 .telemetry-label {

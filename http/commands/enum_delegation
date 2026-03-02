@@ -1,0 +1,36 @@
+# Delegatie Enumeratie — Unconstrained, Constrained en RBCD delegatie vinden
+# Delegatie-misconfiguraties zijn vaak het pad naar Domain Admin
+#
+# === Vereisten ===
+# - Domain user account
+# - impacket, BloodHound of PowerView
+#
+# === Voorbeelden ===
+
+# impacket findDelegation - alle delegatie in het domein
+python3 findDelegation.py DOMAIN/USER:'PASS' -dc-ip DC_IP
+
+# Met Kerberos auth
+python3 findDelegation.py DOMAIN/USER -k -no-pass -dc-ip DC_IP
+
+# PowerView - Unconstrained delegation computers
+powershell -c "Import-Module .\PowerView.ps1; Get-DomainComputer -Unconstrained | select dnshostname,useraccountcontrol"
+
+# PowerView - Constrained delegation
+powershell -c "Import-Module .\PowerView.ps1; Get-DomainComputer -TrustedToAuth | select dnshostname,msds-allowedtodelegateto"
+
+# PowerView - Users met constrained delegation
+powershell -c "Import-Module .\PowerView.ps1; Get-DomainUser -TrustedToAuth | select samaccountname,msds-allowedtodelegateto"
+
+# PowerView - RBCD (Resource-Based Constrained Delegation)
+powershell -c "Import-Module .\PowerView.ps1; Get-DomainComputer | ?{$_.'msds-allowedtoactonbehalfofotheridentity' -ne $null} | select dnshostname"
+
+# LDAP query voor unconstrained (TRUSTED_FOR_DELEGATION flag)
+python3 ldapsearch -u USER -p 'PASS' -d DOMAIN -dc DC_IP '(userAccountControl:1.2.840.113556.1.4.803:=524288)' dnshostname
+
+# BloodHound Cypher - Unconstrained delegation paden
+# MATCH (c:Computer {unconstraineddelegation:true}) RETURN c.name
+
+# Noot: Unconstrained delegation + coercion = DC TGT capture
+# Noot: Constrained delegation met protocol transition = S4U2Self + S4U2Proxy
+# Noot: RBCD kan gezet worden met GenericWrite op het doelcomputer-object

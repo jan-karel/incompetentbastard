@@ -187,7 +187,7 @@
   transition: background 0.15s;
 }
 .fm-category-header:hover {
-  background: rgba(255,255,255,.04);
+  background: var(--bg-alt, #f1f5f9);
 }
 
 .fm-chevron {
@@ -212,7 +212,7 @@
 .fm-cat-count {
   font-size: 11px;
   color: var(--muted, #94a3b8);
-  background: rgba(255,255,255,.06);
+  background: var(--bg-alt, #f1f5f9);
   padding: 1px 7px;
   border-radius: 10px;
 }
@@ -233,7 +233,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 6px 10px;
-  background: rgba(255,255,255,.03);
+  background: var(--bg-alt, #f1f5f9);
   border-bottom: 1px solid var(--border, #334155);
 }
 
@@ -259,8 +259,8 @@
 .fm-code {
   margin: 0;
   padding: 10px;
-  background: #0f172a;
-  color: #e2e8f0;
+  background: var(--code-bg, #1e293b);
+  color: var(--code-fg, #e2e8f0);
   font-size: 12px;
   max-height: 200px;
   overflow: auto;
@@ -269,8 +269,8 @@
 }
 
 .fm-code mark {
-  background: #2d5a2d;
-  color: #4caf50;
+  background: color-mix(in oklab, var(--accent-green, #22c55e) 25%, var(--code-bg, #1e293b));
+  color: var(--accent-green, #4caf50);
   padding: 0 2px;
   border-radius: 2px;
 }

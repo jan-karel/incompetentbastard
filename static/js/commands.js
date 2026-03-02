@@ -75,6 +75,24 @@
     }
   }
 
+  function saveAsNote(cmdName, content, btn) {
+    var body = new FormData();
+    body.append('naam', cmdName);
+    body.append('uitwerken', applyReplacements(content));
+    var xhr = new XMLHttpRequest();
+    xhr.open('POST', '/dashboard/notes/add');
+    xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+    xhr.onload = function () {
+      if (xhr.status === 200) {
+        showFeedback(btn, 'Opgeslagen!');
+      } else {
+        showFeedback(btn, 'Fout!');
+      }
+    };
+    xhr.onerror = function () { showFeedback(btn, 'Fout!'); };
+    xhr.send(body);
+  }
+
   function showFeedback(btn, msg) {
     var orig = btn.textContent;
     btn.textContent = msg;
@@ -167,14 +185,17 @@
     { prefix: 'adcs_',      label: 'AD CS Attacks' },
     { prefix: 'ad_',        label: 'Active Directory' },
     { prefix: 'applocker_', label: 'AppLocker Bypass' },
+    { prefix: 'coerce_',    label: 'Coercion / NTLM Relay' },
     { prefix: 'cred_',      label: 'Credential Dumping' },
     { prefix: 'enum_',      label: 'Enumeratie' },
+    { prefix: 'evasion_',   label: 'Evasion / Detection Bypass' },
     { prefix: 'exploit_',   label: 'Exploits' },
     { prefix: 'get_',       label: 'Tool Downloads' },
     { prefix: 'inject_',    label: 'Process Injection' },
     { prefix: 'kerb_',      label: 'Kerberos' },
     { prefix: 'lateral_',   label: 'Lateral Movement (Windows)' },
     { prefix: 'linux_',     label: 'Linux Post-Exploitation' },
+    { prefix: 'man_',       label: 'Field Manual' },
     { prefix: 'mssql_',     label: 'MSSQL Attacks' },
     { prefix: 'net_',       label: 'Network Evasion' },
     { prefix: 'passwd_',    label: 'Password Attacks' },
@@ -242,6 +263,15 @@
       b.addEventListener('click', function () { copyToClipboard(applyReplacements(content), b); });
     })(cmd.content, copyBtn);
 
+    var noteBtn = document.createElement('button');
+    noteBtn.className = 'btn-copy btn-note';
+    noteBtn.textContent = 'Notitie';
+    noteBtn.setAttribute('type', 'button');
+    noteBtn.title = 'Opslaan als notitie';
+    (function (cmdName, content, b) {
+      b.addEventListener('click', function () { saveAsNote(cmdName, content, b); });
+    })(cmd.name, cmd.content, noteBtn);
+
     var injectBtn = document.createElement('button');
     injectBtn.className = 'btn-copy btn-inject';
     injectBtn.textContent = 'Inject';
@@ -251,6 +281,7 @@
     })(cmd.name, injectBtn);
 
     actions.appendChild(copyBtn);
+    actions.appendChild(noteBtn);
     actions.appendChild(injectBtn);
     header.appendChild(name);
     header.appendChild(actions);

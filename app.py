@@ -231,6 +231,22 @@ def create_app():
                 except Exception:
                     pass
 
+        # Auto-migrate: OWASP 2025 kolom op templates
+            try:
+                conn.execute(db.text(
+                    "ALTER TABLE db_bevindingen_templates ADD COLUMN owasp_2025 VARCHAR(16)"))
+                conn.commit()
+            except Exception:
+                pass
+
+        # Auto-migrate: NCSC/DigiD richtlijn kolom op templates
+            try:
+                conn.execute(db.text(
+                    "ALTER TABLE db_bevindingen_templates ADD COLUMN ncsc VARCHAR(16)"))
+                conn.commit()
+            except Exception:
+                pass
+
         # Ensure a settings row exists (required by blueprints that read it at import)
         s = models.db_instellingen.query.first()
         if not s:
@@ -245,6 +261,7 @@ def create_app():
         # Now safe to import blueprints (some query db at module level)
         from meuk.flask import admin
         from meuk.flask import agent
+        from meuk.flask import checklists
         from meuk.flask import csrf
         from meuk.flask import download
         from meuk.flask import findings
@@ -264,6 +281,7 @@ def create_app():
         from meuk.flask import xxs
 
         app.register_blueprint(agent.agent_bp)
+        app.register_blueprint(checklists.checklists_bp)
         app.register_blueprint(index.index_bp)
         app.register_blueprint(login.login_bp)
         app.register_blueprint(xxe.xxe_bp)

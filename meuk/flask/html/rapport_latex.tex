@@ -3,8 +3,7 @@
 % -------------------------------------------------- %
 % Packages                                           %
 % -------------------------------------------------- %
-\usepackage[utf8]{inputenc}
-\usepackage[T1]{fontenc}
+\usepackage{fontspec}
 [% if taal == 'en' %]
 \usepackage[english]{babel}
 [% else %]
@@ -521,5 +520,38 @@ In totaal zijn \textbf{[[ findings|length ]]} bevindingen geidentificeerd:
   \hline
 [% endfor %]
 \end{longtable}
+
+[% if checklists %]
+% --- Checklist appendix ---
+\appendix
+[% if taal == 'en' %]
+\section{Checklist Results}
+[% else %]
+\section{Checklist resultaten}
+[% endif %]
+
+[% for cl in checklists %]
+\subsection{[[ cl['naam'] | latex_escape ]] ([[ cl['type'] | latex_escape ]]) --- [[ cl['target'] | latex_escape ]]}
+
+\noindent\textbf{[[ cl['stats']['pass'] ]] pass, [[ cl['stats']['fail'] ]] fail, [[ cl['stats']['warn'] ]] warn, [[ cl['stats']['skip'] ]] skip, [[ cl['stats']['na'] ]] n/a, [[ cl['stats']['open'] ]] open}
+\vspace{0.5em}
+
+[% for phase in cl['phases'] %]
+\subsubsection{[[ phase['title'] | latex_escape ]]}
+
+\begin{longtable}{|p{2.5cm}|p{9cm}|p{3cm}|}
+  \hline
+  \textbf{Ref} & \textbf{Item} & \textbf{Status} \\
+  \hline
+  \endhead
+[% for item in phase['items'] %]
+  \texttt{\small [[ item['ref'] | latex_escape ]]} & [[ item['title'] | latex_escape ]] & [% if item['status'] == 'pass' %]\textcolor{ogreen}{PASS}[% elif item['status'] == 'fail' %]\textcolor{ored}{FAIL}[% elif item['status'] == 'warn' %]\textcolor{oorange}{WARN}[% elif item['status'] == 'skip' %]SKIP[% elif item['status'] == 'na' %]N/A[% else %]OPEN[% endif %] \\
+  \hline
+[% endfor %]
+\end{longtable}
+
+[% endfor %]
+[% endfor %]
+[% endif %]
 
 \end{document}

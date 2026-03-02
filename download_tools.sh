@@ -234,6 +234,7 @@ download_file "$SC/Snaffler.exe"
 download_file "$SC/SharpChrome.exe"
 download_file "$SC/SharpRDP.exe"
 download_file "$SC/ADFSDump.exe"
+download_file "$SC/SharpGPOAbuse.exe"
 
 # SharpSQL (SharpSQLPwn in SharpCollection)
 if [ ! -f "$TOOLS_DIR/SharpSQL.exe" ]; then
@@ -373,6 +374,36 @@ else
     log_ok "AmsiTrigger_x64.exe (al aanwezig)"
 fi
 
+# ShadowCoerce (Python — NTLM coercion via MS-FSRVP)
+download_file "https://raw.githubusercontent.com/ShutdownRepo/ShadowCoerce/main/shadowcoerce.py"
+
+# pywhisker (Python — Shadow Credentials attack)
+download_file "https://raw.githubusercontent.com/ShutdownRepo/pywhisker/main/pywhisker.py"
+
+# noPac (Python — SAMAccountName / CVE-2021-42278+42287)
+download_file "https://raw.githubusercontent.com/Ridter/noPac/main/noPac.py"
+
+# PXEThief (Python — SCCM PXE credential extraction)
+download_file "https://raw.githubusercontent.com/MWR-CyberSec/PXEThief/main/pxethief.py"
+
+# pygpoabuse (Python — GPO abuse for persistence)
+download_file "https://raw.githubusercontent.com/Hackndo/pygpoabuse/main/pygpoabuse.py"
+
+# firefox_decrypt (Python — extract Firefox saved passwords)
+download_file "https://raw.githubusercontent.com/unode/firefox_decrypt/main/firefox_decrypt.py"
+
+# KrbRelayUp (GitHub release — local Kerberos relay privesc)
+if [ ! -f "$TOOLS_DIR/KrbRelayUp.exe" ]; then
+    KRU_URL=$(curl -fsSL --connect-timeout 10 --max-time 30 "https://api.github.com/repos/Dec0ne/KrbRelayUp/releases/latest" 2>/dev/null | grep '"browser_download_url".*KrbRelayUp.exe' | head -1 | sed 's/.*"\(https[^"]*\)".*/\1/') || true
+    if [ -n "$KRU_URL" ]; then
+        dl "$KRU_URL" "$TOOLS_DIR/KrbRelayUp.exe" && log_ok "KrbRelayUp.exe" || log_fail "KrbRelayUp.exe"
+    else
+        log_fail "KrbRelayUp.exe — kon release niet vinden"
+    fi
+else
+    log_ok "KrbRelayUp.exe (al aanwezig)"
+fi
+
 # ===== 5. TOOLS DIE COMPILATIE VEREISEN / HANDMATIG ========================
 log_info "=== Handmatig (compilatie of commercieel) ==="
 
@@ -393,6 +424,12 @@ log_info "=== Handmatig (compilatie of commercieel) ==="
 
 [ -f "$TOOLS_DIR/Loader.exe" ] && log_ok "Loader.exe (al aanwezig)" || \
     log_warn "Loader.exe — compileer zelf: https://github.com/Flangvik/NetLoader"
+
+[ -f "$TOOLS_DIR/SCShell.exe" ] && log_ok "SCShell.exe (al aanwezig)" || \
+    log_warn "SCShell.exe — compileer zelf: https://github.com/Mr-Un1k0d3r/SCShell"
+
+[ -f "$TOOLS_DIR/SharpSCCM.exe" ] && log_ok "SharpSCCM.exe (al aanwezig)" || \
+    log_warn "SharpSCCM.exe — compileer zelf: https://github.com/Mayyhem/SharpSCCM"
 
 # ===== 6. LOKALE / CUSTOM BESTANDEN =======================================
 log_info "=== Lokale bestanden ==="

@@ -31,8 +31,8 @@
 .c2-textarea {
   width: 100%;
   min-height: 80px;
-  background: #0f172a;
-  color: #e2e8f0;
+  background: var(--code-bg, #1e293b);
+  color: var(--code-fg, #e2e8f0);
   border: 1px solid var(--border, #334155);
   border-radius: 8px;
   padding: 10px;
@@ -164,8 +164,8 @@
 }
 
 .c2-result-content {
-  background: #0f172a;
-  color: #e2e8f0;
+  background: var(--code-bg, #1e293b);
+  color: var(--code-fg, #e2e8f0);
   padding: 12px;
   border-radius: 8px;
   font-family: monospace;

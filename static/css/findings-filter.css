@@ -6,3 +6,32 @@
 .batch-bar .btn{font-size:12px;padding:4px 10px}
 .batch-check{width:16px;height:16px;margin:0;cursor:pointer}
 .batch-check-all{width:16px;height:16px;margin:0;cursor:pointer}
+
+/* ── Template categoriegroepen ──────────────────── */
+.tmpl-search-bar{display:flex;gap:8px;margin-bottom:10px;align-items:center}
+.tmpl-search{flex:1;padding:5px 10px;border:1px solid var(--border,#d1d5db);border-radius:4px;font-size:13px;background:var(--bg,#fff)}
+.tmpl-count{font-size:12px;opacity:.6;white-space:nowrap}
+
+.tmpl-category{margin-bottom:8px}
+.tmpl-category-header{display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--bg-alt,#f8fafc);border:1px solid var(--border,#d1d5db);border-radius:4px;cursor:pointer;user-select:none}
+.tmpl-category-header:hover{background:var(--border,#e5e7eb)}
+.tmpl-category-chevron{font-size:11px;transition:transform .15s}
+.tmpl-category-header.collapsed .tmpl-category-chevron{transform:rotate(-90deg)}
+.tmpl-category-header.collapsed+.tmpl-category-body{display:none}
+.tmpl-category-label{font-weight:600;font-size:13px}
+.tmpl-category-count{font-size:11px;opacity:.6;background:var(--border,#e5e7eb);padding:1px 7px;border-radius:10px;margin-left:auto}
+
+.tmpl-category-body{padding:2px 0 2px 8px;border-left:2px solid var(--border,#d1d5db);margin-left:6px}
+.tmpl-item{display:flex;align-items:center;gap:8px;padding:4px 8px;font-size:13px;border-bottom:1px solid var(--border,#d1d5db)}
+.tmpl-item:last-child{border-bottom:none}
+.tmpl-item-id{font-size:11px;opacity:.4;font-family:monospace;min-width:30px}
+.tmpl-item-title{flex:1;font-weight:500}
+.tmpl-item-meta{font-size:11px;opacity:.55;white-space:nowrap}
+.tmpl-ncsc{opacity:.8;background:var(--accent-green,#059669);color:#fff;padding:0 4px;border-radius:2px;font-size:10px}
+.tmpl-owasp-2025{opacity:.7;background:var(--accent-blue,#3b82f6);color:#fff;padding:0 4px;border-radius:2px}
+
+.tmpl-cvss{font-size:11px;font-weight:700;padding:1px 5px;border-radius:3px;white-space:nowrap}
+.tmpl-cvss-critical{background:#7f1d1d;color:#fecaca}
+.tmpl-cvss-high{background:#dc2626;color:#fff}
+.tmpl-cvss-medium{background:#f59e0b;color:#fff}
+.tmpl-cvss-low{background:#22c55e;color:#fff}

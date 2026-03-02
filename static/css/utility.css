@@ -56,7 +56,7 @@
 .fs-14 { font-size: 14px; }
 .fs-15 { font-size: 15px; }
 .text-muted { color: var(--muted, #94a3b8); }
-.text-error { color: #b42318; }
+.text-error { color: var(--accent-red, #ef4444); }
 
 /* Overflow */
 .truncate {

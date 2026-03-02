@@ -40,10 +40,29 @@
       });
   }
 
+  // ── Checklist toggle ──────────────────────────────
+  var clToggle = document.getElementById("include-checklists");
+  var clWrap = document.getElementById("checklist-select-wrap");
+  if (clToggle && clWrap) {
+    clToggle.addEventListener("change", function () {
+      clWrap.style.display = clToggle.checked ? "block" : "none";
+    });
+  }
+
+  function collectChecklistIds() {
+    if (!clToggle || !clToggle.checked) return "";
+    var ids = [];
+    document.querySelectorAll(".checklist-cb").forEach(function (cb) {
+      if (cb.checked) ids.push(cb.value);
+    });
+    return ids.join(",");
+  }
+
   if (btnGenerate) {
     btnGenerate.addEventListener("click", function () {
       var draft = document.getElementById("include-draft");
       var includeDraft = draft && draft.checked;
+      var checklistIds = collectChecklistIds();
 
       btnGenerate.disabled = true;
       if (generateStatus) {
@@ -54,7 +73,7 @@
       fetch("/api/report/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ include_draft: includeDraft })
+        body: JSON.stringify({ include_draft: includeDraft, include_checklists: checklistIds })
       })
         .then(function (r) { return r.json(); })
         .then(function (d) {

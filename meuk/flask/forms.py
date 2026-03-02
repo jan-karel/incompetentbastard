@@ -59,18 +59,47 @@ class BevindingTemplateForm(FlaskForm):
     id = HiddenField('id')
     titel = StringField('Titel', validators=[DataRequired()])
     bevtype = StringField('Type / code')
-    owasp = SelectField('OWASP Top 10', choices=[
+    ncsc = SelectField('NCSC/DigiD Richtlijn', choices=[
+        ('', '-- Selecteer --'),
+        ('U/TV.01', 'U/TV.01 - Toegangsvoorzieningsmiddelen'),
+        ('U/WA.01', 'U/WA.01 - Operationeel beleid webapplicaties'),
+        ('U/WA.02', 'U/WA.02 - Webapplicatiebeheer'),
+        ('U/WA.03', 'U/WA.03 - Webapplicatie-invoer beperken'),
+        ('U/WA.04', 'U/WA.04 - Webapplicatie-uitvoer beperken'),
+        ('U/WA.05', 'U/WA.05 - Vertrouwelijkheid gegevens'),
+        ('U/WA.06', 'U/WA.06 - Webapplicatie-informatie beperken'),
+        ('U/WA.07', 'U/WA.07 - Webapplicatie-integratie communiceren'),
+        ('U/WA.08', 'U/WA.08 - Webapplicatiesessie beëindigen'),
+        ('U/WA.09', 'U/WA.09 - Webapplicatiearchitectuur'),
+        ('U/PW.01', 'U/PW.01 - Operationeel beleid platformen'),
+        ('U/PW.02', 'U/PW.02 - Webprotocollen garanderen'),
+        ('U/PW.03', 'U/PW.03 - Webserver inrichten'),
+        ('U/PW.04', 'U/PW.04 - Isolatie processen en bestanden'),
+        ('U/PW.05', 'U/PW.05 - Toegang beheermechanismen'),
+        ('U/PW.06', 'U/PW.06 - Platform-netwerkkoppeling filteren'),
+        ('U/PW.07', 'U/PW.07 - Hardening platformen'),
+        ('U/PW.08', 'U/PW.08 - Platform- en webserverarchitectuur'),
+        ('U/NW.01', 'U/NW.01 - Operationeel beleid netwerken'),
+        ('U/NW.02', 'U/NW.02 - Beschikbaarheid netwerken'),
+        ('U/NW.03', 'U/NW.03 - Netwerkzonering'),
+        ('U/NW.04', 'U/NW.04 - Protectie- en detectiefunctie'),
+        ('U/NW.05', 'U/NW.05 - Beheer- en productieomgeving'),
+        ('U/NW.06', 'U/NW.06 - Hardening netwerken'),
+        ('U/NW.07', 'U/NW.07 - Netwerktoegang webapplicaties'),
+        ('U/NW.08', 'U/NW.08 - Netwerkarchitectuur'),
+    ])
+    owasp_2025 = SelectField('OWASP Top 10 (2025)', choices=[
         ('', '-- Selecteer --'),
         ('1', 'A1 - Broken Access Control'),
-        ('2', 'A2 - Cryptographic Failures'),
-        ('3', 'A3 - Injection'),
-        ('4', 'A4 - Insecure Design'),
-        ('5', 'A5 - Security Misconfiguration'),
-        ('6', 'A6 - Vulnerable and Outdated Components'),
-        ('7', 'A7 - Identification and Authentication Failures'),
-        ('8', 'A8 - Software and Data Integrity Failures'),
-        ('9', 'A9 - Security Logging and Monitoring Failures'),
-        ('10', 'A10 - Server Side Request Forgery (SSRF)'),
+        ('2', 'A2 - Security Misconfiguration'),
+        ('3', 'A3 - Software Supply Chain Failures'),
+        ('4', 'A4 - Cryptographic Failures'),
+        ('5', 'A5 - Injection'),
+        ('6', 'A6 - Insecure Design'),
+        ('7', 'A7 - Authentication Failures'),
+        ('8', 'A8 - Software or Data Integrity Failures'),
+        ('9', 'A9 - Security Logging and Alerting Failures'),
+        ('10', 'A10 - Mishandling of Exceptional Conditions'),
     ])
     cwe = StringField('CWE')
     mitre = StringField('MITRE ATT&CK')

@@ -69,7 +69,7 @@
   border-bottom: 1px solid var(--border, #334155);
 }
 .file-table tbody tr:hover {
-  background: rgba(255,255,255,.03);
+  background: var(--bg-alt, #f1f5f9);
 }
 
 /* ── File action buttons ────────────────────────────── */
@@ -144,7 +144,7 @@
   transition: background 0.15s;
 }
 .loot-header:hover {
-  background: rgba(255,255,255,.04);
+  background: var(--bg-alt, #f1f5f9);
 }
 .loot-header.collapsed .fm-chevron {
   transform: rotate(-90deg);
@@ -165,8 +165,8 @@
 .preview-code {
   margin: 0;
   padding: 12px;
-  background: #0f172a;
-  color: #e2e8f0;
+  background: var(--code-bg, #1e293b);
+  color: var(--code-fg, #e2e8f0);
   font-size: 12px;
   white-space: pre-wrap;
   word-break: break-all;

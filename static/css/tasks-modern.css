@@ -76,8 +76,8 @@
   min-height: 280px;
   max-height: 540px;
   overflow: auto;
-  background: #0f172a;
-  color: #e2e8f0;
+  background: var(--code-bg, #1e293b);
+  color: var(--code-fg, #e2e8f0);
   padding: 12px;
   border-radius: 8px;
   font-size: 12px;

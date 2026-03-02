@@ -35,6 +35,55 @@
     if (el) el.addEventListener("change", applyFilters);
   });
 
+  // ── Template zoekfilter & categorie toggle ────────────────────
+  var tmplSearch = document.getElementById("tmpl-search");
+  var tmplCategories = document.querySelectorAll(".tmpl-category");
+
+  function filterTemplates() {
+    var q = (tmplSearch ? tmplSearch.value : "").toLowerCase();
+    var visible = 0, total = 0;
+    tmplCategories.forEach(function(cat) {
+      var items = cat.querySelectorAll(".tmpl-item");
+      var catVisible = 0;
+      items.forEach(function(item) {
+        total++;
+        var title = item.getAttribute("data-title") || "";
+        var bevtype = item.getAttribute("data-bevtype") || "";
+        var show = !q || title.indexOf(q) !== -1 || bevtype.indexOf(q) !== -1;
+        item.style.display = show ? "" : "none";
+        if (show) { catVisible++; visible++; }
+      });
+      cat.style.display = catVisible ? "" : "none";
+      var header = cat.querySelector(".tmpl-category-header");
+      if (q && catVisible && header) header.classList.remove("collapsed");
+    });
+    var counter = document.getElementById("tmpl-count");
+    if (counter) counter.textContent = visible + " / " + total;
+  }
+
+  if (tmplSearch) tmplSearch.addEventListener("input", filterTemplates);
+
+  document.querySelectorAll(".tmpl-category-header").forEach(function(h) {
+    h.addEventListener("click", function() { this.classList.toggle("collapsed"); });
+  });
+
+  var tmplExpandAll = document.getElementById("tmpl-expand-all");
+  var tmplCollapseAll = document.getElementById("tmpl-collapse-all");
+  if (tmplExpandAll) {
+    tmplExpandAll.addEventListener("click", function() {
+      document.querySelectorAll(".tmpl-category-header").forEach(function(h) {
+        h.classList.remove("collapsed");
+      });
+    });
+  }
+  if (tmplCollapseAll) {
+    tmplCollapseAll.addEventListener("click", function() {
+      document.querySelectorAll(".tmpl-category-header").forEach(function(h) {
+        h.classList.add("collapsed");
+      });
+    });
+  }
+
   // ── Batch selectie ────────────────────────
   var checkAll = document.getElementById("batch-check-all");
   var batchAction = document.getElementById("batch-action");

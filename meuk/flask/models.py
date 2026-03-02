@@ -134,6 +134,8 @@ class db_bevindingen_templates(db.Model):
     bevtype = db.Column(db.String(255))
     cwe = db.Column(db.String(5))
     owasp = db.Column(db.String(255))
+    owasp_2025 = db.Column(db.String(16))
+    ncsc = db.Column(db.String(16))
     mitre = db.Column(db.String(10))
     cvss = db.Column(db.String(255))
     basescore = db.Column(db.String(10))
@@ -316,6 +318,30 @@ class db_finding_related(db.Model):
 
     finding = db.relationship('db_bevindingen', foreign_keys=[finding_id], backref=db.backref('related_from', lazy='selectin'))
     related = db.relationship('db_bevindingen', foreign_keys=[related_id], backref=db.backref('related_to', lazy='selectin'))
+
+
+class db_checklist(db.Model):
+    __tablename__ = 'db_checklist'
+    id = db.Column(db.Integer, primary_key=True)
+    naam = db.Column(db.String(255), nullable=False)
+    checklist_type = db.Column(db.String(20), nullable=False)
+    target = db.Column(db.String(255), default='')
+    status = db.Column(db.String(16), default='active')
+    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+    items = db.relationship('db_checklist_item', backref='checklist', cascade='all, delete-orphan', lazy='selectin')
+
+
+class db_checklist_item(db.Model):
+    __tablename__ = 'db_checklist_item'
+    id = db.Column(db.Integer, primary_key=True)
+    checklist_id = db.Column(db.Integer, db.ForeignKey('db_checklist.id'), nullable=False, index=True)
+    item_ref = db.Column(db.String(64), nullable=False)
+    status = db.Column(db.String(16), default='open')
+    notitie = db.Column(db.Text(), default='')
+    note_id = db.Column(db.Integer)
+    finding_id = db.Column(db.Integer)
+    updated_at = db.Column(db.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
 
 
 class db_changelog(db.Model):

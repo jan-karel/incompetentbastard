@@ -1,6 +1,6 @@
 .screen-terminal {
-  background: #1a1a2e;
-  color: #e0e0e0;
+  background: var(--code-bg, #1e293b);
+  color: var(--code-fg, #e2e8f0);
   font-family: 'Courier New', Courier, monospace;
   font-size: 13px;
   line-height: 1.4;
@@ -9,13 +9,13 @@
   overflow-y: auto;
   overflow-x: auto;
   white-space: pre;
-  border: 1px solid #333;
+  border: 1px solid var(--border);
   flex: 1;
   min-height: 0;
 }
 .screen-terminal:empty::after {
   content: 'Selecteer een screen sessie en klik Start...';
-  color: #666;
+  color: var(--muted);
 }
 .screen-input-row {
   display: flex;
@@ -27,14 +27,14 @@
   flex: 1;
   font-family: 'Courier New', Courier, monospace;
   font-size: 13px;
-  background: #1a1a2e;
-  color: #e0e0e0;
-  border: 1px solid #333;
+  background: var(--code-bg, #1e293b);
+  color: var(--code-fg, #e2e8f0);
+  border: 1px solid var(--border);
   padding: 8px 12px;
   border-radius: 4px;
 }
 .screen-input-row input::placeholder {
-  color: #555;
+  color: var(--muted);
 }
 .screen-controls {
   display: flex;
@@ -45,16 +45,16 @@
   margin-left: 8px;
   font-size: 12px;
 }
-.status.ok { color: #4caf50; }
-.status.fail { color: #f44336; }
-.status.polling { color: #ff9800; }
+.status.ok { color: var(--accent-green, #22c55e); }
+.status.fail { color: var(--accent-red, #ef4444); }
+.status.polling { color: var(--accent-orange, #f59e0b); }
 .btn-danger {
-  background: linear-gradient(180deg, #ef4444, #dc2626);
+  background: linear-gradient(180deg, var(--accent-red, #ef4444), color-mix(in oklab, var(--accent-red, #ef4444) 85%, #000));
   border-color: transparent;
   color: white;
 }
 .btn-danger:hover {
-  background: linear-gradient(180deg, #dc2626, #b91c1c);
+  background: linear-gradient(180deg, color-mix(in oklab, var(--accent-red, #ef4444) 85%, #000), color-mix(in oklab, var(--accent-red, #ef4444) 70%, #000));
 }
 
 /* --- Fullscreen workspace --- */

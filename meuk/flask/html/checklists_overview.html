@@ -1,0 +1,195 @@
+{% extends "bootstrap/base.html" %}
+{% block title %}Checklists{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/checklists.css') }}" />
+{% endblock %}
+
+{% block content %}
+<div class="page-title">
+  <div>
+    <h1>Checklists</h1>
+    <div class="breadcrumbs"><a href="/">Start</a> / <a href="/">Dashboard</a> / Checklists</div>
+  </div>
+</div>
+
+<div class="checklist-kpi">
+  <section class="card">
+    <div class="card-body">
+      <div class="kpi-val">{{ checklists|length }}</div>
+      <div class="kpi-sub">Actieve checklists</div>
+    </div>
+  </section>
+  <section class="card">
+    <div class="card-body">
+      <div class="kpi-val">{{ done_items }} / {{ total_items }}</div>
+      <div class="kpi-sub">Items afgewerkt</div>
+    </div>
+  </section>
+  <section class="card">
+    <div class="card-body">
+      <div class="kpi-val">{% if total_items %}{{ (done_items * 100 / total_items)|int }}%{% else %}0%{% endif %}</div>
+      <div class="kpi-sub">Voortgang</div>
+    </div>
+  </section>
+</div>
+
+{# ---- Nieuwe checklist: type-kaarten ---- #}
+<section class="card">
+  <div class="card-head"><h2>Nieuwe checklist starten</h2></div>
+  <div class="card-body">
+    <div class="mb-10">
+      <label for="cl-naam"><strong>Naam</strong></label>
+      <input class="form-control" type="text" id="cl-naam" placeholder="Bijv. Pentest Acme Corp Q1 2026" />
+    </div>
+    <div class="mb-10">
+      <label><strong>Kies type</strong></label>
+      <div class="cl-type-cards">
+        {% for ctype, info in type_cards.items() %}
+        <div class="cl-type-card" data-type="{{ ctype }}" tabindex="0">
+          <div class="cl-type-card-icon">
+            {% if info.icon == 'globe' %}
+            <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10A15.3 15.3 0 0112 2z"/></svg>
+            {% else %}
+            <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><circle cx="6" cy="6" r="1" fill="currentColor"/><circle cx="6" cy="18" r="1" fill="currentColor"/></svg>
+            {% endif %}
+          </div>
+          <div class="cl-type-card-body">
+            <div class="cl-type-card-title">{{ info.title }}</div>
+            <div class="cl-type-card-desc">{{ info.description }}</div>
+            <div class="cl-type-card-meta">
+              <span>{{ info.phase_count }} fasen</span>
+              <span>{{ info.item_count }} items</span>
+              <span>{{ info.scope }}</span>
+            </div>
+            <div class="cl-type-card-phases">
+              {% for p in info.phases %}
+              <span class="cl-phase-chip">{{ loop.index }}. {{ p }}</span>
+              {% endfor %}
+            </div>
+          </div>
+          <div class="cl-type-card-check">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      <input type="hidden" id="cl-type" value="" />
+    </div>
+    <div class="mb-10">
+      <label for="cl-target"><strong>Target</strong> <small>(optioneel &mdash; kies uit scope of voer handmatig in)</small></label>
+      <input class="form-control" type="text" id="cl-target" placeholder="10.10.10.1 / acme.com" list="cl-scope-targets" />
+      <datalist id="cl-scope-targets">
+        {% for st in scope_targets|default([], true) %}
+        <option value="{{ st.target }}">{{ st.beschrijving }} ({{ st.type }})</option>
+        {% endfor %}
+      </datalist>
+    </div>
+    <button type="button" class="btn btn-primary" id="btn-create-cl" disabled>Checklist starten</button>
+    <span id="cl-create-status" class="help ml-8"></span>
+  </div>
+</section>
+
+{# ---- Bestaande checklists ---- #}
+<section class="card mt-14">
+  <div class="card-head"><h2>Actieve checklists</h2></div>
+  <div class="card-body">
+    {% if checklists %}
+    {% for cl in checklists %}
+    {% set cl_total = cl.items|length %}
+    {% set cl_done = cl.items|selectattr('status', 'in', ['pass','fail','warn','na'])|list|length %}
+    {% set cl_pct = (cl_done * 100 / cl_total)|int if cl_total else 0 %}
+    <div class="cl-overview-item">
+      <div class="cl-overview-info">
+        <strong>{{ cl.naam }}</strong>
+        <span class="badge {% if cl.checklist_type == 'extern' %}badge-extern{% else %}badge-intern{% endif %}">{{ cl.checklist_type }}</span>
+        {% if cl.target %}<span class="cl-target-small">{{ cl.target }}</span>{% endif %}
+      </div>
+      <div class="cl-progress-wrap">
+        <div class="checklist-progress">
+          <div class="checklist-progress-fill" data-initial-width="{{ cl_pct }}"></div>
+        </div>
+        <small class="help">{{ cl_done }}/{{ cl_total }} ({{ cl_pct }}%) &mdash; {{ cl.created_at.strftime('%d-%m-%Y') if cl.created_at else '' }}</small>
+      </div>
+      <div class="cl-overview-actions">
+        <a href="/dashboard/checklists/{{ cl.id }}" class="btn btn-primary btn-sm">Ga verder</a>
+        <button type="button" class="btn btn-sm cl-delete-btn" data-id="{{ cl.id }}" data-naam="{{ cl.naam }}">Verwijder</button>
+      </div>
+    </div>
+    {% endfor %}
+    {% else %}
+    <div class="cl-empty-state">
+      <div class="cl-empty-icon">
+        <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 14l2 2 4-4"/></svg>
+      </div>
+      <h3>Geen checklists</h3>
+      <p>Een checklist begeleidt je stap voor stap door een pentest. Kies hierboven een type en geef je project een naam om te starten.</p>
+    </div>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script nonce="{{ csp_nonce }}">
+(function(){
+  /* ---- Init progress bar widths from data attributes (CSP safe) ---- */
+  document.querySelectorAll('[data-initial-width]').forEach(function(el){
+    el.style.width = el.dataset.initialWidth + '%';
+  });
+
+  /* ---- Type kaart selectie ---- */
+  var cards = document.querySelectorAll('.cl-type-card');
+  var typeInput = document.getElementById('cl-type');
+  var createBtn = document.getElementById('btn-create-cl');
+
+  cards.forEach(function(card){
+    card.addEventListener('click', function(){
+      cards.forEach(function(c){ c.classList.remove('selected'); });
+      this.classList.add('selected');
+      typeInput.value = this.dataset.type;
+      createBtn.disabled = !document.getElementById('cl-naam').value.trim();
+    });
+    card.addEventListener('keydown', function(e){
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); this.click(); }
+    });
+  });
+
+  document.getElementById('cl-naam').addEventListener('input', function(){
+    createBtn.disabled = !this.value.trim() || !typeInput.value;
+  });
+
+  /* ---- Create ---- */
+  var status = document.getElementById('cl-create-status');
+  createBtn.addEventListener('click', function(){
+    var naam = document.getElementById('cl-naam').value.trim();
+    var type = typeInput.value;
+    var target = document.getElementById('cl-target').value.trim();
+    if (!naam) { status.textContent = 'Naam is verplicht'; return; }
+    if (!type) { status.textContent = 'Kies een type'; return; }
+    status.textContent = 'Bezig...';
+    createBtn.disabled = true;
+    fetch('/api/checklists', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({naam: naam, type: type, target: target})
+    }).then(function(r){return r.json();}).then(function(d){
+      if (d.ok) { window.location.href = '/dashboard/checklists/' + d.id; }
+      else { status.textContent = d.error || 'Fout'; createBtn.disabled = false; }
+    });
+  });
+
+  /* ---- Delete ---- */
+  document.querySelectorAll('.cl-delete-btn').forEach(function(b){
+    b.addEventListener('click', function(){
+      var id = this.dataset.id;
+      var naam = this.dataset.naam;
+      if (!confirm("Checklist '" + naam + "' verwijderen?")) return;
+      fetch('/api/checklists/' + id, {method:'DELETE'})
+        .then(function(r){return r.json();})
+        .then(function(d){ if(d.ok) window.location.reload(); });
+    });
+  });
+})();
+</script>
+{% endblock %}

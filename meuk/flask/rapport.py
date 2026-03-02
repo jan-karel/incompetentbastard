@@ -4,7 +4,7 @@ from meuk.hacksec import lezen, schrijven
 from flask import Blueprint, request, send_file, jsonify, render_template
 from jinja2 import Environment, FileSystemLoader
 from markupsafe import escape as html_escape
-from meuk.flask.models import db_bevindingen, db_bevindingen_templates, db_evidence, db_notes, db, db_finding_related, db_instellingen
+from meuk.flask.models import db_bevindingen, db_bevindingen_templates, db_evidence, db_notes, db, db_finding_related, db_instellingen, db_checklist
 from meuk.flask.findings import _cvss_to_severity, _latex_escape, owasptop10, _get_appdata
 from meuk.flask.security import require_dashboard_access
 import datetime
@@ -247,6 +247,55 @@ def _build_findings_data(base_query, taal='nl'):
     return findings
 
 
+def _build_checklist_appendix(checklist_ids, taal='nl'):
+    """Bouw checklist-data voor rapport appendix.
+
+    Returns lijst van dicts met naam, type, target, phases en stats.
+    """
+    from meuk.flask.checklists import _load_templates
+
+    checklists_data = []
+    templates_json = _load_templates()
+
+    for cl in db_checklist.query.filter(db_checklist.id.in_(checklist_ids)).all():
+        template = templates_json.get('checklists', {}).get(cl.checklist_type, {})
+        item_map = {i.item_ref: i for i in cl.items}
+
+        stats = {'pass': 0, 'fail': 0, 'warn': 0, 'skip': 0, 'na': 0, 'open': 0}
+        phases = []
+        for phase in template.get('phases', []):
+            phase_items = []
+            for tpl_item in phase.get('items', []):
+                db_item = item_map.get(tpl_item['id'])
+                status = db_item.status if db_item else 'open'
+                stats[status] = stats.get(status, 0) + 1
+                title = tpl_item.get('en_title' if taal == 'en' else 'title', tpl_item.get('title', ''))
+                phase_items.append({
+                    'ref': tpl_item['id'],
+                    'title': title,
+                    'status': status,
+                })
+            phases.append({
+                'title': phase.get('title', ''),
+                'items': phase_items,
+            })
+
+        total = sum(stats.values())
+        en_title = template.get('en_title', template.get('title', cl.checklist_type))
+        cl_title = en_title if taal == 'en' else template.get('title', cl.checklist_type)
+
+        checklists_data.append({
+            'naam': cl.naam,
+            'type': cl_title,
+            'target': cl.target or '',
+            'phases': phases,
+            'stats': stats,
+            'total': total,
+        })
+
+    return checklists_data
+
+
 @rapport_bp.route('/dashboard/report', methods=['GET'])
 def rapport_dashboard():
     findings = db_bevindingen.query.all()
@@ -257,9 +306,11 @@ def rapport_dashboard():
     for f in findings:
         sev, _ = _cvss_to_severity(f.basescore or (template_map.get(f.ref, None) and template_map[f.ref].basescore) or '0')
         severity_map[f.id] = sev
+    checklists = db_checklist.query.order_by(db_checklist.id.desc()).all()
     return render_template('rapport_dashboard.html',
                            findings=findings, notes=notes,
-                           template_map=template_map, severity_map=severity_map)
+                           template_map=template_map, severity_map=severity_map,
+                           checklists=checklists)
 
 
 @rapport_bp.route('/dashboard/report/generate', methods=['GET'])
@@ -286,6 +337,11 @@ def gen_rapport():
 
     # Bouw findings data
     findings = _build_findings_data(base_query, taal=taal)
+
+    # Checklists appendix
+    _cl_raw = request.args.get('include_checklists', '')
+    checklist_ids = [int(x) for x in _cl_raw.split(',') if x.strip().isdigit()]
+    checklists_data = _build_checklist_appendix(checklist_ids, taal=taal) if checklist_ids else []
 
     # Kopieer evidence
     for f in findings:
@@ -384,6 +440,7 @@ def gen_rapport():
         legsup_informatie=legsup_informatie,
         scenarios=scenarios,
         taal=taal,
+        checklists=checklists_data,
     )
 
     # Schrijf .tex bestand
@@ -399,18 +456,18 @@ def gen_rapport():
         env = os.environ.copy()
         env['TEXINPUTS'] = '.:{handboek}:{handboek}//:{rapport}:'.format(
             handboek=handboek_abs, rapport=os.path.abspath(_RAPPORT_DIR))
-        for _ in range(2):
+        for _ in range(3):
             subprocess.run(
-                ['pdflatex', '-interaction=nonstopmode', '-output-directory',
+                ['xelatex', '-interaction=nonstopmode', '-output-directory',
                  os.path.abspath(_RAPPORT_DIR), tex_path],
                 env=env, cwd=os.path.abspath(_RAPPORT_DIR),
-                capture_output=True, timeout=60,
+                capture_output=True, timeout=120,
             )
     except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
-        pass  # pdflatex niet beschikbaar
+        pass  # xelatex niet beschikbaar
 
     # --- HTML generatie voor preview ---
-    html = _generate_html_preview(findings, grouped, counts, titel, auteur, subtitel, datum, classificatie, is_draft, notes_data, tlp_html_bg, tlp_html_fg, management_samenvatting=management_samenvatting, testtype=testtype, testscope=testscope, testscopes=testscopes, legsup_startpunt=legsup_startpunt, legsup_privileges=legsup_privileges, legsup_informatie=legsup_informatie, scenarios=scenarios, taal=taal, scope_targets=scope_targets, **_extra_kwargs)
+    html = _generate_html_preview(findings, grouped, counts, titel, auteur, subtitel, datum, classificatie, is_draft, notes_data, tlp_html_bg, tlp_html_fg, management_samenvatting=management_samenvatting, testtype=testtype, testscope=testscope, testscopes=testscopes, legsup_startpunt=legsup_startpunt, legsup_privileges=legsup_privileges, legsup_informatie=legsup_informatie, scenarios=scenarios, taal=taal, scope_targets=scope_targets, checklists=checklists_data, **_extra_kwargs)
     schrijven(os.path.join(_RAPPORT_DIR, 'tex.html'), html)
 
     # --- STIX 2.1 bundle generatie ---
@@ -434,6 +491,7 @@ def gen_rapport():
         legsup_informatie=legsup_informatie,
         scenarios=scenarios, scoped_hosts=scoped_hosts, taal=taal,
         scope_targets=scope_targets,
+        checklists=checklists_data,
         **_extra_kwargs)
     docx_md_path = os.path.join(_RAPPORT_DIR, 'rapport_docx.md')
     schrijven(docx_md_path, docx_md)
@@ -491,6 +549,38 @@ def _snapshot_version():
             shutil.copy2(src, dest)
 
 
+_STATUS_COLORS = {
+    'pass': '#22c55e', 'fail': '#ef4444', 'warn': '#f59e0b',
+    'skip': '#94a3b8', 'na': '#94a3b8', 'open': '#d1d5db',
+}
+
+
+def _append_checklist_html(parts, checklists, taal='nl'):
+    """Voeg checklist appendix toe aan HTML parts."""
+    if not checklists:
+        return
+    heading = 'Checklist Results' if taal == 'en' else 'Checklist resultaten'
+    parts.append('<h2>{}</h2>'.format(heading))
+    ref_l = 'Ref'
+    item_l = 'Item'
+    status_l = 'Status'
+    for cl in checklists:
+        parts.append('<h3>{} ({}) &mdash; {}</h3>'.format(
+            html_escape(cl['naam']), html_escape(cl['type']), html_escape(cl['target'])))
+        st = cl['stats']
+        parts.append('<p><strong>{} pass, {} fail, {} warn, {} skip, {} n/a, {} open</strong></p>'.format(
+            st['pass'], st['fail'], st['warn'], st['skip'], st['na'], st['open']))
+        for phase in cl['phases']:
+            parts.append('<h4>{}</h4>'.format(html_escape(phase['title'])))
+            parts.append('<table><tr><th>{}</th><th>{}</th><th>{}</th></tr>'.format(ref_l, item_l, status_l))
+            for item in phase['items']:
+                color = _STATUS_COLORS.get(item['status'], '#d1d5db')
+                parts.append('<tr><td><code>{}</code></td><td>{}</td><td><span style="color:{}">{}</span></td></tr>'.format(
+                    html_escape(item['ref']), html_escape(item['title']),
+                    color, html_escape(item['status'].upper())))
+            parts.append('</table>')
+
+
 def _append_signoff_html(parts, taal='nl'):
     """Voeg sign-off tabel toe aan HTML parts."""
     label = 'Sign-off'
@@ -505,7 +595,7 @@ def _append_signoff_html(parts, taal='nl'):
     parts.append('</table>')
 
 
-def _generate_html_preview(findings, grouped, counts, titel, auteur, subtitel, datum, classificatie, is_draft, notes=None, tlp_bg='#FF2B2B', tlp_fg='#ffffff', management_samenvatting='', testtype='pentest', testscope='blackbox', testscopes=None, legsup_startpunt='', legsup_privileges='', legsup_informatie='', scenarios=None, taal='nl', rapport_roe='', test_start='', test_end='', variant='detailed', rapport_versie='', rapport_versie_status='concept', scope_targets=None):
+def _generate_html_preview(findings, grouped, counts, titel, auteur, subtitel, datum, classificatie, is_draft, notes=None, tlp_bg='#FF2B2B', tlp_fg='#ffffff', management_samenvatting='', testtype='pentest', testscope='blackbox', testscopes=None, legsup_startpunt='', legsup_privileges='', legsup_informatie='', scenarios=None, taal='nl', rapport_roe='', test_start='', test_end='', variant='detailed', rapport_versie='', rapport_versie_status='concept', scope_targets=None, checklists=None):
     """Genereer HTML preview van het rapport."""
     t = _T.get(taal, _T['nl'])
     sev_labels = _SEVERITY_LABELS_EN if taal == 'en' else _SEVERITY_LABELS
@@ -735,6 +825,9 @@ def _generate_html_preview(findings, grouped, counts, titel, auteur, subtitel, d
             html_escape(str(f['basescore'])), html_escape(f['aanbeveling'])))
     parts.append('</table>')
 
+    # Checklist appendix
+    _append_checklist_html(parts, checklists, taal)
+
     # Sign-off
     _append_signoff_html(parts, taal)
 
@@ -752,7 +845,7 @@ def _generate_docx_markdown(findings, grouped, counts, titel, auteur, subtitel,
                             rapport_roe='', test_start='', test_end='',
                             variant='detailed', rapport_versie='',
                             rapport_versie_status='concept',
-                            scope_targets=None):
+                            scope_targets=None, checklists=None):
     """Genereer pandoc-Markdown dat de LaTeX template 1:1 spiegelt."""
     t = _T.get(taal, _T['nl'])
     sev_labels = _SEVERITY_LABELS_EN if taal == 'en' else _SEVERITY_LABELS
@@ -1036,6 +1129,28 @@ def _generate_docx_markdown(findings, grouped, counts, titel, auteur, subtitel,
         lines.append('| {} | {} | {} | {} |'.format(
             str(f['id']).zfill(3), f['titel'], f['basescore'], f['aanbeveling']))
     lines.append('')
+
+    # Checklist appendix
+    if checklists:
+        heading = 'Checklist Results' if taal == 'en' else 'Checklist resultaten'
+        lines.append('# {}'.format(heading))
+        lines.append('')
+        for cl in checklists:
+            lines.append('## {} ({}) — {}'.format(cl['naam'], cl['type'], cl['target']))
+            lines.append('')
+            st = cl['stats']
+            lines.append('**{} pass, {} fail, {} warn, {} skip, {} n/a, {} open**'.format(
+                st['pass'], st['fail'], st['warn'], st['skip'], st['na'], st['open']))
+            lines.append('')
+            for phase in cl['phases']:
+                lines.append('### {}'.format(phase['title']))
+                lines.append('')
+                lines.append('| Ref | Item | Status |')
+                lines.append('|---|---|---|')
+                for item in phase['items']:
+                    lines.append('| {} | {} | {} |'.format(
+                        item['ref'], item['title'], item['status'].upper()))
+                lines.append('')
 
     # Sign-off sectie
     lines.append('# Sign-off')
@@ -1324,12 +1439,15 @@ def rapport_metrics():
 # Async report generation
 # ---------------------------------------------------------------------------
 
-def _async_generate(run_id, app, include_draft):
+def _async_generate(run_id, app, include_draft, include_checklists=''):
     """Worker die gen_rapport() uitvoert in een achtergrond-thread."""
     with _async_lock:
         _async_runs[run_id]['status'] = 'running'
     try:
-        with app.test_request_context('/dashboard/report/generate?include_draft=' + ('1' if include_draft else '0')):
+        qs = 'include_draft=' + ('1' if include_draft else '0')
+        if include_checklists:
+            qs += '&include_checklists=' + include_checklists
+        with app.test_request_context('/dashboard/report/generate?' + qs):
             gen_rapport()
         with _async_lock:
             _async_runs[run_id]['status'] = 'success'
@@ -1347,6 +1465,7 @@ def rapport_generate_async():
     from flask import current_app
     run_id = str(_uuid.uuid4())
     include_draft = request.json.get('include_draft', False) if request.is_json else False
+    include_checklists = request.json.get('include_checklists', '') if request.is_json else ''
     with _async_lock:
         _async_runs[run_id] = {
             'id': run_id,
@@ -1357,7 +1476,7 @@ def rapport_generate_async():
         }
     t = threading.Thread(
         target=_async_generate,
-        args=(run_id, current_app._get_current_object(), include_draft),
+        args=(run_id, current_app._get_current_object(), include_draft, include_checklists),
         daemon=True,
     )
     t.start()

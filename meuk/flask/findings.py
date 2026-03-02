@@ -136,7 +136,61 @@ def cvss4_calculate():
     return jsonify({'ok': True, 'score': score, 'severity': severity, 'vector': vector})
 
 
-#basic vars
+# ---------------------------------------------------------------------------
+# Template categories: prefix van bevtype -> leesbare naam
+# ---------------------------------------------------------------------------
+
+_TEMPLATE_CATEGORIES = {
+    'web': 'Web Application', 'ad': 'Active Directory', 'windows': 'Windows',
+    'network': 'Network & Recon', 'config': 'Misconfiguration', 'cwe': 'CWE Top 25',
+    'cloud': 'Cloud', 'infra': 'Infrastructure', 'linux': 'Linux',
+    'auth': 'Authentication', 'physical': 'Physical Security', 'mail': 'Email Security',
+}
+
+
+def _group_templates(templates):
+    """Groepeer templates op bevtype-prefix voor de overzichtspagina."""
+    groups = {}
+    for t in templates:
+        prefix = (t.bevtype or '').split('-')[0] if t.bevtype else 'other'
+        if not prefix:
+            prefix = 'other'
+        groups.setdefault(prefix, []).append(t)
+    order = sorted(groups.keys(), key=lambda k: (k == 'other', _TEMPLATE_CATEGORIES.get(k, k).lower()))
+    return [(k, _TEMPLATE_CATEGORIES.get(k, k.title()), groups[k]) for k in order]
+
+
+#basic vars — NCSC/DigiD richtlijnen (vervangt OWASP 2021)
+ncsc_richtlijnen = {
+    'U/TV.01': 'Toegangsvoorzieningsmiddelen',
+    'U/WA.01': 'Operationeel beleid webapplicaties',
+    'U/WA.02': 'Webapplicatiebeheer',
+    'U/WA.03': 'Webapplicatie-invoer beperken',
+    'U/WA.04': 'Webapplicatie-uitvoer beperken',
+    'U/WA.05': 'Vertrouwelijkheid gegevens',
+    'U/WA.06': 'Webapplicatie-informatie beperken',
+    'U/WA.07': 'Webapplicatie-integratie communiceren',
+    'U/WA.08': 'Webapplicatiesessie beëindigen',
+    'U/WA.09': 'Webapplicatiearchitectuur',
+    'U/PW.01': 'Operationeel beleid platformen',
+    'U/PW.02': 'Webprotocollen garanderen',
+    'U/PW.03': 'Webserver inrichten',
+    'U/PW.04': 'Isolatie processen en bestanden',
+    'U/PW.05': 'Toegang beheermechanismen',
+    'U/PW.06': 'Platform-netwerkkoppeling filteren',
+    'U/PW.07': 'Hardening platformen',
+    'U/PW.08': 'Platform- en webserverarchitectuur',
+    'U/NW.01': 'Operationeel beleid netwerken',
+    'U/NW.02': 'Beschikbaarheid netwerken',
+    'U/NW.03': 'Netwerkzonering',
+    'U/NW.04': 'Protectie- en detectiefunctie',
+    'U/NW.05': 'Beheer- en productieomgeving',
+    'U/NW.06': 'Hardening netwerken',
+    'U/NW.07': 'Netwerktoegang webapplicaties',
+    'U/NW.08': 'Netwerkarchitectuur',
+}
+
+# Legacy OWASP 2021 lijst (alleen voor export backwards-compat)
 owasptop10 = [
             ('A1 - Broken Access Control'),
             ('A2 - Crypthographic Failures'),
@@ -150,12 +204,48 @@ owasptop10 = [
             ('A10 - Server Side Request Forgery')
             ]
 
+owasptop10_2025 = [
+            ('A1 - Broken Access Control'),
+            ('A2 - Security Misconfiguration'),
+            ('A3 - Software Supply Chain Failures'),
+            ('A4 - Cryptographic Failures'),
+            ('A5 - Injection'),
+            ('A6 - Insecure Design'),
+            ('A7 - Authentication Failures'),
+            ('A8 - Software or Data Integrity Failures'),
+            ('A9 - Security Logging and Alerting Failures'),
+            ('A10 - Mishandling of Exceptional Conditions')
+            ]
+
+# Mapping 2025-code -> 2025-lijst index (1-based)
+_OWASP_2025_NUMS = {
+    'A01:2025': 1, 'A02:2025': 2, 'A03:2025': 3, 'A04:2025': 4, 'A05:2025': 5,
+    'A06:2025': 6, 'A07:2025': 7, 'A08:2025': 8, 'A09:2025': 9, 'A10:2025': 10,
+}
+_OWASP_2025_CODES = {v: k for k, v in _OWASP_2025_NUMS.items()}
+
+
 @findings_bp.app_template_filter('owaspcategorie')
 def owaspcategorie(num):
     if num:
         return owasptop10[int(num)-1]
     else:
         return 'A5 - Security Misconfiguration'
+
+
+@findings_bp.app_template_filter('ncsc_richtlijn')
+def ncsc_richtlijn_filter(code):
+    if code and code in ncsc_richtlijnen:
+        return '{} - {}'.format(code, ncsc_richtlijnen[code])
+    return code or ''
+
+
+@findings_bp.app_template_filter('owaspcategorie_2025')
+def owaspcategorie_2025(num):
+    if num:
+        return owasptop10_2025[int(num)-1]
+    else:
+        return ''
 
 @findings_bp.app_template_filter('bevindingnums')
 def bevindingnums(nums):
@@ -191,7 +281,8 @@ def template_bewerken(template_id):
         id=item.id,
         titel=item.titel,
         bevtype=item.bevtype,
-        owasp=item.owasp or '',
+        ncsc=getattr(item, 'ncsc', '') or '',
+        owasp_2025=getattr(item, 'owasp_2025', '') or '',
         cwe=item.cwe,
         mitre=item.mitre,
         cvss=item.cvss,
@@ -218,7 +309,8 @@ def template_opslaan():
                     abort(404)
                 tmpl.titel = form.titel.data
                 tmpl.bevtype = form.bevtype.data
-                tmpl.owasp = form.owasp.data
+                tmpl.ncsc = form.ncsc.data
+                tmpl.owasp_2025 = form.owasp_2025.data
                 tmpl.cwe = form.cwe.data
                 tmpl.mitre = form.mitre.data
                 tmpl.cvss = form.cvss.data
@@ -235,7 +327,8 @@ def template_opslaan():
             tmpl = db_bevindingen_templates(
                 titel=form.titel.data,
                 bevtype=form.bevtype.data,
-                owasp=form.owasp.data,
+                ncsc=form.ncsc.data,
+                owasp_2025=form.owasp_2025.data,
                 cwe=form.cwe.data,
                 mitre=form.mitre.data,
                 cvss=form.cvss.data,
@@ -266,7 +359,9 @@ def template_verwijderen(template_id):
 def api_findings_templates():
     templates = db_bevindingen_templates.query.all()
     return jsonify({'templates': [
-        {'id': t.id, 'titel': t.titel, 'bevtype': t.bevtype or ''}
+        {'id': t.id, 'titel': t.titel, 'bevtype': t.bevtype or '',
+         'ncsc': getattr(t, 'ncsc', '') or '',
+         'owasp_2025': getattr(t, 'owasp_2025', '') or ''}
         for t in templates
     ]})
 
@@ -288,7 +383,8 @@ def bevinding_toevoegen(bevinding_id):
 def bevindingen_overzicht():
     findings = db_bevindingen.query.all()
     templates = db_bevindingen_templates.query.all()
-    return render_template('findings_index.html', findings=findings, templates=templates)
+    template_groups = _group_templates(templates)
+    return render_template('findings_index.html', findings=findings, templates=templates, template_groups=template_groups)
 
 
 @findings_bp.route('/dashboard/findings/edit/<bevinding_id>', methods=['GET', 'POST'])
@@ -443,12 +539,14 @@ def export_findings():
 
     catalogs = {
         'ref_owasp_top10': [],
+        'ref_ncsc': [],
         'ref_cwe': [],
         'ref_mitre_attack': [],
         'standard_findings': [],
     }
 
     seen_owasp = set()
+    seen_ncsc = set()
     seen_cwe = set()
     seen_mitre = set()
 
@@ -464,19 +562,43 @@ def export_findings():
             'cvss_v4_score': float(t.basescore) if t.basescore else None,
             'references': [],
             'owasp_top10': [],
+            'ncsc': [],
             'cwe': [],
             'mitre_attack': [],
         }
+        ncsc_code = getattr(t, 'ncsc', '') or ''
+        if ncsc_code and ncsc_code in ncsc_richtlijnen:
+            sf['ncsc'].append({'code': ncsc_code, 'title': ncsc_richtlijnen[ncsc_code]})
+            if ncsc_code not in seen_ncsc:
+                seen_ncsc.add(ncsc_code)
+                catalogs['ref_ncsc'].append({
+                    'code': ncsc_code, 'title': ncsc_richtlijnen[ncsc_code],
+                })
         if t.owasp:
             try:
                 num = int(t.owasp)
                 code = _OWASP_CODES.get(num, 'A{:02d}'.format(num))
                 sf['owasp_top10'].append({'year': 2021, 'code': code})
-                if code not in seen_owasp:
-                    seen_owasp.add(code)
+                owasp_key = code + ':2021'
+                if owasp_key not in seen_owasp:
+                    seen_owasp.add(owasp_key)
                     catalogs['ref_owasp_top10'].append({
                         'year': 2021, 'code': code,
                         'title': owasptop10[num - 1] if 1 <= num <= 10 else code,
+                        'description': '',
+                    })
+            except (ValueError, TypeError):
+                pass
+        if getattr(t, 'owasp_2025', None):
+            try:
+                num_25 = int(t.owasp_2025)
+                code_25 = _OWASP_2025_CODES.get(num_25, 'A{:02d}:2025'.format(num_25))
+                sf['owasp_top10'].append({'year': 2025, 'code': code_25})
+                if code_25 not in seen_owasp:
+                    seen_owasp.add(code_25)
+                    catalogs['ref_owasp_top10'].append({
+                        'year': 2025, 'code': code_25,
+                        'title': owasptop10_2025[num_25 - 1] if 1 <= num_25 <= 10 else code_25,
                         'description': '',
                     })
             except (ValueError, TypeError):
@@ -524,15 +646,25 @@ def export_findings():
             'status': bev.status or 'draft',
             'standard_code': str(bev.ref) if bev.ref else None,
             'owasp_top10': [],
+            'ncsc': [],
             'cwe': [],
             'mitre_attack': [],
             'references': [],
         }
         if tmpl:
+            tmpl_ncsc = getattr(tmpl, 'ncsc', '') or ''
+            if tmpl_ncsc and tmpl_ncsc in ncsc_richtlijnen:
+                pf['ncsc'].append({'code': tmpl_ncsc, 'title': ncsc_richtlijnen[tmpl_ncsc]})
             if tmpl.owasp:
                 try:
                     num = int(tmpl.owasp)
                     pf['owasp_top10'].append({'year': 2021, 'code': _OWASP_CODES.get(num, 'A{:02d}'.format(num))})
+                except (ValueError, TypeError):
+                    pass
+            if getattr(tmpl, 'owasp_2025', None):
+                try:
+                    num_25 = int(tmpl.owasp_2025)
+                    pf['owasp_top10'].append({'year': 2025, 'code': _OWASP_2025_CODES.get(num_25, 'A{:02d}:2025'.format(num_25))})
                 except (ValueError, TypeError):
                     pass
             if tmpl.cwe:
@@ -832,13 +964,29 @@ def _create_template_from_standard(sf):
         cvss=sf.get('cvss_v4_vector') or '',
         basescore=str(sf['cvss_v4_score']) if sf.get('cvss_v4_score') is not None else '',
     )
-    # OWASP
+    # OWASP (2021 + 2025)
     owasp_items = sf.get('owasp_top10', [])
-    if owasp_items:
-        code = owasp_items[0].get('code', '')
-        num = _OWASP_NUMS.get(code)
-        if num:
-            tmpl.owasp = str(num)
+    for oi in owasp_items:
+        code = oi.get('code', '')
+        year = oi.get('year')
+        if year == 2025 or ':2025' in code:
+            num_2025 = _OWASP_2025_NUMS.get(code)
+            if num_2025 and not tmpl.owasp_2025:
+                tmpl.owasp_2025 = str(num_2025)
+        else:
+            # 2021 of ongespecificeerd jaar
+            bare_code = code.split(':')[0]
+            num = _OWASP_NUMS.get(bare_code)
+            if num and not tmpl.owasp:
+                tmpl.owasp = str(num)
+    # NCSC/DigiD
+    ncsc_items = sf.get('ncsc', [])
+    if ncsc_items:
+        ncsc_code = ncsc_items[0].get('code', '')
+        if ncsc_code in ncsc_richtlijnen:
+            tmpl.ncsc = ncsc_code
+    elif sf.get('ncsc_code'):
+        tmpl.ncsc = sf['ncsc_code']
     # CWE
     cwe_items = sf.get('cwe', [])
     if cwe_items:
@@ -968,7 +1116,7 @@ def api_findings_list():
 
     severity = request.args.get('severity', '').strip()
     status = request.args.get('status', '').strip()
-    owasp = request.args.get('owasp', '').strip()
+    ncsc_filter = request.args.get('ncsc', '').strip()
     remediation = request.args.get('remediation', '').strip()
     search = request.args.get('q', '').strip()
 
@@ -990,8 +1138,8 @@ def api_findings_list():
         if severity and sev != severity:
             continue
 
-        owasp_num = tmpl.owasp if tmpl else ''
-        if owasp and str(owasp_num) != owasp:
+        ncsc_code = getattr(tmpl, 'ncsc', '') if tmpl else ''
+        if ncsc_filter and ncsc_code != ncsc_filter:
             continue
 
         title = bev.naam or ''
@@ -1010,7 +1158,7 @@ def api_findings_list():
             'remediation_owner': bev.remediation_owner or '',
             'remediation_target_date': str(bev.remediation_target_date) if bev.remediation_target_date else '',
             'remediation_effort': bev.remediation_effort or '',
-            'owasp': owasptop10[int(owasp_num) - 1] if owasp_num and str(owasp_num).isdigit() and 1 <= int(owasp_num) <= 10 else '',
+            'ncsc': '{} - {}'.format(ncsc_code, ncsc_richtlijnen[ncsc_code]) if ncsc_code and ncsc_code in ncsc_richtlijnen else '',
             'ref': bev.ref or '',
             'sort_key': sort_key,
         })
@@ -1179,14 +1327,14 @@ def export_findings_csv():
     writer.writerow([
         'ID', 'Name', 'Host', 'CVSS', 'Severity', 'Status',
         'Remediation Status', 'Remediation Owner', 'Remediation Target Date',
-        'OWASP', 'CWE', 'Template',
+        'NCSC', 'CWE', 'Template',
     ])
     for bev in bevindingen:
         tmpl = tmpl_map.get(str(bev.ref))
         bs = bev.basescore or (tmpl.basescore if tmpl else '') or '0'
         sev, _ = _cvss_to_severity(bs)
-        owasp_num = tmpl.owasp if tmpl else ''
-        owasp_label = owasptop10[int(owasp_num) - 1] if owasp_num and str(owasp_num).isdigit() and 1 <= int(owasp_num) <= 10 else ''
+        ncsc_code = getattr(tmpl, 'ncsc', '') if tmpl else ''
+        ncsc_label = '{} - {}'.format(ncsc_code, ncsc_richtlijnen[ncsc_code]) if ncsc_code and ncsc_code in ncsc_richtlijnen else ''
         cwe = tmpl.cwe if tmpl else ''
         writer.writerow([
             bev.id, bev.naam or '', bev.locatie or '', bs, sev,
@@ -1194,7 +1342,7 @@ def export_findings_csv():
             bev.remediation_status or 'open',
             bev.remediation_owner or '',
             str(bev.remediation_target_date) if bev.remediation_target_date else '',
-            owasp_label, cwe, tmpl.titel if tmpl else '',
+            ncsc_label, cwe, tmpl.titel if tmpl else '',
         ])
 
     return Response(

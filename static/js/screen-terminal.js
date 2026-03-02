@@ -669,9 +669,22 @@
       }
     });
 
+    var injectModal = document.getElementById('inject-modal');
+    var injectModalParent = injectModal ? injectModal.parentNode : null;
+
     function onFsChange() {
       var isFs = !!(document.fullscreenElement || document.webkitFullscreenElement);
       fsBtn.innerHTML = isFs ? '&#x2716; Volledig scherm sluiten' : '&#x26F6; Volledig scherm';
+
+      // Verplaats inject-modal naar/uit fullscreen container zodat
+      // de modal niet achter de fullscreen top-layer verdwijnt.
+      if (injectModal) {
+        if (isFs) {
+          workspace.appendChild(injectModal);
+        } else if (injectModalParent) {
+          injectModalParent.appendChild(injectModal);
+        }
+      }
     }
     document.addEventListener('fullscreenchange', onFsChange);
     document.addEventListener('webkitfullscreenchange', onFsChange);

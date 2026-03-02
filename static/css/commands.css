@@ -34,8 +34,8 @@
   font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
   font-size: 12px;
   line-height: 1.5;
-  color: #e2e8f0;
-  background: #0f172a;
+  color: var(--code-fg, #e2e8f0);
+  background: var(--code-bg, #1e293b);
   white-space: pre-wrap;
   word-break: break-all;
 }
@@ -95,6 +95,19 @@
   padding-left: 8px;
   border-left: 2px solid var(--border);
   margin-left: 6px;
+}
+
+.btn-note {
+  background: var(--warning, #f59e0b) !important;
+  color: #000 !important;
+  border-color: transparent !important;
+}
+.btn-note:hover {
+  opacity: 0.85;
+}
+.btn-note.copied {
+  background: var(--success) !important;
+  color: white !important;
 }
 
 .btn-inject {

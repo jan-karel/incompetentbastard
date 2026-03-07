@@ -107,6 +107,343 @@
 </section>
 {% endblock %}
 
+<!-- ═══════════════════════════════════════════════════════ Metasploit Terminal -->
+<section class="card mt-14">
+  <div class="card-head">
+    <h2>Metasploit Terminal</h2>
+    <span id="msf-term-badge" class="status-badge msf-err" style="margin-left:10px">Niet verbonden</span>
+    <a href="/dashboard/msf" class="btn btn-link ml-auto fs-12">MSF Sessies &rarr;</a>
+  </div>
+  <div class="card-body">
+    <div class="gen-form">
+      <div class="field">
+        <label for="msf-source-type">Bron</label>
+        <select class="input" id="msf-source-type">
+          <option value="console">MSF Console (interactief)</option>
+          <option value="session">Meterpreter / Shell sessie</option>
+        </select>
+      </div>
+      <div class="field" id="msf-sid-field" style="display:none">
+        <label for="msf-sid-input">Sessie #</label>
+        <input class="input" type="text" id="msf-sid-input" placeholder="1" style="width:80px" />
+      </div>
+    </div>
+    <div class="gen-actions screen-controls mt-8">
+      <button type="button" id="msf-connect-btn" class="btn btn-primary">Verbinden</button>
+      <button type="button" id="msf-disconnect-btn" class="btn" disabled>Stoppen</button>
+      <button type="button" id="msf-upgrade-btn" class="btn" style="display:none">&#8679; Upgrade Meterpreter</button>
+      <button type="button" id="msf-loot-btn" class="btn">Loot</button>
+      <button type="button" id="msf-creds-btn" class="btn">Credentials</button>
+      <span id="msf-term-status" class="status"></span>
+    </div>
+  </div>
+</section>
+
+<section class="card mt-14">
+  <div class="card-body p-0">
+    <div id="msf-terminal-workspace" class="term-main" style="display:flex;flex-direction:column;min-height:420px">
+      <div class="term-toolbar">
+        <h2 class="m-0 fs-15">Metasploit uitvoer</h2>
+        <span class="spacer"></span>
+        <button type="button" id="msf-clear-btn" class="btn-fs">Wis</button>
+      </div>
+      <div class="screen-terminal" id="msf-output" style="flex:1;min-height:300px"></div>
+      <div class="screen-input-row">
+        <input type="text" id="msf-cmd-input" placeholder="Typ een commando en druk Enter..." disabled />
+        <button type="button" id="msf-send-btn" class="btn btn-primary" disabled>Verstuur</button>
+      </div>
+    </div>
+    <pre id="msf-loot-panel" style="display:none;background:#050510;color:#94a3b8;font-size:12px;padding:10px;margin:0;max-height:200px;overflow-y:auto"></pre>
+    <pre id="msf-creds-panel" style="display:none;background:#050510;color:#fbbf24;font-size:12px;padding:10px;margin:0;max-height:200px;overflow-y:auto"></pre>
+  </div>
+</section>
+
+<style nonce="{{ csp_nonce }}">
+.status-badge { display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700 }
+.msf-ok  { background:#1a4731;color:#4ade80 }
+.msf-err { background:#2a1a1a;color:#888 }
+#msf-loot-panel,#msf-creds-panel { white-space:pre-wrap;word-break:break-all }
+</style>
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+
 {% block scripts %}
 <script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='js/screen-terminal.js') }}"></script>
+<script nonce="{{ csp_nonce }}">
+/* ── Metasploit Terminal ── */
+(function () {
+  'use strict';
+
+  var msfMode      = null;   // 'console' | 'session' | null
+  var msfCid       = null;
+  var msfSid       = null;
+  var msfPollTimer = null;
+  var msfPollBusy  = false;
+
+  var sourceType  = document.getElementById('msf-source-type');
+  var sidField    = document.getElementById('msf-sid-field');
+  var sidInput    = document.getElementById('msf-sid-input');
+  var connectBtn  = document.getElementById('msf-connect-btn');
+  var discBtn     = document.getElementById('msf-disconnect-btn');
+  var upgradeBtn  = document.getElementById('msf-upgrade-btn');
+  var statusEl    = document.getElementById('msf-term-status');
+  var outputEl    = document.getElementById('msf-output');
+  var cmdInput    = document.getElementById('msf-cmd-input');
+  var sendBtn     = document.getElementById('msf-send-btn');
+  var clearBtn    = document.getElementById('msf-clear-btn');
+  var badge       = document.getElementById('msf-term-badge');
+  var lootPanel   = document.getElementById('msf-loot-panel');
+  var credsPanel  = document.getElementById('msf-creds-panel');
+
+  if (!outputEl) return;
+
+  /* helpers */
+  function setStatus(text, cls) {
+    if (!statusEl) return;
+    statusEl.textContent = text;
+    statusEl.className = 'status' + (cls ? ' ' + cls : '');
+  }
+
+  function setBadge(text, ok) {
+    if (!badge) return;
+    badge.textContent = text;
+    badge.className   = 'status-badge ' + (ok ? 'msf-ok' : 'msf-err');
+  }
+
+  function appendOutput(text) {
+    if (!text || !outputEl) return;
+    var wasAtBottom = outputEl.scrollHeight - outputEl.scrollTop - outputEl.clientHeight < 40;
+    outputEl.textContent += text;
+    if (wasAtBottom) outputEl.scrollTop = outputEl.scrollHeight;
+  }
+
+  function setConnected(yes) {
+    if (connectBtn)  connectBtn.disabled  = yes;
+    if (discBtn)     discBtn.disabled     = !yes;
+    if (cmdInput)    cmdInput.disabled    = !yes;
+    if (sendBtn)     sendBtn.disabled     = !yes;
+    if (upgradeBtn)  upgradeBtn.style.display = (yes && msfMode === 'session') ? '' : 'none';
+    setBadge(yes ? 'Verbonden' : 'Niet verbonden', yes);
+  }
+
+  /* bron toggle */
+  if (sourceType) {
+    sourceType.addEventListener('change', function () {
+      if (sidField) sidField.style.display = sourceType.value === 'session' ? '' : 'none';
+    });
+  }
+
+  /* ── Console starten ── */
+  function startConsole() {
+    if (connectBtn) connectBtn.disabled = true;
+    setStatus('Verbinden...', '');
+    fetch('/api/msf/console', {
+      method:  'POST',
+      headers: {'Content-Type': 'application/json'},
+      body:    '{}',
+    })
+    .then(function (r) { return r.json(); })
+    .then(function (d) {
+      if (d.error) {
+        setStatus('Fout: ' + d.error, 'fail');
+        if (connectBtn) connectBtn.disabled = false;
+        return;
+      }
+      msfCid  = d.cid;
+      msfMode = 'console';
+      setConnected(true);
+      setStatus('MSF Console #' + msfCid, 'ok');
+      if (outputEl) outputEl.textContent = '';
+      msfPollTimer = setInterval(pollConsole, 500);
+    })
+    .catch(function () {
+      setStatus('Verbindingsfout', 'fail');
+      if (connectBtn) connectBtn.disabled = false;
+    });
+  }
+
+  /* ── Sessie starten ── */
+  function startSession(sid) {
+    msfSid  = sid;
+    msfMode = 'session';
+    setConnected(true);
+    setStatus('Sessie #' + sid, 'ok');
+    if (outputEl) outputEl.textContent = '';
+    msfPollTimer = setInterval(pollSession, 800);
+  }
+
+  /* ── Polling console ── */
+  function pollConsole() {
+    if (!msfCid || msfPollBusy) return;
+    msfPollBusy = true;
+    fetch('/api/msf/console/' + encodeURIComponent(msfCid) + '/read')
+    .then(function (r) { return r.json(); })
+    .then(function (d) {
+      msfPollBusy = false;
+      if (d.error) return;
+      appendOutput(d.data);
+    })
+    .catch(function () { msfPollBusy = false; });
+  }
+
+  /* ── Polling sessie ── */
+  function pollSession() {
+    if (!msfSid || msfPollBusy) return;
+    msfPollBusy = true;
+    fetch('/api/msf/sessions/' + encodeURIComponent(msfSid) + '/read')
+    .then(function (r) { return r.json(); })
+    .then(function (d) {
+      msfPollBusy = false;
+      if (!d.error) appendOutput(d.output);
+    })
+    .catch(function () { msfPollBusy = false; });
+  }
+
+  /* ── Verbinden knop ── */
+  if (connectBtn) {
+    connectBtn.addEventListener('click', function () {
+      var mode = sourceType ? sourceType.value : 'console';
+      if (mode === 'session') {
+        var sid = sidInput ? sidInput.value.trim() : '';
+        if (!sid) { setStatus('Vul sessie # in', 'fail'); return; }
+        startSession(sid);
+      } else {
+        startConsole();
+      }
+    });
+  }
+
+  /* ── Stoppen ── */
+  if (discBtn) {
+    discBtn.addEventListener('click', function () {
+      if (msfPollTimer) { clearInterval(msfPollTimer); msfPollTimer = null; }
+      if (msfMode === 'console' && msfCid) {
+        fetch('/api/msf/console/' + encodeURIComponent(msfCid) + '/destroy', {method: 'POST'});
+      }
+      msfMode = null; msfCid = null; msfSid = null;
+      setConnected(false);
+      setStatus('Gestopt', '');
+    });
+  }
+
+  /* ── Wis output ── */
+  if (clearBtn) {
+    clearBtn.addEventListener('click', function () {
+      if (outputEl) outputEl.textContent = '';
+    });
+  }
+
+  /* ── Commando versturen ── */
+  function sendMsf() {
+    if (!msfMode || !cmdInput) return;
+    var cmd = cmdInput.value.trim();
+    if (!cmd) return;
+    cmdInput.value = '';
+
+    var url  = msfMode === 'console'
+      ? '/api/msf/console/' + encodeURIComponent(msfCid) + '/write'
+      : '/api/msf/sessions/' + encodeURIComponent(msfSid) + '/write';
+
+    appendOutput(cmd + '\n');
+    fetch(url, {
+      method:  'POST',
+      headers: {'Content-Type': 'application/json'},
+      body:    JSON.stringify({cmd: cmd}),
+    })
+    .then(function (r) { return r.json(); })
+    .then(function (d) {
+      if (d.error) appendOutput('[Fout] ' + d.error + '\n');
+    });
+  }
+
+  if (sendBtn)  sendBtn.addEventListener('click', sendMsf);
+  if (cmdInput) {
+    cmdInput.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') { e.preventDefault(); sendMsf(); }
+    });
+  }
+
+  /* ── Shell upgrade naar Meterpreter ── */
+  if (upgradeBtn) {
+    upgradeBtn.addEventListener('click', function () {
+      if (!msfSid) return;
+      var lhost = window.prompt('LHOST (luisterend IP van jouw machine):');
+      if (!lhost) return;
+      var lport = window.prompt('LPORT:', '4433');
+      if (!lport) return;
+      fetch('/api/msf/sessions/' + encodeURIComponent(msfSid) + '/upgrade', {
+        method:  'POST',
+        headers: {'Content-Type': 'application/json'},
+        body:    JSON.stringify({lhost: lhost, lport: lport}),
+      })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        appendOutput(d.ok
+          ? '\n[+] Upgrade gestart als job #' + d.job_id + ' — wacht op nieuwe sessie...\n'
+          : '\n[-] Upgrade mislukt: ' + d.error + '\n');
+      });
+    });
+  }
+
+  /* ── Loot ophalen ── */
+  var lootBtn = document.getElementById('msf-loot-btn');
+  if (lootBtn && lootPanel) {
+    lootBtn.addEventListener('click', function () {
+      if (lootPanel.style.display === 'none') { lootPanel.style.display = ''; } else { lootPanel.style.display = 'none'; return; }
+      lootPanel.textContent = 'Ophalen...';
+      fetch('/api/msf/loot')
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (!d.loots || !d.loots.length) {
+          lootPanel.textContent = 'Geen loot gevonden (MSF database actief?)';
+          return;
+        }
+        lootPanel.textContent = d.loots.map(function (l) {
+          return '[' + (l.type || '?') + '] ' + (l.host || '?') + ' — ' + (l.name || '') + ': ' + (l.info || '');
+        }).join('\n');
+      })
+      .catch(function () { lootPanel.textContent = 'Fout bij ophalen'; });
+    });
+  }
+
+  /* ── Credentials ophalen ── */
+  var credsBtn = document.getElementById('msf-creds-btn');
+  if (credsBtn && credsPanel) {
+    credsBtn.addEventListener('click', function () {
+      if (credsPanel.style.display === 'none') { credsPanel.style.display = ''; } else { credsPanel.style.display = 'none'; return; }
+      credsPanel.textContent = 'Ophalen...';
+      fetch('/api/msf/creds')
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (!d.creds || !d.creds.length) {
+          credsPanel.textContent = 'Geen credentials (MSF database actief?)';
+          return;
+        }
+        credsPanel.textContent = d.creds.map(function (c) {
+          return (c.host || '?') + ':' + (c.port || '?') + ' — ' +
+                 (c.user || '') + ':' + (c.pass || c.hash || '');
+        }).join('\n');
+      })
+      .catch(function () { credsPanel.textContent = 'Fout bij ophalen'; });
+    });
+  }
+
+  /* ── Publieke API voor inject-modal en command library ── */
+  window.msfTerminal = {
+    isActive: function () { return msfMode !== null; },
+    getMode:  function () { return msfMode; },
+    write: function (cmd) {
+      if (!msfMode) return;
+      var url = msfMode === 'console'
+        ? '/api/msf/console/' + encodeURIComponent(msfCid) + '/write'
+        : '/api/msf/sessions/' + encodeURIComponent(msfSid) + '/write';
+      appendOutput(cmd + '\n');
+      fetch(url, {
+        method:  'POST',
+        headers: {'Content-Type': 'application/json'},
+        body:    JSON.stringify({cmd: cmd}),
+      });
+    },
+  };
+})();
+</script>
 {% endblock %}

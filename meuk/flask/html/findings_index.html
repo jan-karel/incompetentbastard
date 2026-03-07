@@ -4,6 +4,22 @@
 {% block styles %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/safe-overview.css') }}" />
 <link rel="stylesheet" href="{{ url_for('static', filename='css/findings-filter.css') }}" />
+<style nonce="{{ csp_nonce }}">
+#risk-matrix-wrap { overflow-x: auto; }
+#risk-matrix { border-collapse: separate; border-spacing: 4px; min-width: 340px; }
+.rm-axis-th { width: 80px; font-size: 11px; color: var(--text-muted, #888); text-align: right; padding-right: 6px; }
+.rm-row-label { font-size: 11px; color: var(--text-muted, #888); text-align: right; padding-right: 6px; white-space: nowrap; }
+.rm-cell { width: 80px; height: 54px; border-radius: 6px; text-align: center; vertical-align: middle; cursor: pointer; font-size: 13px; font-weight: 700; position: relative; }
+.rm-tooltip { display: none; position: absolute; z-index: 99; left: 50%; transform: translateX(-50%); top: 100%; background: #1e1e2e; border: 1px solid #444; border-radius: 6px; padding: 6px 10px; min-width: 160px; font-size: 11px; font-weight: 400; text-align: left; white-space: nowrap; margin-top: 4px; }
+.rm-tip-link { display: block; color: #a5b4fc; text-decoration: none; margin-top: 3px; }
+.rm-tip-score { color: #888; }
+.rm-tip-more { color: #888; }
+.rm-legend-low    { color: #4ade80; }
+.rm-legend-medium { color: #facc15; }
+.rm-legend-high   { color: #f97316; }
+.rm-legend-crit   { color: #ef4444; }
+.rm-legend-note   { font-size: 11px; }
+</style>
 {% endblock %}
 
 {% block content %}
@@ -52,6 +68,47 @@
         <button type="submit" class="btn btn-primary">Laad standaard bevindingen</button>
       </form>
     </div>
+  </div>
+</section>
+
+{# Risicomatrix heatmap #}
+<section class="card mb-14">
+  <div class="card-head">
+    <h2>Risicomatrix</h2>
+    <a class="btn ml-auto" href="/dashboard/findings/retest">Retest overzicht</a>
+  </div>
+  <div class="card-body">
+    <div id="risk-matrix-wrap">
+      <table id="risk-matrix">
+        <thead>
+          <tr>
+            <th class="rm-axis-th">Kans &darr; / Impact &rarr;</th>
+            <th class="rm-axis-label" data-col="1">1 – Verwaarloosbaar</th>
+            <th class="rm-axis-label" data-col="2">2 – Beperkt</th>
+            <th class="rm-axis-label" data-col="3">3 – Aanzienlijk</th>
+            <th class="rm-axis-label" data-col="4">4 – Ernstig</th>
+            <th class="rm-axis-label" data-col="5">5 – Kritiek</th>
+          </tr>
+        </thead>
+        <tbody id="rm-tbody">
+          {% for k in [5,4,3,2,1] %}
+          <tr>
+            <td class="rm-row-label">
+              {{ k }} –
+              {% if k==5 %}Zeer hoog{% elif k==4 %}Hoog{% elif k==3 %}Midden{% elif k==2 %}Laag{% else %}Zeer laag{% endif %}
+            </td>
+            {% for i in [1,2,3,4,5] %}
+            <td class="rm-cell" data-k="{{ k }}" data-i="{{ i }}">
+              <span class="rm-count">-</span>
+              <div class="rm-tooltip"></div>
+            </td>
+            {% endfor %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <p class="help mt-8 rm-legend-note">Klik op een cel om bevindingen te zien. Kleuren: <span class="rm-legend-low">&#9632;</span> Laag &nbsp;<span class="rm-legend-medium">&#9632;</span> Midden &nbsp;<span class="rm-legend-high">&#9632;</span> Hoog &nbsp;<span class="rm-legend-crit">&#9632;</span> Kritiek</p>
   </div>
 </section>
 
@@ -196,8 +253,92 @@
 {% block scripts %}
 <script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='js/findings-filter.js') }}"></script>
 <script nonce="{{ csp_nonce }}">
-(function() {
+(function () {
   "use strict";
+
+  // ── Risicomatrix ─────────────────────────────────
+  var RISK_COLORS = {
+    low:      '#166534',  // groen
+    medium:   '#78350f',  // oranje-geel
+    high:     '#7c2d12',  // oranje-rood
+    critical: '#7f1d1d',  // rood
+  };
+  var RISK_TEXT = {
+    low: '#4ade80', medium: '#facc15', high: '#f97316', critical: '#ef4444'
+  };
+
+  function riskLevel(k, i) {
+    var score = k * i;
+    if (score >= 20) return 'critical';
+    if (score >= 10) return 'high';
+    if (score >= 4)  return 'medium';
+    return 'low';
+  }
+
+  fetch('/api/findings/risicomatrix')
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      var matrix = data.matrix || {};
+      var items  = data.items  || [];
+
+      // Build lookup by cell key
+      var itemsByCell = {};
+      items.forEach(function(f) {
+        var key = f.kans + '-' + f.impact;
+        if (!itemsByCell[key]) itemsByCell[key] = [];
+        itemsByCell[key].push(f);
+      });
+
+      document.querySelectorAll('.rm-cell').forEach(function(cell) {
+        var k = parseInt(cell.getAttribute('data-k'), 10);
+        var i = parseInt(cell.getAttribute('data-i'), 10);
+        var key = k + '-' + i;
+        var ids  = matrix[key] || [];
+        var lvl  = riskLevel(k, i);
+        cell.style.background = RISK_COLORS[lvl];
+        cell.querySelector('.rm-count').textContent = ids.length || '';
+        cell.querySelector('.rm-count').style.color = ids.length ? RISK_TEXT[lvl] : 'rgba(255,255,255,0.15)';
+
+        if (ids.length) {
+          var tip = cell.querySelector('.rm-tooltip');
+          var cellItems = itemsByCell[key] || [];
+          var html = '<strong>K' + k + ' / I' + i + '</strong><br>';
+          cellItems.slice(0, 8).forEach(function(f) {
+            html += '<a href="/dashboard/findings/edit/' + f.id + '" class="rm-tip-link">' +
+              (f.naam ? (f.naam.length > 32 ? f.naam.slice(0,32)+'…' : f.naam) : 'id:'+f.id) +
+              (f.basescore ? ' <span class="rm-tip-score">['+f.basescore+']</span>' : '') +
+              '</a>';
+          });
+          if (cellItems.length > 8) html += '<span class="rm-tip-more">…en ' + (cellItems.length-8) + ' meer</span>';
+          tip.innerHTML = html;
+
+          cell.addEventListener('click', function(e) {
+            e.stopPropagation();
+            document.querySelectorAll('.rm-tooltip').forEach(function(t) { t.style.display='none'; });
+            if (tip.style.display === 'block') { tip.style.display = 'none'; return; }
+            tip.style.display = 'block';
+            // Flip omhoog als tooltip buiten viewport valt
+            var rect = tip.getBoundingClientRect();
+            if (rect.bottom > window.innerHeight) {
+              tip.style.top = 'auto';
+              tip.style.bottom = '100%';
+              tip.style.marginTop = '0';
+              tip.style.marginBottom = '4px';
+            } else {
+              tip.style.top = '';
+              tip.style.bottom = '';
+              tip.style.marginTop = '4px';
+              tip.style.marginBottom = '0';
+            }
+          });
+        }
+      });
+
+      document.addEventListener('click', function() {
+        document.querySelectorAll('.rm-tooltip').forEach(function(t) { t.style.display='none'; });
+      });
+    })
+    .catch(function() { /* matrix blijft leeg bij fout */ });
 
   // ── Inline status change ────────────────────────
   document.querySelectorAll(".status-inline").forEach(function(sel) {

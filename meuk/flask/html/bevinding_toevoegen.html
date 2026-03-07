@@ -83,6 +83,57 @@
       <label for="business_impact">Bedrijfsimpact</label>
       {{ form.business_impact(id='business_impact', rows='3', class='form-control') }}
     </div>
+
+    <hr style="border-color:#2a2a3a;margin:16px 0">
+
+    <div class="form-grid three">
+      <div>
+        <label for="faalmodus">Faalmodus (WOEF)</label>
+        {{ form.faalmodus(id='faalmodus', class='form-control') }}
+      </div>
+      <div>
+        <label for="control_ref">Controle-referentie</label>
+        {{ form.control_ref(id='control_ref', class='form-control', placeholder='bijv. BIO 12.4, NCSC U/WA.03') }}
+      </div>
+      <div>
+        <label for="detecteerbaarheid">Detecteerbaarheid</label>
+        {{ form.detecteerbaarheid(id='detecteerbaarheid', class='form-control') }}
+      </div>
+    </div>
+    <div>
+      <label for="detectie_notitie">Detectie toelichting</label>
+      {{ form.detectie_notitie(id='detectie_notitie', rows='2', class='form-control', placeholder='Kon de SOC/SIEM dit detecteren? Welke logs zouden het hebben laten zien?') }}
+    </div>
+
+    <hr style="border-color:#2a2a3a;margin:16px 0">
+
+    <div class="form-grid three">
+      <div>
+        <label for="kans">Kans (risicomatrix)</label>
+        {{ form.kans(id='kans', class='form-control') }}
+      </div>
+      <div>
+        <label for="impact_niveau">Impact niveau (risicomatrix)</label>
+        {{ form.impact_niveau(id='impact_niveau', class='form-control') }}
+      </div>
+    </div>
+
+    <hr style="border-color:#2a2a3a;margin:16px 0">
+
+    <div class="form-grid three">
+      <div>
+        <label for="retest_status">Retest status</label>
+        {{ form.retest_status(id='retest_status', class='form-control') }}
+      </div>
+      <div>
+        <label for="retest_date">Retest datum</label>
+        {{ form.retest_date(id='retest_date', class='form-control') }}
+      </div>
+    </div>
+    <div>
+      <label for="retest_notes">Retest notities</label>
+      {{ form.retest_notes(id='retest_notes', rows='3', class='form-control', placeholder='Bevindingen uit de retest, wie heeft getest, welke versie...') }}
+    </div>
   </div>
 
   <div>

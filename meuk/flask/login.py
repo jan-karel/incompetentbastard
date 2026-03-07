@@ -2,6 +2,8 @@
 
 import hmac
 import os
+import threading
+import time
 
 from flask import Blueprint, redirect, render_template, request, session, url_for
 
@@ -11,6 +13,46 @@ login_bp = Blueprint(
     __name__,
     template_folder="html",
 )
+
+# ── Simpele in-memory brute-force bescherming ──────────────────────────────────
+# Maximaal 10 pogingen per IP per 15 minuten. Na blokkade: 15 minuten wachten.
+_RATE_LIMIT_MAX     = 10
+_RATE_LIMIT_WINDOW  = 900   # seconden
+_RATE_LIMIT_BLOCK   = 900   # blokkeerduur in seconden
+
+_rate_data = {}   # ip -> {'count': int, 'window_start': float, 'blocked_until': float}
+_rate_lock = threading.Lock()
+
+
+def _check_rate_limit(ip):
+    """Return (allowed: bool, retry_after: int). Registreert ook de poging."""
+    now = time.time()
+    with _rate_lock:
+        entry = _rate_data.get(ip, {'count': 0, 'window_start': now, 'blocked_until': 0.0})
+
+        # Nog geblokkeerd?
+        if entry['blocked_until'] > now:
+            return False, int(entry['blocked_until'] - now)
+
+        # Reset venster als het verlopen is
+        if now - entry['window_start'] > _RATE_LIMIT_WINDOW:
+            entry = {'count': 0, 'window_start': now, 'blocked_until': 0.0}
+
+        entry['count'] += 1
+
+        if entry['count'] > _RATE_LIMIT_MAX:
+            entry['blocked_until'] = now + _RATE_LIMIT_BLOCK
+            _rate_data[ip] = entry
+            return False, _RATE_LIMIT_BLOCK
+
+        _rate_data[ip] = entry
+        return True, 0
+
+
+def _reset_rate_limit(ip):
+    """Reset teller na succesvolle login."""
+    with _rate_lock:
+        _rate_data.pop(ip, None)
 
 
 def _credentials_configured():
@@ -45,9 +87,16 @@ def login():
         return render_template("login.html", error=error), 500
 
     if request.method == "POST":
+        ip = request.remote_addr or "unknown"
+        allowed, retry_after = _check_rate_limit(ip)
+        if not allowed:
+            error = f"Te veel pogingen. Probeer over {retry_after // 60} minuten opnieuw."
+            return render_template("login.html", error=error), 429
+
         username = request.form.get("username", "")
         password = request.form.get("password", "")
         if _verify_credentials(username, password):
+            _reset_rate_limit(ip)
             session["ib_authenticated"] = True
             return redirect(_safe_next(request.args.get("next") or request.form.get("next")))
         error = "Ongeldige gebruikersnaam of wachtwoord."

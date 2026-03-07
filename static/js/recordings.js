@@ -60,7 +60,7 @@
     }
 
     if (count === 0) {
-      listEl.innerHTML = '<p style="color:var(--muted)">Geen opnames gevonden' + (term ? ' voor "' + term + '"' : ' in meuk/logs/') + '.</p>';
+      listEl.innerHTML = '<p class="text-muted">Geen opnames gevonden' + (term ? ' voor "' + term + '"' : ' in meuk/logs/') + '.</p>';
     }
   }
 
@@ -69,7 +69,7 @@
     xhr.open('GET', '/api/recordings');
     xhr.onload = function () {
       if (xhr.status !== 200) {
-        listEl.innerHTML = '<p style="color:var(--muted)">Kan opnames niet laden.</p>';
+        listEl.innerHTML = '<p class="text-muted">Kan opnames niet laden.</p>';
         return;
       }
       var data = JSON.parse(xhr.responseText);

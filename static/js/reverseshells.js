@@ -132,7 +132,7 @@
   function renderShells(sections) {
     shellContainer.innerHTML = '';
     if (!sections.length) {
-      shellContainer.innerHTML = '<p style="color:var(--muted)">Geen shells gevonden in bestand.</p>';
+      shellContainer.innerHTML = '<p class="text-muted">Geen shells gevonden in bestand.</p>';
       return;
     }
     for (var i = 0; i < sections.length; i++) {
@@ -142,10 +142,10 @@
 
   function loadFile(filename) {
     if (!filename) {
-      shellContainer.innerHTML = '<p style="color:var(--muted)">Selecteer een bestaand bestand of genereer nieuwe reverse shells.</p>';
+      shellContainer.innerHTML = '<p class="text-muted">Selecteer een bestaand bestand of genereer nieuwe reverse shells.</p>';
       return;
     }
-    shellContainer.innerHTML = '<p style="color:var(--muted)">Laden...</p>';
+    shellContainer.innerHTML = '<p class="text-muted">Laden...</p>';
 
     var xhr = new XMLHttpRequest();
     xhr.open('GET', '/api/reverseshells/files/' + encodeURIComponent(filename));
@@ -153,7 +153,7 @@
       if (xhr.status === 200) {
         renderShells(parseSections(xhr.responseText));
       } else {
-        shellContainer.innerHTML = '<p style="color:var(--danger)">Kon bestand niet laden.</p>';
+        shellContainer.innerHTML = '<p class="text-danger">Kon bestand niet laden.</p>';
       }
     };
     xhr.send();
@@ -225,11 +225,11 @@
   function renderCradles(ip, ps1Files) {
     cradleContainer.innerHTML = '';
     if (!ip) {
-      cradleContainer.innerHTML = '<p style="color:var(--muted)">Vul LHOST in en klik "Overzicht vernieuwen".</p>';
+      cradleContainer.innerHTML = '<p class="text-muted">Vul LHOST in en klik "Overzicht vernieuwen".</p>';
       return;
     }
     if (!ps1Files.length) {
-      cradleContainer.innerHTML = '<p style="color:var(--muted)">Geen .ps1 tools gevonden in http/tools/.</p>';
+      cradleContainer.innerHTML = '<p class="text-muted">Geen .ps1 tools gevonden in http/tools/.</p>';
       return;
     }
 
@@ -251,11 +251,11 @@
   function renderDownloads(ip, exeFiles) {
     downloadContainer.innerHTML = '';
     if (!ip) {
-      downloadContainer.innerHTML = '<p style="color:var(--muted)">Vul LHOST in en klik "Overzicht vernieuwen".</p>';
+      downloadContainer.innerHTML = '<p class="text-muted">Vul LHOST in en klik "Overzicht vernieuwen".</p>';
       return;
     }
     if (!exeFiles.length) {
-      downloadContainer.innerHTML = '<p style="color:var(--muted)">Geen .exe tools gevonden in http/tools/.</p>';
+      downloadContainer.innerHTML = '<p class="text-muted">Geen .exe tools gevonden in http/tools/.</p>';
       return;
     }
 
@@ -280,7 +280,7 @@
   function renderPayloads(payloads) {
     payloadContainer.innerHTML = '';
     if (!payloads.length) {
-      payloadContainer.innerHTML = '<p style="color:var(--muted)">Geen payloads gevonden in http/payloads/.</p>';
+      payloadContainer.innerHTML = '<p class="text-muted">Geen payloads gevonden in http/payloads/.</p>';
       return;
     }
 

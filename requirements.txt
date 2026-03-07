@@ -9,3 +9,4 @@ beautifulsoup4
 sh
 cvss
 python-pptx
+pymetasploit3

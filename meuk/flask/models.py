@@ -181,6 +181,19 @@ class db_bevindingen(db.Model):
     data_classification = db.Column(db.String(50), default='')
     business_impact = db.Column(db.Text(), default='')
     remediation_effort = db.Column(db.String(20), default='')
+    # Retest workflow
+    retest_status = db.Column(db.String(20), default='not_applicable')
+    retest_date = db.Column(db.Date)
+    retest_notes = db.Column(db.Text(), default='')
+    # WOEF faalmodus + controle-referentie
+    faalmodus = db.Column(db.String(20), default='')
+    control_ref = db.Column(db.String(200), default='')
+    # Detecteerbaarheid
+    detecteerbaarheid = db.Column(db.String(10), default='')
+    detectie_notitie = db.Column(db.Text(), default='')
+    # Risicomatrix assen (handmatig of afgeleid van CVSS)
+    kans = db.Column(db.String(5), default='')
+    impact_niveau = db.Column(db.String(5), default='')
 
 class db_evidence(db.Model):
     __tablename__ = 'db_evidence'

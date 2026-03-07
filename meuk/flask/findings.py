@@ -404,6 +404,15 @@ def bevinding_bewerken(bevinding_id):
         data_classification=getattr(item, 'data_classification', '') or '',
         business_impact=getattr(item, 'business_impact', '') or '',
         remediation_effort=getattr(item, 'remediation_effort', '') or '',
+        retest_status=getattr(item, 'retest_status', '') or 'not_applicable',
+        retest_date=getattr(item, 'retest_date', None),
+        retest_notes=getattr(item, 'retest_notes', '') or '',
+        faalmodus=getattr(item, 'faalmodus', '') or '',
+        control_ref=getattr(item, 'control_ref', '') or '',
+        detecteerbaarheid=getattr(item, 'detecteerbaarheid', '') or '',
+        detectie_notitie=getattr(item, 'detectie_notitie', '') or '',
+        kans=getattr(item, 'kans', '') or '',
+        impact_niveau=getattr(item, 'impact_niveau', '') or '',
     )
     scope_targets = _get_scope_targets()
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
@@ -446,6 +455,15 @@ def bevinding_opslaan():
                 bev.data_classification = form.data_classification.data
                 bev.business_impact = form.business_impact.data
                 bev.remediation_effort = form.remediation_effort.data
+                bev.retest_status     = form.retest_status.data
+                bev.retest_date       = form.retest_date.data
+                bev.retest_notes      = form.retest_notes.data
+                bev.faalmodus         = form.faalmodus.data
+                bev.control_ref       = form.control_ref.data
+                bev.detecteerbaarheid = form.detecteerbaarheid.data
+                bev.detectie_notitie  = form.detectie_notitie.data
+                bev.kans              = form.kans.data
+                bev.impact_niveau     = form.impact_niveau.data
                 db.session.commit()
                 if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                     return jsonify({'ok': True, 'id': bev.id})
@@ -465,6 +483,15 @@ def bevinding_opslaan():
                 data_classification=form.data_classification.data,
                 business_impact=form.business_impact.data,
                 remediation_effort=form.remediation_effort.data,
+                retest_status=form.retest_status.data,
+                retest_date=form.retest_date.data,
+                retest_notes=form.retest_notes.data,
+                faalmodus=form.faalmodus.data,
+                control_ref=form.control_ref.data,
+                detecteerbaarheid=form.detecteerbaarheid.data,
+                detectie_notitie=form.detectie_notitie.data,
+                kans=form.kans.data,
+                impact_niveau=form.impact_niveau.data,
             )
             db.session.add(bevdb)
             db.session.commit()
@@ -477,6 +504,89 @@ def bevinding_opslaan():
 
 
 _VALID_STATUSES = {'draft', 'final', 'closed'}
+_VALID_RETEST_STATUSES = {'not_applicable', 'pending_retest', 'retested_fixed', 'retested_open'}
+
+
+# ---------------------------------------------------------------------------
+# Retest workflow
+# ---------------------------------------------------------------------------
+
+@findings_bp.route('/dashboard/findings/retest')
+def retest_overzicht():
+    """Overzicht van alle bevindingen die een retest nodig hebben of ondergaan hebben."""
+    findings = db_bevindingen.query.filter(
+        db_bevindingen.retest_status != 'not_applicable'
+    ).order_by(db_bevindingen.retest_status, db_bevindingen.id).all()
+    return render_template('retest_overzicht.html', findings=findings)
+
+
+@findings_bp.route('/api/findings/<int:finding_id>/retest', methods=['POST'])
+def finding_retest_update(finding_id):
+    bev = db.session.get(db_bevindingen, finding_id)
+    if not bev:
+        return jsonify({'ok': False, 'error': 'niet gevonden'}), 404
+    data = request.get_json(force=True) or {}
+    new_status = data.get('retest_status', '')
+    if new_status and new_status not in _VALID_RETEST_STATUSES:
+        return jsonify({'ok': False, 'error': 'ongeldige retest status'}), 400
+    if new_status:
+        bev.retest_status = new_status
+    if 'retest_notes' in data:
+        bev.retest_notes = str(data['retest_notes'])[:5000]
+    if 'retest_date' in data and data['retest_date']:
+        try:
+            bev.retest_date = datetime.date.fromisoformat(str(data['retest_date']))
+        except (ValueError, TypeError):
+            pass
+    db.session.commit()
+    return jsonify({'ok': True, 'id': bev.id, 'retest_status': bev.retest_status})
+
+
+# ---------------------------------------------------------------------------
+# Risicomatrix
+# ---------------------------------------------------------------------------
+
+def _score_to_kans_impact(basescore):
+    """Leid kans/impact af uit CVSS basescore als niet handmatig ingesteld."""
+    try:
+        score = float(basescore)
+    except (TypeError, ValueError):
+        return 3, 3
+    if score >= 9.0:
+        return 5, 5
+    elif score >= 7.0:
+        return 4, 4
+    elif score >= 4.0:
+        return 3, 3
+    elif score > 0:
+        return 2, 2
+    return 1, 1
+
+
+@findings_bp.route('/api/findings/risicomatrix')
+def api_risicomatrix():
+    findings = db_bevindingen.query.all()
+    matrix = {}
+    items = []
+    for f in findings:
+        kans = int(f.kans) if getattr(f, 'kans', '') and f.kans.isdigit() else None
+        impact = int(f.impact_niveau) if getattr(f, 'impact_niveau', '') and f.impact_niveau.isdigit() else None
+        if kans is None or impact is None:
+            k, i = _score_to_kans_impact(f.basescore)
+            kans = kans or k
+            impact = impact or i
+        cell = f'{kans}-{impact}'
+        matrix.setdefault(cell, []).append(f.id)
+        items.append({
+            'id':        f.id,
+            'naam':      f.naam or '',
+            'kans':      kans,
+            'impact':    impact,
+            'basescore': f.basescore or '',
+            'status':    f.status or '',
+            'retest_status': getattr(f, 'retest_status', '') or '',
+        })
+    return jsonify({'items': items, 'matrix': matrix})
 
 
 @findings_bp.route('/api/findings/<int:finding_id>/status', methods=['POST'])

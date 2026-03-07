@@ -1,0 +1,153 @@
+{% extends "bootstrap/base.html" %}
+{% block title %}Retest overzicht{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/safe-overview.css') }}" />
+<link rel="stylesheet" href="{{ url_for('static', filename='css/findings-filter.css') }}" />
+<style nonce="{{ csp_nonce }}">
+.retest-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+.retest-pending    { background: #2d3a4a; color: #60a5fa; }
+.retest-fixed      { background: #14532d; color: #4ade80; }
+.retest-open       { background: #4a1d1d; color: #f87171; }
+.inline-date { font-size: 12px; color: var(--text-muted, #888); }
+.retest-notes-cell { max-width: 260px; font-size: 12px; color: var(--text-muted, #888); white-space: pre-wrap; word-break: break-word; }
+.status-select { background: var(--bg-input, #1a1a2e); color: inherit; border: 1px solid #333; border-radius: 4px; padding: 2px 6px; font-size: 12px; }
+.status-date { width: 140px; font-size: 12px; padding: 2px 6px; }
+.save-retest { font-size: 12px; padding: 2px 8px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-title">
+  <div>
+    <h1>Retest overzicht</h1>
+    <div class="breadcrumbs"><a href="/">Start</a> / <a href="/dashboard/findings">Bevindingen</a> / Retest</div>
+  </div>
+  <div class="page-title-actions">
+    <a class="btn" href="/dashboard/findings">Alle bevindingen</a>
+  </div>
+</div>
+
+<div class="grid cols-3 mb-14">
+  <section class="card"><div class="card-body">
+    <div class="val">{{ findings|length }}</div>
+    <div class="sub">Bevindingen in retest</div>
+  </div></section>
+  <section class="card"><div class="card-body">
+    <div class="val">{{ findings|selectattr('retest_status','equalto','retested_fixed')|list|length }}</div>
+    <div class="sub">Opgelost</div>
+  </div></section>
+  <section class="card"><div class="card-body">
+    <div class="val">{{ findings|selectattr('retest_status','equalto','retested_open')|list|length }}</div>
+    <div class="sub">Nog open na retest</div>
+  </div></section>
+</div>
+
+<section class="card">
+  <div class="card-head"><h2>Bevindingen met retest</h2></div>
+  <div class="card-body">
+    {% if findings %}
+    <table class="table compact" id="retest-table">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Naam</th>
+          <th>Host</th>
+          <th>CVSS</th>
+          <th>Retest status</th>
+          <th>Retest datum</th>
+          <th>Notities</th>
+          <th>Acties</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for f in findings %}
+        <tr data-id="{{ f.id }}">
+          <td>{{ f.id | nulvul }}</td>
+          <td><a href="/dashboard/findings/edit/{{ f.id }}">{{ f.naam or '(naamloos)' }}</a></td>
+          <td>{{ f.locatie or '-' }}</td>
+          <td>{{ f.basescore or '-' }}</td>
+          <td>
+            <select class="status-select" data-finding-id="{{ f.id }}" data-field="retest_status">
+              <option value="pending_retest"{% if f.retest_status == 'pending_retest' %} selected{% endif %}>Retest gepland</option>
+              <option value="retested_fixed"{% if f.retest_status == 'retested_fixed' %} selected{% endif %}>Opgelost</option>
+              <option value="retested_open"{% if f.retest_status == 'retested_open' %} selected{% endif %}>Nog open</option>
+              <option value="not_applicable"{% if f.retest_status == 'not_applicable' %} selected{% endif %}>N.v.t.</option>
+            </select>
+          </td>
+          <td>
+            <input type="date" class="form-control status-select status-date"
+              data-finding-id="{{ f.id }}" data-field="retest_date"
+              value="{{ f.retest_date.isoformat() if f.retest_date else '' }}" />
+          </td>
+          <td class="retest-notes-cell">{{ (f.retest_notes or '')[:120] }}{% if f.retest_notes and f.retest_notes|length > 120 %}…{% endif %}</td>
+          <td>
+            <button class="btn save-retest" data-id="{{ f.id }}">Opslaan</button>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="help">Geen bevindingen met een actieve retest. Stel bij een bevinding de retest status in om deze hier te zien.</p>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script nonce="{{ csp_nonce }}">
+(function () {
+  "use strict";
+
+  var csrfMeta = document.querySelector('meta[name="csrf-token"]');
+  var csrf = csrfMeta ? csrfMeta.getAttribute('content') : '';
+
+  function getRow(id) {
+    return document.querySelector('tr[data-id="' + id + '"]');
+  }
+
+  function saveRetest(id) {
+    var row = getRow(id);
+    if (!row) return;
+    var status = row.querySelector('[data-field="retest_status"]').value;
+    var date   = row.querySelector('[data-field="retest_date"]').value;
+    fetch('/api/findings/' + id + '/retest', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrf},
+      body: JSON.stringify({retest_status: status, retest_date: date || null})
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      var btn = row.querySelector('.save-retest');
+      if (d.ok) {
+        btn.textContent = 'Opgeslagen';
+        btn.style.borderColor = 'var(--success, #22c55e)';
+        setTimeout(function() { btn.textContent = 'Opslaan'; btn.style.borderColor = ''; }, 1800);
+        if (status === 'not_applicable') {
+          row.style.opacity = '0.4';
+        }
+      } else {
+        btn.textContent = 'Fout!';
+        btn.style.borderColor = 'var(--danger, #ef4444)';
+        setTimeout(function() { btn.textContent = 'Opslaan'; btn.style.borderColor = ''; }, 2000);
+      }
+    });
+  }
+
+  document.querySelectorAll('.save-retest').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      saveRetest(btn.getAttribute('data-id'));
+    });
+  });
+})();
+</script>
+{% endblock %}

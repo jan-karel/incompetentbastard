@@ -93,13 +93,9 @@
   }
 
   function ansiToHtml(text) {
-    // ANSI SGR codes naar HTML spans
-    var COLORS = {
-      '30': '#4b5563', '31': '#ef4444', '32': '#22c55e', '33': '#eab308',
-      '34': '#3b82f6', '35': '#a855f7', '36': '#06b6d4', '37': '#e2e8f0',
-      '90': '#6b7280', '91': '#f87171', '92': '#4ade80', '93': '#facc15',
-      '94': '#60a5fa', '95': '#c084fc', '96': '#22d3ee', '97': '#f8fafc'
-    };
+    // ANSI SGR codes naar HTML spans — klassen i.p.v. inline styles (CSP-compliant)
+    var COLOR_CODES = {'30':1,'31':1,'32':1,'33':1,'34':1,'35':1,'36':1,'37':1,
+                       '90':1,'91':1,'92':1,'93':1,'94':1,'95':1,'96':1,'97':1};
     var result = '';
     var open = 0;
     var re = /\x1b\[([0-9;]*)m/g;
@@ -114,9 +110,9 @@
         if (c === '0' || c === '') {
           while (open > 0) { result += '</span>'; open--; }
         } else if (c === '1') {
-          result += '<span style="font-weight:700">'; open++;
-        } else if (COLORS[c]) {
-          result += '<span style="color:' + COLORS[c] + '">'; open++;
+          result += '<span class="ansi-bold">'; open++;
+        } else if (COLOR_CODES[c]) {
+          result += '<span class="ansi-' + c + '">'; open++;
         }
       }
     }

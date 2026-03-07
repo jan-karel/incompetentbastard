@@ -46,6 +46,19 @@ _TASKS = {
         "group": "dev",
         "cmd": ["git", "status", "--short"],
     },
+    # --- Metasploit ---
+    "msfrpcd_start": {
+        "label": "Start msfrpcd",
+        "group": "metasploit",
+        "desc": "Start Metasploit RPC daemon op 127.0.0.1:55553 (wachtwoord: msf)",
+        "cmd": ["bash", "-c", "msfrpcd -P msf -S -a 127.0.0.1 -p 55553 -f"],
+    },
+    "msfdb_init": {
+        "label": "Init MSF database",
+        "group": "metasploit",
+        "desc": "Initialiseer de Metasploit PostgreSQL database",
+        "cmd": ["bash", "-c", "msfdb init"],
+    },
     # --- Setup ---
     "init": {
         "label": "Init environment",
@@ -211,6 +224,7 @@ _TASKS = {
 # Group labels for the UI
 _GROUPS = {
     "dev": "Development",
+    "metasploit": "Metasploit",
     "setup": "Setup",
     "recon": "Recon",
     "brute": "Brute Force",

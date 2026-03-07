@@ -52,6 +52,40 @@ class BevindingForm(FlaskForm):
     remediation_effort = SelectField('Remediation effort', choices=[
         ('', '-- Select --'), ('low', 'Low'), ('medium', 'Medium'), ('high', 'High')
     ], default='')
+    # Retest workflow
+    retest_status = SelectField('Retest status', choices=[
+        ('not_applicable', 'Niet van toepassing'),
+        ('pending_retest', 'Retest gepland'),
+        ('retested_fixed', 'Getest — Opgelost'),
+        ('retested_open',  'Getest — Nog open'),
+    ], default='not_applicable')
+    retest_date  = DateField('Retest datum', format='%Y-%m-%d', validators=[])
+    retest_notes = TextAreaField('Retest notities')
+    # WOEF faalmodus + controle-referentie
+    faalmodus = SelectField('Faalmodus', choices=[
+        ('',        '-- Selecteer --'),
+        ('opzet',   'Opzet (beleid / norm ontbreekt)'),
+        ('bestaan', 'Bestaan (maatregel niet geïmplementeerd)'),
+        ('werking', 'Werking (maatregel niet effectief)'),
+    ], default='')
+    control_ref = StringField('Controle-referentie')
+    # Detecteerbaarheid
+    detecteerbaarheid = SelectField('Detecteerbaarheid', choices=[
+        ('',      '-- Selecteer --'),
+        ('ja',    'Ja — had gedetecteerd kunnen worden'),
+        ('deels', 'Deels — beperkte detectiemogelijkheden'),
+        ('nee',   'Nee — geen detectiemogelijkheid'),
+    ], default='')
+    detectie_notitie = TextAreaField('Detectie toelichting')
+    # Risicomatrix assen
+    kans = SelectField('Kans (likelihood)', choices=[
+        ('', '--'), ('1', '1 - Zeer laag'), ('2', '2 - Laag'),
+        ('3', '3 - Midden'), ('4', '4 - Hoog'), ('5', '5 - Zeer hoog'),
+    ], default='')
+    impact_niveau = SelectField('Impact niveau', choices=[
+        ('', '--'), ('1', '1 - Verwaarloosbaar'), ('2', '2 - Beperkt'),
+        ('3', '3 - Aanzienlijk'), ('4', '4 - Ernstig'), ('5', '5 - Kritiek'),
+    ], default='')
     submit = SubmitField('Opslaan')
 
 class BevindingTemplateForm(FlaskForm):

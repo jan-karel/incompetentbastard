@@ -77,7 +77,7 @@ import shutil
 build_cmd = 'msbuild' if shutil.which('msbuild') else 'xbuild'
 try:
     result = subprocess.run([build_cmd, 'meuk/meth/meth.csproj'], stdout=subprocess.PIPE)
-    print(result.stdout)
+    print(result.stdout.decode('utf-8', errors='replace'))
 except:
     print('Oepsie')
 

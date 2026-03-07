@@ -13,7 +13,7 @@
   </div>
 </div>
 
-<div class="grid cols-5">
+<div class="grid cols-6">
   <section class="card">
     <div class="card-body">
       <div class="kpi">
@@ -68,6 +68,17 @@
       </div>
     </div>
   </section>
+
+  <section class="card">
+    <div class="card-body">
+      <div class="kpi">
+        <div>
+          <div class="val accent-red" id="kpi-msf-sessions" title="Metasploit sessies">–</div>
+          <div class="sub"><a href="/dashboard/msf" class="link-inherit">MSF sessies</a></div>
+        </div>
+      </div>
+    </div>
+  </section>
 </div>
 
 <section class="card mt-14">
@@ -99,6 +110,7 @@
       <a class="btn" href="/dashboard/recordings">Opnames</a>
       <a class="btn" href="/dashboard/screen">Terminal</a>
       <a class="btn" href="/dashboard/agents">Agenten</a>
+      <a class="btn" href="/dashboard/msf">Metasploit</a>
     </div>
   </section>
 
@@ -403,4 +415,21 @@
 
 {% block scripts %}
 <script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='js/dashboard-modern.js') }}"></script>
+<script nonce="{{ csp_nonce }}">
+(function () {
+  var kpiMsf = document.getElementById('kpi-msf-sessions');
+  if (!kpiMsf) return;
+  function pollMsfSessions() {
+    fetch('/api/msf/sessions')
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        kpiMsf.textContent = d.count !== undefined ? String(d.count) : '–';
+        kpiMsf.style.color = (d.count > 0) ? 'var(--accent-green, #22c55e)' : '';
+      })
+      .catch(function () { kpiMsf.textContent = '–'; });
+  }
+  pollMsfSessions();
+  setInterval(pollMsfSessions, 30000);
+})();
+</script>
 {% endblock %}

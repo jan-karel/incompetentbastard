@@ -217,6 +217,25 @@ def create_app():
                 except Exception:
                     pass
 
+            # Auto-migrate: retest workflow, faalmodus, detecteerbaarheid, risicomatrix
+            for col, coltype in [
+                ("retest_status",    "VARCHAR(20) DEFAULT 'not_applicable'"),
+                ("retest_date",      "DATE"),
+                ("retest_notes",     "TEXT DEFAULT ''"),
+                ("faalmodus",        "VARCHAR(20) DEFAULT ''"),
+                ("control_ref",      "VARCHAR(200) DEFAULT ''"),
+                ("detecteerbaarheid","VARCHAR(10) DEFAULT ''"),
+                ("detectie_notitie", "TEXT DEFAULT ''"),
+                ("kans",             "VARCHAR(5) DEFAULT ''"),
+                ("impact_niveau",    "VARCHAR(5) DEFAULT ''"),
+            ]:
+                try:
+                    conn.execute(db.text(
+                        f"ALTER TABLE db_bevinding ADD COLUMN {col} {coltype}"))
+                    conn.commit()
+                except Exception:
+                    pass
+
             # Auto-migrate: evidence extended columns
             for col, coltype in [
                 ("tool_name", "VARCHAR(100)"),
@@ -272,6 +291,7 @@ def create_app():
         from meuk.flask import output_view
         from meuk.flask import rapport
         from meuk.flask import search
+        from meuk.flask import msfrpc
         from meuk.flask import stix_taxii
         from meuk.flask import sqli2
         from meuk.flask import ssrf
@@ -297,6 +317,7 @@ def create_app():
         app.register_blueprint(macro.macro_bp)
         app.register_blueprint(notes.notes_bp)
         app.register_blueprint(rapport.rapport_bp)
+        app.register_blueprint(msfrpc.msf_bp)
         app.register_blueprint(stix_taxii.stix_taxii_bp)
         app.register_blueprint(search.search_bp)
 

@@ -1,0 +1,543 @@
+{% extends "bootstrap/base.html" %}
+{% block title %}Incompetent Bastard – Metasploit{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard-modern.css') }}" nonce="{{ csp_nonce }}" />
+<style nonce="{{ csp_nonce }}">
+/* ── Status ── */
+.status-badge{display:inline-block;padding:2px 10px;border-radius:4px;font-size:11px;font-weight:700;letter-spacing:.4px}
+.status-ok{background:#1a4731;color:#4ade80}.status-err{background:#4c1515;color:#f87171}.status-warn{background:#4a3300;color:#fbbf24}
+
+/* ── Tabs ── */
+.msf-tabs{display:flex;gap:4px;border-bottom:1px solid #2a2a3a;margin-bottom:16px}
+.msf-tab{padding:7px 16px;cursor:pointer;font-size:13px;color:#888;border-bottom:2px solid transparent;background:none;border-top:none;border-left:none;border-right:none}
+.msf-tab.active{color:#60a5fa;border-bottom-color:#60a5fa}
+.msf-pane{display:none}.msf-pane.active{display:block}
+
+/* ── Sessietabel ── */
+.msf-table{width:100%;border-collapse:collapse;font-size:13px}
+.msf-table th{text-align:left;padding:8px 10px;border-bottom:1px solid #2a2a3a;color:#888;font-weight:600;text-transform:uppercase;font-size:10px}
+.msf-table td{padding:8px 10px;border-bottom:1px solid #1e1e2e;vertical-align:top}
+.msf-table tr:hover td{background:#1a1a2e}
+
+/* ── Sessie expand ── */
+.sess-expand{background:#0d0d1a;border:1px solid #2a2a3a;border-radius:6px;padding:12px;margin-top:6px}
+.sess-expand-head{font-size:11px;color:#555;margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px}
+
+/* ── Quick actions ── */
+.qa-grid{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.qa-btn{padding:4px 10px;font-size:11px;border-radius:4px;cursor:pointer;border:1px solid #2a2a3a;background:#1a1a2e;color:#94a3b8}
+.qa-btn:hover{border-color:#60a5fa;color:#60a5fa}
+.qa-btn.danger:hover{border-color:#f87171;color:#f87171}
+.qa-btn[data-action="getsystem"]{border-color:#7c3aed;color:#a78bfa}
+.qa-btn[data-action="hashdump"]{border-color:#d97706;color:#fbbf24}
+
+/* ── Commandoregel ── */
+.cmd-row{display:flex;gap:6px}
+.cmd-input{flex:1;background:#0d0d1a;border:1px solid #2a2a3a;color:#e2e8f0;padding:5px 10px;border-radius:4px;font-family:monospace;font-size:12px}
+.cmd-input:focus{outline:none;border-color:#60a5fa}
+
+/* ── Output ── */
+.cmd-output{background:#050510;border:1px solid #2a2a3a;border-radius:4px;padding:10px;font-family:monospace;font-size:12px;white-space:pre-wrap;color:#a0aec0;margin-top:8px;max-height:260px;overflow-y:auto;display:none;position:relative}
+.output-actions{display:flex;gap:6px;margin-top:6px}
+.save-note-btn{font-size:11px;padding:3px 8px;border-radius:4px;cursor:pointer;border:1px solid #2a2a3a;background:#1a1a2e;color:#4ade80}
+.save-note-btn:hover{background:#1a4731}
+
+/* ── Type badges ── */
+.type-meterpreter{color:#60a5fa;font-weight:600}
+.type-shell{color:#a78bfa;font-weight:600}
+
+/* ── Handler formulier ── */
+.handler-form{display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:8px;align-items:end}
+.handler-form label{font-size:11px;color:#888;display:block;margin-bottom:3px}
+.handler-form select,.handler-form input[type=text]{width:100%;background:#0d0d1a;border:1px solid #2a2a3a;color:#e2e8f0;padding:6px 10px;border-radius:4px;font-size:13px}
+.handler-form select:focus,.handler-form input:focus{outline:none;border-color:#60a5fa}
+.handler-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #1e1e2e;font-size:13px}
+.handler-row:last-child{border-bottom:none}
+
+/* ── Jobs ── */
+.job-row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid #1e1e2e;font-size:13px}
+.job-row:last-child{border-bottom:none}
+
+/* ── Misc ── */
+.empty-state{color:#555;font-style:italic;font-size:13px}
+.kill-btn{background:#4c1515;color:#f87171;border:none;padding:3px 9px;border-radius:4px;cursor:pointer;font-size:11px}
+.kill-btn:hover{background:#6b1f1f}
+.mono{font-family:monospace;font-size:12px}
+.tag{display:inline-block;padding:1px 6px;border-radius:3px;font-size:10px;background:#1a2a3a;color:#60a5fa;margin-left:4px}
+.spinner{display:inline-block;width:10px;height:10px;border:2px solid #444;border-top-color:#60a5fa;border-radius:50%;animation:spin .6s linear infinite;margin-right:4px}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ── Inline-style vervangingen ── */
+.msf-status-ml{margin-left:12px}
+.msf-status-det{margin-left:12px;font-size:12px;color:#666}
+.handler-new{margin-bottom:16px}
+.handler-msg{margin-top:8px;font-size:12px;display:none}
+.arch-label{color:#555}
+.exploit-td{font-size:11px;color:#666}
+.expand-td{padding:0 10px 14px}
+.qa-head-mt{margin-top:8px}
+.oa-hidden{display:none}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-title">
+  <div>
+    <h1>Metasploit</h1>
+    <div class="breadcrumbs"><a href="/">Start</a> / <a href="/">Dashboard</a> / Metasploit</div>
+  </div>
+</div>
+
+<!-- Status balk -->
+<section class="card mt-14">
+  <div class="card-head">
+    <h2>msfrpcd</h2>
+    <span id="msf-status-badge" class="status-badge status-warn msf-status-ml">controleren...</span>
+    <span id="msf-status-detail" class="msf-status-det"></span>
+    <button class="btn btn-link ml-auto fs-12" id="btn-refresh" type="button">Vernieuwen</button>
+  </div>
+</section>
+
+<!-- Tabs -->
+<section class="card mt-14">
+  <div class="card-body">
+    <div class="msf-tabs">
+      <button class="msf-tab active" data-pane="pane-sessions">Sessies <span id="tab-sess-cnt" class="tag">0</span></button>
+      <button class="msf-tab" data-pane="pane-handlers">Handlers <span id="tab-hdlr-cnt" class="tag">0</span></button>
+      <button class="msf-tab" data-pane="pane-jobs">Jobs <span id="tab-job-cnt" class="tag">0</span></button>
+    </div>
+
+    <!-- PANE: Sessies -->
+    <div class="msf-pane active" id="pane-sessions">
+      <div id="sessions-panel"><p class="empty-state">Laden...</p></div>
+    </div>
+
+    <!-- PANE: Handlers -->
+    <div class="msf-pane" id="pane-handlers">
+      <div class="handler-new">
+        <div class="sess-expand-head">Nieuwe listener starten</div>
+        <div class="handler-form">
+          <div>
+            <label>Payload</label>
+            <select id="hf-payload">
+              <option value="windows/x64/meterpreter/reverse_tcp">windows/x64/meterpreter/reverse_tcp</option>
+              <option value="windows/x64/meterpreter/reverse_https">windows/x64/meterpreter/reverse_https</option>
+              <option value="windows/meterpreter/reverse_tcp">windows/meterpreter/reverse_tcp</option>
+              <option value="windows/meterpreter/reverse_https">windows/meterpreter/reverse_https</option>
+              <option value="linux/x64/meterpreter/reverse_tcp">linux/x64/meterpreter/reverse_tcp</option>
+              <option value="linux/x64/shell/reverse_tcp">linux/x64/shell/reverse_tcp</option>
+              <option value="linux/x86/meterpreter/reverse_tcp">linux/x86/meterpreter/reverse_tcp</option>
+              <option value="osx/x64/meterpreter/reverse_tcp">osx/x64/meterpreter/reverse_tcp</option>
+              <option value="python/meterpreter/reverse_tcp">python/meterpreter/reverse_tcp</option>
+              <option value="php/meterpreter/reverse_tcp">php/meterpreter/reverse_tcp</option>
+            </select>
+          </div>
+          <div>
+            <label>LHOST</label>
+            <input type="text" id="hf-lhost" placeholder="10.10.10.1" />
+          </div>
+          <div>
+            <label>LPORT</label>
+            <input type="text" id="hf-lport" placeholder="4444" value="4444" />
+          </div>
+          <div>
+            <label>&nbsp;</label>
+            <button class="btn btn-primary" id="btn-start-handler" type="button">Start</button>
+          </div>
+        </div>
+        <div id="handler-start-msg" class="handler-msg"></div>
+      </div>
+      <div class="sess-expand-head">Actieve handlers</div>
+      <div id="handlers-panel"><p class="empty-state">Laden...</p></div>
+    </div>
+
+    <!-- PANE: Jobs -->
+    <div class="msf-pane" id="pane-jobs">
+      <div id="jobs-panel"><p class="empty-state">Laden...</p></div>
+    </div>
+  </div>
+</section>
+
+<script nonce="{{ csp_nonce }}">
+(function () {
+  'use strict';
+
+  /* ── Hulpfuncties ── */
+  function esc(s) {
+    return String(s)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function setTabCount(id, n) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = n;
+  }
+
+  function showMsg(id, msg, ok) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.style.display = 'block';
+    el.style.color = ok ? '#4ade80' : '#f87171';
+    el.textContent = msg;
+  }
+
+  /* ── Tabs ── */
+  document.querySelectorAll('.msf-tab').forEach(function(tab) {
+    tab.addEventListener('click', function() {
+      document.querySelectorAll('.msf-tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.msf-pane').forEach(p => p.classList.remove('active'));
+      tab.classList.add('active');
+      document.getElementById(tab.dataset.pane).classList.add('active');
+    });
+  });
+
+  /* ── Status ── */
+  function fetchStatus() {
+    fetch('/api/msf/status')
+      .then(r => r.json())
+      .then(d => {
+        const badge  = document.getElementById('msf-status-badge');
+        const detail = document.getElementById('msf-status-detail');
+        if (d.connected) {
+          badge.textContent  = 'Verbonden';
+          badge.className    = 'status-badge status-ok';
+          detail.textContent = 'Metasploit ' + d.version + ' | Ruby ' + d.ruby;
+        } else {
+          badge.textContent  = 'Niet verbonden';
+          badge.className    = 'status-badge status-err';
+          detail.textContent = d.error || '';
+        }
+      });
+  }
+
+  /* ── Sessies ── */
+  function buildQuickActions(sid, sessType) {
+    const isMeter = sessType === 'meterpreter';
+    const actions = isMeter
+      ? [
+          {a:'sysinfo',   l:'sysinfo'},
+          {a:'getuid',    l:'getuid'},
+          {a:'getsystem', l:'getsystem ⬆'},
+          {a:'hashdump',  l:'hashdump'},
+          {a:'arp',       l:'arp'},
+          {a:'ifconfig',  l:'ifconfig'},
+          {a:'ps',        l:'ps'},
+          {a:'network',   l:'netwerk ifaces'},
+          {a:'privesc',   l:'privesc suggest'},
+          {a:'creds',     l:'cred collector'},
+        ]
+      : [
+          {a:'id',        l:'id'},
+          {a:'whoami',    l:'whoami'},
+          {a:'uname',     l:'uname -a'},
+          {a:'ifconfig',  l:'ifconfig'},
+          {a:'ps',        l:'ps aux'},
+          {a:'sudoers',   l:'sudo -l'},
+          {a:'suid',      l:'suid bestanden'},
+        ];
+
+    return actions.map(function(x) {
+      return '<button class="qa-btn" data-qa-sid="' + esc(sid) + '" data-action="' + esc(x.a) + '">' + esc(x.l) + '</button>';
+    }).join('');
+  }
+
+  function fetchSessions() {
+    fetch('/api/msf/sessions')
+      .then(r => r.json())
+      .then(d => {
+        setTabCount('tab-sess-cnt', d.count);
+        const panel = document.getElementById('sessions-panel');
+        if (d.error && d.count === 0) {
+          panel.innerHTML = '<p class="empty-state">' + esc(d.error) + '</p>';
+          return;
+        }
+        if (d.sessions.length === 0) {
+          panel.innerHTML = '<p class="empty-state">Geen actieve sessies.</p>';
+          return;
+        }
+
+        let html = '<table class="msf-table"><thead><tr>' +
+          '<th>#</th><th>Type</th><th>Peer</th><th>Platform</th>' +
+          '<th>Gebruiker</th><th>Via exploit</th><th></th>' +
+          '</tr></thead><tbody>';
+
+        d.sessions.forEach(function(s) {
+          const tClass = s.type === 'meterpreter' ? 'type-meterpreter' : 'type-shell';
+          html += '<tr>' +
+            '<td><strong>' + esc(String(s.id)) + '</strong></td>' +
+            '<td><span class="' + tClass + '">' + esc(s.type) + '</span></td>' +
+            '<td class="mono">' + esc(s.tunnel_peer) + '</td>' +
+            '<td>' + esc(s.platform) + (s.arch ? '<small class="arch-label"> / ' + esc(s.arch) + '</small>' : '') + '</td>' +
+            '<td>' + esc(s.username) + '</td>' +
+            '<td class="exploit-td">' + esc(s.via_exploit) + '</td>' +
+            '<td><button class="kill-btn" data-sess-kill="' + esc(String(s.id)) + '">kill</button></td>' +
+          '</tr>' +
+          /* Expand rij */
+          '<tr><td colspan="7" class="expand-td">' +
+            '<div class="sess-expand">' +
+              '<div class="sess-expand-head">Quick actions</div>' +
+              '<div class="qa-grid">' + buildQuickActions(String(s.id), s.type) + '</div>' +
+              '<div class="sess-expand-head qa-head-mt">Commando</div>' +
+              '<div class="cmd-row">' +
+                '<input class="cmd-input" id="ci-' + esc(String(s.id)) + '" type="text" placeholder="getuid / shell /etc/passwd …" />' +
+                '<button class="btn" data-run-sid="' + esc(String(s.id)) + '">Uitvoeren</button>' +
+              '</div>' +
+              '<div class="cmd-output" id="out-' + esc(String(s.id)) + '"></div>' +
+              '<div class="output-actions oa-hidden" id="oa-' + esc(String(s.id)) + '">' +
+                '<button class="save-note-btn" data-save-sid="' + esc(String(s.id)) + '">Opslaan als notitie</button>' +
+                '<button class="qa-btn" data-copy-sid="' + esc(String(s.id)) + '">Kopieer</button>' +
+              '</div>' +
+            '</div>' +
+          '</td></tr>';
+        });
+
+        html += '</tbody></table>';
+        panel.innerHTML = html;
+        attachSessionHandlers();
+        /* Herstel gecachede output na refresh */
+        d.sessions.forEach(function(s) { _restoreCachedOutput(String(s.id)); });
+      });
+  }
+
+  function attachSessionHandlers() {
+    /* Quick actions */
+    document.querySelectorAll('[data-qa-sid]').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        const sid    = btn.dataset.qaSid;
+        const action = btn.dataset.action;
+        runInSession(sid, null, action);
+      });
+    });
+
+    /* Vrij commando */
+    document.querySelectorAll('[data-run-sid]').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        const sid = btn.dataset.runSid;
+        const inp = document.getElementById('ci-' + sid);
+        const cmd = inp ? inp.value.trim() : '';
+        if (!cmd) return;
+        runInSession(sid, cmd, null);
+      });
+    });
+
+    /* Enter in commandoveld */
+    document.querySelectorAll('.cmd-input').forEach(function(inp) {
+      inp.addEventListener('keydown', function(e) {
+        if (e.key !== 'Enter') return;
+        const sid = inp.id.replace('ci-', '');
+        runInSession(sid, inp.value.trim(), null);
+      });
+    });
+
+    /* Kill sessie */
+    document.querySelectorAll('[data-sess-kill]').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        const sid = btn.dataset.sessKill;
+        if (!confirm('Sessie ' + sid + ' beëindigen?')) return;
+        fetch('/api/msf/sessions/' + encodeURIComponent(sid) + '/kill', {method:'POST'})
+          .then(() => refresh());
+      });
+    });
+
+    /* Opslaan als notitie */
+    document.querySelectorAll('[data-save-sid]').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        const sid  = btn.dataset.saveSid;
+        const out  = document.getElementById('out-' + sid);
+        const inhoud = out ? out.textContent : '';
+        const titel = prompt('Notitietitel:', 'MSF sessie #' + sid + ' output');
+        if (!titel) return;
+        fetch('/api/msf/sessions/' + encodeURIComponent(sid) + '/save-note', {
+          method: 'POST',
+          headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({titel: titel, inhoud: inhoud})
+        })
+        .then(r => r.json())
+        .then(d => {
+          if (d.ok) alert('Opgeslagen als notitie #' + d.note_id);
+          else alert('Fout: ' + (d.error || '?'));
+        });
+      });
+    });
+
+    /* Kopieer output */
+    document.querySelectorAll('[data-copy-sid]').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        const sid = btn.dataset.copySid;
+        const out = document.getElementById('out-' + sid);
+        if (out && navigator.clipboard) navigator.clipboard.writeText(out.textContent);
+      });
+    });
+  }
+
+  /* ── Output cache: behoudt inhoud bij 15s auto-refresh ── */
+  var _outputCache = {};
+
+  function _restoreCachedOutput(sid) {
+    var cached = _outputCache[sid];
+    if (!cached) return;
+    var out = document.getElementById('out-' + sid);
+    var oa  = document.getElementById('oa-' + sid);
+    if (!out) return;
+    out.style.display = 'block';
+    out.textContent   = cached;
+    if (oa) { oa.classList.remove('oa-hidden'); oa.style.display = 'flex'; }
+  }
+
+  function runInSession(sid, cmd, action) {
+    var out = document.getElementById('out-' + sid);
+    var oa  = document.getElementById('oa-' + sid);
+    out.style.display = 'block';
+    out.textContent   = '';
+
+    var spinner = document.createElement('span');
+    spinner.className = 'spinner';
+    out.appendChild(spinner);
+
+    var url  = action
+      ? '/api/msf/sessions/' + encodeURIComponent(sid) + '/quickrun'
+      : '/api/msf/sessions/' + encodeURIComponent(sid) + '/run';
+    var body = action ? {action: action} : {cmd: cmd};
+
+    fetch(url, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(body)
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      if (d.error) {
+        out.textContent = 'Fout: ' + d.error;
+        return;
+      }
+      if (!d.task_id) {
+        out.textContent = d.output || '(geen uitvoer)';
+        _outputCache[sid] = out.textContent;
+        if (oa) { oa.classList.remove('oa-hidden'); oa.style.display = 'flex'; }
+        return;
+      }
+      /* Poll tot task klaar */
+      var taskId = d.task_id;
+      function poll() {
+        fetch('/api/msf/sessions/task/' + encodeURIComponent(taskId))
+          .then(function(r) { return r.json(); })
+          .then(function(td) {
+            if (td.status === 'running') {
+              setTimeout(poll, 800);
+              return;
+            }
+            if (td.status === 'error') {
+              out.textContent = 'Fout: ' + (td.output || '?');
+            } else {
+              out.textContent = td.output || '(geen uitvoer)';
+              _outputCache[sid] = out.textContent;
+              if (oa) { oa.classList.remove('oa-hidden'); oa.style.display = 'flex'; }
+            }
+          })
+          .catch(function(err) { out.textContent = 'Poll fout: ' + err; });
+      }
+      poll();
+    })
+    .catch(function(err) { out.textContent = 'Netwerkfout: ' + err; });
+  }
+
+  /* ── Handlers ── */
+  function fetchHandlers() {
+    fetch('/api/msf/handlers')
+      .then(r => r.json())
+      .then(d => {
+        setTabCount('tab-hdlr-cnt', d.count);
+        const panel = document.getElementById('handlers-panel');
+        if (d.count === 0) {
+          panel.innerHTML = '<p class="empty-state">Geen actieve handlers.</p>';
+          return;
+        }
+        let html = '';
+        d.handlers.forEach(function(h) {
+          html += '<div class="handler-row">' +
+            '<span><strong class="mono">#' + esc(String(h.id)) + '</strong> ' + esc(h.name) + '</span>' +
+            '<button class="kill-btn" data-job-kill="' + esc(String(h.id)) + '">stop</button>' +
+          '</div>';
+        });
+        panel.innerHTML = html;
+        attachJobKillHandlers();
+      });
+  }
+
+  document.getElementById('btn-start-handler').addEventListener('click', function() {
+    const btn     = this;
+    const payload = document.getElementById('hf-payload').value;
+    const lhost   = document.getElementById('hf-lhost').value.trim();
+    const lport   = document.getElementById('hf-lport').value.trim();
+    if (!lhost || !lport) { showMsg('handler-start-msg', 'LHOST en LPORT zijn verplicht', false); return; }
+    btn.disabled     = true;
+    btn.textContent  = '...';
+    fetch('/api/msf/handlers', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({payload: payload, lhost: lhost, lport: lport})
+    })
+    .then(r => r.json())
+    .then(d => {
+      if (d.ok) {
+        showMsg('handler-start-msg', 'Handler gestart (job #' + d.job_id + ') — ' + d.payload + ' op ' + d.lhost + ':' + d.lport, true);
+        fetchHandlers();
+        fetchJobs();
+      } else {
+        showMsg('handler-start-msg', 'Fout: ' + (d.error || '?'), false);
+      }
+      btn.disabled    = false;
+      btn.textContent = 'Start';
+    });
+  });
+
+  /* ── Jobs ── */
+  function fetchJobs() {
+    fetch('/api/msf/jobs')
+      .then(r => r.json())
+      .then(d => {
+        setTabCount('tab-job-cnt', d.count);
+        const panel = document.getElementById('jobs-panel');
+        if (d.count === 0) {
+          panel.innerHTML = '<p class="empty-state">Geen actieve jobs.</p>';
+          return;
+        }
+        let html = '';
+        d.jobs.forEach(function(j) {
+          html += '<div class="job-row">' +
+            '<span><strong class="mono">#' + esc(String(j.id)) + '</strong> ' + esc(j.name) + '</span>' +
+            '<button class="kill-btn" data-job-kill="' + esc(String(j.id)) + '">stop</button>' +
+          '</div>';
+        });
+        panel.innerHTML = html;
+        attachJobKillHandlers();
+      });
+  }
+
+  function attachJobKillHandlers() {
+    document.querySelectorAll('[data-job-kill]').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        const jid = btn.dataset.jobKill;
+        if (!confirm('Job ' + jid + ' stoppen?')) return;
+        fetch('/api/msf/jobs/' + encodeURIComponent(jid) + '/kill', {method:'POST'})
+          .then(() => { fetchJobs(); fetchHandlers(); });
+      });
+    });
+  }
+
+  /* ── Refresh ── */
+  function refresh() {
+    fetchStatus();
+    fetchSessions();
+    fetchHandlers();
+    fetchJobs();
+  }
+
+  document.getElementById('btn-refresh').addEventListener('click', refresh);
+  refresh();
+  setInterval(refresh, 15000);
+})();
+</script>
+{% endblock %}

@@ -536,7 +536,7 @@
     }
 
     if (filtered.length === 0) {
-      cmdList.innerHTML = '<p style="color:var(--muted)">Geen commands gevonden' + (term ? ' voor "' + escapeHtml(term) + '"' : '') + '.</p>';
+      cmdList.innerHTML = '<p class="text-muted">Geen commands gevonden' + (term ? ' voor "' + escapeHtml(term) + '"' : '') + '.</p>';
       return;
     }
 

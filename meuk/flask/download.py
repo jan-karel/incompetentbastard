@@ -50,7 +50,11 @@ def _get_signatures():
         from obfuscate_ps import build_signatures
     except ImportError:
         return None
-    _sig_cache = build_signatures()
+    try:
+        _sig_cache = build_signatures()
+    except Exception as exc:
+        _log.warning("build_signatures mislukt: %s", exc)
+        return None
     _sig_cache_time = now
     return _sig_cache
 
@@ -92,7 +96,12 @@ def _obfuscate_on_the_fly(file_path, technique='mixed'):
     if signatures is None:
         return None
 
-    new_lines, stats, _ = obfuscate_file(lines, signatures, technique)
+    try:
+        new_lines, stats, _ = obfuscate_file(lines, signatures, technique)
+    except Exception as exc:
+        _log.warning("obfuscate_file mislukt voor %s: %s", Path(file_path).name, exc)
+        return None
+
     if stats["lines_changed"] == 0:
         return None
 
@@ -128,7 +137,12 @@ def _obfuscate_text_on_the_fly(file_path):
         _log.warning("Kan %s niet lezen voor obfuscatie: %s", file_path, exc)
         return None
 
-    result, stats = obfuscate_text(content, language)
+    try:
+        result, stats = obfuscate_text(content, language)
+    except Exception as exc:
+        _log.warning("obfuscate_text mislukt voor %s: %s", p.name, exc)
+        return None
+
     total = stats.get("string", 0) + stats.get("code", 0)
     if total == 0:
         return None

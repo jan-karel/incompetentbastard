@@ -575,17 +575,23 @@ _WORD_MAIN_CT = 'application/vnd.openxmlformats-officedocument.wordprocessingml.
 _WORD_MACRO_CT = 'application/vnd.ms-word.document.macroEnabled.main+xml'
 _EXCEL_MAIN_CT = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml'
 _EXCEL_MACRO_CT = 'application/vnd.ms-excel.sheet.macroEnabled.main+xml'
+_PPTX_MAIN_CT = 'application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml'
+_PPTX_MACRO_CT = 'application/vnd.ms-powerpoint.presentation.macroEnabled.main+xml'
+_VISIO_MAIN_CT = 'application/vnd.ms-visio.drawing.main+xml'
+_VISIO_MACRO_CT = 'application/vnd.ms-visio.drawing.macroEnabled.main+xml'
 
 _VBA_PROJECT_CT = 'application/vnd.ms-office.vbaProject'
 
 _WORD_TRIGGERS = '\nSub Document_Open()\n    Meth\nEnd Sub\n\nSub AutoOpen()\n    Meth\nEnd Sub\n'
 _EXCEL_TRIGGERS = '\nSub Workbook_Open()\n    Meth\nEnd Sub\n\nSub Auto_Open()\n    Meth\nEnd Sub\n'
+_PPT_TRIGGERS = '\nSub Presentation_Open()\n    Meth\nEnd Sub\n\nSub Auto_Open()\n    Meth\nEnd Sub\n'
+_VISIO_TRIGGERS = '\nSub Document_DocumentOpened(ByVal Doc As IVDocument)\n    Meth\nEnd Sub\n'
 
 
 def detect_doc_type(path: str) -> str:
     """Detecteer document type op basis van extensie.
 
-    Returns: 'word' of 'excel'
+    Returns: 'word', 'excel', 'powerpoint' of 'visio'
     Raises: ValueError als extensie niet ondersteund is
     """
     ext = os.path.splitext(path)[1].lower()
@@ -593,14 +599,22 @@ def detect_doc_type(path: str) -> str:
         return 'word'
     elif ext in ('.xlsx', '.xlsm'):
         return 'excel'
+    elif ext in ('.pptx', '.pptm'):
+        return 'powerpoint'
+    elif ext in ('.vsdx', '.vsdm'):
+        return 'visio'
     raise ValueError(f"Niet-ondersteunde extensie: {ext}")
 
 
 def _default_output_path(input_path: str, doc_type: str) -> str:
-    """Genereer standaard output pad (.docx->.docm, .xlsx->.xlsm)."""
+    """Genereer standaard output pad (.docx->.docm, .xlsx->.xlsm, .pptx->.pptm, .vsdx->.vsdm)."""
     base = os.path.splitext(input_path)[0]
     if doc_type == 'word':
         return base + '.docm'
+    elif doc_type == 'powerpoint':
+        return base + '.pptm'
+    elif doc_type == 'visio':
+        return base + '.vsdm'
     return base + '.xlsm'
 
 
@@ -608,12 +622,20 @@ def _get_triggers(doc_type: str) -> str:
     """Haal de juiste trigger subs op voor het document type."""
     if doc_type == 'word':
         return _WORD_TRIGGERS
+    elif doc_type == 'powerpoint':
+        return _PPT_TRIGGERS
+    elif doc_type == 'visio':
+        return _VISIO_TRIGGERS
     return _EXCEL_TRIGGERS
 
 
 def _get_module_name(doc_type: str) -> str:
     """Haal de juiste module naam op voor het document type."""
     if doc_type == 'word':
+        return 'ThisDocument'
+    elif doc_type == 'powerpoint':
+        return 'ThisPresentation'
+    elif doc_type == 'visio':
         return 'ThisDocument'
     return 'ThisWorkbook'
 
@@ -627,14 +649,25 @@ def _update_content_types(xml_content: str, doc_type: str) -> str:
     root = ET.fromstring(xml_content)
 
     # Voeg vbaProject override toe
-    vba_part = '/word/vbaProject.bin' if doc_type == 'word' else '/xl/vbaProject.bin'
+    _vba_bin_part = {
+        'word': '/word/vbaProject.bin',
+        'excel': '/xl/vbaProject.bin',
+        'powerpoint': '/ppt/vbaProject.bin',
+        'visio': '/visio/vbaProject.bin',
+    }[doc_type]
     override = ET.SubElement(root, f'{{{ns}}}Override')
-    override.set('PartName', vba_part)
+    override.set('PartName', _vba_bin_part)
     override.set('ContentType', _VBA_PROJECT_CT)
 
     # Wijzig main content type naar macroEnabled variant
-    old_ct = _WORD_MAIN_CT if doc_type == 'word' else _EXCEL_MAIN_CT
-    new_ct = _WORD_MACRO_CT if doc_type == 'word' else _EXCEL_MACRO_CT
+    old_ct = {
+        'word': _WORD_MAIN_CT, 'excel': _EXCEL_MAIN_CT,
+        'powerpoint': _PPTX_MAIN_CT, 'visio': _VISIO_MAIN_CT,
+    }[doc_type]
+    new_ct = {
+        'word': _WORD_MACRO_CT, 'excel': _EXCEL_MACRO_CT,
+        'powerpoint': _PPTX_MACRO_CT, 'visio': _VISIO_MACRO_CT,
+    }[doc_type]
 
     for elem in root.iter(f'{{{ns}}}Override'):
         if elem.get('ContentType') == old_ct:
@@ -690,8 +723,18 @@ def inject_macro(input_path: str, vba_source: str, output_path: str = None) -> s
     vba_bin = build_vba_project_bin(module_name, vba_source)
 
     # Bepaal paden
-    vba_part = 'word/vbaProject.bin' if doc_type == 'word' else 'xl/vbaProject.bin'
-    rels_path = 'word/_rels/document.xml.rels' if doc_type == 'word' else 'xl/_rels/workbook.xml.rels'
+    vba_part = {
+        'word': 'word/vbaProject.bin',
+        'excel': 'xl/vbaProject.bin',
+        'powerpoint': 'ppt/vbaProject.bin',
+        'visio': 'visio/vbaProject.bin',
+    }[doc_type]
+    rels_path = {
+        'word': 'word/_rels/document.xml.rels',
+        'excel': 'xl/_rels/workbook.xml.rels',
+        'powerpoint': 'ppt/_rels/presentation.xml.rels',
+        'visio': 'visio/_rels/document.xml.rels',
+    }[doc_type]
 
     with zipfile.ZipFile(input_path, 'r') as zin:
         with zipfile.ZipFile(output_path, 'w', zipfile.ZIP_DEFLATED) as zout:

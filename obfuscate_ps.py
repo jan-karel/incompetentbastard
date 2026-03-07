@@ -256,6 +256,33 @@ def _make_pattern(sig):
     return re.compile(prefix + escaped + suffix, re.IGNORECASE)
 
 
+# PS-taalsleutelwoorden die niet via $(...) obfusceerd kunnen worden.
+# 'foreach ($x in $y)' is een statement — vervanging met $('fo'+'reach')
+# is syntactisch ongeldig in statement-positie.
+_NONOBFUSCATABLE_KEYWORDS = frozenset({
+    'foreach', 'for', 'while', 'do', 'if', 'else', 'elseif', 'switch',
+    'try', 'catch', 'finally', 'function', 'class', 'filter', 'return',
+    'break', 'continue', 'param', 'begin', 'process', 'end', 'in',
+    'throw', 'trap', 'exit', 'until',
+})
+
+
+def _is_ps_statement_keyword(m):
+    """True als de match een PS-taalsleutelwoord is dat niet via $(…) obfusceerd mag worden."""
+    return m.group(0).lower() in _NONOBFUSCATABLE_KEYWORDS
+
+
+def _is_inside_type_brackets(line, m):
+    """True als de match het type-naam deel is van een [TypeName] literal.
+
+    Detecteert [RunspaceFactory], [powershell] etc. waarbij de haakjes
+    voor type-resolutie of casting gebruikt worden. String-obfuscatie
+    van de inhoud geeft [$(...)] wat geen geldige PS-syntaxis is.
+    """
+    start, end = m.start(), m.end()
+    return start > 0 and line[start - 1] == '[' and end < len(line) and line[end] == ']'
+
+
 def obfuscate_line(line, signatures, technique_mode, stats):
     """Pas obfuscatie toe op één regel. Geeft (nieuwe_regel, wijzigingen) terug."""
     if _is_comment_line(line):
@@ -274,6 +301,14 @@ def obfuscate_line(line, signatures, technique_mode, stats):
             continue
         # Vervang van rechts naar links om offsets te behouden
         for m in reversed(matches):
+            # Sla PS-taalsleutelwoorden over: $('fo'+'reach') is ongeldig
+            # in statement-positie (foreach/for/while/if etc.)
+            if _is_ps_statement_keyword(m):
+                continue
+            # Sla type-literal inhoud over: [$('runspacef'+'actory')] is
+            # ongeldig — PS verwacht een letterlijke type-naam in [...]
+            if _is_inside_type_brackets(result, m):
+                continue
             original = m.group(0)
             func = pick_string_technique(technique_mode)
             replacement = func(original)

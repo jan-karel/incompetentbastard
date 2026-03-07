@@ -46,7 +46,7 @@ _SCAN_ROOTS = {
 # In-memory signature cache met TTL
 _sig_cache = None
 _sig_cache_time = 0.0
-_SIG_CACHE_TTL = 300  # 5 minuten
+_SIG_CACHE_TTL = 10800  # 3 uur
 
 
 def _get_signatures():

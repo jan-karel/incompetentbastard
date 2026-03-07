@@ -219,24 +219,43 @@ def _is_in_param_block(lines, line_idx):
     return False
 
 
+def _compute_param_range(lines):
+    """Bereken eenmalig het regelindex-bereik van het param-blok.
+
+    Geeft (start, end) terug als een param-blok gevonden is, anders None.
+    Vervangt herhaalde _is_in_param_block-aanroepen in obfuscate_file.
+    """
+    start = None
+    depth = 0
+    for i in range(min(101, len(lines))):
+        stripped = lines[i].strip()
+        s_lower = stripped.lower()
+        if start is None and (s_lower.startswith('param(') or s_lower.startswith('param (')):
+            start = i
+        if start is not None:
+            depth += stripped.count('(') - stripped.count(')')
+            if depth <= 0 and i > start:
+                return (start, i)
+    return None
+
+
 def _already_obfuscated(line, sig):
     """Check of de signature al geobfusceerd is (bevat backtick, split, of -as[type])."""
     # Check of er al een backtick-versie is
     for i in range(1, len(sig) - 1):
         if sig[:i] + '`' + sig[i:] in line:
             return True
+    line_lower = line.lower()
     # Check of er al een subexpr/format split is
     if "$(" in line:
         for i in range(1, len(sig)):
-            pattern = "'%s'+'%s'" % (sig[:i], sig[i:])
-            if pattern.lower() in line.lower():
+            if ("'%s'+'%s'" % (sig[:i], sig[i:])).lower() in line_lower:
                 return True
     # Check of er al een -as[type] versie is
-    if "-as[type])" in line.lower():
+    if "-as[type])" in line_lower:
         inner = sig.strip('[]')
         for i in range(1, len(inner)):
-            pattern = "'%s'+'%s'" % (inner[:i], inner[i:])
-            if pattern.lower() in line.lower():
+            if ("'%s'+'%s'" % (inner[:i], inner[i:])).lower() in line_lower:
                 return True
     return False
 
@@ -411,13 +430,15 @@ def obfuscate_line(line, signatures, technique_mode, stats):
     changes = []
     result = line
 
+    string_patterns = signatures.get("string_patterns") or [_make_pattern(s) for s in signatures["string"]]
+    code_patterns = signatures.get("code_patterns") or [_make_pattern(s) for s in signatures["code"]]
+
     # 1. String signatures
-    for sig in signatures["string"]:
-        if _already_obfuscated(result, sig):
-            continue
-        pattern = _make_pattern(sig)
+    for sig, pattern in zip(signatures["string"], string_patterns):
         matches = list(pattern.finditer(result))
         if not matches:
+            continue
+        if _already_obfuscated(result, sig):
             continue
         # Vervang van rechts naar links om offsets te behouden
         for m in reversed(matches):
@@ -479,13 +500,12 @@ def obfuscate_line(line, signatures, technique_mode, stats):
             stats["string"] += 1
 
     # 2. Code signatures
-    for sig in signatures["code"]:
-        if _already_obfuscated(result, sig):
-            continue
+    for sig, pattern in zip(signatures["code"], code_patterns):
         is_type = sig.startswith('[') and sig.endswith(']')
-        pattern = _make_pattern(sig)
         matches = list(pattern.finditer(result))
         if not matches:
+            continue
+        if _already_obfuscated(result, sig):
             continue
         for m in reversed(matches):
             # Sla code signatures over binnen single-quoted strings:
@@ -530,6 +550,9 @@ def obfuscate_file(lines, signatures, technique_mode, verbose=False):
     in_single_herestring = False  # @'...'@ — geen expansie, nooit obfusceren
     in_double_herestring = False  # @"..."@ — wel expansie, obfuscatie ok
 
+    # Pre-compute param block bereik (O(n) eenmalig i.p.v. O(n²) per regel)
+    param_range = _compute_param_range(lines)
+
     for idx, line in enumerate(lines):
         stripped = line.strip()
 
@@ -548,8 +571,8 @@ def obfuscate_file(lines, signatures, technique_mode, verbose=False):
         elif stripped in ('@"',) or stripped.endswith(' @"') or stripped.endswith('\t@"'):
             in_double_herestring = True
 
-        # Sla param block over
-        if _is_in_param_block(lines, idx):
+        # Sla param block over (O(1) check via pre-computed bereik)
+        if param_range and param_range[0] <= idx <= param_range[1]:
             new_lines.append(line)
             continue
 
@@ -1307,6 +1330,9 @@ def build_signatures(cache_dir=None, extra_patterns=None):
 
     signatures["string"].sort(key=len, reverse=True)
     signatures["code"].sort(key=len, reverse=True)
+    # Pre-compileer patterns zodat obfuscate_line geen re.compile() per regel/sig aanroept
+    signatures["string_patterns"] = [_make_pattern(s) for s in signatures["string"]]
+    signatures["code_patterns"] = [_make_pattern(s) for s in signatures["code"]]
     return signatures
 
 

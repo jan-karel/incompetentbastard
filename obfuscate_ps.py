@@ -82,6 +82,26 @@ BUILTIN_SIGNATURES = {
         "lsass",
         # Registry credential dump
         r"HKLM\SAM", r"HKLM\SYSTEM",
+        # Windows API — geheugen/thread injection
+        "VirtualAlloc", "VirtualProtect",
+        "CreateThread", "WaitForSingleObject",
+        "GetProcAddress", "GetModuleHandle",
+        "WriteProcessMemory", "OpenProcess",
+        # Reflection / dynamic assembly
+        "ReflectedDelegate", "InMemoryModule",
+        "DefineDynamicAssembly", "DefineDynamicModule",
+        "DefineType", "DefineConstructor", "DefineMethod",
+        "MulticastDelegate", "AssemblyBuilderAccess",
+        "GlobalAssemblyCache",
+        "GetDelegateForFunctionPointer",
+        "UnsafeNativeMethods",
+        # AMSI bypass strings
+        "AmsiUtils", "amsiContext", "amsiInitFailed",
+        "AmsiScanBuffer", "AmsiOpenSession",
+        "iUtils", "amsiScanBuffer",
+        # Shellcode injector strings
+        "kernel32.dll", "kernel32",
+        "amsi.dll",
     ],
 
     # Code signatures: type references, cmdlet namen
@@ -93,6 +113,13 @@ BUILTIN_SIGNATURES = {
         "Invoke-WebRequest",
         "Invoke-RestMethod",
         "Invoke-Expression",
+        # Reflection types
+        "[AppDomain]",
+        "[System.Reflection.Emit.AssemblyBuilderAccess]",
+        "[System.Reflection.AssemblyName]",
+        "[System.MulticastDelegate]",
+        "[System.Runtime.InteropServices.Marshal]",
+        "[System.Runtime.InteropServices.RuntimeInformation]",
     ],
 }
 

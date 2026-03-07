@@ -1,5 +1,7 @@
 import io
 import logging
+import shutil
+import subprocess
 import time
 from pathlib import Path
 
@@ -33,6 +35,13 @@ _MAX_PREVIEW = 50_000
 
 _VALID_TECHNIQUES = ("mixed", "subexpr", "format", "chararray", "backtick")
 _OBFUSCATABLE = {".php", ".aspx", ".py", ".hta", ".txt"}
+_OBFUSCATABLE_ALL = _OBFUSCATABLE | {".ps1"}
+
+_SCAN_ROOTS = {
+    "tools_mini": Path("http/tools/mini"),
+    "tools": Path("http/tools"),
+    "payloads": Path("http/payloads"),
+}
 
 # In-memory signature cache met TTL
 _sig_cache = None
@@ -231,6 +240,7 @@ def _file_info(base_path, url_prefix):
             "modified": st.st_mtime,
             "url": f"{url_prefix}/{p.name}",
             "previewable": p.suffix.lower() in _PREVIEWABLE,
+            "obfuscatable": p.suffix.lower() in _OBFUSCATABLE_ALL,
         })
     return result
 
@@ -296,6 +306,110 @@ def api_files_preview(category, filename):
     except Exception:
         abort(500, description="Could not read file")
     return jsonify({"name": target.name, "content": content})
+
+
+@download_bp.route("/api/files/scan/<category>/<path:filename>", methods=["POST"])
+def api_files_scan(category, filename):
+    require_dashboard_access()
+    base = _SCAN_ROOTS.get(category)
+    if base is None:
+        abort(404)
+    target = (base / filename).resolve()
+    if not str(target).startswith(str(base.resolve())):
+        abort(403)
+    if not target.is_file():
+        abort(404)
+
+    clamscan = shutil.which("clamscan")
+    if not clamscan:
+        return jsonify({"status": "unavailable", "output": "clamscan niet gevonden op dit systeem"})
+
+    try:
+        proc = subprocess.run(
+            [clamscan, "--no-summary", str(target)],
+            capture_output=True, text=True, timeout=60,
+        )
+        output = (proc.stdout + proc.stderr).strip()
+        if "No supported database files found" in output:
+            return jsonify({
+                "status": "unavailable",
+                "output": "ClamAV virusdatabase ontbreekt.\nVoer uit: freshclam\n\n" + output,
+            })
+        if proc.returncode == 0:
+            status = "clean"
+        elif proc.returncode == 1:
+            status = "infected"
+        else:
+            status = "error"
+        return jsonify({"status": status, "output": output})
+    except subprocess.TimeoutExpired:
+        return jsonify({"status": "error", "output": "Scan time-out (>60s)"})
+    except Exception as exc:
+        return jsonify({"status": "error", "output": str(exc)})
+
+
+@download_bp.route("/api/files/obfuscate/<category>/<path:filename>", methods=["GET"])
+def api_files_obfuscate(category, filename):
+    """Obfusceer on-the-fly en stuur als download."""
+    require_dashboard_access()
+    base = _SCAN_ROOTS.get(category)
+    if base is None:
+        abort(404)
+    target = (base / filename).resolve()
+    if not str(target).startswith(str(base.resolve())):
+        abort(403)
+    if not target.is_file():
+        abort(404)
+
+    ext = target.suffix.lower()
+    if ext not in _OBFUSCATABLE_ALL:
+        abort(400, description="Bestandstype niet obfusceerbaar")
+
+    if ext == ".ps1":
+        result = _obfuscate_on_the_fly(str(target))
+    else:
+        result = _obfuscate_text_on_the_fly(str(target))
+
+    if result is None:
+        abort(500, description="Obfuscatie mislukt of geen signatures gevonden")
+
+    return send_file(result, as_attachment=True,
+                     download_name=target.name,
+                     mimetype="application/octet-stream")
+
+
+@download_bp.route("/api/files/obfuscate/<category>/<path:filename>", methods=["POST"])
+def api_files_obfuscate_inplace(category, filename):
+    """Obfusceer het bestand in-place (overschrijf op server)."""
+    require_dashboard_access()
+    base = _SCAN_ROOTS.get(category)
+    if base is None:
+        abort(404)
+    target = (base / filename).resolve()
+    if not str(target).startswith(str(base.resolve())):
+        abort(403)
+    if not target.is_file():
+        abort(404)
+
+    ext = target.suffix.lower()
+    if ext not in _OBFUSCATABLE_ALL:
+        return jsonify({"ok": False, "message": "Bestandstype niet obfusceerbaar"})
+
+    if ext == ".ps1":
+        result = _obfuscate_on_the_fly(str(target))
+    else:
+        result = _obfuscate_text_on_the_fly(str(target))
+
+    if result is None:
+        return jsonify({"ok": False, "message": "Obfuscatie mislukt of geen signatures gevonden"})
+
+    try:
+        target.write_bytes(result.getvalue())
+    except OSError as exc:
+        return jsonify({"ok": False, "message": str(exc)})
+
+    _log.info("In-place obfuscatie: %s/%s", category, filename)
+    return jsonify({"ok": True, "message": f"{filename} succesvol overschreven"})
 
 
 @download_bp.route("/loot/<ip>/<bestand>", methods=["GET"])

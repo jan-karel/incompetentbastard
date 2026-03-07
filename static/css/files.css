@@ -161,6 +161,27 @@
   padding: 4px 0 4px 18px;
 }
 
+/* ── AV scan button states ───────────────────────────── */
+.btn-av-scan.scan-done-clean    { border-color: var(--success, #22c55e); color: var(--success, #22c55e); }
+.btn-av-scan.scan-done-infected { border-color: #ef4444; color: #ef4444; }
+.btn-av-scan.scan-done-error,
+.btn-av-scan.scan-done-unavailable { border-color: var(--muted, #94a3b8); color: var(--muted, #94a3b8); }
+
+/* ── Scan result modal badge ─────────────────────────── */
+.scan-status-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+.scan-status-badge.scan-clean       { background: rgba(34,197,94,.15); color: #22c55e; }
+.scan-status-badge.scan-infected    { background: rgba(239,68,68,.15);  color: #ef4444; }
+.scan-status-badge.scan-error,
+.scan-status-badge.scan-unavailable { background: rgba(148,163,184,.12); color: var(--muted, #94a3b8); }
+.scan-status-badge.scan-scanning    { background: rgba(59,130,246,.12); color: var(--primary, #3b82f6); }
+
 /* ── Preview ────────────────────────────────────────── */
 .preview-code {
   margin: 0;

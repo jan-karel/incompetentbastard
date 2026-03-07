@@ -146,28 +146,56 @@
   // Load command queue
   function loadQueue() {
     fetch("/api/xxs/commands").then(function(r){ return r.json(); }).then(function(data){
-      queueBody.innerHTML = "";
+      while (queueBody.firstChild) queueBody.removeChild(queueBody.firstChild);
+
       data.forEach(function(c){
         var tr = document.createElement("tr");
         var statusClass = c.status || "queued";
 
-        var resultCell = "";
+        var tdId = document.createElement("td");
+        tdId.textContent = c.id;
+
+        var tdHost = document.createElement("td");
+        tdHost.textContent = c.host || "*";
+
+        var tdCmd = document.createElement("td");
+        tdCmd.className = "c2-cmd-text";
+        tdCmd.title = c.opdracht || "";
+        tdCmd.textContent = (c.opdracht || "").substring(0, 60);
+
+        var tdStatus = document.createElement("td");
+        var badge = document.createElement("span");
+        badge.className = "c2-status-badge " + statusClass;
+        badge.textContent = statusClass;
+        tdStatus.appendChild(badge);
+
+        var tdResult = document.createElement("td");
         if (c.status === "completed" && c.result) {
-          resultCell = '<button class="c2-result-btn" data-result="' +
-            c.result.replace(/"/g, '&quot;').replace(/</g, '&lt;') + '">bekijk</button>';
+          var resultBtn = document.createElement("button");
+          resultBtn.className = "c2-result-btn";
+          resultBtn.dataset.result = c.result;
+          resultBtn.textContent = "bekijk";
+          tdResult.appendChild(resultBtn);
         } else {
-          resultCell = '<span style="color:var(--muted,#64748b)">&mdash;</span>';
+          var muted = document.createElement("span");
+          muted.style.color = "var(--muted,#64748b)";
+          muted.textContent = "\u2014";
+          tdResult.appendChild(muted);
         }
 
-        tr.innerHTML =
-          '<td>' + c.id + '</td>' +
-          '<td>' + (c.host || '*') + '</td>' +
-          '<td class="c2-cmd-text" title="' + (c.opdracht||'').replace(/"/g, '&quot;') + '">' +
-            (c.opdracht||'').substring(0, 60) + '</td>' +
-          '<td><span class="c2-status-badge ' + statusClass + '">' + statusClass + '</span></td>' +
-          '<td>' + resultCell + '</td>' +
-          '<td><button class="c2-delete-btn" data-id="' + c.id + '">&#x2715;</button></td>';
+        var tdDel = document.createElement("td");
+        var delBtn = document.createElement("button");
+        delBtn.className = "c2-delete-btn";
+        delBtn.dataset.id = c.id;
+        delBtn.textContent = "\u2715";
+        tdDel.appendChild(delBtn);
 
+        tr.appendChild(tdId);
+        tr.appendChild(tdHost);
+        tr.appendChild(tdCmd);
+        tr.appendChild(tdStatus);
+        tr.appendChild(tdResult);
+        tr.appendChild(tdDel);
         queueBody.appendChild(tr);
       });
     }).catch(function(){});
@@ -204,21 +232,38 @@
   function showResultModal(text) {
     var overlay = document.createElement("div");
     overlay.className = "modal-overlay c2-result-modal";
-    overlay.innerHTML =
-      '<div class="modal-box">' +
-        '<div class="modal-head">' +
-          '<h3>Command Result</h3>' +
-          '<button class="modal-close-btn" id="c2-modal-close">&times;</button>' +
-        '</div>' +
-        '<div class="modal-body">' +
-          '<div class="c2-result-content"></div>' +
-        '</div>' +
-      '</div>';
+
+    var box = document.createElement("div");
+    box.className = "modal-box";
+
+    var head = document.createElement("div");
+    head.className = "modal-head";
+
+    var h3 = document.createElement("h3");
+    h3.textContent = "Command Result";
+    head.appendChild(h3);
+
+    var closeBtn = document.createElement("button");
+    closeBtn.className = "modal-close-btn";
+    closeBtn.id = "c2-modal-close";
+    closeBtn.textContent = "\u00d7";
+    head.appendChild(closeBtn);
+
+    var body = document.createElement("div");
+    body.className = "modal-body";
+
+    var content = document.createElement("div");
+    content.className = "c2-result-content";
+    content.textContent = text;
+    body.appendChild(content);
+
+    box.appendChild(head);
+    box.appendChild(body);
+    overlay.appendChild(box);
     document.body.appendChild(overlay);
-    overlay.querySelector(".c2-result-content").textContent = text;
 
     function close(){ overlay.remove(); }
-    overlay.querySelector("#c2-modal-close").addEventListener("click", close);
+    closeBtn.addEventListener("click", close);
     overlay.addEventListener("click", function(ev){
       if (ev.target === overlay) close();
     });

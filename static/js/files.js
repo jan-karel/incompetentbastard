@@ -128,6 +128,106 @@
     }
   });
 
+  // ── AV Scan modal ────────────────────────────────────
+  const scanModal = document.getElementById("scan-modal");
+  const scanModalTitle = document.getElementById("scan-modal-title");
+  const scanStatusBadge = document.getElementById("scan-status-badge");
+  const scanOutput = document.getElementById("scan-output");
+  const btnScanClose = document.getElementById("btn-scan-close");
+
+  function openScanModal(filename, status, output) {
+    if (!scanModal) return;
+    scanModalTitle.textContent = "AV Scan: " + filename;
+    scanOutput.textContent = output || "(geen uitvoer)";
+    scanStatusBadge.className = "scan-status-badge scan-" + status;
+    const labels = { clean: "Schoon", infected: "Gevonden!", error: "Fout", unavailable: "Niet beschikbaar", scanning: "Scannen..." };
+    scanStatusBadge.textContent = labels[status] || status;
+    scanModal.style.display = "flex";
+  }
+
+  function closeScanModal() {
+    if (scanModal) scanModal.style.display = "none";
+  }
+
+  if (btnScanClose) btnScanClose.addEventListener("click", closeScanModal);
+  if (scanModal) scanModal.addEventListener("click", (e) => {
+    if (e.target === scanModal) closeScanModal();
+  });
+
+  document.addEventListener("click", (e) => {
+    const btn = e.target.closest(".btn-av-scan");
+    if (!btn) return;
+    e.preventDefault();
+    const cat = btn.dataset.cat;
+    const file = btn.dataset.file;
+    const origText = btn.textContent;
+    btn.textContent = "...";
+    btn.disabled = true;
+    fetch("/api/files/scan/" + encodeURIComponent(cat) + "/" + encodeURIComponent(file), { method: "POST" })
+      .then(r => r.json())
+      .then(d => {
+        btn.textContent = origText;
+        btn.disabled = false;
+        btn.className = "btn-action btn-av-scan scan-done-" + d.status;
+        openScanModal(file, d.status, d.output);
+      })
+      .catch(() => {
+        btn.textContent = origText;
+        btn.disabled = false;
+        openScanModal(file, "error", "Verzoek mislukt");
+      });
+  });
+
+  // ── Obfuscate download ───────────────────────────────
+  document.addEventListener("click", (e) => {
+    const btn = e.target.closest(".btn-obfuscate-dl");
+    if (!btn) return;
+    e.preventDefault();
+    const cat = btn.dataset.cat;
+    const file = btn.dataset.file;
+    const origHTML = btn.innerHTML;
+    btn.textContent = "...";
+    btn.disabled = true;
+    const a = document.createElement("a");
+    a.href = "/api/files/obfuscate/" + encodeURIComponent(cat) + "/" + encodeURIComponent(file);
+    a.download = file;
+    a.style.display = "none";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => {
+      btn.innerHTML = origHTML;
+      btn.disabled = false;
+    }, 1500);
+  });
+
+  // ── Obfuscate in-place (opslaan op server) ───────────
+  document.addEventListener("click", (e) => {
+    const btn = e.target.closest(".btn-obfuscate-save");
+    if (!btn) return;
+    e.preventDefault();
+    const cat = btn.dataset.cat;
+    const file = btn.dataset.file;
+    const origHTML = btn.innerHTML;
+    btn.textContent = "...";
+    btn.disabled = true;
+    fetch("/api/files/obfuscate/" + encodeURIComponent(cat) + "/" + encodeURIComponent(file), { method: "POST" })
+      .then(r => r.json())
+      .then(d => {
+        btn.innerHTML = origHTML;
+        btn.disabled = false;
+        btnFeedback(btn, d.ok ? "\u2713 opgeslagen" : "\u2717 mislukt");
+        if (!d.ok) {
+          openScanModal(file, "error", d.message || "Onbekende fout");
+        }
+      })
+      .catch(() => {
+        btn.innerHTML = origHTML;
+        btn.disabled = false;
+        btnFeedback(btn, "\u2717 fout");
+      });
+  });
+
   // ── Preview modal ────────────────────────────────────
   const previewModal = document.getElementById("preview-modal");
   const previewTitle = document.getElementById("preview-title");
@@ -169,8 +269,9 @@
   });
 
   document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape" && previewModal && previewModal.style.display !== "none") {
-      closePreview();
+    if (e.key === "Escape") {
+      if (previewModal && previewModal.style.display !== "none") closePreview();
+      if (scanModal && scanModal.style.display !== "none") closeScanModal();
     }
   });
 

@@ -43,6 +43,11 @@
               {% if f.previewable %}
               <button class="btn-action btn-preview" data-cat="tools_mini" data-file="{{ f.name }}" title="Voorbeeld">&#128065;</button>
               {% endif %}
+              <button class="btn-action btn-av-scan" data-cat="tools_mini" data-file="{{ f.name }}" title="AV Scan">&#128737;</button>
+              {% if f.obfuscatable %}
+              <button class="btn-action btn-obfuscate-dl" data-cat="tools_mini" data-file="{{ f.name }}" title="Obfusceer &amp; download">obf&#8595;</button>
+              <button class="btn-action btn-obfuscate-save" data-cat="tools_mini" data-file="{{ f.name }}" title="Obfusceer &amp; opslaan (overschrijf)">obf&#9998;</button>
+              {% endif %}
             </td>
           </tr>
           {% endfor %}
@@ -71,6 +76,11 @@
               <button class="btn-action btn-copy-url" data-url="{{ f.url }}" title="URL kopiëren">&#128203;</button>
               {% if f.previewable %}
               <button class="btn-action btn-preview" data-cat="tools" data-file="{{ f.name }}" title="Voorbeeld">&#128065;</button>
+              {% endif %}
+              <button class="btn-action btn-av-scan" data-cat="tools" data-file="{{ f.name }}" title="AV Scan">&#128737;</button>
+              {% if f.obfuscatable %}
+              <button class="btn-action btn-obfuscate-dl" data-cat="tools" data-file="{{ f.name }}" title="Obfusceer &amp; download">obf&#8595;</button>
+              <button class="btn-action btn-obfuscate-save" data-cat="tools" data-file="{{ f.name }}" title="Obfusceer &amp; opslaan (overschrijf)">obf&#9998;</button>
               {% endif %}
             </td>
           </tr>
@@ -103,6 +113,11 @@
               <button class="btn-action btn-copy-url" data-url="{{ f.url }}" title="URL kopiëren">&#128203;</button>
               {% if f.previewable %}
               <button class="btn-action btn-preview" data-cat="payloads" data-file="{{ f.name }}" title="Voorbeeld">&#128065;</button>
+              {% endif %}
+              <button class="btn-action btn-av-scan" data-cat="payloads" data-file="{{ f.name }}" title="AV Scan">&#128737;</button>
+              {% if f.obfuscatable %}
+              <button class="btn-action btn-obfuscate-dl" data-cat="payloads" data-file="{{ f.name }}" title="Obfusceer &amp; download">obf&#8595;</button>
+              <button class="btn-action btn-obfuscate-save" data-cat="payloads" data-file="{{ f.name }}" title="Obfusceer &amp; opslaan (overschrijf)">obf&#9998;</button>
               {% endif %}
             </td>
           </tr>
@@ -138,6 +153,20 @@
       <div class="upload-list" id="upload-list"></div>
     </div>
   </section>
+</div>
+
+<!-- AV Scan result modal -->
+<div class="modal-overlay d-none" id="scan-modal">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h3 id="scan-modal-title">AV Scan Resultaat</h3>
+      <button class="modal-close-btn" id="btn-scan-close">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div id="scan-status-badge"></div>
+      <pre class="preview-code" id="scan-output"></pre>
+    </div>
+  </div>
 </div>
 
 <!-- Preview modal -->

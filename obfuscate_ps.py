@@ -294,6 +294,42 @@ def _is_after_operator_dash(result, m):
     return before.endswith('-')
 
 
+def _is_full_cmdlet_name(m):
+    """True als de match zelf een volledige PS-cmdletnaam is (Verb-Noun patroon).
+
+    Start-Process, Get-Item, Invoke-Expression etc. zijn complete cmdletnamen.
+    Als string-subexpressie $('Start-'+'Process') levert het een string op
+    die niet direct als cmdlet uitvoerbaar is — daarvoor is '& $(...)'
+    nodig. De obfuscator voegt de call-operator niet automatisch toe.
+    """
+    return bool(re.match(r'^[A-Za-z]+-[A-Za-z]\w*$', m.group(0), re.IGNORECASE))
+
+
+def _is_code_structure_token(result, m):
+    """True als de match een code-structuurelement is dat niet als string
+    subexpressie geobfusceerd kan worden.
+
+    Afgedekte gevallen:
+    - Begint met '::' → statische methode-accessor ([Type]::Method)
+    - Begint met '[' → type-literal opener ([System.Convert]::...)
+    - Bevat ']::' → type + statische methode in één signature
+    - Begint met '()' → methode-aanroep keten (().TransformFinalBlock()
+    - Voorafgegaan door '.' → method/property-toegang ($obj.Method)
+
+    In al deze gevallen geeft $('...'+'...') een string terug op een positie
+    waar PS een type-naam, accessor of aanroepbare identifier verwacht.
+    """
+    text = m.group(0)
+    if text.startswith('::') or text.startswith('[') or text.startswith('()'):
+        return True
+    if ']::' in text:
+        return True
+    start = m.start()
+    if start > 0 and result[start - 1] == '.':
+        return True
+    return False
+
+
 def _is_inside_single_quoted_key(result, m):
     """True als de match zit binnen ['...'] hashtable/array-key notatie.
 
@@ -335,6 +371,38 @@ def _is_before_dot_extension(result, m):
     return bool(re.match(r'^[a-zA-Z]{1,4}\b', rest))
 
 
+def _is_followed_by_cmdlet_dash(result, m):
+    """True als de match gevolgd wordt door een koppelteken + woord.
+
+    In PS-cmdletnamen (Convert-Path, Invoke-Command) en functienamen
+    (Install-ServiceBinary) vormt het eerste deel samen met -Verb de
+    volledige naam. $('Con'+'vert')-Path is geen geldige cmdlet-aanroep —
+    PS zoekt letterlijk naar de aaneengesloten naam 'Convert-Path'.
+
+    Accepteert ook '$(' na het koppelteken: een eerder verwerkt signature
+    kan de tekst na '-' al hebben vervangen (bijv. -Path → -$('Pa'+'th')),
+    waarna de '-' nog steeds een cmdlet-scheiding aangeeft.
+    """
+    end = m.end()
+    if end >= len(result) or result[end] != '-':
+        return False
+    rest = result[end + 1:]
+    return bool(re.match(r'^(?:[A-Za-z]\w*|\$\()', rest))
+
+
+def _is_inside_unclosed_bracket(result, m):
+    """True als de match binnen een niet-gesloten '[...]' staat.
+
+    Algemene detectie van type-literals: telt ongebalanceerde '[' vóór de
+    match. Dekt zowel '[RunspaceFactory]' (direct) als '[System.Convert]'
+    (met prefix) en signatures die de sluit-bracket overspannen
+    ('Convert]::FromBase64String('). Subexpressies zijn ongeldig als
+    type-naam in '[...]' context.
+    """
+    before = result[:m.start()]
+    return before.count('[') > before.count(']')
+
+
 def obfuscate_line(line, signatures, technique_mode, stats):
     """Pas obfuscatie toe op één regel. Geeft (nieuwe_regel, wijzigingen) terug."""
     if _is_comment_line(line):
@@ -357,6 +425,11 @@ def obfuscate_line(line, signatures, technique_mode, stats):
             # in statement-positie (foreach/for/while/if etc.)
             if _is_ps_statement_keyword(m):
                 continue
+            # Sla volledige cmdletnamen over: $('Start-'+'Process') is een
+            # string, geen aanroepbare cmdlet — '& $(...)' is nodig maar
+            # wordt niet automatisch toegevoegd
+            if _is_full_cmdlet_name(m):
+                continue
             # Sla type-literal inhoud over: [$('runspacef'+'actory')] is
             # ongeldig — PS verwacht een letterlijke type-naam in [...]
             if _is_inside_type_brackets(result, m):
@@ -364,6 +437,10 @@ def obfuscate_line(line, signatures, technique_mode, stats):
             # Sla -operator matches over: -$('repla'+'ce') is geen geldige
             # PS-operator — -replace/-split/-match moeten letterlijk blijven
             if _is_after_operator_dash(result, m):
+                continue
+            # Sla code-structuurtokens over: ::accessor, [Type, ()keten, .method
+            # kunnen niet als string-subexpressie geobfusceerd worden
+            if _is_code_structure_token(result, m):
                 continue
             # Sla ['key'] matches over: ['$(...)']] expandeert niet in single
             # quotes en breekt de inner apostrofs van de subexpressie
@@ -376,6 +453,16 @@ def obfuscate_line(line, signatures, technique_mode, stats):
             # Sla matches over die gevolgd worden door een bestandsextensie:
             # rundll32.exe → $('rund'+'ll32').exe probeert .exe als property
             if _is_before_dot_extension(result, m):
+                continue
+            # Sla matches over gevolgd door koppelteken+woord (cmdlet/functienaam):
+            # Convert-Path → $('Con'+'vert')-Path is geen geldige cmdlet
+            # function Install-ServiceBinary → functienaam mag geen $() bevatten
+            if _is_followed_by_cmdlet_dash(result, m):
+                continue
+            # Sla matches over binnen niet-gesloten type-brackets:
+            # [System.Convert]::From → 'Convert' valt binnen '[System.'
+            # Algemenere versie van _is_inside_type_brackets
+            if _is_inside_unclosed_bracket(result, m):
                 continue
             original = m.group(0)
             func = pick_string_technique(technique_mode)
@@ -404,6 +491,12 @@ def obfuscate_line(line, signatures, technique_mode, stats):
             # Sla code signatures over binnen single-quoted strings:
             # '(('scrip'+'tblock')-as[type])' is een letterlijke string, geen type
             if _is_inside_single_quoted_string(result, m):
+                continue
+            # Sla code signatures over gevolgd door cmdlet-koppelteken
+            if _is_followed_by_cmdlet_dash(result, m):
+                continue
+            # Sla statische methode-accessors over in code-context
+            if _is_code_structure_token(result, m):
                 continue
             original = m.group(0)
             if is_type:

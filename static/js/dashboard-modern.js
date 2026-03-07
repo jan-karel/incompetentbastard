@@ -73,15 +73,9 @@
     });
   }
 
-  // ── Edit host / settings modal ─────────────────────────────
+  // ── Edit host modal ─────────────────────────────────────────
   const hostModal = document.getElementById("host-modal");
   const hostInput = document.getElementById("host-input");
-  const togglePublicUpload = document.getElementById("toggle-public-upload");
-  const togglePublicDownloads = document.getElementById("toggle-public-downloads");
-  const togglePublicPayloads = document.getElementById("toggle-public-payloads");
-  const toggleProxy = document.getElementById("toggle-proxy");
-  const toggleObfuscate = document.getElementById("toggle-obfuscate");
-  const obfTechniqueSelect = document.getElementById("obf-technique-select");
   const btnEditHost = document.getElementById("btn-edit-host");
   const btnHostClose = document.getElementById("btn-host-close");
   const btnHostSave = document.getElementById("btn-host-save");
@@ -92,12 +86,6 @@
   function openHostModal() {
     fetch("/api/settings").then(r => r.json()).then(d => {
       hostInput.value = d.localhost || "";
-      if (togglePublicUpload) togglePublicUpload.checked = !!d.public_upload;
-      if (togglePublicDownloads) togglePublicDownloads.checked = !!d.public_downloads;
-      if (togglePublicPayloads) togglePublicPayloads.checked = !!d.public_payloads;
-      if (toggleProxy) toggleProxy.checked = !!d.behind_proxy;
-      if (toggleObfuscate) toggleObfuscate.checked = !!d.obfuscate_downloads;
-      if (obfTechniqueSelect) obfTechniqueSelect.value = d.obfuscate_technique || "mixed";
       hostModal.style.display = "flex";
       hostInput.focus();
     });
@@ -108,17 +96,10 @@
   function saveHost() {
     const val = hostInput.value.trim();
     if (!val) return;
-    const payload = {localhost: val};
-    if (togglePublicUpload) payload.public_upload = togglePublicUpload.checked;
-    if (togglePublicDownloads) payload.public_downloads = togglePublicDownloads.checked;
-    if (togglePublicPayloads) payload.public_payloads = togglePublicPayloads.checked;
-    if (toggleProxy) payload.behind_proxy = toggleProxy.checked;
-    if (toggleObfuscate) payload.obfuscate_downloads = toggleObfuscate.checked;
-    if (obfTechniqueSelect) payload.obfuscate_technique = obfTechniqueSelect.value;
     fetch("/api/settings", {
       method: "POST",
       headers: {"Content-Type": "application/json"},
-      body: JSON.stringify(payload),
+      body: JSON.stringify({localhost: val}),
     }).then(r => r.json()).then(() => {
       if (snippetHost) snippetHost.textContent = val;
       if (snippetUpload) snippetUpload.textContent = "curl -F file=@FILENAME " + val + "/upload";
@@ -132,6 +113,53 @@
   if (btnHostSave) btnHostSave.addEventListener("click", saveHost);
   if (hostInput) hostInput.addEventListener("keydown", (e) => { if (e.key === "Enter") saveHost(); });
   if (hostModal) hostModal.addEventListener("click", (e) => { if (e.target === hostModal) closeHostModal(); });
+
+  // ── Instellingen modal ──────────────────────────────────────
+  const settingsModal = document.getElementById("settings-modal");
+  const togglePublicUpload = document.getElementById("toggle-public-upload");
+  const togglePublicDownloads = document.getElementById("toggle-public-downloads");
+  const togglePublicPayloads = document.getElementById("toggle-public-payloads");
+  const toggleProxy = document.getElementById("toggle-proxy");
+  const toggleObfuscate = document.getElementById("toggle-obfuscate");
+  const obfTechniqueSelect = document.getElementById("obf-technique-select");
+  const btnSettings = document.getElementById("btn-settings");
+  const btnSettingsClose = document.getElementById("btn-settings-close");
+  const btnSettingsSave = document.getElementById("btn-settings-save");
+
+  function openSettingsModal() {
+    if (!settingsModal) return;
+    fetch("/api/settings").then(r => r.json()).then(d => {
+      if (togglePublicUpload) togglePublicUpload.checked = !!d.public_upload;
+      if (togglePublicDownloads) togglePublicDownloads.checked = !!d.public_downloads;
+      if (togglePublicPayloads) togglePublicPayloads.checked = !!d.public_payloads;
+      if (toggleProxy) toggleProxy.checked = !!d.behind_proxy;
+      if (toggleObfuscate) toggleObfuscate.checked = !!d.obfuscate_downloads;
+      if (obfTechniqueSelect) obfTechniqueSelect.value = d.obfuscate_technique || "mixed";
+      settingsModal.style.display = "flex";
+    });
+  }
+
+  function closeSettingsModal() { if (settingsModal) settingsModal.style.display = "none"; }
+
+  function saveSettings() {
+    const payload = {};
+    if (togglePublicUpload) payload.public_upload = togglePublicUpload.checked;
+    if (togglePublicDownloads) payload.public_downloads = togglePublicDownloads.checked;
+    if (togglePublicPayloads) payload.public_payloads = togglePublicPayloads.checked;
+    if (toggleProxy) payload.behind_proxy = toggleProxy.checked;
+    if (toggleObfuscate) payload.obfuscate_downloads = toggleObfuscate.checked;
+    if (obfTechniqueSelect) payload.obfuscate_technique = obfTechniqueSelect.value;
+    fetch("/api/settings", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify(payload),
+    }).then(r => r.json()).then(() => { closeSettingsModal(); });
+  }
+
+  if (btnSettings) btnSettings.addEventListener("click", openSettingsModal);
+  if (btnSettingsClose) btnSettingsClose.addEventListener("click", closeSettingsModal);
+  if (btnSettingsSave) btnSettingsSave.addEventListener("click", saveSettings);
+  if (settingsModal) settingsModal.addEventListener("click", (e) => { if (e.target === settingsModal) closeSettingsModal(); });
 
   // ── Scope targets modal ─────────────────────────────────────
   const scopeModal = document.getElementById("scope-modal");

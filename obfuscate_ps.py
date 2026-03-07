@@ -680,18 +680,56 @@ def check_file(file_path):
 # ── ClamAV download & unpack ────────────────────────────────────────────
 
 def _download_daily_cvd(cache_dir):
-    """Download daily.cvd met conditionele headers. Return pad naar bestand."""
+    """Download daily.cvd. Probeert eerst freshclam, valt terug op directe download."""
+    _ensure_cache_dir(cache_dir)
+    cvd_path = os.path.join(cache_dir, "daily.cvd")
+
+    # Poging 1: freshclam (officieel, omzeilt blokkades)
+    freshclam = _find_tool("freshclam")
+    if freshclam:
+        print("[*] Downloaden via freshclam...")
+        try:
+            proc = subprocess.run(
+                [freshclam, "--datadir", cache_dir, "--no-warnings",
+                 "--quiet", "--daemon-notify=/dev/null"],
+                capture_output=True, text=True, timeout=180,
+            )
+            if proc.returncode == 0 and os.path.isfile(cvd_path):
+                print("[+] daily.cvd gedownload via freshclam")
+                meta_path = os.path.join(cache_dir, CLAMAV_CACHE_META)
+                meta = {}
+                if os.path.isfile(meta_path):
+                    try:
+                        with open(meta_path, 'r') as f:
+                            meta = json.load(f)
+                    except (json.JSONDecodeError, OSError):
+                        pass
+                meta["updated"] = time.time()
+                with open(meta_path, 'w') as f:
+                    json.dump(meta, f)
+                return cvd_path
+            # freshclam geeft exit 1 als database al up-to-date is
+            if proc.returncode == 1 and os.path.isfile(cvd_path):
+                print("[*] daily.cvd is al up-to-date (freshclam)")
+                return cvd_path
+            print("[!] freshclam exitcode %d, val terug op directe download" % proc.returncode,
+                  file=sys.stderr)
+        except (subprocess.TimeoutExpired, OSError) as e:
+            print("[!] freshclam mislukt: %s, val terug op directe download" % e,
+                  file=sys.stderr)
+
+    # Poging 2: directe download met freshclam User-Agent
     try:
         import requests as req
     except ImportError:
         print("[!] requests niet geïnstalleerd: pip install requests", file=sys.stderr)
         sys.exit(1)
 
-    _ensure_cache_dir(cache_dir)
-    cvd_path = os.path.join(cache_dir, "daily.cvd")
     meta_path = os.path.join(cache_dir, CLAMAV_CACHE_META)
 
-    headers = {"User-Agent": "obfuscate-ps/1.0"}
+    # database.clamav.net vereist een freshclam-achtige User-Agent
+    ua = "ClamAV/1.0.3 (OS: linux-gnu, ARCH: x86_64, CPU: x86_64, FreshClam)"
+    headers = {"User-Agent": ua}
     # Conditionele download
     if os.path.isfile(meta_path):
         try:
@@ -706,7 +744,7 @@ def _download_daily_cvd(cache_dir):
 
     print("[*] Downloaden: %s" % DAILY_CVD_URL)
     try:
-        resp = req.get(DAILY_CVD_URL, headers=headers, stream=True, timeout=120)
+        resp = req.get(DAILY_CVD_URL, headers=headers, stream=True, timeout=180)
     except req.RequestException as e:
         print("[!] Download mislukt: %s" % e, file=sys.stderr)
         sys.exit(1)
@@ -715,8 +753,16 @@ def _download_daily_cvd(cache_dir):
         print("[*] daily.cvd is up-to-date (304 Not Modified)")
         return cvd_path
 
+    if resp.status_code == 429:
+        print("[!] Rate limited (429). Installeer freshclam voor betrouwbare downloads:",
+              file=sys.stderr)
+        print("    apt install clamav  /  brew install clamav", file=sys.stderr)
+        sys.exit(1)
+
     if resp.status_code != 200:
         print("[!] Download mislukt: HTTP %d" % resp.status_code, file=sys.stderr)
+        print("    Installeer freshclam voor betrouwbare downloads:", file=sys.stderr)
+        print("    apt install clamav  /  brew install clamav", file=sys.stderr)
         sys.exit(1)
 
     # Streaming download

@@ -106,6 +106,7 @@
       <a class="btn" href="/dashboard/files">Bestanden</a>
       <a class="btn" href="/dashboard/report">Rapport</a>
       <button class="btn" id="btn-scope" type="button">Scope</button>
+      <button class="btn" id="btn-settings" type="button">Instellingen</button>
       <a class="btn" href="/dashboard/admin" target="_blank">Admin</a>
       <a class="btn" href="/dashboard/recordings">Opnames</a>
       <a class="btn" href="/dashboard/screen">Terminal</a>
@@ -352,7 +353,21 @@
     <div class="modal-body">
       <label class="d-block mb-6 fs-13">Host URL</label>
       <input type="text" id="host-input" class="form-control w-full" placeholder="http://10.0.0.5" />
-      <div class="settings-toggles mt-16 border-top pt-12">
+      <div class="mt-12 d-flex gap-8 justify-end">
+        <button id="btn-host-save" class="btn btn-primary" type="button">Opslaan</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="settings-modal" class="modal-overlay d-none">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h3>Instellingen</h3>
+      <button id="btn-settings-close" class="modal-close-btn">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="settings-toggles">
         <span class="fs-12 help d-block mb-6">Toegang</span>
         <label class="d-flex gap-8 align-center fs-13 cursor-pointer">
           <input type="checkbox" id="toggle-public-upload" />
@@ -388,7 +403,7 @@
         </div>
       </div>
       <div class="mt-12 d-flex gap-8 justify-end">
-        <button id="btn-host-save" class="btn btn-primary" type="button">Opslaan</button>
+        <button id="btn-settings-save" class="btn btn-primary" type="button">Opslaan</button>
       </div>
     </div>
   </div>

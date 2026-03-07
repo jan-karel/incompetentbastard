@@ -283,6 +283,58 @@ def _is_inside_type_brackets(line, m):
     return start > 0 and line[start - 1] == '[' and end < len(line) and line[end] == ']'
 
 
+def _is_after_operator_dash(result, m):
+    """True als de match direct na een operator-koppelteken staat.
+
+    PS-operators zoals -replace, -split, -match, -like beginnen met '-'.
+    $lijn -$('repla'+'ce') is geen geldige syntaxis — PS herkent de
+    operator-naam niet als hij via $(...) opgebouwd wordt.
+    """
+    before = result[:m.start()].rstrip()
+    return before.endswith('-')
+
+
+def _is_inside_single_quoted_key(result, m):
+    """True als de match zit binnen ['...'] hashtable/array-key notatie.
+
+    $hash['sAMAccountName'] → $hash['$('sAMAc'+'countName')'] is ongeldig:
+    single quotes expanderen $(...) niet, en de inner apostrofs breken
+    de outer key-aanhalingstekens. Overslaan voorkomt de parse-fout.
+    """
+    start, end = m.start(), m.end()
+    return (start >= 2 and result[start - 2:start] == "['"
+            and end + 2 <= len(result) and result[end:end + 2] == "']")
+
+
+def _is_inside_single_quoted_string(result, m):
+    """True als de match binnen een single-quoted PS-string staat.
+
+    Tel het aantal losse apostrofs vóór de match. Als oneven → binnen
+    een single-quoted string. PS expandeert $(...) niet in single quotes;
+    bovendien breken de apostrofs in de replacement de outer string.
+
+    Beperking: dubbele apostrofs ('') zijn een escaped quote in PS en tellen
+    elk mee als één karakter — dit kan in extreme edge-cases misgaan, maar
+    dekt 99% van de praktijkgevallen correct.
+    """
+    before = result[:m.start()]
+    return before.count("'") % 2 == 1
+
+
+def _is_before_dot_extension(result, m):
+    """True als de match direct gevolgd wordt door een bestandsextensie.
+
+    Voorkomt dat een partieel woord geobfusceerd wordt terwijl de extensie
+    achterblijft: 'rundll32' → $('rund'+'ll32').exe probeert .exe als
+    property op te halen van de string in plaats van als bestandsnaam.
+    """
+    end = m.end()
+    if end >= len(result) or result[end] != '.':
+        return False
+    rest = result[end + 1:]
+    return bool(re.match(r'^[a-zA-Z]{1,4}\b', rest))
+
+
 def obfuscate_line(line, signatures, technique_mode, stats):
     """Pas obfuscatie toe op één regel. Geeft (nieuwe_regel, wijzigingen) terug."""
     if _is_comment_line(line):
@@ -309,9 +361,32 @@ def obfuscate_line(line, signatures, technique_mode, stats):
             # ongeldig — PS verwacht een letterlijke type-naam in [...]
             if _is_inside_type_brackets(result, m):
                 continue
+            # Sla -operator matches over: -$('repla'+'ce') is geen geldige
+            # PS-operator — -replace/-split/-match moeten letterlijk blijven
+            if _is_after_operator_dash(result, m):
+                continue
+            # Sla ['key'] matches over: ['$(...)']] expandeert niet in single
+            # quotes en breekt de inner apostrofs van de subexpressie
+            if _is_inside_single_quoted_key(result, m):
+                continue
+            # Sla matches binnen single-quoted strings over: '...$('a'+'b')...'
+            # expandeert niet en de inner apostrofs breken de outer string
+            if _is_inside_single_quoted_string(result, m):
+                continue
+            # Sla matches over die gevolgd worden door een bestandsextensie:
+            # rundll32.exe → $('rund'+'ll32').exe probeert .exe als property
+            if _is_before_dot_extension(result, m):
+                continue
             original = m.group(0)
             func = pick_string_technique(technique_mode)
-            replacement = func(original)
+            # Signature begint met " → behoud de aanhalingsteken als letterlijke
+            # string-opener, obfusceer alleen de inhoud daarna.
+            # "PowerShell → "$('Power'+'Shell') ipv $('\"Power'+'Shell')
+            if original.startswith('"') and len(original) > 1:
+                inner = original[1:]
+                replacement = '"' + func(inner)
+            else:
+                replacement = func(original)
             result = result[:m.start()] + replacement + result[m.end():]
             changes.append(("string", sig, original, replacement))
             stats["string"] += 1
@@ -326,6 +401,10 @@ def obfuscate_line(line, signatures, technique_mode, stats):
         if not matches:
             continue
         for m in reversed(matches):
+            # Sla code signatures over binnen single-quoted strings:
+            # '(('scrip'+'tblock')-as[type])' is een letterlijke string, geen type
+            if _is_inside_single_quoted_string(result, m):
+                continue
             original = m.group(0)
             if is_type:
                 # Type-literals: backtick werkt NIET in [typename]
@@ -355,7 +434,27 @@ def obfuscate_file(lines, signatures, technique_mode, verbose=False):
     new_lines = []
     all_changes = []
 
+    in_single_herestring = False  # @'...'@ — geen expansie, nooit obfusceren
+    in_double_herestring = False  # @"..."@ — wel expansie, obfuscatie ok
+
     for idx, line in enumerate(lines):
+        stripped = line.strip()
+
+        # Here-string state tracking (single-quoted: nooit obfusceren)
+        if in_single_herestring:
+            if stripped == "'@":
+                in_single_herestring = False
+            new_lines.append(line)
+            continue
+        if in_double_herestring:
+            if stripped == '"@':
+                in_double_herestring = False
+        # Detecteer opening van hier-strings (begint altijd met @' of @")
+        if stripped in ("@'", "@'") or stripped.endswith(" @'") or stripped.endswith("\t@'"):
+            in_single_herestring = True
+        elif stripped in ('@"',) or stripped.endswith(' @"') or stripped.endswith('\t@"'):
+            in_double_herestring = True
+
         # Sla param block over
         if _is_in_param_block(lines, idx):
             new_lines.append(line)

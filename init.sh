@@ -15,7 +15,16 @@ locatie="$PWD"
 #folders aanmaken
 mkdir -p raw/recon raw/route raw/screenshots raw/tls raw/nmap raw/wget meuk/logs meuk/wordlists raw/tooling http/payloads
 rm -rf meuk/logs/*.rec
-echo 'no' | sudo msfdb init || true
+
+# Virtual environment aanmaken en dependencies installeren
+if [ ! -f ".venv/bin/flask" ]; then
+	echo '[*] Venv aanmaken en dependencies installeren...'
+	python3 -m venv .venv
+	.venv/bin/pip install --quiet -r requirements.txt
+	echo '[+] Venv klaar.'
+fi
+
+echo 'no' | sudo msfdb init || true || true
 
 
 #rapportage aanmaken

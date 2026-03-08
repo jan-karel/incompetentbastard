@@ -127,6 +127,19 @@
 .kpi .val.accent-blue   { color: var(--accent-blue,   #3b82f6); }
 .kpi .val.accent-red    { color: var(--accent-red,    #ef4444); }
 
+/* ── KPI als klikbare link ────────────────────────────── */
+.kpi-link {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+  margin: -14px -16px;
+  padding: 14px 16px;
+  border-radius: var(--radius, 8px);
+  transition: background 0.12s;
+}
+.kpi-link:hover { background: rgba(255,255,255,.05); }
+.kpi-link:hover .sub { color: var(--primary, #3b82f6); }
+
 /* ── Agent panel ──────────────────────────────────────── */
 .agent-panel {
   max-height: 240px;

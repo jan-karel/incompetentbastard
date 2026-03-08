@@ -16,67 +16,79 @@
 <div class="grid cols-6">
   <section class="card">
     <div class="card-body">
-      <div class="kpi">
-        <div>
-          <div class="val accent-green" id="kpi-agents">0</div>
-          <div class="sub">Actieve agenten</div>
+      <a href="/dashboard/agents" class="kpi-link">
+        <div class="kpi">
+          <div>
+            <div class="val accent-green" id="kpi-agents">0</div>
+            <div class="sub">Actieve agenten</div>
+          </div>
         </div>
-      </div>
+      </a>
     </div>
   </section>
 
   <section class="card">
     <div class="card-body">
-      <div class="kpi">
-        <div>
-          <div class="val accent-orange">{{ aantalhooked }}</div>
-          <div class="sub">Gehookte clients</div>
+      <a href="/dashboard/xxs" class="kpi-link">
+        <div class="kpi">
+          <div>
+            <div class="val accent-orange">{{ aantalhooked }}</div>
+            <div class="sub">Gehookte clients</div>
+          </div>
         </div>
-      </div>
+      </a>
     </div>
   </section>
 
   <section class="card">
     <div class="card-body">
-      <div class="kpi">
-        <div>
-          <div class="val accent-blue">{{ bevindingen|length }}</div>
-          <div class="sub">Bevindingen</div>
+      <a href="/dashboard/findings" class="kpi-link">
+        <div class="kpi">
+          <div>
+            <div class="val accent-blue">{{ bevindingen|length }}</div>
+            <div class="sub">Bevindingen</div>
+          </div>
         </div>
-      </div>
+      </a>
     </div>
   </section>
 
   <section class="card">
     <div class="card-body">
-      <div class="kpi">
-        <div>
-          <div class="val">{{ notes|length }}</div>
-          <div class="sub">Notities</div>
+      <a href="/dashboard/notes" class="kpi-link">
+        <div class="kpi">
+          <div>
+            <div class="val">{{ notes|length }}</div>
+            <div class="sub">Notities</div>
+          </div>
         </div>
-      </div>
+      </a>
     </div>
   </section>
 
   <section class="card">
     <div class="card-body">
-      <div class="kpi">
-        <div>
-          <div class="val">{{ commands|length }}</div>
-          <div class="sub">Commando's</div>
+      <a href="/dashboard/commands" class="kpi-link">
+        <div class="kpi">
+          <div>
+            <div class="val">{{ commands|length }}</div>
+            <div class="sub">Commando's</div>
+          </div>
         </div>
-      </div>
+      </a>
     </div>
   </section>
 
   <section class="card">
     <div class="card-body">
-      <div class="kpi">
-        <div>
-          <div class="val accent-red" id="kpi-msf-sessions" title="Metasploit sessies">–</div>
-          <div class="sub"><a href="/dashboard/msf" class="link-inherit">MSF sessies</a></div>
+      <a href="/dashboard/msf" class="kpi-link">
+        <div class="kpi">
+          <div>
+            <div class="val accent-red" id="kpi-msf-sessions" title="Metasploit sessies">–</div>
+            <div class="sub">MSF sessies</div>
+          </div>
         </div>
-      </div>
+      </a>
     </div>
   </section>
 </div>

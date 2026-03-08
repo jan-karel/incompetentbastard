@@ -15,7 +15,7 @@ locatie="$PWD"
 #folders aanmaken
 mkdir -p raw/recon raw/route raw/screenshots raw/tls raw/nmap raw/wget meuk/logs meuk/wordlists raw/tooling http/payloads
 rm -rf meuk/logs/*.rec
-echo 'no' | sudo msfdb init
+echo 'no' | sudo msfdb init || true
 
 
 #rapportage aanmaken
@@ -25,7 +25,7 @@ echo 'no' | sudo msfdb init
 if [[ "$OSTYPE" == "darwin"* ]]; then
 	#screenshots zetten
 	defaults write com.apple.screencapture location $locatie/raw/screenshots/
-	killall SystemUIServer
+	killall SystemUIServer || true
 fi
 
 #vpn
@@ -44,20 +44,22 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
 
 
 	#screen -dmS http sh -c "cd http && python3 -m http.server 80"
-	screen -dmS http sh -c "flask db migrate; flask db upgrade; flask db init;flask run --host=0.0.0.0 --port=80 --debug > meuk/logs/http.log"
+	screen -dmS http sh -c ".venv/bin/flask --app app:create_app db migrate; .venv/bin/flask --app app:create_app db upgrade; .venv/bin/flask --app app:create_app run --host=0.0.0.0 --port=80 --debug > meuk/logs/http.log 2>&1"
 	#screen -dmS metasploit sh -c "stty sane; msfconsole"
 	screen -dmS tcpdump sh -c "stty sane; tcpdump -i any icmp -w raw/icmp.pcap"
 
 	screen -dmS metasploit asciinema rec meuk/logs/metasploit.rec --stdin -c "stty sane;msfconsole"
+	screen -dmS msfrpcd sh -c "stty sane; msfrpcd -P ${MSF_RPC_PASS:-msf} -U ${MSF_RPC_USER:-msf} -p ${MSF_RPC_PORT:-55553} -a 127.0.0.1 -S -f > meuk/logs/msfrpcd.log 2>&1"
 	#screen -dmS tcpdump asciinema rec meuk/logs/"$1".rec --stdin -c "stty sane; tcpdump -i any icmp -w raw/icmp.pcap"
 
 
 else
 	screen -L -Logfile meuk/logs/smb.log -dmS smb impacket-smbserver share http -smb2support
 	#screen -L -Logfile meuk/logs/http.log -dmS http sh -c "cd http && python3 -m http.server 80"
-	screen -L -Logfile meuk/logs/http.log -dmS http sh -c "flask db migrate; flask db upgrade; flask db init;flask run --host=0.0.0.0 --port=80 --debugger"
+	screen -L -Logfile meuk/logs/http.log -dmS http sh -c ".venv/bin/flask --app app:create_app db migrate; .venv/bin/flask --app app:create_app db upgrade; .venv/bin/flask --app app:create_app run --host=0.0.0.0 --port=80 --debug"
 	screen -L -Logfile meuk/logs/metasploit.log -t metasploit -dmS metasploit asciinema rec meuk/logs/metasploit.rec --stdin -c "stty sane;msfconsole"
 	#screen -L -Logfile meuk/logs/metasploit.log -dmS metasploit sh -c "stty sane; msfconsole"
+	screen -L -Logfile meuk/logs/msfrpcd.log -dmS msfrpcd sh -c "stty sane; msfrpcd -P ${MSF_RPC_PASS:-msf} -U ${MSF_RPC_USER:-msf} -p ${MSF_RPC_PORT:-55553} -a 127.0.0.1 -S -f"
 	screen -dmS tcpdump sh -c "stty sane; tcpdump -i any icmp -w raw/icmp.pcap"
 fi 
 
@@ -67,24 +69,23 @@ echo '[+] Screens set...'
 screen -list
 
 echo '[+] Logging tool versions...'
+_vlog() { "$1" "${2:---version}" 2>&1 | sed "s/\x1b\[[0-9;]*m//g" > "raw/tooling/$3" || true; }
 #versies zetten
-wafw00f --version > raw/tooling/wafw00f-versie.txt
-cat raw/tooling/wafw00f-versie.txt | sed "s/\x1b[^m]*m//g" > raw/tooling/wafw00f-versie.txt
-curl --version > raw/tooling/curl-versie.txt
-nmap --version > raw/tooling/nmap-versie.txt
-nikto -Version > raw/tooling/nikto-versie.txt
-#wapiti --version > raw/tooling/wapiti-versie.txt
-nuclei --version > raw/tooling/nuclei-versie.txt
-sqlmap --version > raw/tooling/sqlmap-versie.txt
-whatweb --version > raw/tooling/whatwheb-versie.txt
-dnsrecon --version > raw/tooling/dnsrecon-versie.txt
-sslscan --version > raw/tooling/sslscan-versie.txt
-testssl --version > raw/tooling/testssl-versie.txt
-cat raw/tooling/testssl-versie.txt | sed "s/\x1b[^m]*m//g" > raw/tooling/testssl-versie.txt
+_vlog wafw00f --version   wafw00f-versie.txt
+_vlog curl    --version   curl-versie.txt
+_vlog nmap    --version   nmap-versie.txt
+_vlog nikto   -Version    nikto-versie.txt
+#_vlog wapiti  --version   wapiti-versie.txt
+_vlog nuclei  --version   nuclei-versie.txt
+_vlog sqlmap  --version   sqlmap-versie.txt
+_vlog whatweb --version   whatwheb-versie.txt
+_vlog dnsrecon --version  dnsrecon-versie.txt
+_vlog sslscan --version   sslscan-versie.txt
+testssl --version 2>&1 | sed "s/\x1b\[[0-9;]*m//g" > raw/tooling/testssl-versie.txt || true
 #zapversie=$(ls /usr/share/zaproxy/ | grep jar)
 #echo $zapversie > raw/tooling/zap-versie.txt
-wget --version > raw/tooling/wget-versie.txt
-dirb > raw/tooling/dirb-versie.txt
-msfconsole --version > raw/tooling/metasploit-version.txt
+_vlog wget    --version   wget-versie.txt
+dirb 2>&1 | head -5 > raw/tooling/dirb-versie.txt || true
+_vlog msfconsole --version metasploit-version.txt
 
 

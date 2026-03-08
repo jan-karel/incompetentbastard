@@ -32,6 +32,16 @@
           <span class="help">Uitvoer: http/payloads/{prefix}_{poort}.txt</span>
         </div>
       </div>
+        <div class="field">
+          <label for="default-payload">Standaard payload</label>
+          <div class="input-row">
+            <select id="default-payload" class="input"></select>
+            <button type="button" id="btn-save-default-payload" class="btn">Opslaan</button>
+            <span id="default-payload-status" class="status"></span>
+          </div>
+          <span class="help">Wordt als standaard gebruikt voor download commands en in het dashboard.</span>
+        </div>
+      </div>
       <div class="gen-actions">
         <button type="submit" id="gen-btn" class="btn btn-primary">Genereer reverse shells</button>
         <button type="button" id="refresh-btn" class="btn">Overzicht vernieuwen</button>
@@ -48,6 +58,17 @@
 <section class="card mt-14">
   <div class="card-body py-10 px-14">
     <input id="shell-filter" class="input w-full" type="text" placeholder="Zoek shells, cradles, tools..." />
+  </div>
+</section>
+
+<!-- Standaard Payload Download Commands -->
+<section class="card mt-14" id="default-payload-section" style="display:none">
+  <div class="card-head">
+    <h2>Standaard payload</h2>
+    <span id="default-payload-name" class="help fs-12"></span>
+  </div>
+  <div class="card-body">
+    <div id="default-payload-commands"></div>
   </div>
 </section>
 

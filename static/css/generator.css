@@ -181,3 +181,43 @@
     grid-column: span 1;
   }
 }
+
+/* ── invoke-assembly specifieke stijlen ─────────────────────────── */
+.ia-checkbox-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.2rem;
+  margin-top: .3rem;
+}
+.ia-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: .4rem;
+  cursor: pointer;
+}
+.ia-xor-row {
+  display: flex;
+  align-items: center;
+  gap: .8rem;
+  margin-top: .3rem;
+  flex-wrap: wrap;
+}
+.ia-xor-key-row {
+  margin-top: .5rem;
+  display: flex;
+  gap: .5rem;
+  align-items: center;
+}
+.ia-xor-key-input {
+  font-family: monospace;
+  max-width: 22rem;
+}
+.ia-xor-nowrap {
+  white-space: nowrap;
+}
+.ia-fileless-note {
+  margin-bottom: .75rem;
+}
+.ia-preview-hidden {
+  display: none;
+}

@@ -61,7 +61,7 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
 
 	screen -dmS metasploit "$ASCIINEMA" rec meuk/logs/metasploit.rec --stdin -c "stty sane;msfconsole"
 	pkill -f "msfrpcd" 2>/dev/null || true
-	screen -dmS msfrpcd sh -c "stty sane; msfrpcd -P ${MSF_RPC_PASS:-msf} -U ${MSF_RPC_USER:-msf} -p ${MSF_RPC_PORT:-55553} -a 127.0.0.1 -f > meuk/logs/msfrpcd.log 2>&1"
+	screen -dmS msfrpcd sh -c "stty sane; msfrpcd -P ${MSF_RPC_PASS:-msf} -U ${MSF_RPC_USER:-msf} -p ${MSF_RPC_PORT:-55553} -a 127.0.0.1 -S -f > meuk/logs/msfrpcd.log 2>&1"
 	#screen -dmS tcpdump asciinema rec meuk/logs/"$1".rec --stdin -c "stty sane; tcpdump -i any icmp -w raw/icmp.pcap"
 
 
@@ -72,7 +72,7 @@ else
 	screen -L -Logfile meuk/logs/metasploit.log -t metasploit -dmS metasploit "$ASCIINEMA" rec meuk/logs/metasploit.rec --stdin -c "stty sane;msfconsole"
 	#screen -L -Logfile meuk/logs/metasploit.log -dmS metasploit sh -c "stty sane; msfconsole"
 	pkill -f "msfrpcd" 2>/dev/null || true
-	screen -L -Logfile meuk/logs/msfrpcd.log -dmS msfrpcd sh -c "stty sane; msfrpcd -P ${MSF_RPC_PASS:-msf} -U ${MSF_RPC_USER:-msf} -p ${MSF_RPC_PORT:-55553} -a 127.0.0.1 -f"
+	screen -L -Logfile meuk/logs/msfrpcd.log -dmS msfrpcd sh -c "stty sane; msfrpcd -P ${MSF_RPC_PASS:-msf} -U ${MSF_RPC_USER:-msf} -p ${MSF_RPC_PORT:-55553} -a 127.0.0.1 -S -f"
 	screen -dmS tcpdump sh -c "stty sane; tcpdump -i any icmp -w raw/icmp.pcap"
 fi 
 

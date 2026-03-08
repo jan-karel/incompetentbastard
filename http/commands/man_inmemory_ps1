@@ -1,0 +1,38 @@
+# In-Memory .NET Assembly Loading via PowerShell
+# Laadt .NET assemblies direct in geheugen zonder schrijven naar schijf
+#
+# === Vereisten ===
+# - PowerShell 2.0+
+# - AMSI bypass actief (anders blokkeert bekende tool-signatures)
+# - HTTP toegang tot attacker webserver
+#
+# === Werking ===
+# 1. DownloadData() haalt assembly op als byte array (geen temp bestand)
+# 2. [Reflection.Assembly]::Load() laadt de bytes direct in het huidige PS-proces
+# 3. EntryPoint.Invoke() roept de Main() methode aan met opgegeven argumenten
+#
+# === Vergelijking met alternatieven ===
+# PS Assembly.Load  - fileless, geen extra binary nodig, AMSI bypass vereist
+# NetLoader.exe     - fileless, ingebouwde AMSI+ETW bypass, binary vereist op schijf
+# AssemblyLoad.exe  - fileless dubbele stage, laadt NetLoader ook in-memory
+# Directe uitvoering- bestand op schijf, AV-detectie, geen extra stappen
+#
+# === Detectie-overwegingen ===
+# - [Reflection.Assembly]::Load is bekende EDR trigger
+# - ScriptBlock logging logt het volledige PS commando
+# - Assembly zichtbaar in geheugen van PS-proces
+# - ETW logt .NET assembly loads
+#
+# === Mitigaties (voor detectie) ===
+# - Invisi-Shell omzeilt ScriptBlock logging
+# - CLM bypass (Constrained Language Mode)
+# - Gecombineerd met ETW patch
+# - Obfusceer de Load()-aanroep zelf
+#
+# === Argumenten doorgeven ===
+# Enkelvoudig argument:
+# .Invoke($null, @(,[string[]]@("argument")))
+# Meerdere argumenten:
+# .Invoke($null, @(,[string[]]@("arg1","arg2","arg3")))
+# Geen argumenten:
+# .Invoke($null, $null)

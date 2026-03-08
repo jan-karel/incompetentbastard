@@ -423,7 +423,10 @@ log_info "=== Handmatig (compilatie of commercieel) ==="
     log_warn "Outflank-Dumpert.exe — compileer zelf: https://github.com/outflanknl/Dumpert"
 
 [ -f "$TOOLS_DIR/Loader.exe" ] && log_ok "Loader.exe (al aanwezig)" || \
-    log_warn "Loader.exe — compileer zelf: https://github.com/Flangvik/NetLoader"
+    log_warn "Loader.exe — compileer zelf: https://github.com/Flangvik/NetLoader (dotnet build -c Release)"
+
+[ -f "$TOOLS_DIR/AssemblyLoad.exe" ] && log_ok "AssemblyLoad.exe (al aanwezig)" || \
+    log_warn "AssemblyLoad.exe — compileer zelf: https://github.com/Flangvik/NetLoader (AssemblyLoad project, dotnet build -c Release)"
 
 [ -f "$TOOLS_DIR/SCShell.exe" ] && log_ok "SCShell.exe (al aanwezig)" || \
     log_warn "SCShell.exe — compileer zelf: https://github.com/Mr-Un1k0d3r/SCShell"

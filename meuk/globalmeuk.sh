@@ -39,18 +39,38 @@ function startrec(){
 	local script_name
 	script_name="$(basename "$caller" .sh)"
 	local rec_file="meuk/logs/${script_name}-$(date +%Y%m%d_%H%M%S).rec"
-	if command -v asciinema &>/dev/null; then
-		exec asciinema rec --overwrite "$rec_file" -c "bash $caller $*"
+	local _asciinema=""
+	if [ -x ".venv/bin/asciinema" ]; then _asciinema=".venv/bin/asciinema"
+	elif command -v asciinema &>/dev/null; then _asciinema="asciinema"
+	fi
+	if [ -n "$_asciinema" ]; then
+		exec "$_asciinema" rec --overwrite "$rec_file" -c "bash $caller $*"
 	fi
 }
 
 function fixscreen(){
 	mkdir -p meuk/logs
-	if [[ "$OSTYPE" == "darwin"* ]]; then
-		# macOS: geen -L screen logging beschikbaar
-		screen -dmS "$1" asciinema rec --overwrite meuk/logs/"$1".rec --stdin -c "stty sane;$2"
+	# Zoek asciinema: eerst venv, dan PATH
+	local ASCIINEMA=""
+	if [ -x ".venv/bin/asciinema" ]; then
+		ASCIINEMA=".venv/bin/asciinema"
+	elif command -v asciinema &>/dev/null; then
+		ASCIINEMA="asciinema"
+	fi
+
+	if [ -n "$ASCIINEMA" ]; then
+		if [[ "$OSTYPE" == "darwin"* ]]; then
+			screen -dmS "$1" "$ASCIINEMA" rec --overwrite meuk/logs/"$1".rec --stdin -c "stty sane;$2"
+		else
+			screen -L -Logfile meuk/logs/"$1".log -t "$1" -dmS "$1" "$ASCIINEMA" rec --overwrite meuk/logs/"$1".rec --stdin -c "stty sane;$2"
+		fi
 	else
-		screen -L -Logfile meuk/logs/"$1".log -t "$1" -dmS "$1" asciinema rec --overwrite meuk/logs/"$1".rec --stdin -c "stty sane;$2"
+		# Geen asciinema beschikbaar — start direct zonder opname
+		if [[ "$OSTYPE" == "darwin"* ]]; then
+			screen -dmS "$1" sh -c "stty sane;$2"
+		else
+			screen -L -Logfile meuk/logs/"$1".log -t "$1" -dmS "$1" sh -c "stty sane;$2"
+		fi
 	fi
 }
 

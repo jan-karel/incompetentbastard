@@ -10,3 +10,5 @@ sh
 cvss
 python-pptx
 pymetasploit3
+asciinema
+impacket

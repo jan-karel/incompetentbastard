@@ -21,7 +21,7 @@ _MSF_HOST = os.environ.get('MSF_RPC_HOST', '127.0.0.1')
 _MSF_PORT = int(os.environ.get('MSF_RPC_PORT', 55553))
 _MSF_USER = os.environ.get('MSF_RPC_USER', 'msf')
 _MSF_PASS = os.environ.get('MSF_RPC_PASS', 'msf')
-_MSF_SSL  = os.environ.get('MSF_RPC_SSL', 'true').lower() in ('1', 'true', 'yes')
+_MSF_SSL  = os.environ.get('MSF_RPC_SSL', 'false').lower() in ('1', 'true', 'yes')
 
 # ── Allowlists ────────────────────────────────────────────────────────────────
 

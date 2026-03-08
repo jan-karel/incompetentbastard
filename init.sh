@@ -24,7 +24,7 @@ if [ ! -f ".venv/bin/flask" ]; then
 	echo '[+] Venv klaar.'
 fi
 
-echo 'no' | sudo msfdb init || true || true
+echo 'no' | sudo msfdb init || true
 
 
 #rapportage aanmaken
@@ -48,8 +48,10 @@ if [ -e "${locatie}/meuk/client.ovpn" ]; then
 	fi
 fi 
 
+ASCIINEMA=".venv/bin/asciinema"
+
 if [[ "$OSTYPE" == "darwin"* ]]; then
-	screen -dmS smb smbserver.py share http -smb2support
+	screen -dmS smb sh -c ".venv/bin/smbserver.py share http -smb2support"
 
 
 	#screen -dmS http sh -c "cd http && python3 -m http.server 80"
@@ -57,18 +59,20 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
 	#screen -dmS metasploit sh -c "stty sane; msfconsole"
 	screen -dmS tcpdump sh -c "stty sane; tcpdump -i any icmp -w raw/icmp.pcap"
 
-	screen -dmS metasploit asciinema rec meuk/logs/metasploit.rec --stdin -c "stty sane;msfconsole"
-	screen -dmS msfrpcd sh -c "stty sane; msfrpcd -P ${MSF_RPC_PASS:-msf} -U ${MSF_RPC_USER:-msf} -p ${MSF_RPC_PORT:-55553} -a 127.0.0.1 -S -f > meuk/logs/msfrpcd.log 2>&1"
+	screen -dmS metasploit "$ASCIINEMA" rec meuk/logs/metasploit.rec --stdin -c "stty sane;msfconsole"
+	pkill -f "msfrpcd" 2>/dev/null || true
+	screen -dmS msfrpcd sh -c "stty sane; msfrpcd -P ${MSF_RPC_PASS:-msf} -U ${MSF_RPC_USER:-msf} -p ${MSF_RPC_PORT:-55553} -a 127.0.0.1 -f > meuk/logs/msfrpcd.log 2>&1"
 	#screen -dmS tcpdump asciinema rec meuk/logs/"$1".rec --stdin -c "stty sane; tcpdump -i any icmp -w raw/icmp.pcap"
 
 
 else
-	screen -L -Logfile meuk/logs/smb.log -dmS smb impacket-smbserver share http -smb2support
+	screen -L -Logfile meuk/logs/smb.log -dmS smb sh -c ".venv/bin/impacket-smbserver share http -smb2support"
 	#screen -L -Logfile meuk/logs/http.log -dmS http sh -c "cd http && python3 -m http.server 80"
 	screen -L -Logfile meuk/logs/http.log -dmS http sh -c ".venv/bin/flask --app app:create_app db migrate; .venv/bin/flask --app app:create_app db upgrade; .venv/bin/flask --app app:create_app run --host=0.0.0.0 --port=80 --debug"
-	screen -L -Logfile meuk/logs/metasploit.log -t metasploit -dmS metasploit asciinema rec meuk/logs/metasploit.rec --stdin -c "stty sane;msfconsole"
+	screen -L -Logfile meuk/logs/metasploit.log -t metasploit -dmS metasploit "$ASCIINEMA" rec meuk/logs/metasploit.rec --stdin -c "stty sane;msfconsole"
 	#screen -L -Logfile meuk/logs/metasploit.log -dmS metasploit sh -c "stty sane; msfconsole"
-	screen -L -Logfile meuk/logs/msfrpcd.log -dmS msfrpcd sh -c "stty sane; msfrpcd -P ${MSF_RPC_PASS:-msf} -U ${MSF_RPC_USER:-msf} -p ${MSF_RPC_PORT:-55553} -a 127.0.0.1 -S -f"
+	pkill -f "msfrpcd" 2>/dev/null || true
+	screen -L -Logfile meuk/logs/msfrpcd.log -dmS msfrpcd sh -c "stty sane; msfrpcd -P ${MSF_RPC_PASS:-msf} -U ${MSF_RPC_USER:-msf} -p ${MSF_RPC_PORT:-55553} -a 127.0.0.1 -f"
 	screen -dmS tcpdump sh -c "stty sane; tcpdump -i any icmp -w raw/icmp.pcap"
 fi 
 

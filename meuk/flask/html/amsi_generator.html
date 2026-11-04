@@ -1,0 +1,191 @@
+{% extends "bootstrap/base.html" %}
+{% block title %}AMSI Bypass Generator{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/generator.css') }}" />
+<link rel="stylesheet" href="{{ url_for('static', filename='css/amsi-generator.css') }}" />
+{% endblock %}
+
+{% block content %}
+<div class="gen-header">
+  <div class="breadcrumbs"><a href="/">Dashboard</a> / AMSI Bypass Generator</div>
+  <h1>AMSI Bypass Generator</h1>
+  <p>Genereer architecture-aware AMSI en CLM bypasses. Presets zijn volledig bewerkbaar.</p>
+</div>
+
+<!-- Generator panelen -->
+<div class="amsi-grid">
+
+  <!-- Linkerpaneel: instellingen -->
+  <section class="card">
+    <div class="card-head"><h2>Instellingen</h2></div>
+    <div class="card-body">
+
+      <div class="field mb-12">
+        <label>Architectuur</label>
+        <div class="arch-pills" id="arch-pills">
+          <label class="pill-label active">
+            <input type="radio" name="arch" value="auto" checked> Auto-detect
+          </label>
+          <label class="pill-label">
+            <input type="radio" name="arch" value="x64"> x64
+          </label>
+          <label class="pill-label">
+            <input type="radio" name="arch" value="x86"> x86
+          </label>
+          <label class="pill-label">
+            <input type="radio" name="arch" value="arm64"> ARM64
+          </label>
+        </div>
+        <p class="text-muted fs-12 mt-4 mb-0">
+          Auto-detect omhult de bypass in een PowerShell <code>switch($arch)</code> blok.
+        </p>
+      </div>
+
+      <div class="field mb-12">
+        <label for="amsi-method">AMSI methode</label>
+        <select id="amsi-method" class="input">
+          <option value="reflection">Reflection — AmsiInitFailed (arch-onafhankelijk)</option>
+          <option value="patch">Memory patch — arch-specifiek (x64 / x86 / ARM64)</option>
+          <option value="context">AmsiContext null pointer (pre-Win11)</option>
+        </select>
+      </div>
+
+      <div class="field mb-12">
+        <label for="clm-method">CLM bypass meenemen</label>
+        <select id="clm-method" class="input">
+          <option value="none">Niet meenemen</option>
+          <option value="runspace">Custom runspace (arch-onafhankelijk)</option>
+          <option value="installutil">InstallUtil — PSBypassCLM</option>
+          <option value="msbuild">MSBuild inline task</option>
+          <option value="psv2">PowerShell v2 (-version 2)</option>
+        </select>
+      </div>
+
+      <div class="gen-form mt-6">
+        <div class="field">
+          <label for="replace-find">Zoeken</label>
+          <input class="input" type="text" id="replace-find" placeholder="bijv. 10.0.0.1" />
+        </div>
+        <div class="field">
+          <label for="replace-with">Vervangen</label>
+          <input class="input" type="text" id="replace-with" placeholder="bijv. 192.168.1.50" />
+        </div>
+      </div>
+      <div class="mt-4">
+        <label class="label-check">
+          <input type="checkbox" id="replace-https" /> http:// naar https:// omzetten
+        </label>
+      </div>
+
+      <div class="gen-actions mt-6">
+        <button type="button" id="btn-generate" class="btn btn-primary">Genereer</button>
+        <span id="gen-status" class="status"></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- Rechterpaneel: output -->
+  <section class="card">
+    <div class="card-head">
+      <h2>Gegenereerde bypass</h2>
+      <div class="shell-file-picker">
+        <button type="button" id="btn-copy-output" class="btn btn-sm">Kopiëren</button>
+        <a id="btn-download" href="#" class="btn btn-sm" download="amsi-bypass.ps1">Download .ps1</a>
+        <button type="button" id="btn-save-payload" class="btn btn-sm btn-save-payload" title="Overschrijft http/payloads/amsi-bypass.ps1">
+          Opslaan naar schijf
+        </button>
+      </div>
+    </div>
+    <div class="card-body">
+      <pre id="amsi-output" class="gen-output">Klik op "Genereer" om de bypass te maken.</pre>
+    </div>
+  </section>
+
+</div>
+
+<!-- Preset beheer -->
+<section class="card mt-14">
+  <div class="card-head">
+    <h2>Presets</h2>
+    <div class="shell-file-picker">
+      <input type="text" id="preset-filter" class="input min-w-200" placeholder="Zoeken in presets...">
+      <button type="button" id="btn-add-preset" class="btn btn-sm">+ Nieuw preset</button>
+    </div>
+  </div>
+  <div class="card-body">
+    <div id="preset-list"><p class="text-muted">Laden...</p></div>
+  </div>
+</section>
+
+<!-- Modal: preset toevoegen / bewerken -->
+<div id="preset-modal" class="amsi-overlay amsi-hidden">
+  <div class="amsi-modal">
+    <div class="amsi-modal-head">
+      <h3 id="modal-title">Preset toevoegen</h3>
+      <button type="button" id="modal-close" class="amsi-modal-close" aria-label="Sluiten">&times;</button>
+    </div>
+    <div class="amsi-modal-body">
+      <input type="hidden" id="modal-preset-id">
+
+      <div class="gen-form">
+        <div class="field">
+          <label for="modal-naam">Naam <span class="text-danger">*</span></label>
+          <input type="text" id="modal-naam" class="input" placeholder="bijv. Memory patch x64" maxlength="100">
+        </div>
+        <div class="field">
+          <label for="modal-categorie">Categorie</label>
+          <select id="modal-categorie" class="input">
+            <option value="amsi">AMSI</option>
+            <option value="clm">CLM</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="modal-arch">Architectuur</label>
+          <select id="modal-arch" class="input">
+            <option value="any">Alle architecturen</option>
+            <option value="x64">x64</option>
+            <option value="x86">x86</option>
+            <option value="arm64">ARM64</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="modal-methode">Methode slug</label>
+          <input type="text" id="modal-methode" class="input" placeholder="bijv. reflection" maxlength="30">
+        </div>
+        <div class="field span-2">
+          <label for="modal-omschrijving">Omschrijving</label>
+          <input type="text" id="modal-omschrijving" class="input" placeholder="Korte toelichting" maxlength="300">
+        </div>
+      </div>
+
+      <div class="field mb-10">
+        <label for="modal-code">PowerShell code</label>
+        <textarea id="modal-code" class="input amsi-code-editor" rows="10" spellcheck="false" autocomplete="off"></textarea>
+      </div>
+
+      <div class="gen-form">
+        <div class="field">
+          <label for="modal-volgorde">Volgorde</label>
+          <input type="number" id="modal-volgorde" class="input" value="99" min="0" max="999">
+        </div>
+        <div class="field amsi-actief-field">
+          <label class="label-check">
+            <input type="checkbox" id="modal-actief" checked> Actief
+          </label>
+        </div>
+      </div>
+    </div>
+    <div class="amsi-modal-foot">
+      <button type="button" id="modal-save" class="btn btn-primary">Opslaan</button>
+      <button type="button" id="modal-cancel" class="btn">Annuleren</button>
+      <span id="modal-status" class="status ml-8"></span>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='js/amsi-generator.js') }}"></script>
+{% endblock %}

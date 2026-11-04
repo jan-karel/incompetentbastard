@@ -4,22 +4,8 @@
 {% block styles %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/safe-overview.css') }}" />
 <link rel="stylesheet" href="{{ url_for('static', filename='css/findings-filter.css') }}" />
-<style nonce="{{ csp_nonce }}">
-#risk-matrix-wrap { overflow-x: auto; }
-#risk-matrix { border-collapse: separate; border-spacing: 4px; min-width: 340px; }
-.rm-axis-th { width: 80px; font-size: 11px; color: var(--text-muted, #888); text-align: right; padding-right: 6px; }
-.rm-row-label { font-size: 11px; color: var(--text-muted, #888); text-align: right; padding-right: 6px; white-space: nowrap; }
-.rm-cell { width: 80px; height: 54px; border-radius: 6px; text-align: center; vertical-align: middle; cursor: pointer; font-size: 13px; font-weight: 700; position: relative; }
-.rm-tooltip { display: none; position: absolute; z-index: 99; left: 50%; transform: translateX(-50%); top: 100%; background: #1e1e2e; border: 1px solid #444; border-radius: 6px; padding: 6px 10px; min-width: 160px; font-size: 11px; font-weight: 400; text-align: left; white-space: nowrap; margin-top: 4px; }
-.rm-tip-link { display: block; color: #a5b4fc; text-decoration: none; margin-top: 3px; }
-.rm-tip-score { color: #888; }
-.rm-tip-more { color: #888; }
-.rm-legend-low    { color: #4ade80; }
-.rm-legend-medium { color: #facc15; }
-.rm-legend-high   { color: #f97316; }
-.rm-legend-crit   { color: #ef4444; }
-.rm-legend-note   { font-size: 11px; }
-</style>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/risk-matrix.css') }}" />
+<link rel="stylesheet" href="{{ url_for('static', filename='css/rapport-editor.css') }}" />
 {% endblock %}
 
 {% block content %}
@@ -30,89 +16,137 @@
   </div>
 </div>
 
+{# KPI rij — altijd zichtbaar #}
 <div class="grid cols-4 mb-14">
   <section class="card"><div class="card-body"><div class="val">{{ findings|length }}</div><div class="sub">Totaal bevindingen</div></div></section>
   <section class="card"><div class="card-body"><div class="val">{{ templates|length }}</div><div class="sub">Sjablonen</div></div></section>
   <section class="card"><div class="card-body"><div class="val">{{ findings|selectattr('status','equalto','final')|list|length }}</div><div class="sub">Definitief</div></div></section>
-  <section class="card"><div class="card-body">
-    <a class="btn btn-primary" href="/dashboard/report">Rapport dashboard</a>
+  <section class="card"><div class="card-body d-flex gap-8 flex-wrap">
+    <button type="button" id="btn-new-finding-kpi" class="btn btn-primary">+ Nieuwe bevinding</button>
+    <a class="btn" href="/dashboard/report">Rapport dashboard</a>
   </div></section>
 </div>
 
-{# Import / Export / Seed #}
-<section class="card mb-14">
-  <div class="card-head"><h2>Importeren &amp; exporteren</h2></div>
-  <div class="card-body">
-    <div class="grid cols-2 gap-16">
-      <div>
-        <h3 class="fs-14 m-0 mb-8">Exporteren</h3>
-        <div class="d-flex gap-8 flex-wrap">
-          <a class="btn" href="/api/findings/export" target="_blank">Bevindingen exporteren (JSON)</a>
-          <a class="btn" href="/api/findings/evidence/export">Bewijs exporteren (ZIP)</a>
-          <a class="btn" href="/api/findings/export/csv">CSV exporteren</a>
-        </div>
-      </div>
-      <div>
-        <h3 class="fs-14 m-0 mb-8">Bevindingen importeren</h3>
-        <form action="/dashboard/findings/import" method="post" enctype="multipart/form-data" class="d-flex gap-8 items-center flex-wrap">
-          <input type="file" name="file" accept=".json,application/json" required class="fs-13" />
-          <button type="submit" class="btn">JSON importeren</button>
-        </form>
-      </div>
-    </div>
-    <hr class="hr-sep" />
-    <div>
-      <h3 class="fs-14 m-0 mb-8">Standaard bevindingen</h3>
-      <p class="help m-0 mb-8">Overschrijf alle finding templates met de 227 standaard bevindingen uit hacksec-patched (OWASP, CWE, CVSS 4.0).</p>
-      <form action="/dashboard/findings/templates/seed" method="post" data-confirm-submit="Alle bestaande templates worden overschreven. Doorgaan?" class="d-inline">
-        <button type="submit" class="btn btn-primary">Laad standaard bevindingen</button>
-      </form>
-    </div>
-  </div>
-</section>
+{# Tab navigatie #}
+<div class="rapport-tabs" id="findings-tabs">
+  <button class="rapport-tab" data-tab="tab-bevindingen">Bevindingen</button>
+  <button class="rapport-tab" data-tab="tab-sjablonen">Sjablonen</button>
+  <button class="rapport-tab" data-tab="tab-risicomatrix">Risicomatrix</button>
+  <button class="rapport-tab" data-tab="tab-beheer">Beheer</button>
+</div>
 
-{# Risicomatrix heatmap #}
-<section class="card mb-14">
-  <div class="card-head">
-    <h2>Risicomatrix</h2>
-    <a class="btn ml-auto" href="/dashboard/findings/retest">Retest overzicht</a>
-  </div>
-  <div class="card-body">
-    <div id="risk-matrix-wrap">
-      <table id="risk-matrix">
+{# ══════════════════════════════════════════════════ #}
+{# TAB 1: Bevindingen                                 #}
+{# ══════════════════════════════════════════════════ #}
+<div class="rapport-tab-content" id="tab-bevindingen">
+  <section class="card">
+    <div class="card-head"><h2>Bestaande bevindingen</h2></div>
+    <div class="card-body">
+      <div class="filter-bar">
+        <input type="text" id="filter-search" placeholder="Zoeken op naam/host..." />
+        <select id="filter-severity">
+          <option value="">Alle ernstniveaus</option>
+          <option value="critical">Kritiek</option>
+          <option value="high">Hoog</option>
+          <option value="medium">Gemiddeld</option>
+          <option value="low">Laag</option>
+          <option value="none">Geen</option>
+        </select>
+        <select id="filter-status">
+          <option value="">Alle statussen</option>
+          <option value="draft">Concept</option>
+          <option value="final">Definitief</option>
+          <option value="closed">Gesloten</option>
+        </select>
+        <select id="filter-remediation">
+          <option value="">Alle herstel</option>
+          <option value="open">Open</option>
+          <option value="in_progress">In uitvoering</option>
+          <option value="fixed">Opgelost</option>
+          <option value="verified">Geverifieerd</option>
+          <option value="accepted">Geaccepteerd</option>
+        </select>
+      </div>
+      <div class="batch-bar">
+        <select id="batch-action">
+          <option value="">Batchactie...</option>
+          <option value="set_status:draft">Status: Concept</option>
+          <option value="set_status:final">Status: Definitief</option>
+          <option value="set_status:closed">Status: Gesloten</option>
+          <option value="set_remediation:open">Herstel: Open</option>
+          <option value="set_remediation:in_progress">Herstel: In uitvoering</option>
+          <option value="set_remediation:fixed">Herstel: Opgelost</option>
+          <option value="set_remediation:verified">Herstel: Geverifieerd</option>
+          <option value="delete:">Selectie verwijderen</option>
+        </select>
+        <button class="btn" id="batch-execute">Uitvoeren</button>
+      </div>
+      {% if findings %}
+      <div class="d-flex gap-8 items-center mb-8" id="pagination-bar">
+        <button class="btn" id="pg-prev" type="button">&#8592;</button>
+        <span id="pg-info" class="fs-12 text-muted"></span>
+        <button class="btn" id="pg-next" type="button">&#8594;</button>
+        <select id="pg-size" class="form-control input-sm" style="width:90px">
+          <option value="25">25 / pagina</option>
+          <option value="50">50 / pagina</option>
+          <option value="100">100 / pagina</option>
+          <option value="0">Alles</option>
+        </select>
+      </div>
+      <table class="table compact" id="findings-table">
         <thead>
           <tr>
-            <th class="rm-axis-th">Kans &darr; / Impact &rarr;</th>
-            <th class="rm-axis-label" data-col="1">1 – Verwaarloosbaar</th>
-            <th class="rm-axis-label" data-col="2">2 – Beperkt</th>
-            <th class="rm-axis-label" data-col="3">3 – Aanzienlijk</th>
-            <th class="rm-axis-label" data-col="4">4 – Ernstig</th>
-            <th class="rm-axis-label" data-col="5">5 – Kritiek</th>
+            <th><input type="checkbox" class="batch-check-all" id="batch-check-all" /></th>
+            <th>ID</th><th>Naam</th><th>Host</th><th>CVSS</th><th>Status</th><th>Herstel</th><th>Acties</th>
           </tr>
         </thead>
-        <tbody id="rm-tbody">
-          {% for k in [5,4,3,2,1] %}
-          <tr>
-            <td class="rm-row-label">
-              {{ k }} –
-              {% if k==5 %}Zeer hoog{% elif k==4 %}Hoog{% elif k==3 %}Midden{% elif k==2 %}Laag{% else %}Zeer laag{% endif %}
+        <tbody>
+          {% for f in findings|reverse %}
+          <tr data-name="{{ f.naam }}" data-host="{{ f.locatie }}" data-status="{{ f.status or 'draft' }}" data-remediation="{{ f.remediation_status or 'open' }}" data-severity="{{ f.basescore | cvss_severity }}">
+            <td><input type="checkbox" class="batch-check" data-id="{{ f.id }}" /></td>
+            <td>{{ f.id | nulvul }}</td>
+            <td>{{ f.naam }}</td>
+            <td>{{ f.locatie }}</td>
+            <td>{{ f.basescore or '-' }}</td>
+            <td>
+              <select class="status-inline" data-finding-id="{{ f.id }}">
+                <option value="draft"{% if (f.status or 'draft') == 'draft' %} selected{% endif %}>Concept</option>
+                <option value="final"{% if f.status == 'final' %} selected{% endif %}>Definitief</option>
+                <option value="closed"{% if f.status == 'closed' %} selected{% endif %}>Gesloten</option>
+              </select>
             </td>
-            {% for i in [1,2,3,4,5] %}
-            <td class="rm-cell" data-k="{{ k }}" data-i="{{ i }}">
-              <span class="rm-count">-</span>
-              <div class="rm-tooltip"></div>
+            <td>
+              <select class="remediation-inline" data-finding-id="{{ f.id }}">
+                <option value="open"{% if (f.remediation_status or 'open') == 'open' %} selected{% endif %}>Open</option>
+                <option value="in_progress"{% if f.remediation_status == 'in_progress' %} selected{% endif %}>In uitvoering</option>
+                <option value="fixed"{% if f.remediation_status == 'fixed' %} selected{% endif %}>Opgelost</option>
+                <option value="verified"{% if f.remediation_status == 'verified' %} selected{% endif %}>Geverifieerd</option>
+                <option value="accepted"{% if f.remediation_status == 'accepted' %} selected{% endif %}>Geaccepteerd</option>
+              </select>
             </td>
-            {% endfor %}
+            <td>
+              <a href="/dashboard/findings/edit/{{ f.id }}">bewerken</a>
+              <span> &bull; </span>
+              <form method="post" action="/dashboard/findings/delete/{{ f.id }}" class="d-inline" data-confirm-submit="Bevinding {{ f.id }} verwijderen?">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                <button type="submit" class="btn-as-link">verwijderen</button>
+              </form>
+            </td>
           </tr>
           {% endfor %}
         </tbody>
       </table>
+      {% else %}
+      <p class="help">Nog geen bevindingen.</p>
+      {% endif %}
     </div>
-    <p class="help mt-8 rm-legend-note">Klik op een cel om bevindingen te zien. Kleuren: <span class="rm-legend-low">&#9632;</span> Laag &nbsp;<span class="rm-legend-medium">&#9632;</span> Midden &nbsp;<span class="rm-legend-high">&#9632;</span> Hoog &nbsp;<span class="rm-legend-crit">&#9632;</span> Kritiek</p>
-  </div>
-</section>
+  </section>
+</div>
 
-<div class="grid cols-2">
+{# ══════════════════════════════════════════════════ #}
+{# TAB 2: Sjablonen                                   #}
+{# ══════════════════════════════════════════════════ #}
+<div class="rapport-tab-content" id="tab-sjablonen">
   <section class="card">
     <div class="card-head">
       <h2>Sjablonen</h2>
@@ -146,6 +180,10 @@
             {% if t.owasp_2025 %}<span class="tmpl-item-meta tmpl-owasp-2025" title="OWASP 2025">{{ t.owasp_2025 | owaspcategorie_2025 }}</span>{% endif %}
             <a class="btn" href="/dashboard/findings/add/{{ t.id }}">+ Bevinding</a>
             <a class="btn" href="/dashboard/findings/templates/edit/{{ t.id }}">bewerken</a>
+            <form method="post" action="/dashboard/findings/templates/delete/{{ t.id }}" class="d-inline" data-confirm-submit="Sjabloon '{{ t.titel }}' verwijderen?">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+              <button type="submit" class="btn-as-link">verwijderen</button>
+            </form>
           </div>
           {% endfor %}
         </div>
@@ -156,98 +194,120 @@
       {% endif %}
     </div>
   </section>
+</div>
+
+{# ══════════════════════════════════════════════════ #}
+{# TAB 3: Risicomatrix                                #}
+{# ══════════════════════════════════════════════════ #}
+<div class="rapport-tab-content" id="tab-risicomatrix">
+  <section class="card">
+    <div class="card-head">
+      <h2>Risicomatrix</h2>
+      <a class="btn ml-auto" href="/dashboard/findings/retest">Retest overzicht</a>
+    </div>
+    <div class="card-body">
+      <div id="risk-matrix-wrap">
+        <table id="risk-matrix">
+          <thead>
+            <tr>
+              <th class="rm-axis-th">Kans &darr; / Impact &rarr;</th>
+              <th class="rm-axis-label" data-col="1">1 – Verwaarloosbaar</th>
+              <th class="rm-axis-label" data-col="2">2 – Beperkt</th>
+              <th class="rm-axis-label" data-col="3">3 – Aanzienlijk</th>
+              <th class="rm-axis-label" data-col="4">4 – Ernstig</th>
+              <th class="rm-axis-label" data-col="5">5 – Kritiek</th>
+            </tr>
+          </thead>
+          <tbody id="rm-tbody">
+            {% for k in [5,4,3,2,1] %}
+            <tr>
+              <td class="rm-row-label">
+                {{ k }} –
+                {% if k==5 %}Zeer hoog{% elif k==4 %}Hoog{% elif k==3 %}Midden{% elif k==2 %}Laag{% else %}Zeer laag{% endif %}
+              </td>
+              {% for i in [1,2,3,4,5] %}
+              <td class="rm-cell" data-k="{{ k }}" data-i="{{ i }}">
+                <span class="rm-count">-</span>
+                <div class="rm-tooltip"></div>
+              </td>
+              {% endfor %}
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <p class="help mt-8 rm-legend-note">Klik op een cel om bevindingen te zien. Kleuren: <span class="rm-legend-low">&#9632;</span> Laag &nbsp;<span class="rm-legend-medium">&#9632;</span> Midden &nbsp;<span class="rm-legend-high">&#9632;</span> Hoog &nbsp;<span class="rm-legend-crit">&#9632;</span> Kritiek</p>
+    </div>
+  </section>
+</div>
+
+{# ══════════════════════════════════════════════════ #}
+{# TAB 4: Beheer (import/export + prullenbak)         #}
+{# ══════════════════════════════════════════════════ #}
+<div class="rapport-tab-content" id="tab-beheer">
+  <section class="card mb-14">
+    <div class="card-head"><h2>Importeren &amp; exporteren</h2></div>
+    <div class="card-body">
+      <div class="grid cols-2 gap-16">
+        <div>
+          <h3 class="fs-14 m-0 mb-8">Exporteren</h3>
+          <div class="d-flex gap-8 flex-wrap">
+            <a class="btn" href="/api/findings/export" target="_blank">Bevindingen exporteren (JSON)</a>
+            <a class="btn" href="/api/findings/evidence/export">Bewijs exporteren (ZIP)</a>
+            <a class="btn" href="/api/findings/export/csv">CSV exporteren</a>
+          </div>
+        </div>
+        <div>
+          <h3 class="fs-14 m-0 mb-8">Bevindingen importeren</h3>
+          <form action="/dashboard/findings/import" method="post" enctype="multipart/form-data" class="d-flex gap-8 items-center flex-wrap">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+            <input type="file" name="file" accept=".json,application/json" required class="fs-13" />
+            <button type="submit" class="btn">JSON importeren</button>
+          </form>
+        </div>
+      </div>
+      <hr class="hr-sep" />
+      <div>
+        <h3 class="fs-14 m-0 mb-8">Standaard bevindingen</h3>
+        <p class="help m-0 mb-8">Overschrijf alle finding templates met de 227 standaard bevindingen uit hacksec-patched (OWASP, CWE, CVSS 4.0).</p>
+        <form action="/dashboard/findings/templates/seed" method="post" data-confirm-submit="Alle bestaande templates worden overschreven. Doorgaan?" class="d-inline">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+          <button type="submit" class="btn btn-primary">Laad standaard bevindingen</button>
+        </form>
+      </div>
+    </div>
+  </section>
 
   <section class="card">
-    <div class="card-head"><h2>Bestaande bevindingen</h2></div>
+    <div class="card-head"><h2>Prullenbak <span class="text-muted fs-12">({{ deleted_count }})</span></h2></div>
     <div class="card-body">
-      {# Filter bar #}
-      <div class="filter-bar">
-        <input type="text" id="filter-search" placeholder="Zoeken op naam/host..." />
-        <select id="filter-severity">
-          <option value="">Alle ernstniveaus</option>
-          <option value="critical">Kritiek</option>
-          <option value="high">Hoog</option>
-          <option value="medium">Gemiddeld</option>
-          <option value="low">Laag</option>
-          <option value="none">Geen</option>
-        </select>
-        <select id="filter-status">
-          <option value="">Alle statussen</option>
-          <option value="draft">Concept</option>
-          <option value="final">Definitief</option>
-          <option value="closed">Gesloten</option>
-        </select>
-        <select id="filter-remediation">
-          <option value="">Alle herstel</option>
-          <option value="open">Open</option>
-          <option value="in_progress">In uitvoering</option>
-          <option value="fixed">Opgelost</option>
-          <option value="verified">Geverifieerd</option>
-          <option value="accepted">Geaccepteerd</option>
-        </select>
-      </div>
-      {# Batch bar #}
-      <div class="batch-bar">
-        <select id="batch-action">
-          <option value="">Batchactie...</option>
-          <option value="set_status:draft">Status: Concept</option>
-          <option value="set_status:final">Status: Definitief</option>
-          <option value="set_status:closed">Status: Gesloten</option>
-          <option value="set_remediation:open">Herstel: Open</option>
-          <option value="set_remediation:in_progress">Herstel: In uitvoering</option>
-          <option value="set_remediation:fixed">Herstel: Opgelost</option>
-          <option value="set_remediation:verified">Herstel: Geverifieerd</option>
-          <option value="delete:">Selectie verwijderen</option>
-        </select>
-        <button class="btn" id="batch-execute">Uitvoeren</button>
-      </div>
-      {% if findings %}
-      <table class="table compact" id="findings-table">
-        <thead>
-          <tr>
-            <th><input type="checkbox" class="batch-check-all" id="batch-check-all" /></th>
-            <th>ID</th><th>Naam</th><th>Host</th><th>CVSS</th><th>Status</th><th>Herstel</th><th>Acties</th>
-          </tr>
-        </thead>
+      {% if deleted_findings %}
+      <p class="help">Verwijderde bevindingen. Herstel of verwijder permanent via de <a href="/dashboard/admin">Admin</a>-pagina.</p>
+      <table class="table compact">
+        <thead><tr><th>ID</th><th>Naam</th><th>Verwijderd op</th><th></th></tr></thead>
         <tbody>
-          {% for f in findings|reverse %}
-          <tr data-name="{{ f.naam }}" data-host="{{ f.locatie }}" data-status="{{ f.status or 'draft' }}" data-remediation="{{ f.remediation_status or 'open' }}" data-severity="">
-            <td><input type="checkbox" class="batch-check" data-id="{{ f.id }}" /></td>
+          {% for f in deleted_findings %}
+          <tr>
             <td>{{ f.id | nulvul }}</td>
             <td>{{ f.naam }}</td>
-            <td>{{ f.locatie }}</td>
-            <td>{{ f.basescore or '-' }}</td>
+            <td class="fs-12 text-muted">{{ f.deleted_at.strftime('%Y-%m-%d %H:%M') if f.deleted_at else '-' }}</td>
             <td>
-              <select class="status-inline" data-finding-id="{{ f.id }}">
-                <option value="draft"{% if (f.status or 'draft') == 'draft' %} selected{% endif %}>Concept</option>
-                <option value="final"{% if f.status == 'final' %} selected{% endif %}>Definitief</option>
-                <option value="closed"{% if f.status == 'closed' %} selected{% endif %}>Gesloten</option>
-              </select>
-            </td>
-            <td>
-              <select class="remediation-inline" data-finding-id="{{ f.id }}">
-                <option value="open"{% if (f.remediation_status or 'open') == 'open' %} selected{% endif %}>Open</option>
-                <option value="in_progress"{% if f.remediation_status == 'in_progress' %} selected{% endif %}>In uitvoering</option>
-                <option value="fixed"{% if f.remediation_status == 'fixed' %} selected{% endif %}>Opgelost</option>
-                <option value="verified"{% if f.remediation_status == 'verified' %} selected{% endif %}>Geverifieerd</option>
-                <option value="accepted"{% if f.remediation_status == 'accepted' %} selected{% endif %}>Geaccepteerd</option>
-              </select>
-            </td>
-            <td>
-              <a href="/dashboard/findings/edit/{{ f.id }}">bewerken</a>
-              <span> &bull; </span>
-              <a href="/dashboard/findings/delete/{{ f.id }}" data-confirm="Bevinding {{ f.id }} verwijderen?">verwijderen</a>
+              <form method="post" action="/dashboard/findings/restore/{{ f.id }}" class="d-inline">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                <button type="submit" class="btn">Herstellen</button>
+              </form>
             </td>
           </tr>
           {% endfor %}
         </tbody>
       </table>
       {% else %}
-      <p class="help">Nog geen bevindingen.</p>
+      <p class="help">Prullenbak is leeg.</p>
       {% endif %}
     </div>
   </section>
 </div>
+
 {% endblock %}
 
 {% block scripts %}
@@ -256,12 +316,46 @@
 (function () {
   "use strict";
 
+  // ── Tab switching met localStorage ───────────────
+  var LS_KEY = 'ib_findings_tab';
+  var DEFAULT_TAB = 'tab-bevindingen';
+
+  function activateTab(tabId) {
+    document.querySelectorAll('.rapport-tab').forEach(function(t) { t.classList.remove('active'); });
+    document.querySelectorAll('.rapport-tab-content').forEach(function(c) { c.classList.remove('active'); });
+    var btn = document.querySelector('.rapport-tab[data-tab="' + tabId + '"]');
+    var panel = document.getElementById(tabId);
+    if (btn) btn.classList.add('active');
+    if (panel) panel.classList.add('active');
+    try { localStorage.setItem(LS_KEY, tabId); } catch(e) {}
+  }
+
+  document.querySelectorAll('.rapport-tab').forEach(function(tab) {
+    tab.addEventListener('click', function() {
+      activateTab(tab.getAttribute('data-tab'));
+    });
+  });
+
+  // ── Nieuwe bevinding knop → opens bestaande modal ──
+  var btnNewFindingKpi = document.getElementById('btn-new-finding-kpi');
+  if (btnNewFindingKpi) {
+    btnNewFindingKpi.addEventListener('click', function() {
+      var btn = document.getElementById('btn-new-finding');
+      if (btn) btn.click();
+    });
+  }
+
+  // Herstel tab uit localStorage of gebruik default
+  var saved;
+  try { saved = localStorage.getItem(LS_KEY); } catch(e) {}
+  activateTab(saved && document.getElementById(saved) ? saved : DEFAULT_TAB);
+
   // ── Risicomatrix ─────────────────────────────────
   var RISK_COLORS = {
-    low:      '#166534',  // groen
-    medium:   '#78350f',  // oranje-geel
-    high:     '#7c2d12',  // oranje-rood
-    critical: '#7f1d1d',  // rood
+    low:      '#166534',
+    medium:   '#78350f',
+    high:     '#7c2d12',
+    critical: '#7f1d1d',
   };
   var RISK_TEXT = {
     low: '#4ade80', medium: '#facc15', high: '#f97316', critical: '#ef4444'
@@ -281,7 +375,6 @@
       var matrix = data.matrix || {};
       var items  = data.items  || [];
 
-      // Build lookup by cell key
       var itemsByCell = {};
       items.forEach(function(f) {
         var key = f.kans + '-' + f.impact;
@@ -317,18 +410,13 @@
             document.querySelectorAll('.rm-tooltip').forEach(function(t) { t.style.display='none'; });
             if (tip.style.display === 'block') { tip.style.display = 'none'; return; }
             tip.style.display = 'block';
-            // Flip omhoog als tooltip buiten viewport valt
             var rect = tip.getBoundingClientRect();
             if (rect.bottom > window.innerHeight) {
-              tip.style.top = 'auto';
-              tip.style.bottom = '100%';
-              tip.style.marginTop = '0';
-              tip.style.marginBottom = '4px';
+              tip.style.top = 'auto'; tip.style.bottom = '100%';
+              tip.style.marginTop = '0'; tip.style.marginBottom = '4px';
             } else {
-              tip.style.top = '';
-              tip.style.bottom = '';
-              tip.style.marginTop = '4px';
-              tip.style.marginBottom = '0';
+              tip.style.top = ''; tip.style.bottom = '';
+              tip.style.marginTop = '4px'; tip.style.marginBottom = '0';
             }
           });
         }
@@ -338,17 +426,16 @@
         document.querySelectorAll('.rm-tooltip').forEach(function(t) { t.style.display='none'; });
       });
     })
-    .catch(function() { /* matrix blijft leeg bij fout */ });
+    .catch(function() {});
 
-  // ── Inline status change ────────────────────────
+  // ── Inline status change ─────────────────────────
   document.querySelectorAll(".status-inline").forEach(function(sel) {
     sel.addEventListener("change", function() {
       var id = sel.getAttribute("data-finding-id");
-      var status = sel.value;
       fetch("/api/findings/" + id + "/status", {
         method: "POST",
         headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({status: status})
+        body: JSON.stringify({status: sel.value})
       })
       .then(function(r) { return r.json(); })
       .then(function(d) {
@@ -364,11 +451,10 @@
   document.querySelectorAll(".remediation-inline").forEach(function(sel) {
     sel.addEventListener("change", function() {
       var id = sel.getAttribute("data-finding-id");
-      var status = sel.value;
       fetch("/api/findings/" + id + "/remediation", {
         method: "POST",
         headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({status: status})
+        body: JSON.stringify({status: sel.value})
       })
       .then(function(r) { return r.json(); })
       .then(function(d) {
@@ -379,6 +465,56 @@
       });
     });
   });
+
+  // ── Paginering ───────────────────────────────────
+  var _pgPage = 0;
+  var _pgSize = 25;
+  var _pgBar  = document.getElementById('pagination-bar');
+  var _pgInfo = document.getElementById('pg-info');
+  var _pgPrev = document.getElementById('pg-prev');
+  var _pgNext = document.getElementById('pg-next');
+  var _pgSizeSel = document.getElementById('pg-size');
+
+  function _visibleRows() {
+    return Array.from(document.querySelectorAll('#findings-table tbody tr'))
+      .filter(function(r) { return r.style.display !== 'none'; });
+  }
+
+  function _pgRender() {
+    var rows = _visibleRows();
+    var total = rows.length;
+    if (!_pgBar) return;
+    if (_pgSize === 0 || total <= _pgSize) {
+      rows.forEach(function(r) { r.classList.remove('pg-hidden'); });
+      if (_pgInfo) _pgInfo.textContent = total + ' bevindingen';
+      if (_pgPrev) _pgPrev.disabled = true;
+      if (_pgNext) _pgNext.disabled = true;
+      return;
+    }
+    var pages = Math.ceil(total / _pgSize);
+    _pgPage = Math.max(0, Math.min(_pgPage, pages - 1));
+    var start = _pgPage * _pgSize;
+    var end   = start + _pgSize;
+    rows.forEach(function(r, i) {
+      r.classList.toggle('pg-hidden', i < start || i >= end);
+    });
+    if (_pgInfo) _pgInfo.textContent = (start + 1) + '–' + Math.min(end, total) + ' van ' + total;
+    if (_pgPrev) _pgPrev.disabled = _pgPage === 0;
+    if (_pgNext) _pgNext.disabled = _pgPage >= pages - 1;
+  }
+
+  if (_pgPrev) _pgPrev.addEventListener('click', function() { _pgPage--; _pgRender(); });
+  if (_pgNext) _pgNext.addEventListener('click', function() { _pgPage++; _pgRender(); });
+  if (_pgSizeSel) _pgSizeSel.addEventListener('change', function() {
+    _pgSize = parseInt(this.value) || 0; _pgPage = 0; _pgRender();
+  });
+
+  var _origFilter = window._applyFindingsFilter;
+  if (typeof _origFilter === 'function') {
+    window._applyFindingsFilter = function() { _origFilter(); _pgPage = 0; _pgRender(); };
+  }
+  setTimeout(_pgRender, 50);
+
 })();
 </script>
 {% endblock %}

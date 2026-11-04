@@ -1,0 +1,111 @@
+{% extends "bootstrap/base.html" %}
+{% block title %}Changelog{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/safe-overview.css') }}" />
+{% endblock %}
+
+{% block content %}
+<div class="page-title">
+  <div>
+    <h1>Changelog</h1>
+    <div class="breadcrumbs"><a href="/">Start</a> / Changelog</div>
+  </div>
+</div>
+
+<section class="card">
+  <div class="card-head">
+    <h2>Wijzigingen</h2>
+    <div class="ml-auto d-flex gap-8 items-center">
+      <input type="text" id="cl-filter-table" class="form-control input-sm" placeholder="Filter op tabel…" style="width:140px" />
+      <input type="number" id="cl-filter-record" class="form-control input-sm" placeholder="Record ID" style="width:100px" />
+      <button class="btn" id="cl-refresh" type="button">Vernieuwen</button>
+    </div>
+  </div>
+  <div class="card-body">
+    <table class="table compact" id="cl-table">
+      <thead>
+        <tr>
+          <th>Tijdstip</th>
+          <th>Tabel</th>
+          <th>Record</th>
+          <th>Veld</th>
+          <th>Oud / Bron</th>
+          <th>Nieuw / Doel</th>
+          <th>Door</th>
+        </tr>
+      </thead>
+      <tbody id="cl-body">
+        <tr><td colspan="7" class="text-muted">Laden…</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script nonce="{{ csp_nonce }}">
+(function() {
+  "use strict";
+
+  function fmt(iso) {
+    if (!iso) return '-';
+    return iso.replace('T', ' ').replace('Z', '').slice(0, 19);
+  }
+
+  function esc(s) {
+    if (s == null) return '<em class="text-muted">leeg</em>';
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  function load() {
+    var params = new URLSearchParams();
+    var t = document.getElementById('cl-filter-table').value.trim();
+    var r = document.getElementById('cl-filter-record').value.trim();
+    if (t) params.set('table', t);
+    if (r) params.set('record_id', r);
+    var tbody = document.getElementById('cl-body');
+    tbody.innerHTML = '<tr><td colspan="7" class="text-muted">Laden…</td></tr>';
+    fetch('/api/changelog?' + params.toString())
+      .then(function(res) { return res.json(); })
+      .then(function(d) {
+        var entries = d.entries || [];
+        if (!entries.length) {
+          tbody.innerHTML = '<tr><td colspan="7" class="text-muted">Geen wijzigingen gevonden.</td></tr>';
+          return;
+        }
+        tbody.innerHTML = entries.map(function(e) {
+          var recordCell;
+          if (e.table_name === 'db_bevinding') {
+            recordCell = '<a href="/dashboard/findings/edit/' + esc(e.record_id) + '">#' + esc(e.record_id) + '</a>';
+          } else if (e.record_id === 0) {
+            recordCell = '<em class="text-muted">-</em>';
+          } else {
+            recordCell = '#' + esc(e.record_id);
+          }
+          var tableLabel = e.table_name;
+          if (e.table_name === 'download') tableLabel = '<span class="badge badge-info">download</span>';
+          if (e.table_name === 'upload')   tableLabel = '<span class="badge badge-warn">upload</span>';
+          return '<tr>' +
+            '<td class="fs-12">' + esc(fmt(e.changed_at)) + '</td>' +
+            '<td class="fs-12">' + tableLabel + '</td>' +
+            '<td class="fs-12">' + recordCell + '</td>' +
+            '<td class="fs-12">' + esc(e.field_name) + '</td>' +
+            '<td class="fs-12 text-muted">' + esc(e.old_value) + '</td>' +
+            '<td class="fs-12">' + esc(e.new_value) + '</td>' +
+            '<td class="fs-12 text-muted">' + esc(e.changed_by || '-') + '</td>' +
+          '</tr>';
+        }).join('');
+      })
+      .catch(function() {
+        document.getElementById('cl-body').innerHTML = '<tr><td colspan="7" class="text-danger">Fout bij laden.</td></tr>';
+      });
+  }
+
+  document.getElementById('cl-refresh').addEventListener('click', load);
+  document.getElementById('cl-filter-table').addEventListener('change', load);
+  document.getElementById('cl-filter-record').addEventListener('change', load);
+  load();
+})();
+</script>
+{% endblock %}

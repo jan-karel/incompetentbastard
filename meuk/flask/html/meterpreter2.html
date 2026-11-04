@@ -63,14 +63,20 @@
   </div>
 </section>
 
-<section class="card mt-14">
+<section id="uitvoer-card" class="card mt-14">
   <div class="card-head"><h2>Uitvoer</h2></div>
   <div class="card-body">
     <pre id="gen-output" class="gen-output"></pre>
   </div>
 </section>
+
+<div data-payload-inject
+     data-insert-after="uitvoer-card"
+     data-form="gen-form"
+     data-default-file="payloads/meth.exe"></div>
 {% endblock %}
 
 {% block scripts %}
 <script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='js/generator.js') }}"></script>
+<script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='js/payload-inject.js') }}"></script>
 {% endblock %}

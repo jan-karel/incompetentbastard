@@ -1,0 +1,14 @@
+#risk-matrix-wrap { overflow-x: auto; }
+#risk-matrix { border-collapse: separate; border-spacing: 4px; min-width: 340px; }
+.rm-axis-th { width: 80px; font-size: 11px; color: var(--text-muted, #888); text-align: right; padding-right: 6px; }
+.rm-row-label { font-size: 11px; color: var(--text-muted, #888); text-align: right; padding-right: 6px; white-space: nowrap; }
+.rm-cell { width: 80px; height: 54px; border-radius: 6px; text-align: center; vertical-align: middle; cursor: pointer; font-size: 13px; font-weight: 700; position: relative; }
+.rm-tooltip { display: none; position: absolute; z-index: 99; left: 50%; transform: translateX(-50%); top: 100%; background: #1e1e2e; border: 1px solid #444; border-radius: 6px; padding: 6px 10px; min-width: 160px; font-size: 11px; font-weight: 400; text-align: left; white-space: nowrap; margin-top: 4px; }
+.rm-tip-link { display: block; color: #a5b4fc; text-decoration: none; margin-top: 3px; }
+.rm-tip-score { color: #888; }
+.rm-tip-more { color: #888; }
+.rm-legend-low    { color: #4ade80; }
+.rm-legend-medium { color: #facc15; }
+.rm-legend-high   { color: #f97316; }
+.rm-legend-crit   { color: #ef4444; }
+.rm-legend-note   { font-size: 11px; }

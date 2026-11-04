@@ -32,6 +32,18 @@
   <div class="card-body">
     <div class="evidence-gallery" id="evidence-gallery"></div>
     <div class="mt-8">
+      <div class="d-flex gap-8 flex-wrap mb-8">
+        <input type="text" id="evidence-description" class="form-control" placeholder="Beschrijving (optioneel)" style="flex:1;min-width:200px" />
+        <input type="text" id="evidence-tool" class="form-control" placeholder="Tool (bijv. nmap)" style="width:140px" />
+        <select id="evidence-category" class="form-control" style="width:140px">
+          <option value="">Categorie…</option>
+          <option value="screenshot">Screenshot</option>
+          <option value="log">Log</option>
+          <option value="output">Tool output</option>
+          <option value="network">Netwerk capture</option>
+          <option value="other">Overig</option>
+        </select>
+      </div>
       <input type="file" id="evidence-file" accept="image/*,.pdf,.txt,.csv,.json,.xml,.zip" />
       <button class="btn" id="btn-upload-evidence" type="button">Uploaden</button>
     </div>
@@ -60,6 +72,74 @@
 {% block scripts %}
 <script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='js/cvss4-calculator.js') }}"></script>
 <script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='js/latexeditor.js') }}"></script>
+<script nonce="{{ csp_nonce }}">
+(function() {
+  "use strict";
+  var _dirty = false;
+  var _saveTimer = null;
+  var form = document.querySelector("form.finding-form");
+  var _autosaveStatus = null;
+
+  function _showStatus(msg, cls) {
+    if (!_autosaveStatus) return;
+    _autosaveStatus.textContent = msg;
+    _autosaveStatus.className = 'autosave-status ' + (cls || '');
+  }
+
+  {% if form.id.data %}
+  // Autosave werkt alleen bij bestaande bevindingen
+  _autosaveStatus = document.createElement('span');
+  _autosaveStatus.className = 'autosave-status';
+  var formActions = document.querySelector('.form-actions');
+  if (formActions) formActions.appendChild(_autosaveStatus);
+
+  function _doAutosave() {
+    if (!form || !_dirty) return;
+    var fd = new FormData(form);
+    _showStatus('Opslaan\u2026', 'saving');
+    fetch('/dashboard/findings/save', {
+      method: 'POST',
+      body: fd
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      if (d.ok) {
+        _dirty = false;
+        var now = new Date();
+        _showStatus('Opgeslagen om ' + now.getHours() + ':' + String(now.getMinutes()).padStart(2,'0'), 'saved');
+      } else {
+        _showStatus('', '');
+      }
+    })
+    .catch(function() { _showStatus('', ''); });
+  }
+  {% endif %}
+
+  if (form) {
+    form.addEventListener("input", function() {
+      _dirty = true;
+      {% if form.id.data %}
+      if (_saveTimer) clearTimeout(_saveTimer);
+      _saveTimer = setTimeout(_doAutosave, 3000);
+      {% endif %}
+    });
+    form.addEventListener("change", function() {
+      _dirty = true;
+      {% if form.id.data %}
+      if (_saveTimer) clearTimeout(_saveTimer);
+      _saveTimer = setTimeout(_doAutosave, 3000);
+      {% endif %}
+    });
+    form.addEventListener("submit", function() { _dirty = false; });
+  }
+  window.addEventListener("beforeunload", function(e) {
+    if (_dirty) {
+      e.preventDefault();
+      e.returnValue = "";
+    }
+  });
+})();
+</script>
 {% if form.id.data %}
 <script nonce="{{ csp_nonce }}">
 (function() {
@@ -69,6 +149,17 @@
 
   // ── Evidence gallery ──────────────────────────
   var gallery = document.getElementById("evidence-gallery");
+  var csrfToken = (document.querySelector('meta[name="csrf-token"]') || {}).getAttribute
+    ? document.querySelector('meta[name="csrf-token"]').getAttribute("content") || ""
+    : (document.getElementById("finding-csrf") || {}).value || "";
+
+  function deleteEvidence(evId) {
+    fetch("/api/findings/evidence/" + evId, {
+      method: "DELETE",
+      headers: {"X-CSRFToken": csrfToken}
+    }).then(function() { loadEvidence(); });
+  }
+
   function loadEvidence() {
     fetch("/api/findings/" + findingId + "/evidence")
       .then(function(r) { return r.json(); })
@@ -77,6 +168,16 @@
         gallery.innerHTML = "";
         (d.evidence || []).forEach(function(ev) {
           var ct = ev.content_type || "";
+          var wrap = document.createElement("div");
+          wrap.className = "evidence-item";
+
+          var del = document.createElement("button");
+          del.className = "evidence-delete";
+          del.type = "button";
+          del.title = "Verwijderen";
+          del.textContent = "\u00d7";
+          del.addEventListener("click", function() { deleteEvidence(ev.id); });
+
           if (ct.indexOf("image") === 0) {
             var img = document.createElement("img");
             img.className = "evidence-thumb";
@@ -89,16 +190,31 @@
               overlay.addEventListener("click", function() { overlay.remove(); });
               document.body.appendChild(overlay);
             });
-            gallery.appendChild(img);
+            wrap.appendChild(img);
           } else {
             var link = document.createElement("a");
             link.href = "/api/findings/evidence/" + ev.id + "/download";
             link.textContent = ev.original_filename;
-            link.className = "btn";
-            link.style.marginRight = "4px";
-            gallery.appendChild(link);
+            link.className = "btn evidence-file-link";
+            wrap.appendChild(link);
           }
+          // Metadata label
+          var meta = [];
+          if (ev.tool_name) meta.push(ev.tool_name);
+          if (ev.evidence_category) meta.push(ev.evidence_category);
+          if (ev.description) meta.push(ev.description);
+          if (meta.length) {
+            var label = document.createElement("span");
+            label.className = "evidence-meta";
+            label.textContent = meta.join(" · ");
+            wrap.appendChild(label);
+          }
+          wrap.appendChild(del);
+          gallery.appendChild(wrap);
         });
+        if (!d.evidence || !d.evidence.length) {
+          gallery.innerHTML = '<p class="help">Nog geen bewijs geüpload.</p>';
+        }
       });
   }
   loadEvidence();
@@ -107,13 +223,34 @@
   if (btnUpload) btnUpload.addEventListener("click", function() {
     var fileInput = document.getElementById("evidence-file");
     if (!fileInput || !fileInput.files.length) return;
+    btnUpload.disabled = true;
     var fd = new FormData();
     fd.append("file", fileInput.files[0]);
-    fetch("/api/findings/" + findingId + "/evidence", {method: "POST", body: fd})
+    var desc = (document.getElementById("evidence-description") || {}).value || "";
+    var tool = (document.getElementById("evidence-tool") || {}).value || "";
+    var cat  = (document.getElementById("evidence-category") || {}).value || "";
+    if (desc) fd.append("description", desc);
+    if (tool) fd.append("tool_name", tool);
+    if (cat)  fd.append("evidence_category", cat);
+    fetch("/api/findings/" + findingId + "/evidence", {
+      method: "POST",
+      headers: {"X-CSRFToken": csrfToken},
+      body: fd
+    })
       .then(function(r) { return r.json(); })
       .then(function(d) {
-        if (d.ok) { fileInput.value = ""; loadEvidence(); }
-      });
+        if (d.ok) {
+          fileInput.value = "";
+          var descEl = document.getElementById("evidence-description");
+          var toolEl = document.getElementById("evidence-tool");
+          var catEl  = document.getElementById("evidence-category");
+          if (descEl) descEl.value = "";
+          if (toolEl) toolEl.value = "";
+          if (catEl)  catEl.value  = "";
+          loadEvidence();
+        }
+      })
+      .finally(function() { btnUpload.disabled = false; });
   });
 
   // ── Relaties ──────────────────────────────────
@@ -126,14 +263,17 @@
         relList.innerHTML = "";
         (d.relations || []).forEach(function(r) {
           var span = document.createElement("span");
-          span.style.cssText = "display:inline-block;padding:2px 8px;margin:2px;border-radius:3px;background:#e5e7eb;font-size:13px";
+          span.className = "relation-badge";
           span.textContent = "[" + r.relation_type + "] " + r.finding_naam + " (#" + r.finding_id + ")";
           var del = document.createElement("button");
+          del.className = "relation-delete";
+          del.type = "button";
           del.textContent = "\u00d7";
-          del.style.cssText = "margin-left:6px;border:none;background:none;cursor:pointer;color:#ef4444";
           del.addEventListener("click", function() {
-            fetch("/api/findings/relations/" + r.relation_id, {method: "DELETE"})
-              .then(function() { loadRelations(); });
+            fetch("/api/findings/relations/" + r.relation_id, {
+              method: "DELETE",
+              headers: {"X-CSRFToken": csrfToken}
+            }).then(function() { loadRelations(); });
           });
           span.appendChild(del);
           relList.appendChild(span);

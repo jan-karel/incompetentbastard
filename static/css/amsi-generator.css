@@ -1,0 +1,279 @@
+/* ── AMSI Bypass Generator ─────────────────────────────────────────────── */
+
+/* Twee-kolom grid voor de generator panelen */
+.amsi-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-bottom: 0;
+}
+
+@media (max-width: 800px) {
+  .amsi-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Architectuur radio pills */
+.arch-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.pill-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 14px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  user-select: none;
+  color: var(--muted);
+  background: var(--surface);
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+}
+
+.pill-label input[type="radio"] {
+  display: none;
+}
+
+.pill-label:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.pill-label.active {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+}
+
+/* Preset tabel */
+.amsi-preset-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.amsi-preset-table th {
+  text-align: left;
+  padding: 6px 10px;
+  font-weight: 700;
+  color: var(--muted);
+  border-bottom: 2px solid var(--border);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.amsi-preset-table td {
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+
+.amsi-preset-table tr:last-child td {
+  border-bottom: none;
+}
+
+.amsi-preset-table tr:hover td {
+  background: var(--surface);
+}
+
+.amsi-preset-table tr.preset-inactive td {
+  opacity: 0.5;
+}
+
+/* Badges */
+.badge {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+  border: 1px solid transparent;
+}
+
+.badge-amsi {
+  background: color-mix(in oklab, var(--primary) 15%, transparent);
+  color: var(--primary);
+  border-color: color-mix(in oklab, var(--primary) 30%, transparent);
+}
+
+.badge-clm {
+  background: color-mix(in oklab, var(--warning, #f59e0b) 15%, transparent);
+  color: color-mix(in oklab, var(--warning, #f59e0b) 80%, #000);
+  border-color: color-mix(in oklab, var(--warning, #f59e0b) 30%, transparent);
+}
+
+.badge-any   { background: var(--border); color: var(--muted); }
+.badge-x64   { background: color-mix(in oklab, #22c55e 15%, transparent); color: #15803d; border-color: color-mix(in oklab, #22c55e 30%, transparent); }
+.badge-x86   { background: color-mix(in oklab, #a855f7 15%, transparent); color: #7e22ce; border-color: color-mix(in oklab, #a855f7 30%, transparent); }
+.badge-arm64 { background: color-mix(in oklab, #f97316 15%, transparent); color: #c2410c; border-color: color-mix(in oklab, #f97316 30%, transparent); }
+
+.badge-builtin {
+  background: color-mix(in oklab, var(--muted) 10%, transparent);
+  color: var(--muted);
+  font-size: 10px;
+  padding: 1px 5px;
+}
+
+/* Acties in tabel */
+.preset-actions {
+  display: flex;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.btn-preset-edit {
+  font-size: 11px;
+  padding: 3px 8px;
+}
+
+.btn-preset-delete {
+  font-size: 11px;
+  padding: 3px 8px;
+  background: transparent !important;
+  color: var(--danger) !important;
+  border-color: var(--danger) !important;
+}
+
+.btn-preset-delete:hover {
+  background: var(--danger) !important;
+  color: white !important;
+}
+
+.btn-preset-toggle {
+  font-size: 11px;
+  padding: 3px 8px;
+}
+
+/* Code preview in tabel */
+.preset-code-preview {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 11px;
+  color: var(--muted);
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Geen resultaten */
+.preset-empty {
+  text-align: center;
+  padding: 24px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+/* Modal overlay */
+.amsi-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.amsi-modal {
+  background: var(--bg, #0f172a);
+  border: 1px solid var(--border);
+  border-radius: var(--radius, 8px);
+  width: 100%;
+  max-width: 680px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+
+.amsi-modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px 12px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.amsi-modal-head h3 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.amsi-modal-close {
+  background: transparent;
+  border: none;
+  font-size: 20px;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 0 4px;
+  line-height: 1;
+}
+
+.amsi-modal-close:hover {
+  color: var(--heading);
+}
+
+.amsi-modal-body {
+  padding: 16px 18px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.amsi-modal-foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 18px 14px;
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+/* Code editor textarea in modal */
+.amsi-code-editor {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace !important;
+  font-size: 12px !important;
+  line-height: 1.5 !important;
+  background: var(--code-bg, #1e293b) !important;
+  color: var(--code-fg, #e2e8f0) !important;
+  resize: vertical;
+  min-height: 120px;
+}
+
+/* Actief-veld verticaal centreren */
+.amsi-actief-field {
+  display: flex;
+  align-items: flex-end;
+  padding-bottom: 2px;
+}
+
+/* Opslaan-naar-schijf knop */
+.btn-save-payload {
+  background: color-mix(in oklab, var(--success) 15%, transparent) !important;
+  color: color-mix(in oklab, var(--success) 80%, #000) !important;
+  border: 1px solid color-mix(in oklab, var(--success) 35%, transparent) !important;
+}
+.btn-save-payload:hover:not(:disabled) {
+  background: var(--success) !important;
+  color: #fff !important;
+}
+.btn-save-payload:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+/* Hulpklassen */
+.amsi-hidden { display: none !important; }
+.ml-8  { margin-left: 8px; }
+.mb-12 { margin-bottom: 12px; }
+.mt-6  { margin-top: 6px; }

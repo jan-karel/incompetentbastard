@@ -195,6 +195,8 @@ class db_bevindingen(db.Model):
     # Risicomatrix assen (handmatig of afgeleid van CVSS)
     kans = db.Column(db.String(5), default='')
     impact_niveau = db.Column(db.String(5), default='')
+    # Soft-delete
+    deleted_at = db.Column(db.DateTime, nullable=True)
 
 class db_evidence(db.Model):
     __tablename__ = 'db_evidence'
@@ -368,4 +370,18 @@ class db_changelog(db.Model):
     new_value = db.Column(db.Text())
     changed_by = db.Column(db.String(200), default='operator')
     changed_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+
+
+class db_amsi_preset(db.Model):
+    __tablename__ = 'db_amsi_preset'
+    id = db.Column(db.Integer, primary_key=True)
+    naam = db.Column(db.String(100), nullable=False)
+    categorie = db.Column(db.String(10), default='amsi')      # 'amsi' of 'clm'
+    architectuur = db.Column(db.String(10), default='any')    # 'any', 'x64', 'x86', 'arm64'
+    methode = db.Column(db.String(30), default='')            # 'reflection', 'patch', 'context', ...
+    omschrijving = db.Column(db.String(300), default='')
+    code = db.Column(db.Text(), default='')
+    actief = db.Column(db.Boolean, default=True)
+    ingebouwd = db.Column(db.Boolean, default=False)          # ingebouwde presets niet verwijderbaar
+    volgorde = db.Column(db.Integer, default=99)
 

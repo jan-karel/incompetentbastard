@@ -144,13 +144,26 @@
 <!-- Upload tab -->
 <div class="tab-panel" id="panel-upload">
   <section class="card">
-    <div class="card-head"><h2>Upload</h2></div>
+    <div class="card-head"><h2>Upload naar Loot</h2></div>
     <div class="card-body">
+      <div class="upload-info">
+        <p>
+          Geüploade bestanden worden opgeslagen in <code>raw/loot/&lt;ip&gt;/</code> en zijn
+          zichtbaar in de <button class="btn-as-link" id="btn-goto-loot">Loot-tab</button>.
+        </p>
+        <p class="text-muted fs-12">
+          Hetzelfde eindpunt (<code>POST /upload</code>) wordt gebruikt door doelsystemen om
+          bestanden terug te sturen. Uploads vanaf dit dashboard komen onder jouw IP-adres.
+        </p>
+      </div>
       <div class="upload-dropzone" id="upload-dropzone">
         Sleep bestanden hierheen of klik om te kiezen
         <input type="file" id="upload-input" multiple class="d-none" />
       </div>
       <div class="upload-list" id="upload-list"></div>
+      <div id="upload-loot-hint" class="d-none" style="margin-top:12px">
+        <button class="btn" id="btn-refresh-loot">Bekijk uploads in Loot &rarr;</button>
+      </div>
     </div>
   </section>
 </div>

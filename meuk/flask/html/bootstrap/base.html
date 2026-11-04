@@ -28,6 +28,7 @@
     <div class="nav">
       <a href="/"><span class="left">Dashboard</span></a>
       <a href="/dashboard/findings"><span class="left">Bevindingen</span></a>
+      <a href="/dashboard/changelog"><span class="left">Changelog</span></a>
       <a href="/dashboard/checklists"><span class="left">Checklists</span></a>
       <a href="/dashboard/notes"><span class="left">Notities</span></a>
       <a href="/dashboard/xxs"><span class="left">XXS</span></a>
@@ -36,6 +37,7 @@
       <a href="/dashboard/tasks"><span class="left">Tasks</span></a>
       <a href="/dashboard/outputs"><span class="left">Outputs</span></a>
       <a href="/dashboard/files"><span class="left">Files</span></a>
+      <a href="/dashboard/amsi"><span class="left">AMSI Generator</span></a>
       <a href="/dashboard/admin"><span class="left">Admin</span></a>
     </div>
   </aside>
@@ -65,6 +67,15 @@
     </header>
 
     <main id="main" class="content">
+      {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+      <div class="flash-messages">
+        {% for category, message in messages %}
+        <div class="flash flash-{{ category }}">{{ message }}</div>
+        {% endfor %}
+      </div>
+      {% endif %}
+      {% endwith %}
       {% block content %}{% endblock %}
     </main>
   </div>

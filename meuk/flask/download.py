@@ -19,6 +19,24 @@ from meuk.flask.security import dashboard_access_allowed
 from meuk.flask.security import require_dashboard_access
 
 
+def _audit(event, filename, detail=None):
+    """Schrijf een audit-entry naar db_changelog."""
+    try:
+        from meuk.flask.models import db, db_changelog
+        entry = db_changelog(
+            table_name=event,
+            record_id=0,
+            field_name=filename,
+            old_value=detail or '',
+            new_value=request.remote_addr or '',
+            changed_by=request.remote_addr or 'unknown',
+        )
+        db.session.add(entry)
+        db.session.commit()
+    except Exception as exc:
+        _log.warning("audit-log mislukt (%s %s): %s", event, filename, exc)
+
+
 download_bp = Blueprint("download_bp", __name__, template_folder="templates", static_folder="static")
 
 _log = logging.getLogger(__name__)
@@ -186,6 +204,7 @@ def _download_or_404(directory, filename):
                     technique = getattr(s, 'obfuscate_technique', 'mixed') or 'mixed'
                 result = _obfuscate_on_the_fly(str(candidate), technique)
                 if result is not None:
+                    _audit('download', filename, directory)
                     return send_file(result, as_attachment=True,
                                      download_name=filename,
                                      mimetype='application/octet-stream')
@@ -200,9 +219,11 @@ def _download_or_404(directory, filename):
             if do_obfuscate:
                 result = _obfuscate_text_on_the_fly(str(candidate))
                 if result is not None:
+                    _audit('download', filename, directory)
                     return send_file(result, as_attachment=True,
                                      download_name=filename,
                                      mimetype='application/octet-stream')
+        _audit('download', filename, directory)
         return send_from_directory(directory, filename, as_attachment=True)
     abort(404, description="[*] Incompetent Bastard v0.42\n[!] You failed!")
 

@@ -95,6 +95,25 @@
 .btn-action:hover { border-color: var(--primary, #3b82f6); color: var(--text, #f1f5f9); }
 .btn-action.copied { background: var(--success, #22c55e); color: #fff; border-color: transparent; }
 
+/* ── Upload info banner ─────────────────────────────── */
+.upload-info {
+  background: var(--surface2, rgba(59,130,246,.07));
+  border: 1px solid var(--border, #334155);
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  font-size: 13px;
+  line-height: 1.6;
+}
+.upload-info p { margin: 0 0 4px; }
+.upload-info p:last-child { margin: 0; }
+.upload-info code {
+  font-family: monospace;
+  background: rgba(0,0,0,.2);
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
 /* ── Upload dropzone ────────────────────────────────── */
 .upload-dropzone {
   border: 2px dashed var(--border, #334155);

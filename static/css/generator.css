@@ -183,6 +183,25 @@
 }
 
 /* ── invoke-assembly specifieke stijlen ─────────────────────────── */
+.ia-url-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.ia-url-row .ia-settings-url {
+  flex: 1;
+}
+.ia-settings-url {
+  font-family: monospace;
+  font-size: 13px;
+  padding: 7px 12px;
+  border: 1px solid var(--border, #334155);
+  border-radius: 6px;
+  background: var(--surface2, rgba(0,0,0,.15));
+  color: var(--primary, #60a5fa);
+  user-select: all;
+}
+
 .ia-checkbox-row {
   display: flex;
   flex-wrap: wrap;

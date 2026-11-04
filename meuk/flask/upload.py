@@ -1,3 +1,4 @@
+import logging
 import time
 from pathlib import Path
 
@@ -8,6 +9,26 @@ from flask import request
 from werkzeug.utils import secure_filename
 
 from meuk.flask.security import is_local_request
+
+_log = logging.getLogger(__name__)
+
+
+def _audit_upload(filename, source_ip, stored_as):
+    """Schrijf een audit-entry naar db_changelog voor een upload."""
+    try:
+        from meuk.flask.models import db, db_changelog
+        entry = db_changelog(
+            table_name='upload',
+            record_id=0,
+            field_name=filename,
+            old_value=source_ip,
+            new_value=stored_as,
+            changed_by=source_ip,
+        )
+        db.session.add(entry)
+        db.session.commit()
+    except Exception as exc:
+        _log.warning("audit-log upload mislukt (%s): %s", filename, exc)
 
 
 upload_bp = Blueprint("upload_bp", __name__, template_folder="meuk/templates", static_folder="meuk/static")
@@ -42,6 +63,7 @@ def meukuploads():
     target_dir.mkdir(parents=True, exist_ok=True)
     timestamped = f"{int(time.time())}_{filename}"
     file.save(target_dir / timestamped)
+    _audit_upload(filename, ip, timestamped)
     return "[*] Incompetent Bastard v0.42\n[+] Tot ziens en bedankt voor de vis..."
 
 

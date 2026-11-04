@@ -106,8 +106,15 @@
     <pre id="gen-preview" class="gen-output"></pre>
   </div>
 </section>
+
+<div id="uitvoer-card-anchor" data-payload-inject
+     data-insert-after="gen-preview-section"
+     data-form="gen-form"
+     data-default-file="payloads/agent.sh"></div>
 {% endblock %}
 
 {% block scripts %}
 <script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='js/generator.js') }}"></script>
+<script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='js/payload-inject.js') }}"></script>
+<script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='js/agentgen-lang.js') }}"></script>
 {% endblock %}

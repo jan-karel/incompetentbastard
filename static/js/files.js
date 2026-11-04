@@ -344,6 +344,22 @@
       });
   }
 
+  // ── Upload → Loot shortcut ────────────────────────────
+  const btnGotoLoot = document.getElementById("btn-goto-loot");
+  const btnRefreshLoot = document.getElementById("btn-refresh-loot");
+  const uploadLootHint = document.getElementById("upload-loot-hint");
+
+  function switchToLoot() {
+    const lootTab = document.querySelector('.tab[data-tab="loot"]');
+    if (lootTab) lootTab.click();
+  }
+
+  if (btnGotoLoot) btnGotoLoot.addEventListener("click", switchToLoot);
+  if (btnRefreshLoot) btnRefreshLoot.addEventListener("click", () => {
+    lootLoaded = false;
+    switchToLoot();
+  });
+
   // ── Upload ───────────────────────────────────────────
   const dropzone = document.getElementById("upload-dropzone");
   const fileInput = document.getElementById("upload-input");
@@ -386,8 +402,9 @@
       fetch("/upload", { method: "POST", body: fd })
         .then(r => {
           if (r.ok) {
-            item.textContent = file.name + "  \u2713 geupload";
+            item.textContent = file.name + "  \u2713 opgeslagen in raw/loot/";
             item.classList.add("success");
+            if (uploadLootHint) uploadLootHint.classList.remove("d-none");
           } else {
             return r.text().then(t => {
               item.textContent = file.name + "  \u2717 " + t;

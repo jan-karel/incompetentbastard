@@ -23,6 +23,26 @@ def _get_scope_targets():
         return []
 
 
+def _active_findings():
+    """Geeft een query terug die soft-deleted bevindingen uitsluit."""
+    return db_bevindingen.query.filter(db_bevindingen.deleted_at.is_(None))
+
+
+def _csrf_check(token, as_json=False):
+    """Valideer CSRF-token; respecteert WTF_CSRF_ENABLED=False (testmodus)."""
+    from flask import current_app
+    if not current_app.config.get('WTF_CSRF_ENABLED', True):
+        return
+    from flask_wtf.csrf import validate_csrf
+    try:
+        validate_csrf(token)
+    except Exception:
+        if as_json:
+            from flask import jsonify as _j
+            raise  # wordt afgehandeld door de aanroeper
+        abort(400)
+
+
 # Blueprint Configuration
 findings_bp = Blueprint('findings_bp', __name__,
                     template_folder='html',
@@ -227,10 +247,19 @@ _OWASP_2025_CODES = {v: k for k, v in _OWASP_2025_NUMS.items()}
 
 @findings_bp.app_template_filter('owaspcategorie')
 def owaspcategorie(num):
-    if num:
-        return owasptop10[int(num)-1]
-    else:
-        return 'A5 - Security Misconfiguration'
+    try:
+        idx = int(num) - 1
+        if 0 <= idx < len(owasptop10):
+            return owasptop10[idx]
+    except (TypeError, ValueError):
+        pass
+    return 'A5 - Security Misconfiguration'
+
+
+@findings_bp.app_template_filter('cvss_severity')
+def cvss_severity_filter(basescore):
+    sev, _ = _cvss_to_severity(basescore)
+    return sev
 
 
 @findings_bp.app_template_filter('ncsc_richtlijn')
@@ -242,10 +271,13 @@ def ncsc_richtlijn_filter(code):
 
 @findings_bp.app_template_filter('owaspcategorie_2025')
 def owaspcategorie_2025(num):
-    if num:
-        return owasptop10_2025[int(num)-1]
-    else:
-        return ''
+    try:
+        idx = int(num) - 1
+        if 0 <= idx < len(owasptop10_2025):
+            return owasptop10_2025[idx]
+    except (TypeError, ValueError):
+        pass
+    return ''
 
 @findings_bp.app_template_filter('bevindingnums')
 def bevindingnums(nums):
@@ -347,12 +379,13 @@ def template_opslaan():
     return redirect(url_for('findings_bp.bevindingen_overzicht'))
 
 
-@findings_bp.route('/dashboard/findings/templates/delete/<int:template_id>', methods=['GET'])
+@findings_bp.route('/dashboard/findings/templates/delete/<int:template_id>', methods=['POST'])
 def template_verwijderen(template_id):
+    _csrf_check(request.form.get('csrf_token'))
     tmpl = db.get_or_404(db_bevindingen_templates, template_id)
     db.session.delete(tmpl)
     db.session.commit()
-    return '<strong>DELETED!</strong>'
+    return redirect(url_for('findings_bp.bevindingen_overzicht'))
 
 
 @findings_bp.route('/api/findings/templates')
@@ -381,16 +414,22 @@ def bevinding_toevoegen(bevinding_id):
 @findings_bp.route('/dashboard/findings', methods=['GET'])
 @findings_bp.route('/dashboard/findings/', methods=['GET'])
 def bevindingen_overzicht():
-    findings = db_bevindingen.query.all()
+    findings = _active_findings().all()
     templates = db_bevindingen_templates.query.all()
     template_groups = _group_templates(templates)
-    return render_template('findings_index.html', findings=findings, templates=templates, template_groups=template_groups)
+    deleted_count = db_bevindingen.query.filter(db_bevindingen.deleted_at.isnot(None)).count()
+    deleted_findings = db_bevindingen.query.filter(db_bevindingen.deleted_at.isnot(None)).order_by(db_bevindingen.deleted_at.desc()).all() if deleted_count else []
+    return render_template('findings_index.html', findings=findings, templates=templates,
+                           template_groups=template_groups, deleted_count=deleted_count,
+                           deleted_findings=deleted_findings)
 
 
 @findings_bp.route('/dashboard/findings/edit/<bevinding_id>', methods=['GET', 'POST'])
 def bevinding_bewerken(bevinding_id):
 
     item = db_bevindingen.query.filter_by(id=bevinding_id).first()
+    if not item or item.deleted_at:
+        abort(404)
 
     form = BevindingForm(
         id=item.id, naam=item.naam, invoegen=item.invoegen, ref=item.ref,
@@ -421,12 +460,22 @@ def bevinding_bewerken(bevinding_id):
         pagina = render_template('bevinding_page.html', form=form, title='Finding bewerken', scope_targets=scope_targets)
     return pagina
 
-@findings_bp.route('/dashboard/findings/delete/<int:bevindingen_id>', methods=['GET'])
+@findings_bp.route('/dashboard/findings/delete/<int:bevindingen_id>', methods=['POST'])
 def bevinding_verwijderen(bevindingen_id):
-        verwijder = db_bevindingen.query.filter_by(id=bevindingen_id).first()
-        db.session.delete(verwijder)
-        db.session.commit()
-        return '<strong>DELETED!</strong>'
+    _csrf_check(request.form.get('csrf_token'))
+    verwijder = db_bevindingen.query.filter_by(id=bevindingen_id).first_or_404()
+    verwijder.deleted_at = datetime.datetime.utcnow()
+    db.session.commit()
+    return redirect(url_for('findings_bp.bevindingen_overzicht'))
+
+
+@findings_bp.route('/dashboard/findings/restore/<int:bevindingen_id>', methods=['POST'])
+def bevinding_herstellen(bevindingen_id):
+    _csrf_check(request.form.get('csrf_token'))
+    bev = db_bevindingen.query.filter_by(id=bevindingen_id).first_or_404()
+    bev.deleted_at = None
+    db.session.commit()
+    return redirect(url_for('findings_bp.bevindingen_overzicht'))
 
 
 @findings_bp.route('/dashboard/findings/save', methods=['POST'])
@@ -436,40 +485,62 @@ def bevinding_opslaan():
     if form.validate_on_submit():
 
         try:
-            if int(form.id.data):
-                bev = db.session.get(db_bevindingen, form.id.data)
-                bev.naam = form.naam.data
-                bev.invoegen = form.invoegen.data
-                bev.ref = form.ref.data
-                bev.uitwerken = form.uitwerken.data
-                bev.locatie = form.locatie.data
-                bev.basescore =  form.basescore.data
-                bev.cvss =  form.cvss.data
-                bev.gebruikersvlag =  form.gebruikersvlag.data
-                bev.rootvlag = form.rootvlag.data
-                bev.status = form.status.data
-                bev.remediation_status = form.remediation_status.data
-                bev.remediation_target_date = form.remediation_target_date.data
-                bev.remediation_owner = form.remediation_owner.data
-                bev.affected_assets = form.affected_assets.data
-                bev.data_classification = form.data_classification.data
-                bev.business_impact = form.business_impact.data
-                bev.remediation_effort = form.remediation_effort.data
-                bev.retest_status     = form.retest_status.data
-                bev.retest_date       = form.retest_date.data
-                bev.retest_notes      = form.retest_notes.data
-                bev.faalmodus         = form.faalmodus.data
-                bev.control_ref       = form.control_ref.data
-                bev.detecteerbaarheid = form.detecteerbaarheid.data
-                bev.detectie_notitie  = form.detectie_notitie.data
-                bev.kans              = form.kans.data
-                bev.impact_niveau     = form.impact_niveau.data
-                db.session.commit()
-                if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-                    return jsonify({'ok': True, 'id': bev.id})
+            _id = int(form.id.data)
+        except (ValueError, TypeError):
+            _id = 0
 
-        except:
+        if _id > 0:
+            bev = db.session.get(db_bevindingen, _id)
+            if not bev or bev.deleted_at:
+                abort(404)
+            # Log gewijzigde velden
+            _tracked = [
+                ('naam', bev.naam, form.naam.data),
+                ('locatie', bev.locatie, form.locatie.data),
+                ('status', bev.status, form.status.data),
+                ('basescore', bev.basescore, form.basescore.data),
+                ('cvss', bev.cvss, form.cvss.data),
+                ('remediation_status', bev.remediation_status, form.remediation_status.data),
+                ('remediation_target_date', getattr(bev, 'remediation_target_date', None), form.remediation_target_date.data),
+                ('remediation_owner', getattr(bev, 'remediation_owner', None), form.remediation_owner.data),
+                ('retest_status', bev.retest_status, form.retest_status.data),
+                ('retest_date', getattr(bev, 'retest_date', None), form.retest_date.data),
+                ('retest_notes', getattr(bev, 'retest_notes', None), form.retest_notes.data),
+            ]
+            for field, old, new in _tracked:
+                if str(old or '') != str(new or ''):
+                    _log_change('db_bevinding', bev.id, field, old, new)
+            bev.naam = form.naam.data
+            bev.invoegen = form.invoegen.data
+            bev.ref = form.ref.data
+            bev.uitwerken = form.uitwerken.data
+            bev.locatie = form.locatie.data
+            bev.basescore =  form.basescore.data
+            bev.cvss =  form.cvss.data
+            bev.gebruikersvlag =  form.gebruikersvlag.data
+            bev.rootvlag = form.rootvlag.data
+            bev.status = form.status.data
+            bev.remediation_status = form.remediation_status.data
+            bev.remediation_target_date = form.remediation_target_date.data
+            bev.remediation_owner = form.remediation_owner.data
+            bev.affected_assets = form.affected_assets.data
+            bev.data_classification = form.data_classification.data
+            bev.business_impact = form.business_impact.data
+            bev.remediation_effort = form.remediation_effort.data
+            bev.retest_status     = form.retest_status.data
+            bev.retest_date       = form.retest_date.data
+            bev.retest_notes      = form.retest_notes.data
+            bev.faalmodus         = form.faalmodus.data
+            bev.control_ref       = form.control_ref.data
+            bev.detecteerbaarheid = form.detecteerbaarheid.data
+            bev.detectie_notitie  = form.detectie_notitie.data
+            bev.kans              = form.kans.data
+            bev.impact_niveau     = form.impact_niveau.data
+            db.session.commit()
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return jsonify({'ok': True, 'id': bev.id})
 
+        else:
             bevdb = db_bevindingen(
                 naam=form.naam.data, invoegen=form.invoegen.data,
                 ref=form.ref.data, uitwerken=form.uitwerken.data,
@@ -514,7 +585,7 @@ _VALID_RETEST_STATUSES = {'not_applicable', 'pending_retest', 'retested_fixed', 
 @findings_bp.route('/dashboard/findings/retest')
 def retest_overzicht():
     """Overzicht van alle bevindingen die een retest nodig hebben of ondergaan hebben."""
-    findings = db_bevindingen.query.filter(
+    findings = _active_findings().filter(
         db_bevindingen.retest_status != 'not_applicable'
     ).order_by(db_bevindingen.retest_status, db_bevindingen.id).all()
     return render_template('retest_overzicht.html', findings=findings)
@@ -565,7 +636,7 @@ def _score_to_kans_impact(basescore):
 
 @findings_bp.route('/api/findings/risicomatrix')
 def api_risicomatrix():
-    findings = db_bevindingen.query.all()
+    findings = _active_findings().all()
     matrix = {}
     items = []
     for f in findings:
@@ -599,7 +670,10 @@ def finding_status_update(finding_id):
     new_status = data.get('status', '')
     if new_status not in _VALID_STATUSES:
         return jsonify({'ok': False, 'error': 'ongeldige status'}), 400
+    old_status = bev.status
     bev.status = new_status
+    if old_status != new_status:
+        _log_change('db_bevinding', finding_id, 'status', old_status, new_status)
     db.session.commit()
     return jsonify({'ok': True, 'id': bev.id, 'status': bev.status})
 
@@ -887,6 +961,9 @@ def list_evidence(finding_id):
             'original_filename': e.original_filename,
             'content_type': e.content_type,
             'created_at': e.created_at.isoformat() + 'Z' if e.created_at else None,
+            'description': e.description or '',
+            'tool_name': e.tool_name or '',
+            'evidence_category': e.evidence_category or '',
         } for e in items
     ]})
 
@@ -918,6 +995,9 @@ def upload_evidence(finding_id):
         filename=stored_name,
         original_filename=original,
         content_type=content_type,
+        description=request.form.get('description', '')[:500] or None,
+        tool_name=request.form.get('tool_name', '')[:100] or None,
+        evidence_category=request.form.get('evidence_category', '')[:50] or None,
     )
     db.session.add(ev)
     db.session.commit()
@@ -942,6 +1022,13 @@ def download_evidence(evidence_id):
 
 @findings_bp.route('/api/findings/evidence/<int:evidence_id>', methods=['DELETE'])
 def delete_evidence(evidence_id):
+    from flask import current_app
+    if current_app.config.get('WTF_CSRF_ENABLED', True):
+        from flask_wtf.csrf import validate_csrf
+        try:
+            validate_csrf(request.headers.get('X-CSRFToken', ''))
+        except Exception:
+            return jsonify({'error': 'CSRF-fout'}), 403
     ev = db.session.get(db_evidence, evidence_id)
     if not ev:
         return jsonify({'error': 'evidence niet gevonden'}), 404
@@ -1205,8 +1292,8 @@ def batch_action():
     elif action == 'delete':
         for fid in ids:
             bev = db.session.get(db_bevindingen, fid)
-            if bev:
-                db.session.delete(bev)
+            if bev and not bev.deleted_at:
+                bev.deleted_at = datetime.datetime.utcnow()
                 affected += 1
 
     else:
@@ -1222,7 +1309,7 @@ def batch_action():
 
 @findings_bp.route('/api/findings', methods=['GET'])
 def api_findings_list():
-    q = db_bevindingen.query
+    q = _active_findings()
 
     severity = request.args.get('severity', '').strip()
     status = request.args.get('status', '').strip()
@@ -1383,6 +1470,13 @@ def finding_relations_add(finding_id):
 
 @findings_bp.route('/api/findings/relations/<int:relation_id>', methods=['DELETE'])
 def finding_relations_delete(relation_id):
+    from flask import current_app
+    if current_app.config.get('WTF_CSRF_ENABLED', True):
+        from flask_wtf.csrf import validate_csrf
+        try:
+            validate_csrf(request.headers.get('X-CSRFToken', ''))
+        except Exception:
+            return jsonify({'ok': False, 'error': 'CSRF-fout'}), 403
     rel = db.session.get(db_finding_related, relation_id)
     if not rel:
         return jsonify({'ok': False, 'error': 'not found'}), 404
@@ -1394,6 +1488,11 @@ def finding_relations_delete(relation_id):
 # ---------------------------------------------------------------------------
 # Changelog: GET /api/changelog
 # ---------------------------------------------------------------------------
+
+@findings_bp.route('/dashboard/changelog')
+def changelog_overzicht():
+    return render_template('changelog.html')
+
 
 @findings_bp.route('/api/changelog', methods=['GET'])
 def api_changelog():

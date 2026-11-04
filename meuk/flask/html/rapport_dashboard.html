@@ -433,17 +433,31 @@
 (function() {
   "use strict";
 
-  // ── Tab switching ──────────────────────────────
+  // ── Tab switching met localStorage ─────────────
+  var LS_KEY = 'ib_rapport_tab';
+
+  function activateRapportTab(tabId) {
+    document.querySelectorAll(".rapport-tab").forEach(function(t) { t.classList.remove("active"); });
+    document.querySelectorAll(".rapport-tab-content").forEach(function(c) { c.classList.remove("active"); });
+    var btn = document.querySelector('.rapport-tab[data-tab="' + tabId + '"]');
+    var panel = document.getElementById(tabId);
+    if (btn) btn.classList.add("active");
+    if (panel) panel.classList.add("active");
+    try { localStorage.setItem(LS_KEY, tabId); } catch(e) {}
+  }
+
   document.querySelectorAll(".rapport-tab").forEach(function(tab) {
     tab.addEventListener("click", function() {
-      var target = tab.getAttribute("data-tab");
-      document.querySelectorAll(".rapport-tab").forEach(function(t) { t.classList.remove("active"); });
-      document.querySelectorAll(".rapport-tab-content").forEach(function(c) { c.classList.remove("active"); });
-      tab.classList.add("active");
-      var panel = document.getElementById(target);
-      if (panel) panel.classList.add("active");
+      activateRapportTab(tab.getAttribute("data-tab"));
     });
   });
+
+  // Herstel tab uit localStorage
+  var savedRapTab;
+  try { savedRapTab = localStorage.getItem(LS_KEY); } catch(e) {}
+  if (savedRapTab && document.getElementById(savedRapTab)) {
+    activateRapportTab(savedRapTab);
+  }
 
   // ── Scope checkboxen helpers ────────────────────
   function loadScopeCheckboxes(val) {

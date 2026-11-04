@@ -454,10 +454,12 @@ def bevinding_bewerken(bevinding_id):
         impact_niveau=getattr(item, 'impact_niveau', '') or '',
     )
     scope_targets = _get_scope_targets()
+    huidige_opdracht = getattr(item, 'opdracht_id', None)
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
         pagina = render_template('bevinding_toevoegen.html', form=form, scope_targets=scope_targets)
     else:
-        pagina = render_template('bevinding_page.html', form=form, title='Finding bewerken', scope_targets=scope_targets)
+        pagina = render_template('bevinding_page.html', form=form, title='Finding bewerken',
+                                 scope_targets=scope_targets, huidige_opdracht=huidige_opdracht)
     return pagina
 
 @findings_bp.route('/dashboard/findings/delete/<int:bevindingen_id>', methods=['POST'])
@@ -576,6 +578,79 @@ def bevinding_opslaan():
 
 _VALID_STATUSES = {'draft', 'final', 'closed'}
 _VALID_RETEST_STATUSES = {'not_applicable', 'pending_retest', 'retested_fixed', 'retested_open'}
+
+
+# ---------------------------------------------------------------------------
+# Evaluatieprofielen per techniekcluster (hoofdstuk 5)
+# Startpunt voor het invullen van een bevinding: typische CVSS-vector,
+# kans/impact, faalmodus en herbruikbare rapportagezinnen.
+# ---------------------------------------------------------------------------
+
+_EVAL_PROFIELEN = [
+    {
+        'key': 'web_injectie', 'label': 'Web — Injectie (SQLi/command)',
+        'cvss': 'CVSS:4.0/AV:N/AC:L/AT:N/PR:N/UI:N/VC:H/VI:H/VA:H/SC:N/SI:N/SA:N',
+        'basescore': '9.3', 'kans': '4', 'impact_niveau': '5', 'faalmodus': 'werking',
+        'impact_zin': 'Een aanvaller kan via injectie willekeurige queries of commando’s uitvoeren, wat leidt tot volledige compromittering van de gegevens en mogelijk het onderliggende systeem.',
+        'aanbeveling_zin': 'Gebruik geparametriseerde queries (prepared statements) en voer strikte invoervalidatie en -encoding uit. Pas least privilege toe op de database-account.',
+    },
+    {
+        'key': 'web_xss', 'label': 'Web — Cross-Site Scripting (XSS)',
+        'cvss': 'CVSS:4.0/AV:N/AC:L/AT:N/PR:N/UI:P/VC:L/VI:L/VA:N/SC:N/SI:N/SA:N',
+        'basescore': '5.1', 'kans': '4', 'impact_niveau': '3', 'faalmodus': 'werking',
+        'impact_zin': 'Een aanvaller kan scripts injecteren die in de browser van het slachtoffer draaien, waardoor sessies gekaapt of gegevens afgevangen kunnen worden.',
+        'aanbeveling_zin': 'Pas contextafhankelijke output-encoding toe en implementeer een restrictieve Content-Security-Policy. Valideer en saneer invoer.',
+    },
+    {
+        'key': 'web_authz', 'label': 'Web — Autorisatie / toegangscontrole',
+        'cvss': 'CVSS:4.0/AV:N/AC:L/AT:N/PR:L/UI:N/VC:H/VI:L/VA:N/SC:N/SI:N/SA:N',
+        'basescore': '7.1', 'kans': '3', 'impact_niveau': '4', 'faalmodus': 'bestaan',
+        'impact_zin': 'Door ontbrekende of onjuiste autorisatiecontroles kan een gebruiker gegevens of functies benaderen buiten de eigen bevoegdheid.',
+        'aanbeveling_zin': 'Implementeer server-side autorisatiecontroles op elk object en elke functie (deny-by-default) en toets deze centraal.',
+    },
+    {
+        'key': 'auth_zwak', 'label': 'Authenticatie — zwakke mechanismen',
+        'cvss': 'CVSS:4.0/AV:N/AC:L/AT:N/PR:N/UI:N/VC:H/VI:H/VA:N/SC:N/SI:N/SA:N',
+        'basescore': '8.3', 'kans': '3', 'impact_niveau': '5', 'faalmodus': 'opzet',
+        'impact_zin': 'Zwakke authenticatie (geen MFA, zwak wachtwoordbeleid, brute-force mogelijk) stelt aanvallers in staat accounts over te nemen.',
+        'aanbeveling_zin': 'Verplicht multifactorauthenticatie, hanteer een sterk wachtwoordbeleid en implementeer accountlockout/rate-limiting.',
+    },
+    {
+        'key': 'crypto', 'label': 'Cryptografie / transport',
+        'cvss': 'CVSS:4.0/AV:N/AC:H/AT:P/PR:N/UI:N/VC:H/VI:L/VA:N/SC:N/SI:N/SA:N',
+        'basescore': '5.9', 'kans': '2', 'impact_niveau': '4', 'faalmodus': 'opzet',
+        'impact_zin': 'Verouderde of zwakke cryptografie maakt het mogelijk vertrouwelijk verkeer af te luisteren of te manipuleren.',
+        'aanbeveling_zin': 'Schakel verouderde protocollen en cijfers uit, dwing TLS 1.2+ af en gebruik actuele, sterke algoritmen en sleutellengtes.',
+    },
+    {
+        'key': 'misconfig', 'label': 'Misconfiguratie / hardening',
+        'cvss': 'CVSS:4.0/AV:N/AC:L/AT:N/PR:N/UI:N/VC:L/VI:L/VA:L/SC:N/SI:N/SA:N',
+        'basescore': '6.9', 'kans': '3', 'impact_niveau': '3', 'faalmodus': 'bestaan',
+        'impact_zin': 'Een onveilige configuratie vergroot het aanvalsoppervlak en kan directe toegang of informatielekkage tot gevolg hebben.',
+        'aanbeveling_zin': 'Hanteer een hardening-baseline (bijv. CIS Benchmarks), verwijder standaardaccounts/-diensten en beperk blootgestelde functionaliteit.',
+    },
+    {
+        'key': 'infoleak', 'label': 'Informatielekkage',
+        'cvss': 'CVSS:4.0/AV:N/AC:L/AT:N/PR:N/UI:N/VC:L/VI:N/VA:N/SC:N/SI:N/SA:N',
+        'basescore': '5.3', 'kans': '3', 'impact_niveau': '2', 'faalmodus': 'werking',
+        'impact_zin': 'Het systeem lekt technische of gevoelige informatie die een aanvaller helpt bij vervolgaanvallen.',
+        'aanbeveling_zin': 'Beperk foutmeldingen en metadata, verwijder debug-informatie uit productie en classificeer welke gegevens getoond mogen worden.',
+    },
+    {
+        'key': 'netwerk', 'label': 'Netwerk / dienst-exposure',
+        'cvss': 'CVSS:4.0/AV:N/AC:L/AT:N/PR:N/UI:N/VC:H/VI:H/VA:H/SC:N/SI:N/SA:N',
+        'basescore': '9.3', 'kans': '3', 'impact_niveau': '5', 'faalmodus': 'bestaan',
+        'impact_zin': 'Een kwetsbare of onnodig blootgestelde netwerkdienst kan leiden tot ongeautoriseerde toegang of code-uitvoering.',
+        'aanbeveling_zin': 'Beperk netwerkexposure via segmentatie en firewalling, patch diensten tijdig en schakel ongebruikte diensten uit.',
+    },
+]
+_EVAL_PROFIEL_MAP = {p['key']: p for p in _EVAL_PROFIELEN}
+
+
+@findings_bp.route('/api/findings/eval-profiles', methods=['GET'])
+def api_eval_profiles():
+    """Geef de beschikbare evaluatieprofielen als startpunt voor een bevinding."""
+    return jsonify({'profiles': _EVAL_PROFIELEN})
 
 
 # ---------------------------------------------------------------------------

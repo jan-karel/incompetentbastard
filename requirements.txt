@@ -12,3 +12,4 @@ python-pptx
 pymetasploit3
 asciinema
 impacket
+pikepdf

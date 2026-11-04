@@ -13,6 +13,7 @@
 \geometry{a4paper, margin=2.5cm}
 \usepackage{graphicx}
 \usepackage{xcolor}
+\usepackage{colortbl}
 \usepackage{hyperref}
 \usepackage{fancyhdr}
 \usepackage{array}
@@ -427,6 +428,112 @@ In totaal zijn \textbf{[[ findings|length ]]} bevindingen geidentificeerd:
 \end{center}
 [% endif %]
 
+% --- Risicomatrix (heatmap) ---
+[% if heatmap_rows %]
+[% if taal == 'en' %]
+\subsection*{Risk Matrix}
+[% else %]
+\subsection*{Risicomatrix}
+[% endif %]
+
+\begin{center}
+\renewcommand{\arraystretch}{1.6}
+\begin{tabular}{|c|c|c|c|c|c|}
+  \hline
+  [% if taal == 'en' %]\textbf{Lik.\textbackslash Imp.}[% else %]\textbf{Kans\textbackslash Imp.}[% endif %] & \textbf{1} & \textbf{2} & \textbf{3} & \textbf{4} & \textbf{5} \\
+  \hline
+[% for row in heatmap_rows %]
+  \textbf{[[ row.kans ]]} [% for cell in row.cells %]& \cellcolor{[[ cell.color ]]}\textcolor{white}{\small [[ cell.ids ]]} [% endfor %]\\
+  \hline
+[% endfor %]
+\end{tabular}
+\renewcommand{\arraystretch}{1.0}
+\end{center}
+[% endif %]
+
+% --- Oplostijden (SLA) ---
+[% if sla_rows %]
+[% if taal == 'en' %]
+\subsection*{Remediation Timelines}
+
+The recommended maximum remediation time is based on the risk classification of each finding.
+
+\begin{longtable}{|c|p{6cm}|c|p{3.5cm}|c|}
+  \hline
+  \textbf{ID} & \textbf{Finding} & \textbf{Severity} & \textbf{Target} & \textbf{Date} \\
+  \hline
+  \endhead
+[% else %]
+\subsection*{Oplostijden}
+
+De aanbevolen maximale hersteltermijn is gebaseerd op de risicoclassificatie van elke bevinding.
+
+\begin{longtable}{|c|p{6cm}|c|p{3.5cm}|c|}
+  \hline
+  \textbf{ID} & \textbf{Bevinding} & \textbf{Ernst} & \textbf{Streeftermijn} & \textbf{Datum} \\
+  \hline
+  \endhead
+[% endif %]
+[% for r in sla_rows %]
+  [[ r.id ]] & [[ r.titel | latex_escape ]] & [[ r.severity | latex_escape ]] & [[ r.sla | latex_escape ]] & [[ r.date ]] \\
+  \hline
+[% endfor %]
+\end{longtable}
+[% endif %]
+
+% --- Detecteerbaarheid & SOC/CDC-aanbevelingen ---
+[% if detection_rated %]
+[% if taal == 'en' %]
+\subsection*{Detectability \& SOC/CDC Recommendations}
+
+\begin{center}
+\begin{tabular}{|l|c|}
+  \hline
+  \textbf{Detectable} & \textbf{Count} \\
+  \hline
+  [[ detection_label['ja'] | latex_escape ]] & [[ detection_tally['ja'] ]] \\
+  [[ detection_label['deels'] | latex_escape ]] & [[ detection_tally['deels'] ]] \\
+  [[ detection_label['nee'] | latex_escape ]] & [[ detection_tally['nee'] ]] \\
+  \hline
+\end{tabular}
+\end{center}
+[% if detection_gaps %]
+
+The following findings were not (fully) detectable. Strengthening monitoring and detection for these is recommended:
+
+\begin{itemize}
+[% for g in detection_gaps %]
+  \item \textbf{[[ g.id ]]: [[ g.titel | latex_escape ]]} ([[ g.label | latex_escape ]])[% if g.note %] --- [[ g.note | latex_escape ]][% endif %]
+[% endfor %]
+\end{itemize}
+[% endif %]
+[% else %]
+\subsection*{Detecteerbaarheid \& SOC/CDC-aanbevelingen}
+
+\begin{center}
+\begin{tabular}{|l|c|}
+  \hline
+  \textbf{Detecteerbaar} & \textbf{Aantal} \\
+  \hline
+  [[ detection_label['ja'] | latex_escape ]] & [[ detection_tally['ja'] ]] \\
+  [[ detection_label['deels'] | latex_escape ]] & [[ detection_tally['deels'] ]] \\
+  [[ detection_label['nee'] | latex_escape ]] & [[ detection_tally['nee'] ]] \\
+  \hline
+\end{tabular}
+\end{center}
+[% if detection_gaps %]
+
+De volgende bevindingen waren niet (volledig) detecteerbaar. Versterking van monitoring en detectie hiervoor wordt aanbevolen:
+
+\begin{itemize}
+[% for g in detection_gaps %]
+  \item \textbf{[[ g.id ]]: [[ g.titel | latex_escape ]]} ([[ g.label | latex_escape ]])[% if g.note %] --- [[ g.note | latex_escape ]][% endif %]
+[% endfor %]
+\end{itemize}
+[% endif %]
+[% endif %]
+[% endif %]
+
 \newpage
 
 % --- Verkenning & ontdekking (notities) ---
@@ -486,6 +593,29 @@ In totaal zijn \textbf{[[ findings|length ]]} bevindingen geidentificeerd:
 [% endif %]
 [% if item.cvss_vector %]
 \textbf{CVSS Vector:} \texttt{\small [[ item.cvss_vector | latex_escape ]]}
+[% endif %]
+
+[% if item.faalmodus or item.control_ref or item.detecteerbaarheid %]
+\vspace{0.3em}
+
+\noindent
+[% if item.faalmodus %][% if taal == 'en' %]\textbf{Failure mode:} [[ faalmodus_labels[item.faalmodus][1] | default(item.faalmodus) | latex_escape ]][% else %]\textbf{Faalmodus:} [[ faalmodus_labels[item.faalmodus][0] | default(item.faalmodus) | latex_escape ]][% endif %] \quad [% endif %]
+[% if item.control_ref %][% if taal == 'en' %]\textbf{Control:}[% else %]\textbf{Controle:}[% endif %] [[ item.control_ref | latex_escape ]] \quad [% endif %]
+[% if item.detecteerbaarheid %][% if taal == 'en' %]\textbf{Detectable:} [[ detect_labels[item.detecteerbaarheid][1] | default(item.detecteerbaarheid) | latex_escape ]][% else %]\textbf{Detecteerbaar:} [[ detect_labels[item.detecteerbaarheid][0] | default(item.detecteerbaarheid) | latex_escape ]][% endif %][% endif %]
+[% if item.detectie_notitie %]
+
+\noindent\textit{[% if taal == 'en' %]Detection notes:[% else %]Detectie-toelichting:[% endif %]} [[ item.detectie_notitie | latex_escape ]]
+[% endif %]
+[% endif %]
+
+[% if item.referenties_list %]
+\vspace{0.3em}
+\noindent\textbf{[% if taal == 'en' %]References:[% else %]Referenties:[% endif %]}
+\begin{itemize}
+[% for ref in item.referenties_list %]
+  \item \texttt{\small [[ ref | latex_escape ]]}
+[% endfor %]
+\end{itemize}
 [% endif %]
 
 [% for ev in item.evidence %]
@@ -552,6 +682,69 @@ In totaal zijn \textbf{[[ findings|length ]]} bevindingen geidentificeerd:
 
 [% endfor %]
 [% endfor %]
+[% endif %]
+
+[% if (owasp_rows or ncsc_rows or chain_paths) and not checklists %]
+\appendix
+[% endif %]
+
+[% if chain_paths %]
+[% if taal == 'en' %]
+\section{Exploit Chains / Kill Chain}
+[% else %]
+\section{Exploit chains / kill chain}
+[% endif %]
+\begin{itemize}
+[% for cp in chain_paths %]
+  \item \textbf{[% if taal == 'en' %]Chain[% else %]Keten[% endif %] [[ cp.num ]]:} [[ cp.steps ]]
+[% endfor %]
+\end{itemize}
+[% endif %]
+
+[% if owasp_rows %]
+[% if taal == 'en' %]
+\section{OWASP Top 10 Mapping}
+\begin{longtable}{|c|p{7cm}|p{3cm}|p{2.5cm}|}
+  \hline
+  \textbf{ID} & \textbf{Finding} & \textbf{OWASP 2021} & \textbf{OWASP 2025} \\
+  \hline
+  \endhead
+[% else %]
+\section{OWASP Top 10 mapping}
+\begin{longtable}{|c|p{7cm}|p{3cm}|p{2.5cm}|}
+  \hline
+  \textbf{ID} & \textbf{Bevinding} & \textbf{OWASP 2021} & \textbf{OWASP 2025} \\
+  \hline
+  \endhead
+[% endif %]
+[% for r in owasp_rows %]
+  [[ r.id ]] & [[ r.titel | latex_escape ]] & [[ r.owasp | latex_escape ]] & [[ r.owasp_2025 | latex_escape ]] \\
+  \hline
+[% endfor %]
+\end{longtable}
+[% endif %]
+
+[% if ncsc_rows %]
+[% if taal == 'en' %]
+\section{NCSC Guidelines Mapping}
+\begin{longtable}{|c|p{6cm}|p{4cm}|p{3cm}|}
+  \hline
+  \textbf{ID} & \textbf{Finding} & \textbf{NCSC} & \textbf{Control reference} \\
+  \hline
+  \endhead
+[% else %]
+\section{NCSC-richtlijnen mapping}
+\begin{longtable}{|c|p{6cm}|p{4cm}|p{3cm}|}
+  \hline
+  \textbf{ID} & \textbf{Bevinding} & \textbf{NCSC} & \textbf{Controle-referentie} \\
+  \hline
+  \endhead
+[% endif %]
+[% for r in ncsc_rows %]
+  [[ r.id ]] & [[ r.titel | latex_escape ]] & [[ r.ncsc | latex_escape ]] & [[ r.control_ref | latex_escape ]] \\
+  \hline
+[% endfor %]
+\end{longtable}
 [% endif %]
 
 \end{document}

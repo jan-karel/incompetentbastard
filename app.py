@@ -236,6 +236,46 @@ def create_app():
                 except Exception:
                     pass
 
+            # Auto-migrate: koppeling bevinding -> opdracht/engagement
+            try:
+                conn.execute(db.text(
+                    "ALTER TABLE db_bevinding ADD COLUMN opdracht_id INTEGER"))
+                conn.commit()
+            except Exception:
+                pass
+
+            # Auto-migrate: debrief (lessons learned)
+            for col, coltype in [
+                ("debrief_context",  "TEXT DEFAULT ''"),
+                ("debrief_werkte",   "TEXT DEFAULT ''"),
+                ("debrief_faalde",   "TEXT DEFAULT ''"),
+                ("debrief_detectie", "TEXT DEFAULT ''"),
+                ("debrief_vervolg",  "TEXT DEFAULT ''"),
+            ]:
+                try:
+                    conn.execute(db.text(
+                        f"ALTER TABLE db_instellingen ADD COLUMN {col} {coltype}"))
+                    conn.commit()
+                except Exception:
+                    pass
+
+            # Auto-migrate: PDF-beveiliging + DefectDojo-integratie
+            for col, coltype in [
+                ("rapport_pdf_password", "VARCHAR(200) DEFAULT ''"),
+                ("dd_url",               "VARCHAR(300) DEFAULT ''"),
+                ("dd_api_key",           "VARCHAR(300) DEFAULT ''"),
+                ("dd_product_id",        "INTEGER"),
+                ("dd_engagement_id",     "INTEGER"),
+                ("dd_verify_ssl",        "BOOLEAN DEFAULT 1"),
+                ("dd_auto_push",         "BOOLEAN DEFAULT 0"),
+            ]:
+                try:
+                    conn.execute(db.text(
+                        f"ALTER TABLE db_instellingen ADD COLUMN {col} {coltype}"))
+                    conn.commit()
+                except Exception:
+                    pass
+
             # Auto-migrate: evidence extended columns
             for col, coltype in [
                 ("tool_name", "VARCHAR(100)"),
@@ -296,14 +336,19 @@ def create_app():
         from meuk.flask import admin
         from meuk.flask import agent
         from meuk.flask import amsi
+        from meuk.flask import bof
+        from meuk.flask import chains
         from meuk.flask import checklists
         from meuk.flask import csrf
+        from meuk.flask import defectdojo
+        from meuk.flask import docker_status
         from meuk.flask import download
         from meuk.flask import findings
         from meuk.flask import index
         from meuk.flask import login
         from meuk.flask import macro
         from meuk.flask import notes
+        from meuk.flask import opdracht
         from meuk.flask import output_view
         from meuk.flask import rapport
         from meuk.flask import search
@@ -331,6 +376,11 @@ def create_app():
         app.register_blueprint(tasks.tasks_bp)
         app.register_blueprint(output_view.output_bp)
         app.register_blueprint(findings.findings_bp)
+        app.register_blueprint(defectdojo.defectdojo_bp)
+        app.register_blueprint(opdracht.opdracht_bp)
+        app.register_blueprint(docker_status.docker_bp)
+        app.register_blueprint(chains.chains_bp)
+        app.register_blueprint(bof.bof_bp)
         app.register_blueprint(macro.macro_bp)
         app.register_blueprint(notes.notes_bp)
         app.register_blueprint(rapport.rapport_bp)

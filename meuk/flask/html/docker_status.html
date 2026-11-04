@@ -1,0 +1,90 @@
+{% extends "bootstrap/base.html" %}
+{% block title %}Docker{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/safe-overview.css') }}" />
+{% endblock %}
+
+{% block content %}
+<div class="page-title">
+  <div>
+    <h1>Docker — containers &amp; images</h1>
+    <div class="breadcrumbs"><a href="/">Start</a> / Docker</div>
+  </div>
+</div>
+
+<section class="card mb-14">
+  <div class="card-head">
+    <h2>Containers</h2>
+    <button class="btn btn-sm ml-auto" id="btn-refresh" type="button">Vernieuwen</button>
+  </div>
+  <div class="card-body">
+    <div id="docker-msg" class="help"></div>
+    <table class="table">
+      <thead><tr><th>Naam</th><th>Image</th><th>Status</th><th>State</th><th>Poorten</th></tr></thead>
+      <tbody id="containers-tbody"><tr><td colspan="5" class="help">Laden…</td></tr></tbody>
+    </table>
+  </div>
+</section>
+
+<section class="card mb-14">
+  <div class="card-head"><h2>Images / tooling-versies</h2></div>
+  <div class="card-body">
+    <table class="table">
+      <thead><tr><th>Repository</th><th>Tag</th><th>Grootte</th><th>Aangemaakt</th></tr></thead>
+      <tbody id="images-tbody"><tr><td colspan="4" class="help">Laden…</td></tr></tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script nonce="{{ csp_nonce }}">
+(function() {
+  "use strict";
+  var msg = document.getElementById("docker-msg");
+
+  function fill(tbodyId, rows, cols, emptyText) {
+    var tb = document.getElementById(tbodyId);
+    tb.innerHTML = "";
+    if (!rows.length) {
+      tb.innerHTML = '<tr><td colspan="' + cols.length + '" class="help">' + emptyText + '</td></tr>';
+      return;
+    }
+    rows.forEach(function(r) {
+      var tr = document.createElement("tr");
+      cols.forEach(function(key) {
+        var td = document.createElement("td");
+        td.textContent = r[key] || "—";
+        tr.appendChild(td);
+      });
+      tb.appendChild(tr);
+    });
+  }
+
+  function load() {
+    if (msg) msg.textContent = "";
+    fetch("/api/docker/status")
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        if (!d.available && msg) {
+          msg.textContent = "Docker niet beschikbaar: " + (d.error || "onbekend");
+          msg.style.color = "var(--danger, #ef4444)";
+        }
+        fill("containers-tbody", d.containers || [],
+             ["name", "image", "status", "state", "ports"], "Geen containers.");
+      });
+    fetch("/api/docker/images")
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        fill("images-tbody", d.images || [],
+             ["repository", "tag", "size", "created"], "Geen images.");
+      });
+  }
+
+  var btn = document.getElementById("btn-refresh");
+  if (btn) btn.addEventListener("click", load);
+  load();
+})();
+</script>
+{% endblock %}

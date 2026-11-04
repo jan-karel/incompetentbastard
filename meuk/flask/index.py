@@ -201,6 +201,21 @@ def api_settings():
         'rapport_test_end_date': str(getattr(s, 'rapport_test_end_date', '') or ''),
         'rapport_versie': getattr(s, 'rapport_versie', '') or '',
         'rapport_versie_status': getattr(s, 'rapport_versie_status', '') or 'concept',
+        # Debrief (lessons learned)
+        'debrief_context': getattr(s, 'debrief_context', '') or '',
+        'debrief_werkte': getattr(s, 'debrief_werkte', '') or '',
+        'debrief_faalde': getattr(s, 'debrief_faalde', '') or '',
+        'debrief_detectie': getattr(s, 'debrief_detectie', '') or '',
+        'debrief_vervolg': getattr(s, 'debrief_vervolg', '') or '',
+        # PDF-beveiliging: nooit het wachtwoord zelf teruggeven, alleen of het gezet is
+        'rapport_pdf_protected': bool(getattr(s, 'rapport_pdf_password', '') or ''),
+        # DefectDojo: API-sleutel gemaskeerd
+        'dd_url': getattr(s, 'dd_url', '') or '',
+        'dd_api_key_set': bool(getattr(s, 'dd_api_key', '') or ''),
+        'dd_product_id': getattr(s, 'dd_product_id', None),
+        'dd_engagement_id': getattr(s, 'dd_engagement_id', None),
+        'dd_verify_ssl': bool(getattr(s, 'dd_verify_ssl', True)),
+        'dd_auto_push': bool(getattr(s, 'dd_auto_push', False)),
     })
 
 
@@ -292,5 +307,33 @@ def api_settings_update():
     if 'rapport_versie_status' in data and isinstance(data['rapport_versie_status'], str):
         if data['rapport_versie_status'] in ('concept', 'definitief', 'herzien'):
             s.rapport_versie_status = data['rapport_versie_status']
+    # Debrief-teksten
+    for key in ('debrief_context', 'debrief_werkte', 'debrief_faalde',
+                'debrief_detectie', 'debrief_vervolg'):
+        if key in data and isinstance(data[key], str):
+            setattr(s, key, data[key].strip()[:10000])
+    # PDF-beveiliging: leeg -> uit; None/weglaten -> ongewijzigd
+    if 'rapport_pdf_password' in data and isinstance(data['rapport_pdf_password'], str):
+        s.rapport_pdf_password = data['rapport_pdf_password'][:200]
+    # DefectDojo-configuratie
+    if 'dd_url' in data and isinstance(data['dd_url'], str):
+        s.dd_url = data['dd_url'].strip().rstrip('/')[:300]
+    if 'dd_api_key' in data and isinstance(data['dd_api_key'], str):
+        # Lege string wist de sleutel; anders overschrijven
+        s.dd_api_key = data['dd_api_key'].strip()[:300]
+    for key in ('dd_product_id', 'dd_engagement_id'):
+        if key in data:
+            val = data[key]
+            if val in (None, ''):
+                setattr(s, key, None)
+            else:
+                try:
+                    setattr(s, key, int(val))
+                except (ValueError, TypeError):
+                    pass
+    if 'dd_verify_ssl' in data:
+        s.dd_verify_ssl = bool(data['dd_verify_ssl'])
+    if 'dd_auto_push' in data:
+        s.dd_auto_push = bool(data['dd_auto_push'])
     db.session.commit()
     return jsonify({'ok': True})

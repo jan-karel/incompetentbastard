@@ -125,6 +125,20 @@ class db_instellingen(db.Model):
     rapport_test_end_date = db.Column(db.Date)
     rapport_versie = db.Column(db.String(20), default='')
     rapport_versie_status = db.Column(db.String(20), default='concept')
+    rapport_pdf_password = db.Column(db.String(200), default='')
+    # Debrief (lessons learned) — hoofdstuk 6
+    debrief_context = db.Column(db.Text(), default='')
+    debrief_werkte = db.Column(db.Text(), default='')
+    debrief_faalde = db.Column(db.Text(), default='')
+    debrief_detectie = db.Column(db.Text(), default='')
+    debrief_vervolg = db.Column(db.Text(), default='')
+    # DefectDojo integratie
+    dd_url = db.Column(db.String(300), default='')
+    dd_api_key = db.Column(db.String(300), default='')
+    dd_product_id = db.Column(db.Integer)
+    dd_engagement_id = db.Column(db.Integer)
+    dd_verify_ssl = db.Column(db.Boolean, default=True)
+    dd_auto_push = db.Column(db.Boolean, default=False)
 
 
 class db_bevindingen_templates(db.Model):
@@ -197,6 +211,23 @@ class db_bevindingen(db.Model):
     impact_niveau = db.Column(db.String(5), default='')
     # Soft-delete
     deleted_at = db.Column(db.DateTime, nullable=True)
+    # Koppeling aan opdracht/engagement
+    opdracht_id = db.Column(db.Integer, db.ForeignKey('db_opdracht.id'), nullable=True, index=True)
+
+class db_opdracht(db.Model):
+    """Opdracht/engagement — scope, tijdvenster en Rules of Engagement (hoofdstuk 2)."""
+    __tablename__ = 'db_opdracht'
+    id = db.Column(db.Integer, primary_key=True)
+    naam = db.Column(db.String(255), nullable=False)
+    klant = db.Column(db.String(255), default='')
+    scope = db.Column(db.Text(), default='')
+    roe = db.Column(db.Text(), default='')
+    start_datum = db.Column(db.Date)
+    eind_datum = db.Column(db.Date)
+    status = db.Column(db.String(20), default='gepland')   # gepland / actief / afgerond
+    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+    bevindingen = db.relationship('db_bevindingen', backref='opdracht', lazy='selectin')
+
 
 class db_evidence(db.Model):
     __tablename__ = 'db_evidence'
@@ -370,6 +401,19 @@ class db_changelog(db.Model):
     new_value = db.Column(db.Text())
     changed_by = db.Column(db.String(200), default='operator')
     changed_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+
+
+class db_defectdojo_sync(db.Model):
+    """Koppeling tussen een IB-bevinding en een DefectDojo-finding + sync-historie."""
+    __tablename__ = 'db_defectdojo_sync'
+    id = db.Column(db.Integer, primary_key=True)
+    finding_id = db.Column(db.Integer, db.ForeignKey('db_bevinding.id'), nullable=False, index=True)
+    dd_finding_id = db.Column(db.Integer)
+    dd_engagement_id = db.Column(db.Integer)
+    last_action = db.Column(db.String(20), default='')   # 'create', 'update', 'status'
+    last_status = db.Column(db.String(20), default='')   # resultaat: 'ok', 'error'
+    last_message = db.Column(db.Text(), default='')
+    synced_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
 
 
 class db_amsi_preset(db.Model):

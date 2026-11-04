@@ -1,0 +1,119 @@
+{% extends "bootstrap/base.html" %}
+{% block title %}Buffer Overflow{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/safe-overview.css') }}" />
+<link rel="stylesheet" href="{{ url_for('static', filename='css/finding-form.css') }}" />
+<style>
+  .bof-out { font-family: monospace; white-space: pre-wrap; word-break: break-all;
+             background: #f0f0f0; padding: 10px; border-radius: 4px; }
+  :root[data-theme="dark"] .bof-out { background: #1c2230; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-title">
+  <div>
+    <h1>Buffer Overflow workspace</h1>
+    <div class="breadcrumbs"><a href="/">Start</a> / BOF</div>
+  </div>
+</div>
+
+<section class="card mb-14">
+  <div class="card-head"><h2>1. Cyclisch patroon &amp; offset</h2></div>
+  <div class="card-body">
+    <p class="help">Genereer een patroon, overschrijf EIP/EBP, en vul de waargenomen registerwaarde in om de offset te vinden (compatibel met msf-pattern_create/offset).</p>
+    <div class="d-flex gap-8 items-center flex-wrap mb-8">
+      <label>Lengte <input type="number" id="pat-len" class="form-control w-140" value="2000" /></label>
+      <button class="btn" id="btn-pattern" type="button">Patroon genereren</button>
+    </div>
+    <div class="bof-out" id="pattern-out">—</div>
+    <div class="d-flex gap-8 items-center flex-wrap mt-8">
+      <label>EIP/register-waarde <input type="text" id="off-query" class="form-control w-140" placeholder="0x37654136" /></label>
+      <label>Patroonlengte <input type="number" id="off-len" class="form-control w-140" value="2000" /></label>
+      <button class="btn" id="btn-offset" type="button">Offset zoeken</button>
+      <span id="offset-out" class="help"></span>
+    </div>
+  </div>
+</section>
+
+<section class="card mb-14">
+  <div class="card-head"><h2>2. Badchar-generator</h2></div>
+  <div class="card-body">
+    <p class="help">Genereert \x01..\xff minus uitgesloten bytes (nulbyte altijd uitgesloten). Vergelijk in de debugger om badchars te vinden.</p>
+    <div class="d-flex gap-8 items-center flex-wrap mb-8">
+      <label>Uitsluiten <input type="text" id="bad-excl" class="form-control w-220" placeholder="00,0a,0d" /></label>
+      <button class="btn" id="btn-badchars" type="button">Genereren</button>
+      <span id="bad-count" class="help"></span>
+    </div>
+    <div class="bof-out" id="bad-escaped">—</div>
+    <div class="bof-out mt-8" id="bad-python"></div>
+  </div>
+</section>
+
+<section class="card mb-14">
+  <div class="card-head"><h2>3. Return-adres (little-endian)</h2></div>
+  <div class="card-body">
+    <div class="d-flex gap-8 items-center flex-wrap mb-8">
+      <label>Adres <input type="text" id="ret-addr" class="form-control w-220" placeholder="0x625011af" /></label>
+      <label>Arch
+        <select id="ret-arch" class="form-control w-140">
+          <option value="x86">x86 (4 bytes)</option>
+          <option value="x64">x64 (8 bytes)</option>
+        </select>
+      </label>
+      <button class="btn" id="btn-retaddr" type="button">Omzetten</button>
+    </div>
+    <div class="bof-out" id="ret-out">—</div>
+  </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script nonce="{{ csp_nonce }}">
+(function() {
+  "use strict";
+  function get(url) { return fetch(url).then(function(r) { return r.json(); }); }
+
+  var btnPat = document.getElementById("btn-pattern");
+  if (btnPat) btnPat.addEventListener("click", function() {
+    var len = parseInt(document.getElementById("pat-len").value, 10) || 0;
+    get("/api/bof/pattern?length=" + len).then(function(d) {
+      document.getElementById("pattern-out").textContent = d.ok ? d.pattern : (d.error || "fout");
+    });
+  });
+
+  var btnOff = document.getElementById("btn-offset");
+  if (btnOff) btnOff.addEventListener("click", function() {
+    var q = encodeURIComponent(document.getElementById("off-query").value);
+    var len = parseInt(document.getElementById("off-len").value, 10) || 0;
+    get("/api/bof/offset?length=" + len + "&query=" + q).then(function(d) {
+      var el = document.getElementById("offset-out");
+      if (d.ok) { el.textContent = "Offset = " + d.offset + " bytes"; el.style.color = "var(--success,#22c55e)"; }
+      else { el.textContent = d.error || "niet gevonden"; el.style.color = "var(--danger,#ef4444)"; }
+    });
+  });
+
+  var btnBad = document.getElementById("btn-badchars");
+  if (btnBad) btnBad.addEventListener("click", function() {
+    var excl = encodeURIComponent(document.getElementById("bad-excl").value);
+    get("/api/bof/badchars?exclude=" + excl).then(function(d) {
+      document.getElementById("bad-escaped").textContent = d.escaped || "";
+      document.getElementById("bad-python").textContent = d.python || "";
+      document.getElementById("bad-count").textContent = d.count + " bytes (uitgesloten: " + (d.excluded || []).join(" ") + ")";
+    });
+  });
+
+  var btnRet = document.getElementById("btn-retaddr");
+  if (btnRet) btnRet.addEventListener("click", function() {
+    var addr = encodeURIComponent(document.getElementById("ret-addr").value);
+    var arch = document.getElementById("ret-arch").value;
+    get("/api/bof/retaddr?address=" + addr + "&arch=" + arch).then(function(d) {
+      document.getElementById("ret-out").textContent = d.ok
+        ? (d.escaped + "\n" + d.python + "\nC: " + d.c_array)
+        : (d.error || "fout");
+    });
+  });
+})();
+</script>
+{% endblock %}

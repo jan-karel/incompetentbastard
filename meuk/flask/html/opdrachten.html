@@ -1,0 +1,193 @@
+{% extends "bootstrap/base.html" %}
+{% block title %}Opdrachten{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/safe-overview.css') }}" />
+<link rel="stylesheet" href="{{ url_for('static', filename='css/finding-form.css') }}" />
+{% endblock %}
+
+{% block content %}
+<div class="page-title">
+  <div>
+    <h1>Opdrachten &amp; engagements</h1>
+    <div class="breadcrumbs"><a href="/">Start</a> / Opdrachten</div>
+  </div>
+</div>
+
+<section class="card mb-14">
+  <div class="card-head"><h2>Nieuwe opdracht</h2></div>
+  <div class="card-body">
+    <div class="form-grid">
+      <div>
+        <label for="op-naam">Naam</label>
+        <input id="op-naam" type="text" class="form-control" placeholder="bijv. Webapp pentest Q4" />
+      </div>
+      <div>
+        <label for="op-klant">Klant / project</label>
+        <input id="op-klant" type="text" class="form-control" />
+      </div>
+    </div>
+    <div class="form-grid three">
+      <div>
+        <label for="op-start">Startdatum</label>
+        <input id="op-start" type="date" class="form-control" />
+      </div>
+      <div>
+        <label for="op-eind">Einddatum</label>
+        <input id="op-eind" type="date" class="form-control" />
+      </div>
+      <div>
+        <label for="op-status">Status</label>
+        <select id="op-status" class="form-control">
+          <option value="gepland">Gepland</option>
+          <option value="actief">Actief</option>
+          <option value="afgerond">Afgerond</option>
+        </select>
+      </div>
+    </div>
+    <div>
+      <label for="op-scope">Scope</label>
+      <textarea id="op-scope" class="form-control" rows="3" placeholder="In scope systemen, URL's, netwerken, randvoorwaarden..."></textarea>
+    </div>
+    <div>
+      <label for="op-roe">Rules of Engagement</label>
+      <textarea id="op-roe" class="form-control" rows="3" placeholder="Tijdvensters, contactpersonen, no-go's..."></textarea>
+    </div>
+    <div class="form-actions">
+      <button type="button" id="btn-op-create" class="btn btn-primary">Opdracht aanmaken</button>
+      <span id="op-status-msg" class="help ml-8"></span>
+    </div>
+  </div>
+</section>
+
+<section class="card mb-14">
+  <div class="card-head"><h2>Opdrachten</h2></div>
+  <div class="card-body">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Naam</th><th>Klant</th><th>Periode</th><th>Status</th>
+          <th>Bevindingen</th><th>Resterend</th><th></th>
+        </tr>
+      </thead>
+      <tbody id="op-tbody">
+        <tr><td colspan="7" class="help">Laden…</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script nonce="{{ csp_nonce }}">
+(function() {
+  "use strict";
+  var tbody = document.getElementById("op-tbody");
+  var msg = document.getElementById("op-status-msg");
+
+  function showMsg(text, ok) {
+    if (!msg) return;
+    msg.textContent = text;
+    msg.style.color = ok ? "var(--success, #22c55e)" : "var(--danger, #ef4444)";
+    setTimeout(function() { msg.textContent = ""; }, 2500);
+  }
+
+  var STATUS_LABEL = {gepland: "Gepland", actief: "Actief", afgerond: "Afgerond"};
+
+  function periode(o) {
+    if (!o.start_datum && !o.eind_datum) return "—";
+    return (o.start_datum || "?") + " → " + (o.eind_datum || "?");
+  }
+
+  function resterend(o) {
+    if (o.dagen_resterend == null) return "—";
+    if (o.dagen_resterend < 0) return "verlopen";
+    return o.dagen_resterend + " dgn";
+  }
+
+  function render(opdrachten) {
+    tbody.innerHTML = "";
+    if (!opdrachten.length) {
+      tbody.innerHTML = '<tr><td colspan="7" class="help">Nog geen opdrachten.</td></tr>';
+      return;
+    }
+    opdrachten.forEach(function(o) {
+      var tr = document.createElement("tr");
+      var cells = [o.naam, o.klant || "—", periode(o),
+                   STATUS_LABEL[o.status] || o.status,
+                   String(o.aantal_bevindingen), resterend(o)];
+      cells.forEach(function(c) {
+        var td = document.createElement("td");
+        td.textContent = c;
+        tr.appendChild(td);
+      });
+      var actions = document.createElement("td");
+      var repBtn = document.createElement("button");
+      repBtn.className = "btn btn-sm";
+      repBtn.textContent = "→ rapport";
+      repBtn.title = "Scope/RoE/periode overnemen in rapportinstellingen";
+      repBtn.addEventListener("click", function() {
+        fetch("/api/opdrachten/" + o.id + "/activeer-rapport", {method: "POST"})
+          .then(function(r) { return r.json(); })
+          .then(function(d) { showMsg(d.ok ? "Overgenomen in rapport" : "Mislukt", d.ok); });
+      });
+      var delBtn = document.createElement("button");
+      delBtn.className = "btn btn-sm";
+      delBtn.textContent = "verwijderen";
+      delBtn.addEventListener("click", function() {
+        if (!window.confirm("Opdracht verwijderen? Bevindingen blijven bestaan maar worden ontkoppeld.")) return;
+        fetch("/api/opdrachten/" + o.id, {method: "DELETE"})
+          .then(function(r) { return r.json(); })
+          .then(function(d) { if (d.ok) load(); });
+      });
+      actions.appendChild(repBtn);
+      actions.appendChild(delBtn);
+      tr.appendChild(actions);
+      tbody.appendChild(tr);
+    });
+  }
+
+  function load() {
+    fetch("/api/opdrachten")
+      .then(function(r) { return r.json(); })
+      .then(function(d) { render(d.opdrachten || []); });
+  }
+
+  var btn = document.getElementById("btn-op-create");
+  if (btn) btn.addEventListener("click", function() {
+    var naam = document.getElementById("op-naam").value.trim();
+    if (!naam) { showMsg("Naam is verplicht", false); return; }
+    var payload = {
+      naam: naam,
+      klant: document.getElementById("op-klant").value,
+      start_datum: document.getElementById("op-start").value,
+      eind_datum: document.getElementById("op-eind").value,
+      status: document.getElementById("op-status").value,
+      scope: document.getElementById("op-scope").value,
+      roe: document.getElementById("op-roe").value
+    };
+    fetch("/api/opdrachten", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify(payload)
+    })
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        if (d.ok) {
+          showMsg("Opdracht aangemaakt", true);
+          document.getElementById("op-naam").value = "";
+          document.getElementById("op-klant").value = "";
+          document.getElementById("op-scope").value = "";
+          document.getElementById("op-roe").value = "";
+          load();
+        } else {
+          showMsg(d.error || "Mislukt", false);
+        }
+      })
+      .catch(function() { showMsg("Fout bij aanmaken", false); });
+  });
+
+  load();
+})();
+</script>
+{% endblock %}

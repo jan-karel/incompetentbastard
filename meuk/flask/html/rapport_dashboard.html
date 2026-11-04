@@ -208,6 +208,81 @@
       <button type="button" id="btn-add-scenario" class="btn mt-8">+ Scenario toevoegen</button>
     </div>
   </section>
+
+  <section class="card mb-14">
+    <div class="card-head"><h2>PDF-beveiliging</h2></div>
+    <div class="card-body">
+      <p class="help">Stel een wachtwoord in om het PDF-rapport met AES-256 te versleutelen. Na het genereren is de beveiligde versie beschikbaar als download "PDF (beveiligd)".</p>
+      <label class="form-label" for="rap-pdf-pw">Rapport-wachtwoord</label>
+      <input id="rap-pdf-pw" type="password" class="form-control"
+             data-rap-secret="rapport_pdf_password" data-rap-flag="rapport_pdf_protected"
+             placeholder="Leeg = geen versleuteling" autocomplete="new-password" />
+    </div>
+  </section>
+
+  <section class="card mb-14">
+    <div class="card-head"><h2>DefectDojo-integratie</h2></div>
+    <div class="card-body">
+      <p class="help">Push bevindingen naar een DefectDojo-engagement. CWE, CVSS en screenshots worden meegestuurd; status wordt gesynchroniseerd op basis van de herstelstatus.</p>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label" for="dd-url">DefectDojo URL</label>
+          <input id="dd-url" type="text" class="form-control" data-rap="dd_url" placeholder="https://defectdojo.intern" />
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="dd-key">API-sleutel (Token)</label>
+          <input id="dd-key" type="password" class="form-control"
+                 data-rap-secret="dd_api_key" data-rap-flag="dd_api_key_set"
+                 placeholder="Leeg = ongewijzigd" autocomplete="new-password" />
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label" for="dd-product">Product-ID</label>
+          <input id="dd-product" type="number" class="form-control" data-rap="dd_product_id" />
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="dd-engagement">Engagement-ID</label>
+          <input id="dd-engagement" type="number" class="form-control" data-rap="dd_engagement_id" />
+        </div>
+      </div>
+      <label class="label-check mt-4">
+        <input type="checkbox" id="dd-verify" data-rap="dd_verify_ssl" /> TLS-certificaat verifiëren
+      </label>
+      <div class="mt-8">
+        <button type="button" id="btn-dd-test" class="btn">Verbinding testen</button>
+        <button type="button" id="btn-dd-push" class="btn">Bevindingen pushen (definitief)</button>
+        <span id="dd-status" class="help ml-8"></span>
+      </div>
+    </div>
+  </section>
+
+  <section class="card mb-14">
+    <div class="card-head"><h2>Debrief — Lessons Learned</h2></div>
+    <div class="card-body">
+      <p class="help">Vrije tekst voor de debrief. Het gegenereerde debrief-rapport vult hieronder automatisch de kerncijfers aan (top-faalmodi, detectieprestatie, MITRE-technieken).</p>
+      <div class="form-group">
+        <label class="form-label">Context &amp; opdracht</label>
+        <textarea class="form-control" data-rap="debrief_context" rows="3" placeholder="Scope, doel en context van de opdracht..."></textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Wat werkte</label>
+        <textarea class="form-control" data-rap="debrief_werkte" rows="3" placeholder="Welke aanvalspaden/technieken werkten..."></textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Wat faalde</label>
+        <textarea class="form-control" data-rap="debrief_faalde" rows="3" placeholder="Welke pogingen mislukten en waarom..."></textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Detectieprestatie</label>
+        <textarea class="form-control" data-rap="debrief_detectie" rows="3" placeholder="Wat detecteerde de SOC/CDC wel/niet..."></textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Aanbevelingen &amp; vervolg</label>
+        <textarea class="form-control" data-rap="debrief_vervolg" rows="3" placeholder="Lessons learned en vervolgstappen..."></textarea>
+      </div>
+    </div>
+  </section>
 </div>
 
 {# Opslaan knop #}
@@ -409,8 +484,39 @@
       <a class="btn" href="/api/report/download/sarif">SARIF</a>
       <a class="btn" href="/api/report/download/pptx">PPTX</a>
       <a class="btn" href="/api/report/download/epub">EPUB</a>
+      <a class="btn" href="/api/report/download/pdf-secure">PDF (beveiligd)</a>
       <a class="btn" href="/api/findings/export/csv">CSV</a>
       <a class="btn" href="/taxii2/collections/findings/objects/" target="_blank">TAXII</a>
+    </div>
+  </div>
+</section>
+
+{# ── Retestrapport ────────────────────────────────── #}
+<section class="card mb-14">
+  <div class="card-head"><h2>Retestrapport</h2></div>
+  <div class="card-body">
+    <p class="help">Compact overzicht van de retestcyclus: welke bevindingen zijn opgelost, nog open of gepland voor retest.</p>
+    <button class="btn btn-primary" id="btn-generate-retest" type="button">Retestrapport genereren</button>
+    <span id="retest-status" class="help ml-8"></span>
+    <div class="d-flex gap-6 flex-wrap mt-8">
+      <a class="btn" href="/api/report/download/retest-html">HTML</a>
+      <a class="btn" href="/api/report/download/retest-md">MD</a>
+      <a class="btn" href="/api/report/download/retest-docx">DOCX</a>
+    </div>
+  </div>
+</section>
+
+{# ── Debrief ──────────────────────────────────────── #}
+<section class="card mb-14">
+  <div class="card-head"><h2>Debrief genereren</h2></div>
+  <div class="card-body">
+    <p class="help">Genereert de debrief (lessons learned) met je vrije tekst plus automatische kerncijfers uit de definitieve bevindingen. Teksten stel je in op het tabblad Instellingen.</p>
+    <button class="btn btn-primary" id="btn-generate-debrief" type="button">Debrief genereren</button>
+    <span id="debrief-status" class="help ml-8"></span>
+    <div class="d-flex gap-6 flex-wrap mt-8">
+      <a class="btn" href="/api/report/download/debrief-html">HTML</a>
+      <a class="btn" href="/api/report/download/debrief-md">MD</a>
+      <a class="btn" href="/api/report/download/debrief-docx">DOCX</a>
     </div>
   </div>
 </section>
@@ -623,6 +729,14 @@
             el.value = d[key] || "";
           }
         });
+        // Geheime velden: niet voorvullen, alleen "ingesteld"-indicatie tonen
+        document.querySelectorAll("[data-rap-secret]").forEach(function(el) {
+          var flag = el.getAttribute("data-rap-flag");
+          el.value = "";
+          if (flag && d[flag]) {
+            el.placeholder = "•••••••• (ingesteld — leeg laten = ongewijzigd)";
+          }
+        });
         loadScopeCheckboxes(d.rapport_testscope || "blackbox");
         renderScenarios(d.rapport_scenarios || []);
         renderScopeTargets(d.rapport_scope_targets || []);
@@ -640,6 +754,11 @@
       } else if (el.tagName === "SELECT" || el.tagName === "INPUT" || el.tagName === "TEXTAREA") {
         payload[key] = el.value;
       }
+    });
+    // Geheime velden alleen meesturen als ze zijn ingevuld
+    document.querySelectorAll("[data-rap-secret]").forEach(function(el) {
+      var key = el.getAttribute("data-rap-secret");
+      if (el.value) { payload[key] = el.value; }
     });
     payload.rapport_testscope = collectScope();
     payload.rapport_scenarios = collectScenarios();
@@ -759,6 +878,89 @@
           statusEl.style.color = "var(--success, #22c55e)";
         }
       });
+  });
+
+  // ── Retestrapport genereren ─────────────────────
+  var btnRetest = document.getElementById("btn-generate-retest");
+  if (btnRetest) btnRetest.addEventListener("click", function() {
+    var st = document.getElementById("retest-status");
+    if (st) { st.textContent = "Bezig met genereren…"; st.style.color = ""; }
+    btnRetest.disabled = true;
+    fetch("/dashboard/report/retest/generate")
+      .then(function(r) { return r.text().then(function(t){ return {ok:r.ok, t:t}; }); })
+      .then(function(res) {
+        if (st) {
+          st.textContent = res.ok ? "Retestrapport gegenereerd." : "Fout bij genereren.";
+          st.style.color = res.ok ? "var(--success, #22c55e)" : "var(--danger, #ef4444)";
+        }
+      })
+      .catch(function() { if (st) { st.textContent = "Fout bij genereren."; st.style.color = "var(--danger, #ef4444)"; } })
+      .finally(function() { btnRetest.disabled = false; });
+  });
+
+  // ── Debrief genereren ───────────────────────────
+  var btnDebrief = document.getElementById("btn-generate-debrief");
+  if (btnDebrief) btnDebrief.addEventListener("click", function() {
+    var st = document.getElementById("debrief-status");
+    if (st) { st.textContent = "Bezig met genereren…"; st.style.color = ""; }
+    btnDebrief.disabled = true;
+    fetch("/dashboard/report/debrief/generate")
+      .then(function(r) { return r.ok; })
+      .then(function(ok) {
+        if (st) {
+          st.textContent = ok ? "Debrief gegenereerd." : "Fout bij genereren.";
+          st.style.color = ok ? "var(--success, #22c55e)" : "var(--danger, #ef4444)";
+        }
+      })
+      .catch(function() { if (st) { st.textContent = "Fout bij genereren."; st.style.color = "var(--danger, #ef4444)"; } })
+      .finally(function() { btnDebrief.disabled = false; });
+  });
+
+  // ── DefectDojo: verbinding testen / pushen ──────
+  var ddStatus = document.getElementById("dd-status");
+  function _ddMsg(msg, ok) {
+    if (!ddStatus) return;
+    ddStatus.textContent = msg;
+    ddStatus.style.color = ok ? "var(--success, #22c55e)" : "var(--danger, #ef4444)";
+  }
+  var btnDdTest = document.getElementById("btn-dd-test");
+  if (btnDdTest) btnDdTest.addEventListener("click", function() {
+    _ddMsg("Verbinding testen…", true);
+    fetch("/api/defectdojo/test")
+      .then(function(r) { return r.json().then(function(j){ return {ok:r.ok, j:j}; }); })
+      .then(function(res) {
+        if (res.ok && res.j.ok) {
+          var extra = [];
+          if (res.j.product) extra.push("product: " + res.j.product);
+          if (res.j.engagement) extra.push("engagement: " + res.j.engagement);
+          _ddMsg("Verbonden" + (extra.length ? " (" + extra.join(", ") + ")" : ""), true);
+        } else {
+          _ddMsg("Fout: " + (typeof res.j.error === "string" ? res.j.error : JSON.stringify(res.j.error || "")), false);
+        }
+      })
+      .catch(function() { _ddMsg("Verbinding mislukt", false); });
+  });
+  var btnDdPush = document.getElementById("btn-dd-push");
+  if (btnDdPush) btnDdPush.addEventListener("click", function() {
+    if (!window.confirm("Definitieve bevindingen naar DefectDojo pushen?")) return;
+    _ddMsg("Pushen…", true);
+    btnDdPush.disabled = true;
+    fetch("/api/defectdojo/push", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({only_final: true})
+    })
+      .then(function(r) { return r.json().then(function(j){ return {ok:r.ok, j:j}; }); })
+      .then(function(res) {
+        var j = res.j || {};
+        if (res.ok && j.ok) {
+          _ddMsg("Gepusht: " + (j.created||0) + " nieuw, " + (j.updated||0) + " bijgewerkt", true);
+        } else {
+          _ddMsg("Klaar met fouten: " + (j.created||0) + " nieuw, " + (j.updated||0) + " bijgewerkt, " + (j.failed||0) + " mislukt" + (j.error ? " — " + j.error : ""), false);
+        }
+      })
+      .catch(function() { _ddMsg("Push mislukt", false); })
+      .finally(function() { btnDdPush.disabled = false; });
   });
 })();
 </script>

@@ -1,0 +1,170 @@
+{% extends "bootstrap/base.html" %}
+{% block title %}Exploit chains{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/safe-overview.css') }}" />
+<link rel="stylesheet" href="{{ url_for('static', filename='css/finding-form.css') }}" />
+<style>
+  .chain-row { overflow-x: auto; padding: 8px 0; }
+  .chain-svg { display: block; }
+  .chain-node rect { stroke: #333; stroke-width: 1; rx: 6; }
+  .chain-node text { font: 12px sans-serif; fill: #111; }
+  .chain-edge { stroke: #555; stroke-width: 2; marker-end: url(#arrow); fill: none; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-title">
+  <div>
+    <h1>Exploit chains — aanvalspaden</h1>
+    <div class="breadcrumbs"><a href="/">Start</a> / <a href="/dashboard/findings">Bevindingen</a> / Chains</div>
+  </div>
+</div>
+
+<section class="card mb-14">
+  <div class="card-head">
+    <h2>Keten-schakel toevoegen</h2>
+  </div>
+  <div class="card-body">
+    <p class="help">Koppel twee bevindingen als opeenvolgende stappen (van &rarr; naar). Verwijderen kan via de relaties op de bevinding zelf.</p>
+    <div class="d-flex gap-8 items-center flex-wrap">
+      <input type="number" id="chain-from" class="form-control w-140" placeholder="Van bevinding-ID" />
+      <span>&rarr;</span>
+      <input type="number" id="chain-to" class="form-control w-140" placeholder="Naar bevinding-ID" />
+      <button class="btn" id="btn-add-chain" type="button">Koppelen</button>
+      <span id="chain-msg" class="help"></span>
+    </div>
+  </div>
+</section>
+
+<section class="card mb-14">
+  <div class="card-head">
+    <h2>Diagram</h2>
+    <button class="btn btn-sm ml-auto" id="btn-refresh" type="button">Vernieuwen</button>
+  </div>
+  <div class="card-body">
+    <div id="chains-container"><p class="help">Laden…</p></div>
+  </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script nonce="{{ csp_nonce }}">
+(function() {
+  "use strict";
+  var SEV_COLORS = {
+    critical: "#820000", high: "#e60000", medium: "#f09600",
+    low: "#ffdc00", none: "#00be00"
+  };
+  var SEV_FG = {critical: "#fff", high: "#fff", medium: "#000", low: "#000", none: "#000"};
+  var container = document.getElementById("chains-container");
+  var msg = document.getElementById("chain-msg");
+
+  var csrfToken = (document.querySelector('meta[name="csrf-token"]') || {}).getAttribute
+    ? (document.querySelector('meta[name="csrf-token"]').getAttribute("content") || "")
+    : "";
+
+  var NODE_W = 170, NODE_H = 46, GAP_X = 60, GAP_Y = 24, PAD = 10;
+
+  function svgEl(name, attrs) {
+    var el = document.createElementNS("http://www.w3.org/2000/svg", name);
+    for (var k in attrs) { el.setAttribute(k, attrs[k]); }
+    return el;
+  }
+
+  function renderPath(nodesById, path, rowIndex) {
+    var y = PAD + rowIndex * (NODE_H + GAP_Y);
+    var width = PAD * 2 + path.length * NODE_W + (path.length - 1) * GAP_X;
+    var height = NODE_H + PAD * 2;
+    var svg = svgEl("svg", {"class": "chain-svg", width: width, height: height,
+                            viewBox: "0 0 " + width + " " + height});
+    var defs = svgEl("defs", {});
+    var marker = svgEl("marker", {id: "arrow", markerWidth: 8, markerHeight: 8,
+                                  refX: 7, refY: 3, orient: "auto", markerUnits: "strokeWidth"});
+    marker.appendChild(svgEl("path", {d: "M0,0 L7,3 L0,6 Z", fill: "#555"}));
+    defs.appendChild(marker);
+    svg.appendChild(defs);
+
+    path.forEach(function(nid, i) {
+      var x = PAD + i * (NODE_W + GAP_X);
+      if (i > 0) {
+        var px = PAD + (i - 1) * (NODE_W + GAP_X) + NODE_W;
+        var line = svgEl("path", {"class": "chain-edge",
+          d: "M" + px + "," + (PAD + NODE_H / 2) + " L" + x + "," + (PAD + NODE_H / 2)});
+        svg.appendChild(line);
+      }
+      var node = nodesById[nid] || {id: nid, naam: "#" + nid, severity: "none"};
+      var g = svgEl("g", {"class": "chain-node"});
+      g.appendChild(svgEl("rect", {x: x, y: PAD, width: NODE_W, height: NODE_H,
+                                   fill: SEV_COLORS[node.severity] || "#ccc"}));
+      var label = svgEl("text", {x: x + 8, y: PAD + 18, fill: SEV_FG[node.severity] || "#000"});
+      label.textContent = "[" + ("000" + nid).slice(-3) + "]";
+      g.appendChild(label);
+      var name = svgEl("text", {x: x + 8, y: PAD + 36, fill: SEV_FG[node.severity] || "#000"});
+      var nm = node.naam || "";
+      name.textContent = nm.length > 22 ? nm.slice(0, 21) + "…" : nm;
+      g.appendChild(name);
+      svg.appendChild(g);
+    });
+    return svg;
+  }
+
+  function render(data) {
+    container.innerHTML = "";
+    if (!data.paths || !data.paths.length) {
+      container.innerHTML = '<p class="help">Nog geen exploit chains. Koppel bevindingen als keten-schakels hierboven of via de relaties op een bevinding (type "Keten").</p>';
+      return;
+    }
+    var nodesById = {};
+    (data.nodes || []).forEach(function(n) { nodesById[n.id] = n; });
+    data.paths.forEach(function(path, i) {
+      var wrap = document.createElement("div");
+      wrap.className = "chain-row";
+      var h = document.createElement("div");
+      h.className = "help";
+      h.textContent = "Keten " + (i + 1) + " (" + path.length + " stappen)";
+      wrap.appendChild(h);
+      wrap.appendChild(renderPath(nodesById, path, 0));
+      container.appendChild(wrap);
+    });
+  }
+
+  function load() {
+    fetch("/api/findings/chains")
+      .then(function(r) { return r.json(); })
+      .then(render)
+      .catch(function() { container.innerHTML = '<p class="help">Fout bij laden.</p>'; });
+  }
+
+  var btnAdd = document.getElementById("btn-add-chain");
+  if (btnAdd) btnAdd.addEventListener("click", function() {
+    var from = parseInt(document.getElementById("chain-from").value, 10);
+    var to = parseInt(document.getElementById("chain-to").value, 10);
+    if (!from || !to || from === to) {
+      if (msg) { msg.textContent = "Geef twee verschillende ID's"; msg.style.color = "var(--danger,#ef4444)"; }
+      return;
+    }
+    fetch("/api/findings/" + from + "/relations", {
+      method: "POST",
+      headers: {"Content-Type": "application/json", "X-CSRFToken": csrfToken},
+      body: JSON.stringify({related_id: to, relation_type: "chain"})
+    })
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        if (d.ok) {
+          if (msg) { msg.textContent = "Gekoppeld"; msg.style.color = "var(--success,#22c55e)"; }
+          document.getElementById("chain-from").value = "";
+          document.getElementById("chain-to").value = "";
+          load();
+        } else if (msg) {
+          msg.textContent = d.error || "Mislukt"; msg.style.color = "var(--danger,#ef4444)";
+        }
+      });
+  });
+
+  var btnRefresh = document.getElementById("btn-refresh");
+  if (btnRefresh) btnRefresh.addEventListener("click", load);
+  load();
+})();
+</script>
+{% endblock %}

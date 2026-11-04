@@ -17,6 +17,18 @@
     </div>
   </div>
 
+  {# Evaluatieprofiel-assistent: startpunt op basis van techniekcluster #}
+  <div class="mt-4">
+    <label for="eval-profiel">Evaluatieprofiel (startpunt)</label>
+    <div class="d-flex gap-8 items-center">
+      <select id="eval-profiel" class="form-control" style="max-width:360px">
+        <option value="">-- Kies een techniekcluster --</option>
+      </select>
+      <button type="button" id="btn-apply-profiel" class="btn">Toepassen</button>
+    </div>
+    <span class="help">Vult typische CVSS, kans/impact en faalmodus in; impact- en aanbevelingszinnen worden aan de uitwerking toegevoegd als die nog leeg is.</span>
+  </div>
+
   {# CVSS 4.0 Calculator #}
   <div data-cvss4-calculator>
     <div class="cvss4-result">

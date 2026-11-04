@@ -50,6 +50,20 @@
   </div>
 </section>
 
+{# Opdracht/engagement koppeling #}
+<section class="card mt-14" data-advanced-fields>
+  <div class="card-head"><h2>Opdracht</h2></div>
+  <div class="card-body">
+    <div class="d-flex gap-8 items-center">
+      <select id="finding-opdracht" class="form-control" style="max-width:360px"
+              data-huidige="{{ huidige_opdracht if huidige_opdracht is not none else '' }}">
+        <option value="">-- Geen opdracht --</option>
+      </select>
+      <span id="finding-opdracht-msg" class="help"></span>
+    </div>
+  </div>
+</section>
+
 {# Finding relaties #}
 <section class="card mt-14" data-advanced-fields>
   <div class="card-head"><h2>Gerelateerde bevindingen</h2></div>
@@ -114,6 +128,47 @@
     .catch(function() { _showStatus('', ''); });
   }
   {% endif %}
+
+  // ── Evaluatieprofiel-assistent ──────────────────
+  (function() {
+    var sel = document.getElementById("eval-profiel");
+    var btn = document.getElementById("btn-apply-profiel");
+    if (!sel || !btn) return;
+    var profielen = {};
+    fetch("/api/findings/eval-profiles")
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        (d.profiles || []).forEach(function(p) {
+          profielen[p.key] = p;
+          var opt = document.createElement("option");
+          opt.value = p.key;
+          opt.textContent = p.label;
+          sel.appendChild(opt);
+        });
+      });
+    function setVal(id, val) {
+      var el = document.getElementById(id);
+      if (el && val != null && val !== "") {
+        el.value = val;
+        el.dispatchEvent(new Event("change", {bubbles: true}));
+      }
+    }
+    btn.addEventListener("click", function() {
+      var p = profielen[sel.value];
+      if (!p) return;
+      setVal("cvss", p.cvss);
+      setVal("basescore", p.basescore);
+      setVal("kans", p.kans);
+      setVal("impact_niveau", p.impact_niveau);
+      setVal("faalmodus", p.faalmodus);
+      var uit = document.getElementById("uitwerken");
+      if (uit && !uit.value.trim()) {
+        uit.value = "## Impact\n\n" + (p.impact_zin || "") +
+                    "\n\n## Aanbeveling\n\n" + (p.aanbeveling_zin || "") + "\n";
+        uit.dispatchEvent(new Event("input", {bubbles: true}));
+      }
+    });
+  })();
 
   if (form) {
     form.addEventListener("input", function() {
@@ -281,6 +336,44 @@
       });
   }
   loadRelations();
+
+  // ── Opdracht-koppeling ────────────────────────
+  var opSel = document.getElementById("finding-opdracht");
+  var opMsg = document.getElementById("finding-opdracht-msg");
+  if (opSel) {
+    var huidige = opSel.getAttribute("data-huidige") || "";
+    fetch("/api/opdrachten")
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        (d.opdrachten || []).forEach(function(o) {
+          var opt = document.createElement("option");
+          opt.value = String(o.id);
+          opt.textContent = o.naam + (o.klant ? " (" + o.klant + ")" : "");
+          if (String(o.id) === huidige) opt.selected = true;
+          opSel.appendChild(opt);
+        });
+      });
+    opSel.addEventListener("change", function() {
+      var val = opSel.value;
+      var url, body;
+      if (val) {
+        url = "/api/opdrachten/" + val + "/findings";
+        body = {finding_ids: [findingId]};
+      } else if (huidige) {
+        url = "/api/opdrachten/" + huidige + "/findings";
+        body = {finding_ids: [findingId], unlink: true};
+      } else { return; }
+      fetch(url, {
+        method: "POST",
+        headers: {"Content-Type": "application/json", "X-CSRFToken": csrfToken},
+        body: JSON.stringify(body)
+      })
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+          if (d.ok) { huidige = val; if (opMsg) { opMsg.textContent = "Gekoppeld"; setTimeout(function(){opMsg.textContent="";}, 2000); } }
+        });
+    });
+  }
 
   var btnRelation = document.getElementById("btn-add-relation");
   if (btnRelation) btnRelation.addEventListener("click", function() {

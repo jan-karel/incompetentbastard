@@ -161,6 +161,213 @@ _TLP_MAP = {
     'TLP:CLEAR':        ('tlpclear', '#000000', '#ffffff'),
 }
 
+# Oplostijden (SLA) per severity — maximale hersteltermijn conform
+# gangbare NCSC/BIO-richtlijnen. (severity -> (dagen, NL-label, EN-label))
+_SLA_DAYS = {
+    'critical': (7,   'Binnen 1 week',    'Within 1 week'),
+    'high':     (30,  'Binnen 1 maand',   'Within 1 month'),
+    'medium':   (90,  'Binnen 3 maanden', 'Within 3 months'),
+    'low':      (180, 'Binnen 6 maanden', 'Within 6 months'),
+    'none':     (365, 'Naar inzicht',     'At discretion'),
+}
+
+# WOEF-faalmodus labels
+_FAALMODUS_LABELS = {
+    'opzet':   ('Opzet',   'Design'),
+    'bestaan': ('Bestaan', 'Existence'),
+    'werking': ('Werking', 'Operation'),
+}
+
+# Detecteerbaarheid labels
+_DETECT_LABELS = {
+    'ja':    ('Ja',    'Yes'),
+    'nee':   ('Nee',   'No'),
+    'deels': ('Deels', 'Partial'),
+}
+
+# Retest-status labels + kleur (nl, en, html-kleur)
+_RETEST_LABELS = {
+    'not_applicable': ('Niet van toepassing', 'Not applicable', '#94a3b8'),
+    'pending_retest': ('Retest gepland',       'Retest planned', '#f59e0b'),
+    'retested_fixed': ('Getest — Opgelost',    'Retested — Fixed', '#22c55e'),
+    'retested_open':  ('Getest — Nog open',    'Retested — Still open', '#ef4444'),
+}
+
+# Risicomatrix as-labels (1..5)
+_KANS_LABELS = {
+    1: ('Zeer laag', 'Very low'), 2: ('Laag', 'Low'), 3: ('Middel', 'Medium'),
+    4: ('Hoog', 'High'), 5: ('Zeer hoog', 'Very high'),
+}
+# Heatmap celkleuren per risicoscore (kans * impact, 1..25)
+_HEATMAP_COLORS = [
+    (17, '#820000', '#ffffff'),  # >=17  kritiek
+    (10, '#e60000', '#ffffff'),  # >=10  hoog
+    (5,  '#f09600', '#000000'),  # >=5   midden
+    (0,  '#00be00', '#000000'),  # rest  laag
+]
+
+
+def _score_to_ki(basescore):
+    """Leid kans/impact (1..5) af uit CVSS basescore als niet handmatig gezet.
+
+    Spiegelt findings._score_to_kans_impact zodat rapport en dashboard gelijk lopen.
+    """
+    try:
+        score = float(basescore)
+    except (TypeError, ValueError):
+        return 3, 3
+    if score >= 9.0:
+        return 5, 5
+    elif score >= 7.0:
+        return 4, 4
+    elif score >= 4.0:
+        return 3, 3
+    elif score > 0:
+        return 2, 2
+    return 1, 1
+
+
+def _finding_ki(f):
+    """Bepaal (kans, impact) voor een finding-dict: handmatig indien gezet, anders afgeleid."""
+    kans = int(f['kans']) if str(f.get('kans', '')).isdigit() and 1 <= int(f['kans']) <= 5 else None
+    impact = int(f['impact_niveau']) if str(f.get('impact_niveau', '')).isdigit() and 1 <= int(f['impact_niveau']) <= 5 else None
+    if kans is None or impact is None:
+        dk, di = _score_to_ki(f.get('basescore'))
+        kans = kans or dk
+        impact = impact or di
+    return kans, impact
+
+
+def _heatmap_color(score):
+    """Celkleur (bg, fg) voor een risicoscore (kans*impact)."""
+    for threshold, bg, fg in _HEATMAP_COLORS:
+        if score >= threshold:
+            return bg, fg
+    return '#00be00', '#000000'
+
+
+def _heatmap_latex_color(score):
+    """LaTeX kleurnaam (gedefinieerd in rapport_latex.tex) voor risicoscore."""
+    if score >= 17:
+        return 'odarkred'
+    if score >= 10:
+        return 'ored'
+    if score >= 5:
+        return 'oorange'
+    return 'ogreen'
+
+
+def _build_rapport_appendices(findings, taal='nl'):
+    """Bouw heatmap-, SLA- en mapping-data voor de LaTeX template."""
+    sev_labels = _SEVERITY_LABELS_EN if taal == 'en' else _SEVERITY_LABELS
+
+    # Heatmap: rijen kans 5..1, kolommen impact 1..5
+    cells = {}
+    for f in findings:
+        k, i = _finding_ki(f)
+        cells.setdefault((k, i), []).append(f['id'])
+    heatmap_rows = []
+    for k in range(5, 0, -1):
+        row_cells = []
+        for i in range(1, 6):
+            ids = cells.get((k, i), [])
+            row_cells.append({
+                'color': _heatmap_latex_color(k * i),
+                'ids': ', '.join(str(x).zfill(3) for x in ids),
+            })
+        heatmap_rows.append({'kans': k, 'cells': row_cells})
+
+    # SLA-rijen
+    sla_rows = []
+    for f in findings:
+        sev = f['severity']
+        _days, nl_lbl, en_lbl = _SLA_DAYS.get(sev, (90, '', ''))
+        td = f.get('remediation_target_date')
+        sla_rows.append({
+            'id': str(f['id']).zfill(3),
+            'titel': f['titel'],
+            'severity': sev_labels.get(sev, sev),
+            'sla': en_lbl if taal == 'en' else nl_lbl,
+            'date': td.strftime('%d-%m-%Y') if td else '-',
+        })
+
+    # OWASP-mapping
+    owasp_rows = [{
+        'id': str(f['id']).zfill(3), 'titel': f['titel'],
+        'owasp': f.get('owasp', '') or '-', 'owasp_2025': f.get('owasp_2025', '') or '-',
+    } for f in findings if f.get('owasp') or f.get('owasp_2025')]
+
+    # NCSC-mapping
+    try:
+        from meuk.flask.findings import ncsc_richtlijn_filter as _ncsc
+    except Exception:
+        def _ncsc(code):
+            return code or ''
+    ncsc_rows = [{
+        'id': str(f['id']).zfill(3), 'titel': f['titel'],
+        'ncsc': (_ncsc(f['ncsc']) if f.get('ncsc') else '-'),
+        'control_ref': f.get('control_ref', '') or '-',
+    } for f in findings if f.get('ncsc') or f.get('control_ref')]
+
+    # Detecteerbaarheid
+    rated = [f for f in findings if f.get('detecteerbaarheid')]
+    det_tally = {'ja': 0, 'deels': 0, 'nee': 0}
+    for f in rated:
+        d = f.get('detecteerbaarheid')
+        if d in det_tally:
+            det_tally[d] += 1
+    det_label = {k: (_DETECT_LABELS[k][1] if taal == 'en' else _DETECT_LABELS[k][0])
+                 for k in det_tally}
+    det_gaps = [{
+        'id': str(f['id']).zfill(3), 'titel': f['titel'],
+        'label': (_DETECT_LABELS[f['detecteerbaarheid']][1] if taal == 'en'
+                  else _DETECT_LABELS[f['detecteerbaarheid']][0]),
+        'note': f.get('detectie_notitie', '') or '',
+    } for f in rated if f.get('detecteerbaarheid') in ('nee', 'deels')]
+
+    # Exploit chains (kill chain)
+    _cd = _chains_data()
+    _names = {n['id']: n['naam'] for n in _cd.get('nodes', [])}
+    chain_paths = []
+    for i, path in enumerate([p for p in _cd.get('paths', []) if len(p) >= 2], 1):
+        steps = ['[{}] {}'.format(str(nid).zfill(3), _latex_escape(_names.get(nid, '')))
+                 for nid in path]
+        chain_paths.append({'num': i, 'steps': ' $\\rightarrow$ '.join(steps)})
+
+    return {
+        'heatmap_rows': heatmap_rows,
+        'sla_rows': sla_rows,
+        'owasp_rows': owasp_rows,
+        'ncsc_rows': ncsc_rows,
+        'detection_tally': det_tally,
+        'detection_label': det_label,
+        'detection_gaps': det_gaps,
+        'detection_rated': bool(rated),
+        'chain_paths': chain_paths,
+    }
+
+
+def _encrypt_pdf(src_path, dest_path, password):
+    """Versleutel een PDF met AES-256 via pikepdf. Faalt stil als pikepdf ontbreekt.
+
+    Returns True bij succes, anders False.
+    """
+    try:
+        import pikepdf
+    except ImportError:
+        return False
+    try:
+        with pikepdf.open(src_path) as pdf:
+            pdf.save(
+                dest_path,
+                encryption=pikepdf.Encryption(
+                    owner=password, user=password, R=6,  # R=6 => AES-256
+                ),
+            )
+        return True
+    except Exception:
+        return False
+
 
 def _copy_evidence_for_rapport(finding_id, evidence_list, dest_dir):
     """Kopieer evidence images naar rapport/evidence/ met leesbare namen."""
@@ -239,7 +446,30 @@ def _build_findings_data(base_query, taal='nl'):
                 'evidence': [],
                 'uitwerken': item.uitwerken or '',
                 'remediation_status': getattr(item, 'remediation_status', 'open') or 'open',
+                'remediation_target_date': getattr(item, 'remediation_target_date', None),
+                'remediation_owner': getattr(item, 'remediation_owner', '') or '',
                 'related': related_items,
+                # WOEF controle-mapping + faalmodus
+                'faalmodus': getattr(item, 'faalmodus', '') or '',
+                'control_ref': getattr(item, 'control_ref', '') or '',
+                'detecteerbaarheid': getattr(item, 'detecteerbaarheid', '') or '',
+                'detectie_notitie': getattr(item, 'detectie_notitie', '') or '',
+                # Risicomatrix-assen (handmatig of afgeleid)
+                'kans': getattr(item, 'kans', '') or '',
+                'impact_niveau': getattr(item, 'impact_niveau', '') or '',
+                # Retest
+                'retest_status': getattr(item, 'retest_status', '') or '',
+                'retest_date': getattr(item, 'retest_date', None),
+                'retest_notes': getattr(item, 'retest_notes', '') or '',
+                # Mapping-referenties uit template
+                'owasp_2025': (template.owasp_2025 if template else '') or '',
+                'ncsc': (template.ncsc if template else '') or '',
+                'mitre': (template.mitre if template else '') or '',
+                # Externe referenties (o.a. uit de OWASP-2025-verrijking)
+                'referenties': (template.referenties if template else '') or '',
+                'referenties_list': [r.strip() for r in
+                                     ((template.referenties if template else '') or '').splitlines()
+                                     if r.strip()],
             })
 
     # Sorteer op severity (critical=1 eerst)
@@ -441,6 +671,9 @@ def gen_rapport():
         scenarios=scenarios,
         taal=taal,
         checklists=checklists_data,
+        faalmodus_labels=_FAALMODUS_LABELS,
+        detect_labels=_DETECT_LABELS,
+        **_build_rapport_appendices(findings, taal=taal),
     )
 
     # Schrijf .tex bestand
@@ -465,6 +698,19 @@ def gen_rapport():
             )
     except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
         pass  # xelatex niet beschikbaar
+
+    # --- Versleutelde PDF (AES-256) indien wachtwoord ingesteld ---
+    pdf_password = (getattr(s, 'rapport_pdf_password', '') if s else '') or ''
+    secure_pdf = os.path.join(_RAPPORT_DIR, 'rapport_secure.pdf')
+    plain_pdf = os.path.join(_RAPPORT_DIR, 'rapport.pdf')
+    if pdf_password and os.path.exists(plain_pdf):
+        _encrypt_pdf(plain_pdf, secure_pdf, pdf_password)
+    elif os.path.exists(secure_pdf) and not pdf_password:
+        # Oude versleutelde versie opruimen als wachtwoord is verwijderd
+        try:
+            os.remove(secure_pdf)
+        except OSError:
+            pass
 
     # --- HTML generatie voor preview ---
     html = _generate_html_preview(findings, grouped, counts, titel, auteur, subtitel, datum, classificatie, is_draft, notes_data, tlp_html_bg, tlp_html_fg, management_samenvatting=management_samenvatting, testtype=testtype, testscope=testscope, testscopes=testscopes, legsup_startpunt=legsup_startpunt, legsup_privileges=legsup_privileges, legsup_informatie=legsup_informatie, scenarios=scenarios, taal=taal, scope_targets=scope_targets, checklists=checklists_data, **_extra_kwargs)
@@ -579,6 +825,226 @@ def _append_checklist_html(parts, checklists, taal='nl'):
                     html_escape(item['ref']), html_escape(item['title']),
                     color, html_escape(item['status'].upper())))
             parts.append('</table>')
+
+
+def _append_heatmap_html(parts, findings, taal='nl'):
+    """Voeg een 5x5 risicomatrix (heatmap) toe met finding-IDs in de cellen."""
+    if not findings:
+        return
+    heading = 'Risk Matrix' if taal == 'en' else 'Risicomatrix'
+    kans_l = 'Likelihood' if taal == 'en' else 'Kans'
+    impact_l = 'Impact'
+    parts.append('<h2>{}</h2>'.format(heading))
+    cells = {}
+    for f in findings:
+        k, i = _finding_ki(f)
+        cells.setdefault((k, i), []).append(f['id'])
+    parts.append('<table style="table-layout:fixed">')
+    parts.append('<tr><th>{} &darr; \\ {} &rarr;</th>'.format(kans_l, impact_l))
+    for i in range(1, 6):
+        parts.append('<th style="text-align:center">{}</th>'.format(i))
+    parts.append('</tr>')
+    for k in range(5, 0, -1):
+        parts.append('<tr><th>{}</th>'.format(k))
+        for i in range(1, 6):
+            bg, fg = _heatmap_color(k * i)
+            ids = cells.get((k, i), [])
+            label = ', '.join('#' + str(x).zfill(3) for x in ids)
+            parts.append('<td style="background:{};color:{};text-align:center">{}</td>'.format(
+                bg, fg, label or '&nbsp;'))
+        parts.append('</tr>')
+    parts.append('</table>')
+
+
+def _append_sla_html(parts, findings, taal='nl'):
+    """Voeg oplostijden/SLA-tabel toe op basis van severity + doeldatum."""
+    if not findings:
+        return
+    heading = 'Remediation Timelines' if taal == 'en' else 'Oplostijden'
+    intro = ('The recommended maximum remediation time is based on the risk classification '
+             'of each finding.' if taal == 'en' else
+             'De aanbevolen maximale hersteltermijn is gebaseerd op de risicoclassificatie '
+             'van elke bevinding.')
+    id_l = 'ID'
+    find_l = 'Finding' if taal == 'en' else 'Bevinding'
+    sev_l = 'Severity' if taal == 'en' else 'Ernst'
+    sla_l = 'Target' if taal == 'en' else 'Streeftermijn'
+    date_l = 'Target date' if taal == 'en' else 'Doeldatum'
+    sev_labels = _SEVERITY_LABELS_EN if taal == 'en' else _SEVERITY_LABELS
+    parts.append('<h2>{}</h2>'.format(heading))
+    parts.append('<p>{}</p>'.format(intro))
+    parts.append('<table><tr><th>{}</th><th>{}</th><th>{}</th><th>{}</th><th>{}</th></tr>'.format(
+        id_l, find_l, sev_l, sla_l, date_l))
+    for f in findings:
+        sev = f['severity']
+        _days, nl_lbl, en_lbl = _SLA_DAYS.get(sev, (90, '', ''))
+        sla_txt = en_lbl if taal == 'en' else nl_lbl
+        td = f.get('remediation_target_date')
+        td_str = td.strftime('%d-%m-%Y') if td else '&mdash;'
+        parts.append('<tr><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>'.format(
+            str(f['id']).zfill(3), html_escape(f['titel']),
+            html_escape(sev_labels.get(sev, sev)), html_escape(sla_txt), td_str))
+    parts.append('</table>')
+
+
+def _append_owasp_mapping_html(parts, findings, taal='nl'):
+    """Voeg OWASP Top 10 mapping-bijlage toe (2021 + 2025)."""
+    relevant = [f for f in findings if f.get('owasp') or f.get('owasp_2025')]
+    if not relevant:
+        return
+    heading = 'Appendix: OWASP Top 10 Mapping' if taal == 'en' else 'Bijlage: OWASP Top 10 mapping'
+    find_l = 'Finding' if taal == 'en' else 'Bevinding'
+    parts.append('<h2>{}</h2>'.format(heading))
+    parts.append('<table><tr><th>ID</th><th>{}</th><th>OWASP 2021</th><th>OWASP 2025</th></tr>'.format(find_l))
+    for f in relevant:
+        parts.append('<tr><td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>'.format(
+            str(f['id']).zfill(3), html_escape(f['titel']),
+            html_escape(f.get('owasp', '') or '&mdash;'),
+            html_escape(f.get('owasp_2025', '') or '&mdash;')))
+    parts.append('</table>')
+
+
+def _append_ncsc_mapping_html(parts, findings, taal='nl'):
+    """Voeg NCSC-richtlijnen mapping-bijlage toe."""
+    try:
+        from meuk.flask.findings import ncsc_richtlijn_filter as _ncsc
+    except Exception:
+        def _ncsc(code):
+            return code or ''
+    relevant = [f for f in findings if f.get('ncsc') or f.get('control_ref')]
+    if not relevant:
+        return
+    heading = 'Appendix: NCSC Guidelines Mapping' if taal == 'en' else 'Bijlage: NCSC-richtlijnen mapping'
+    find_l = 'Finding' if taal == 'en' else 'Bevinding'
+    ctrl_l = 'Control reference' if taal == 'en' else 'Controle-referentie'
+    parts.append('<h2>{}</h2>'.format(heading))
+    parts.append('<table><tr><th>ID</th><th>{}</th><th>NCSC</th><th>{}</th></tr>'.format(find_l, ctrl_l))
+    for f in relevant:
+        ncsc_code = f.get('ncsc', '')
+        ncsc_txt = _ncsc(ncsc_code) if ncsc_code else '&mdash;'
+        parts.append('<tr><td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>'.format(
+            str(f['id']).zfill(3), html_escape(f['titel']),
+            html_escape(ncsc_txt), html_escape(f.get('control_ref', '') or '&mdash;')))
+    parts.append('</table>')
+
+
+def _append_detection_html(parts, findings, taal='nl'):
+    """Voeg detecteerbaarheid-overzicht + SOC/CDC-aanbevelingen toe."""
+    rated = [f for f in findings if f.get('detecteerbaarheid')]
+    if not rated:
+        return
+    heading = 'Detectability & SOC/CDC Recommendations' if taal == 'en' else 'Detecteerbaarheid & SOC/CDC-aanbevelingen'
+    parts.append('<h2>{}</h2>'.format(heading))
+    tally = {'ja': 0, 'deels': 0, 'nee': 0}
+    for f in rated:
+        d = f.get('detecteerbaarheid')
+        if d in tally:
+            tally[d] += 1
+    parts.append('<table><tr><th>{}</th><th>{}</th></tr>'.format(
+        'Detectable' if taal == 'en' else 'Detecteerbaar', 'Count' if taal == 'en' else 'Aantal'))
+    for k in ('ja', 'deels', 'nee'):
+        lbl = _DETECT_LABELS[k][1] if taal == 'en' else _DETECT_LABELS[k][0]
+        parts.append('<tr><td>{}</td><td>{}</td></tr>'.format(html_escape(lbl), tally[k]))
+    parts.append('</table>')
+    # Niet (volledig) detecteerbare bevindingen met toelichting
+    gaps = [f for f in rated if f.get('detecteerbaarheid') in ('nee', 'deels')]
+    if gaps:
+        intro = ('The following findings were not (fully) detectable. Strengthening '
+                 'monitoring and detection for these is recommended:' if taal == 'en' else
+                 'De volgende bevindingen waren niet (volledig) detecteerbaar. Versterking '
+                 'van monitoring en detectie hiervoor wordt aanbevolen:')
+        parts.append('<p>{}</p>'.format(intro))
+        parts.append('<ul>')
+        for f in gaps:
+            lbl = _DETECT_LABELS[f['detecteerbaarheid']][1] if taal == 'en' else _DETECT_LABELS[f['detecteerbaarheid']][0]
+            note = f.get('detectie_notitie', '') or ''
+            parts.append('<li><strong>[{}] {}</strong> ({}){}</li>'.format(
+                str(f['id']).zfill(3), html_escape(f['titel']), html_escape(lbl),
+                ' — ' + html_escape(note) if note else ''))
+        parts.append('</ul>')
+
+
+def _detection_md_lines(findings, taal='nl'):
+    """Detecteerbaarheid + SOC/CDC-aanbevelingen als Markdown."""
+    rated = [f for f in findings if f.get('detecteerbaarheid')]
+    if not rated:
+        return []
+    lines = []
+    lines.append('# {}'.format('Detectability & SOC/CDC Recommendations' if taal == 'en'
+                               else 'Detecteerbaarheid & SOC/CDC-aanbevelingen'))
+    lines.append('')
+    tally = {'ja': 0, 'deels': 0, 'nee': 0}
+    for f in rated:
+        d = f.get('detecteerbaarheid')
+        if d in tally:
+            tally[d] += 1
+    lines.append('| {} | {} |'.format('Detectable' if taal == 'en' else 'Detecteerbaar',
+                                      'Count' if taal == 'en' else 'Aantal'))
+    lines.append('|---|---|')
+    for k in ('ja', 'deels', 'nee'):
+        lbl = _DETECT_LABELS[k][1] if taal == 'en' else _DETECT_LABELS[k][0]
+        lines.append('| {} | {} |'.format(lbl, tally[k]))
+    lines.append('')
+    gaps = [f for f in rated if f.get('detecteerbaarheid') in ('nee', 'deels')]
+    if gaps:
+        if taal == 'en':
+            lines.append('The following findings were not (fully) detectable. Strengthening '
+                         'monitoring and detection for these is recommended:')
+        else:
+            lines.append('De volgende bevindingen waren niet (volledig) detecteerbaar. Versterking '
+                         'van monitoring en detectie hiervoor wordt aanbevolen:')
+        lines.append('')
+        for f in gaps:
+            lbl = _DETECT_LABELS[f['detecteerbaarheid']][1] if taal == 'en' else _DETECT_LABELS[f['detecteerbaarheid']][0]
+            note = f.get('detectie_notitie', '') or ''
+            lines.append('- **[{}] {}** ({}){}'.format(
+                str(f['id']).zfill(3), f['titel'], lbl, ' — ' + note if note else ''))
+        lines.append('')
+    return lines
+
+
+def _chains_data():
+    """Haal exploit-chain-paden op (lazy import om cirkels te vermijden)."""
+    try:
+        from meuk.flask.chains import build_chains
+        return build_chains()
+    except Exception:
+        return {'nodes': [], 'edges': [], 'paths': []}
+
+
+def _append_chains_html(parts, taal='nl'):
+    """Voeg een kill-chain/exploit-chain-sectie toe aan de HTML."""
+    data = _chains_data()
+    paths = [p for p in data.get('paths', []) if len(p) >= 2]
+    if not paths:
+        return
+    names = {n['id']: n['naam'] for n in data.get('nodes', [])}
+    heading = 'Exploit Chains / Kill Chain' if taal == 'en' else 'Exploit chains / kill chain'
+    parts.append('<h2>{}</h2>'.format(heading))
+    for i, path in enumerate(paths, 1):
+        steps = []
+        for nid in path:
+            nm = names.get(nid, '')
+            steps.append('[{}] {}'.format(str(nid).zfill(3), html_escape(nm)))
+        parts.append('<p><strong>{} {}:</strong> {}</p>'.format(
+            'Chain' if taal == 'en' else 'Keten', i, ' &rarr; '.join(steps)))
+
+
+def _chains_md_lines(taal='nl'):
+    """Exploit-chains als Markdown-regels."""
+    data = _chains_data()
+    paths = [p for p in data.get('paths', []) if len(p) >= 2]
+    if not paths:
+        return []
+    names = {n['id']: n['naam'] for n in data.get('nodes', [])}
+    lines = ['# {}'.format('Exploit Chains / Kill Chain' if taal == 'en'
+                           else 'Exploit chains / kill chain'), '']
+    for i, path in enumerate(paths, 1):
+        steps = ['[{}] {}'.format(str(nid).zfill(3), names.get(nid, '')) for nid in path]
+        lines.append('- **{} {}:** {}'.format('Chain' if taal == 'en' else 'Keten', i,
+                                              ' -> '.join(steps)))
+    lines.append('')
+    return lines
 
 
 def _append_signoff_html(parts, taal='nl'):
@@ -773,6 +1239,12 @@ def _generate_html_preview(findings, grouped, counts, titel, auteur, subtitel, d
         parts.append('</body></html>')
         return ''.join(parts)
 
+    # Risicomatrix (heatmap) + oplostijden (SLA) + detecteerbaarheid + exploit chains
+    _append_heatmap_html(parts, findings, taal)
+    _append_sla_html(parts, findings, taal)
+    _append_detection_html(parts, findings, taal)
+    _append_chains_html(parts, taal)
+
     # Notities (verkenning & ontdekking)
     if notes:
         parts.append('<h2>{}</h2>'.format(t['verkenning']))
@@ -805,6 +1277,38 @@ def _generate_html_preview(findings, grouped, counts, titel, auteur, subtitel, d
                 parts.append('<p><strong>{}:</strong> {}</p>'.format(t['impact'], html_escape(f['impact'])))
             if f['aanbeveling']:
                 parts.append('<p><strong>{}:</strong> {}</p>'.format(t['aanbeveling'], html_escape(f['aanbeveling'])))
+            # WOEF controle-mapping, faalmodus en detecteerbaarheid
+            _woef = []
+            if f.get('faalmodus'):
+                _fm = _FAALMODUS_LABELS.get(f['faalmodus'], (f['faalmodus'], f['faalmodus']))
+                _woef.append('<strong>{}:</strong> {}'.format(
+                    'Failure mode' if taal == 'en' else 'Faalmodus',
+                    html_escape(_fm[1] if taal == 'en' else _fm[0])))
+            if f.get('control_ref'):
+                _woef.append('<strong>{}:</strong> {}'.format(
+                    'Control' if taal == 'en' else 'Controle', html_escape(f['control_ref'])))
+            if f.get('detecteerbaarheid'):
+                _dt = _DETECT_LABELS.get(f['detecteerbaarheid'], (f['detecteerbaarheid'], f['detecteerbaarheid']))
+                _woef.append('<strong>{}:</strong> {}'.format(
+                    'Detectable' if taal == 'en' else 'Detecteerbaar',
+                    html_escape(_dt[1] if taal == 'en' else _dt[0])))
+            if _woef:
+                parts.append('<p>{}</p>'.format(' &nbsp;|&nbsp; '.join(_woef)))
+            if f.get('detectie_notitie'):
+                parts.append('<p><em>{}:</em> {}</p>'.format(
+                    'Detection notes' if taal == 'en' else 'Detectie-toelichting',
+                    html_escape(f['detectie_notitie'])))
+            # Externe referenties
+            _refs = [r.strip() for r in (f.get('referenties', '') or '').splitlines() if r.strip()]
+            if _refs:
+                parts.append('<p><strong>{}:</strong></p><ul>'.format(
+                    'References' if taal == 'en' else 'Referenties'))
+                for r in _refs:
+                    if r.startswith('http'):
+                        parts.append('<li><a href="{0}">{0}</a></li>'.format(html_escape(r)))
+                    else:
+                        parts.append('<li>{}</li>'.format(html_escape(r)))
+                parts.append('</ul>')
             # Finding relaties
             related = f.get('related', [])
             if related:
@@ -825,6 +1329,10 @@ def _generate_html_preview(findings, grouped, counts, titel, auteur, subtitel, d
             html_escape(str(f['basescore'])), html_escape(f['aanbeveling'])))
     parts.append('</table>')
 
+    # Mapping-bijlagen (OWASP Top 10 + NCSC-richtlijnen)
+    _append_owasp_mapping_html(parts, findings, taal)
+    _append_ncsc_mapping_html(parts, findings, taal)
+
     # Checklist appendix
     _append_checklist_html(parts, checklists, taal)
 
@@ -833,6 +1341,106 @@ def _generate_html_preview(findings, grouped, counts, titel, auteur, subtitel, d
 
     parts.append('</body></html>')
     return ''.join(parts)
+
+
+def _heatmap_md_lines(findings, taal='nl'):
+    """Risicomatrix (heatmap) als Markdown-tabel met finding-IDs."""
+    if not findings:
+        return []
+    cells = {}
+    for f in findings:
+        k, i = _finding_ki(f)
+        cells.setdefault((k, i), []).append(f['id'])
+    lines = []
+    lines.append('## {}'.format('Risk Matrix' if taal == 'en' else 'Risicomatrix'))
+    lines.append('')
+    kans_l = 'Likelihood' if taal == 'en' else 'Kans'
+    lines.append('| {} \\\\ Impact | 1 | 2 | 3 | 4 | 5 |'.format(kans_l))
+    lines.append('|---|---|---|---|---|---|')
+    for k in range(5, 0, -1):
+        row = ['**{}**'.format(k)]
+        for i in range(1, 6):
+            ids = cells.get((k, i), [])
+            row.append(', '.join('#' + str(x).zfill(3) for x in ids) or ' ')
+        lines.append('| ' + ' | '.join(row) + ' |')
+    lines.append('')
+    return lines
+
+
+def _sla_md_lines(findings, taal='nl'):
+    """Oplostijden/SLA als Markdown-tabel."""
+    if not findings:
+        return []
+    sev_labels = _SEVERITY_LABELS_EN if taal == 'en' else _SEVERITY_LABELS
+    lines = []
+    lines.append('## {}'.format('Remediation Timelines' if taal == 'en' else 'Oplostijden'))
+    lines.append('')
+    if taal == 'en':
+        lines.append('The recommended maximum remediation time is based on the risk classification '
+                     'of each finding.')
+        lines.append('')
+        lines.append('| ID | Finding | Severity | Target | Target date |')
+    else:
+        lines.append('De aanbevolen maximale hersteltermijn is gebaseerd op de risicoclassificatie '
+                     'van elke bevinding.')
+        lines.append('')
+        lines.append('| ID | Bevinding | Ernst | Streeftermijn | Doeldatum |')
+    lines.append('|---|---|---|---|---|')
+    for f in findings:
+        sev = f['severity']
+        _days, nl_lbl, en_lbl = _SLA_DAYS.get(sev, (90, '', ''))
+        sla_txt = en_lbl if taal == 'en' else nl_lbl
+        td = f.get('remediation_target_date')
+        td_str = td.strftime('%d-%m-%Y') if td else '—'
+        lines.append('| {} | {} | {} | {} | {} |'.format(
+            str(f['id']).zfill(3), f['titel'], sev_labels.get(sev, sev), sla_txt, td_str))
+    lines.append('')
+    return lines
+
+
+def _owasp_mapping_md_lines(findings, taal='nl'):
+    """OWASP Top 10 mapping-bijlage als Markdown."""
+    relevant = [f for f in findings if f.get('owasp') or f.get('owasp_2025')]
+    if not relevant:
+        return []
+    lines = []
+    lines.append('# {}'.format('Appendix: OWASP Top 10 Mapping' if taal == 'en'
+                               else 'Bijlage: OWASP Top 10 mapping'))
+    lines.append('')
+    lines.append('| ID | {} | OWASP 2021 | OWASP 2025 |'.format('Finding' if taal == 'en' else 'Bevinding'))
+    lines.append('|---|---|---|---|')
+    for f in relevant:
+        lines.append('| {} | {} | {} | {} |'.format(
+            str(f['id']).zfill(3), f['titel'],
+            f.get('owasp', '') or '—', f.get('owasp_2025', '') or '—'))
+    lines.append('')
+    return lines
+
+
+def _ncsc_mapping_md_lines(findings, taal='nl'):
+    """NCSC-richtlijnen mapping-bijlage als Markdown."""
+    try:
+        from meuk.flask.findings import ncsc_richtlijn_filter as _ncsc
+    except Exception:
+        def _ncsc(code):
+            return code or ''
+    relevant = [f for f in findings if f.get('ncsc') or f.get('control_ref')]
+    if not relevant:
+        return []
+    lines = []
+    lines.append('# {}'.format('Appendix: NCSC Guidelines Mapping' if taal == 'en'
+                               else 'Bijlage: NCSC-richtlijnen mapping'))
+    lines.append('')
+    ctrl_l = 'Control reference' if taal == 'en' else 'Controle-referentie'
+    lines.append('| ID | {} | NCSC | {} |'.format('Finding' if taal == 'en' else 'Bevinding', ctrl_l))
+    lines.append('|---|---|---|---|')
+    for f in relevant:
+        ncsc_code = f.get('ncsc', '')
+        ncsc_txt = _ncsc(ncsc_code) if ncsc_code else '—'
+        lines.append('| {} | {} | {} | {} |'.format(
+            str(f['id']).zfill(3), f['titel'], ncsc_txt, f.get('control_ref', '') or '—'))
+    lines.append('')
+    return lines
 
 
 def _generate_docx_markdown(findings, grouped, counts, titel, auteur, subtitel,
@@ -1032,6 +1640,13 @@ def _generate_docx_markdown(findings, grouped, counts, titel, auteur, subtitel,
     lines.append('| **{}** | **{}** |'.format(u(t['totaal']), len(findings)))
     lines.append('')
 
+    # Risicomatrix (heatmap) + oplostijden (SLA) + detecteerbaarheid — alleen detailed/executive zinvol
+    if variant not in ('board',):
+        lines.extend(_heatmap_md_lines(findings, taal))
+        lines.extend(_sla_md_lines(findings, taal))
+        lines.extend(_detection_md_lines(findings, taal))
+        lines.extend(_chains_md_lines(taal))
+
     # Verkenning & ontdekking (notes)
     if notes:
         lines.append('# {}'.format(u(t['verkenning'])))
@@ -1104,8 +1719,34 @@ def _generate_docx_markdown(findings, grouped, counts, titel, auteur, subtitel,
                     meta_parts.append('**CWE:** {}'.format(f['cwe']))
                 if f['cvss_vector']:
                     meta_parts.append('**CVSS Vector:** `{}`'.format(f['cvss_vector']))
+                if f.get('faalmodus'):
+                    _fm = _FAALMODUS_LABELS.get(f['faalmodus'], (f['faalmodus'], f['faalmodus']))
+                    meta_parts.append('**{}:** {}'.format(
+                        'Failure mode' if taal == 'en' else 'Faalmodus',
+                        _fm[1] if taal == 'en' else _fm[0]))
+                if f.get('control_ref'):
+                    meta_parts.append('**{}:** {}'.format(
+                        'Control' if taal == 'en' else 'Controle', f['control_ref']))
+                if f.get('detecteerbaarheid'):
+                    _dt = _DETECT_LABELS.get(f['detecteerbaarheid'], (f['detecteerbaarheid'], f['detecteerbaarheid']))
+                    meta_parts.append('**{}:** {}'.format(
+                        'Detectable' if taal == 'en' else 'Detecteerbaar',
+                        _dt[1] if taal == 'en' else _dt[0]))
                 if meta_parts:
                     lines.append(' | '.join(meta_parts))
+                    lines.append('')
+                if f.get('detectie_notitie'):
+                    lines.append('*{}:* {}'.format(
+                        'Detection notes' if taal == 'en' else 'Detectie-toelichting',
+                        f['detectie_notitie']))
+                    lines.append('')
+                # Externe referenties
+                _refs = [r.strip() for r in (f.get('referenties', '') or '').splitlines() if r.strip()]
+                if _refs:
+                    lines.append('**{}:**'.format('References' if taal == 'en' else 'Referenties'))
+                    lines.append('')
+                    for r in _refs:
+                        lines.append('- {}'.format(r))
                     lines.append('')
                 # Finding relaties
                 related = f.get('related', [])
@@ -1129,6 +1770,10 @@ def _generate_docx_markdown(findings, grouped, counts, titel, auteur, subtitel,
         lines.append('| {} | {} | {} | {} |'.format(
             str(f['id']).zfill(3), f['titel'], f['basescore'], f['aanbeveling']))
     lines.append('')
+
+    # Mapping-bijlagen (OWASP Top 10 + NCSC-richtlijnen)
+    lines.extend(_owasp_mapping_md_lines(findings, taal))
+    lines.extend(_ncsc_mapping_md_lines(findings, taal))
 
     # Checklist appendix
     if checklists:
@@ -1166,6 +1811,301 @@ def _generate_docx_markdown(findings, grouped, counts, titel, auteur, subtitel,
     lines.append('')
 
     return '\n'.join(lines)
+
+
+# ---------------------------------------------------------------------------
+# Retestrapport — compact overzicht van de retestcyclus
+# ---------------------------------------------------------------------------
+
+def _generate_retest_html(findings, titel, auteur, datum, taal='nl'):
+    """Compact HTML-retestrapport: status per oorspronkelijke bevinding."""
+    sev_labels = _SEVERITY_LABELS_EN if taal == 'en' else _SEVERITY_LABELS
+    heading = 'Retest Report' if taal == 'en' else 'Retestrapport'
+    intro = ('This report summarises the retest of previously reported findings.'
+             if taal == 'en' else
+             'Dit rapport vat de retest van eerder gerapporteerde bevindingen samen.')
+    parts = ['<html><head><meta charset="utf-8"><style>',
+             'body{font-family:sans-serif;max-width:900px;margin:0 auto;padding:20px}',
+             'table{width:100%;border-collapse:collapse;margin:1em 0}',
+             'th,td{border:1px solid #ccc;padding:6px 10px;text-align:left;vertical-align:top}',
+             'th{background:#f0f0f0}',
+             '.badge{padding:2px 8px;border-radius:3px;color:#fff;font-size:0.9em}',
+             '</style></head><body>']
+    parts.append('<h1>{}</h1>'.format(html_escape(heading)))
+    parts.append('<p>{}</p>'.format(html_escape(intro)))
+    parts.append('<p>{} &mdash; {}</p>'.format(html_escape(auteur), html_escape(datum)))
+
+    # Samenvattingstelling
+    tally = {'pending_retest': 0, 'retested_fixed': 0, 'retested_open': 0}
+    for f in findings:
+        st = f.get('retest_status', '')
+        if st in tally:
+            tally[st] += 1
+    parts.append('<h2>{}</h2>'.format('Summary' if taal == 'en' else 'Samenvatting'))
+    parts.append('<table><tr><th>{}</th><th>{}</th></tr>'.format(
+        'Status', 'Count' if taal == 'en' else 'Aantal'))
+    for st in ('retested_fixed', 'retested_open', 'pending_retest'):
+        nl, en, color = _RETEST_LABELS[st]
+        parts.append('<tr><td><span class="badge" style="background:{}">{}</span></td><td>{}</td></tr>'.format(
+            color, html_escape(en if taal == 'en' else nl), tally[st]))
+    parts.append('</table>')
+
+    # Detailtabel
+    id_l = 'ID'
+    find_l = 'Finding' if taal == 'en' else 'Bevinding'
+    sev_l = 'Severity' if taal == 'en' else 'Ernst'
+    date_l = 'Retest date' if taal == 'en' else 'Retestdatum'
+    notes_l = 'Notes' if taal == 'en' else 'Notities'
+    parts.append('<h2>{}</h2>'.format('Details' if taal == 'en' else 'Detailoverzicht'))
+    parts.append('<table><tr><th>{}</th><th>{}</th><th>{}</th><th>Status</th><th>{}</th><th>{}</th></tr>'.format(
+        id_l, find_l, sev_l, date_l, notes_l))
+    for f in findings:
+        st = f.get('retest_status', '')
+        nl, en, color = _RETEST_LABELS.get(st, ('', '', '#94a3b8'))
+        rd = f.get('retest_date')
+        rd_str = rd.strftime('%d-%m-%Y') if rd else '&mdash;'
+        parts.append('<tr><td>{}</td><td>{}</td><td>{}</td><td><span class="badge" style="background:{}">{}</span></td><td>{}</td><td>{}</td></tr>'.format(
+            str(f['id']).zfill(3), html_escape(f['titel']),
+            html_escape(sev_labels.get(f['severity'], f['severity'])),
+            color, html_escape(en if taal == 'en' else nl),
+            rd_str, html_escape(f.get('retest_notes', '') or '')))
+    parts.append('</table>')
+    parts.append('</body></html>')
+    return ''.join(parts)
+
+
+def _generate_retest_markdown(findings, titel, auteur, datum, taal='nl'):
+    """Compact Markdown-retestrapport (voor docx-conversie via pandoc)."""
+    sev_labels = _SEVERITY_LABELS_EN if taal == 'en' else _SEVERITY_LABELS
+    lines = ['---',
+             'title: "{}"'.format((titel or '').replace('"', '\\"')),
+             'author: "{}"'.format((auteur or '').replace('"', '\\"')),
+             'date: "{}"'.format(datum), '---', '']
+    lines.append('# {}'.format('Retest Report' if taal == 'en' else 'Retestrapport'))
+    lines.append('')
+    if taal == 'en':
+        lines.append('This report summarises the retest of previously reported findings.')
+        lines.append('')
+        lines.append('| ID | Finding | Severity | Status | Retest date | Notes |')
+    else:
+        lines.append('Dit rapport vat de retest van eerder gerapporteerde bevindingen samen.')
+        lines.append('')
+        lines.append('| ID | Bevinding | Ernst | Status | Retestdatum | Notities |')
+    lines.append('|---|---|---|---|---|---|')
+    for f in findings:
+        st = f.get('retest_status', '')
+        nl, en, _c = _RETEST_LABELS.get(st, ('', '', ''))
+        rd = f.get('retest_date')
+        rd_str = rd.strftime('%d-%m-%Y') if rd else '—'
+        notes = (f.get('retest_notes', '') or '').replace('\n', ' ').replace('|', '\\|')
+        lines.append('| {} | {} | {} | {} | {} | {} |'.format(
+            str(f['id']).zfill(3), f['titel'], sev_labels.get(f['severity'], f['severity']),
+            en if taal == 'en' else nl, rd_str, notes))
+    lines.append('')
+    return '\n'.join(lines)
+
+
+@rapport_bp.route('/dashboard/report/retest/generate', methods=['GET'])
+def gen_retest_rapport():
+    """Genereer een compact retestrapport (HTML + Markdown + DOCX indien pandoc)."""
+    os.makedirs(_RAPPORT_DIR, exist_ok=True)
+    s = _get_appdata()
+    taal = (getattr(s, 'rapport_taal', '') if s else '') or 'nl'
+    titel = ((s.rapport_titel if s else '') or 'Penetration Test Report') + \
+            (' — Retest' if taal != 'en' else ' — Retest')
+    auteur = (s.rapport_auteur if s else '') or 'Incompetent Bastard'
+    datum = datetime.date.today().strftime('%d-%m-%Y')
+
+    # Alleen bevindingen met een actieve retest-status
+    retest_statuses = ('pending_retest', 'retested_fixed', 'retested_open')
+    base_query = db_bevindingen.query.filter(
+        db_bevindingen.deleted_at.is_(None),
+        db_bevindingen.retest_status.in_(retest_statuses),
+    )
+    findings = _build_findings_data(base_query, taal=taal)
+
+    html = _generate_retest_html(findings, titel, auteur, datum, taal)
+    schrijven(os.path.join(_RAPPORT_DIR, 'rapport_retest.html'), html)
+    md = _generate_retest_markdown(findings, titel, auteur, datum, taal)
+    md_path = os.path.join(_RAPPORT_DIR, 'rapport_retest.md')
+    schrijven(md_path, md)
+    try:
+        from sh import pandoc
+        pandoc(md_path, '-o', os.path.join(_RAPPORT_DIR, 'rapport_retest.docx'))
+    except Exception:
+        pass
+    return html
+
+
+# ---------------------------------------------------------------------------
+# Debrief (lessons learned) — hoofdstuk 6
+# ---------------------------------------------------------------------------
+
+def _build_debrief_stats(taal='nl'):
+    """Verzamel automatische debrief-statistieken uit de definitieve bevindingen."""
+    findings = db_bevindingen.query.filter(
+        db_bevindingen.deleted_at.is_(None),
+        db_bevindingen.status == 'final',
+    ).all()
+    templates = {str(t.id): t for t in db_bevindingen_templates.query.all()}
+
+    faalmodus = {'opzet': 0, 'bestaan': 0, 'werking': 0}
+    detectie = {'ja': 0, 'deels': 0, 'nee': 0}
+    severity = {'critical': 0, 'high': 0, 'medium': 0, 'low': 0, 'none': 0}
+    mitre = {}
+    for f in findings:
+        tmpl = templates.get(str(f.ref))
+        fm = (getattr(f, 'faalmodus', '') or '')
+        if fm in faalmodus:
+            faalmodus[fm] += 1
+        dt = (getattr(f, 'detecteerbaarheid', '') or '')
+        if dt in detectie:
+            detectie[dt] += 1
+        bs = f.basescore or (tmpl.basescore if tmpl else '') or '0'
+        sev, _ = _cvss_to_severity(bs)
+        severity[sev] = severity.get(sev, 0) + 1
+        mt = (tmpl.mitre if tmpl else '') or ''
+        if mt:
+            mitre[mt] = mitre.get(mt, 0) + 1
+
+    fm_lbl = {k: (_FAALMODUS_LABELS[k][1] if taal == 'en' else _FAALMODUS_LABELS[k][0])
+              for k in faalmodus}
+    dt_lbl = {k: (_DETECT_LABELS[k][1] if taal == 'en' else _DETECT_LABELS[k][0])
+              for k in detectie}
+    top_faalmodi = sorted(faalmodus.items(), key=lambda kv: kv[1], reverse=True)
+    top_mitre = sorted(mitre.items(), key=lambda kv: kv[1], reverse=True)[:10]
+    return {
+        'total': len(findings),
+        'faalmodus': faalmodus, 'faalmodus_label': fm_lbl, 'top_faalmodi': top_faalmodi,
+        'detectie': detectie, 'detectie_label': dt_lbl,
+        'severity': severity, 'mitre': top_mitre,
+    }
+
+
+def _debrief_fields(s, taal='nl'):
+    """Haal de vrije debrief-teksten op uit de instellingen, met labels."""
+    labels = {
+        'context':  ('Context & opdracht', 'Context & engagement'),
+        'werkte':   ('Wat werkte', 'What worked'),
+        'faalde':   ('Wat faalde', 'What failed'),
+        'detectie': ('Detectieprestatie', 'Detection performance'),
+        'vervolg':  ('Aanbevelingen & vervolg', 'Recommendations & next steps'),
+    }
+    out = []
+    for key, (nl, en) in labels.items():
+        val = (getattr(s, 'debrief_' + key, '') if s else '') or ''
+        out.append((en if taal == 'en' else nl, val))
+    return out
+
+
+def _generate_debrief_html(s, taal='nl'):
+    """Debrief-rapport als HTML: vrije tekst + automatische statistieken."""
+    stats = _build_debrief_stats(taal)
+    heading = 'Debrief — Lessons Learned' if taal == 'en' else 'Debrief — Lessons Learned'
+    parts = ['<html><head><meta charset="utf-8"><style>',
+             'body{font-family:sans-serif;max-width:900px;margin:0 auto;padding:20px}',
+             'table{width:100%;border-collapse:collapse;margin:1em 0}',
+             'th,td{border:1px solid #ccc;padding:6px 10px;text-align:left}',
+             'th{background:#f0f0f0}', '</style></head><body>']
+    parts.append('<h1>{}</h1>'.format(html_escape(heading)))
+    for label, val in _debrief_fields(s, taal):
+        parts.append('<h2>{}</h2>'.format(html_escape(label)))
+        parts.append('<p>{}</p>'.format(html_escape(val) if val else '<em>—</em>'))
+
+    # Automatische statistieken
+    parts.append('<h2>{}</h2>'.format('Automatic metrics' if taal == 'en' else 'Automatische kerncijfers'))
+    parts.append('<p>{}: <strong>{}</strong></p>'.format(
+        'Total findings' if taal == 'en' else 'Totaal bevindingen', stats['total']))
+
+    # Faalmodi
+    parts.append('<h3>{}</h3>'.format('Failure modes' if taal == 'en' else 'Faalmodi'))
+    parts.append('<table><tr><th>{}</th><th>{}</th></tr>'.format(
+        'Failure mode' if taal == 'en' else 'Faalmodus', 'Count' if taal == 'en' else 'Aantal'))
+    for k, n in stats['top_faalmodi']:
+        parts.append('<tr><td>{}</td><td>{}</td></tr>'.format(
+            html_escape(stats['faalmodus_label'][k]), n))
+    parts.append('</table>')
+
+    # Detectieprestatie
+    parts.append('<h3>{}</h3>'.format('Detection performance' if taal == 'en' else 'Detectieprestatie'))
+    parts.append('<table><tr><th>{}</th><th>{}</th></tr>'.format(
+        'Detectable' if taal == 'en' else 'Detecteerbaar', 'Count' if taal == 'en' else 'Aantal'))
+    for k in ('ja', 'deels', 'nee'):
+        parts.append('<tr><td>{}</td><td>{}</td></tr>'.format(
+            html_escape(stats['detectie_label'][k]), stats['detectie'][k]))
+    parts.append('</table>')
+
+    # MITRE
+    if stats['mitre']:
+        parts.append('<h3>MITRE ATT&amp;CK</h3>')
+        parts.append('<table><tr><th>Techniek</th><th>{}</th></tr>'.format(
+            'Count' if taal == 'en' else 'Aantal'))
+        for tech, n in stats['mitre']:
+            parts.append('<tr><td>{}</td><td>{}</td></tr>'.format(html_escape(tech), n))
+        parts.append('</table>')
+    parts.append('</body></html>')
+    return ''.join(parts)
+
+
+def _generate_debrief_markdown(s, taal='nl'):
+    """Debrief-rapport als Markdown (voor DOCX/LaTeX via pandoc)."""
+    stats = _build_debrief_stats(taal)
+    lines = ['---', 'title: "Debrief — Lessons Learned"', '---', '']
+    lines.append('# Debrief — Lessons Learned')
+    lines.append('')
+    for label, val in _debrief_fields(s, taal):
+        lines.append('## {}'.format(label))
+        lines.append('')
+        lines.append(val if val else '—')
+        lines.append('')
+    lines.append('## {}'.format('Automatic metrics' if taal == 'en' else 'Automatische kerncijfers'))
+    lines.append('')
+    lines.append('{}: **{}**'.format('Total findings' if taal == 'en' else 'Totaal bevindingen', stats['total']))
+    lines.append('')
+    lines.append('### {}'.format('Failure modes' if taal == 'en' else 'Faalmodi'))
+    lines.append('')
+    lines.append('| {} | {} |'.format('Failure mode' if taal == 'en' else 'Faalmodus',
+                                      'Count' if taal == 'en' else 'Aantal'))
+    lines.append('|---|---|')
+    for k, n in stats['top_faalmodi']:
+        lines.append('| {} | {} |'.format(stats['faalmodus_label'][k], n))
+    lines.append('')
+    lines.append('### {}'.format('Detection performance' if taal == 'en' else 'Detectieprestatie'))
+    lines.append('')
+    lines.append('| {} | {} |'.format('Detectable' if taal == 'en' else 'Detecteerbaar',
+                                      'Count' if taal == 'en' else 'Aantal'))
+    lines.append('|---|---|')
+    for k in ('ja', 'deels', 'nee'):
+        lines.append('| {} | {} |'.format(stats['detectie_label'][k], stats['detectie'][k]))
+    lines.append('')
+    if stats['mitre']:
+        lines.append('### MITRE ATT&CK')
+        lines.append('')
+        lines.append('| Techniek | {} |'.format('Count' if taal == 'en' else 'Aantal'))
+        lines.append('|---|---|')
+        for tech, n in stats['mitre']:
+            lines.append('| {} | {} |'.format(tech, n))
+        lines.append('')
+    return '\n'.join(lines)
+
+
+@rapport_bp.route('/dashboard/report/debrief/generate', methods=['GET'])
+def gen_debrief():
+    """Genereer het debrief-rapport (HTML + Markdown + DOCX indien pandoc)."""
+    os.makedirs(_RAPPORT_DIR, exist_ok=True)
+    s = _get_appdata()
+    taal = (getattr(s, 'rapport_taal', '') if s else '') or 'nl'
+    html = _generate_debrief_html(s, taal)
+    schrijven(os.path.join(_RAPPORT_DIR, 'debrief.html'), html)
+    md = _generate_debrief_markdown(s, taal)
+    md_path = os.path.join(_RAPPORT_DIR, 'debrief.md')
+    schrijven(md_path, md)
+    try:
+        from sh import pandoc
+        pandoc(md_path, '-o', os.path.join(_RAPPORT_DIR, 'debrief.docx'))
+    except Exception:
+        pass
+    return html
 
 
 # ---------------------------------------------------------------------------
@@ -1295,12 +2235,19 @@ def rapport_download(fmt):
         'md':   ('tex.md',   'text/markdown'),
         'tex':  ('rapport.tex', 'application/x-tex'),
         'pdf':  ('rapport.pdf', 'application/pdf'),
+        'pdf-secure': ('rapport_secure.pdf', 'application/pdf'),
         'docx': ('rapport.docx', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'),
         'odt':  ('rapport.odt',  'application/vnd.oasis.opendocument.text'),
         'stix': ('rapport.stix.json', 'application/json'),
         'sarif': ('rapport.sarif.json', 'application/json'),
         'pptx': ('rapport.pptx', 'application/vnd.openxmlformats-officedocument.presentationml.presentation'),
         'epub': ('rapport.epub', 'application/epub+zip'),
+        'retest-html': ('rapport_retest.html', 'text/html'),
+        'retest-md':   ('rapport_retest.md', 'text/markdown'),
+        'retest-docx': ('rapport_retest.docx', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'),
+        'debrief-html': ('debrief.html', 'text/html'),
+        'debrief-md':   ('debrief.md', 'text/markdown'),
+        'debrief-docx': ('debrief.docx', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'),
     }
     if fmt not in FORMATS:
         return jsonify({'error': 'Ongeldig formaat'}), 400
@@ -1308,8 +2255,10 @@ def rapport_download(fmt):
     path = os.path.join(_RAPPORT_DIR, filename)
     if not os.path.exists(path):
         return jsonify({'error': 'Genereer eerst het rapport'}), 404
+    # Downloadnaam: gebruik de echte bestandsnaam zodat extensies kloppen
+    # (bijv. pdf-secure -> rapport_secure.pdf)
     return send_file(path, mimetype=mimetype, as_attachment=True,
-                     download_name=f'rapport.{fmt}')
+                     download_name=filename)
 
 
 # ---------------------------------------------------------------------------

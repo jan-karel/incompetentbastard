@@ -279,6 +279,13 @@
           <button type="submit" class="btn btn-primary">Laad standaard bevindingen</button>
         </form>
       </div>
+      <hr class="hr-sep" />
+      <div>
+        <h3 class="fs-14 m-0 mb-8">Beknopte impact/aanbeveling</h3>
+        <p class="help m-0 mb-8">Vul per template de korte impact- en aanbevelingsvelden met een beknopte samenvatting (eerste zin) van de lange teksten. Lege velden worden gevuld; bestaande korte teksten blijven staan.</p>
+        <button type="button" class="btn" id="btn-fill-kort">Korte velden vullen</button>
+        <span id="fill-kort-msg" class="help ml-8"></span>
+      </div>
     </div>
   </section>
 
@@ -595,6 +602,22 @@
       ddBusy("Bijgewerkt: " + d.updated + " bevindingen (" + d.failed + " mislukt).");
       if (d.updated) setTimeout(function(){ window.location.reload(); }, 1200);
     });
+  });
+
+  // ── Korte impact/aanbeveling-velden vullen ──────
+  var btnFillKort = document.getElementById("btn-fill-kort");
+  if (btnFillKort) btnFillKort.addEventListener("click", function(){
+    var msgEl = document.getElementById("fill-kort-msg");
+    var tok = (document.getElementById("finding-csrf") || {}).value || "";
+    msgEl.textContent = "Bezig…";
+    fetch("/api/findings/templates/fill-kort", {
+      method: "POST",
+      headers: {"Content-Type": "application/json", "X-CSRFToken": tok},
+      body: "{}"
+    }).then(function(r){ return r.json(); }).then(function(d){
+      if (d.ok) { msgEl.textContent = d.templates + " templates bijgewerkt (" + d.velden + " velden gevuld)."; }
+      else { msgEl.textContent = d.error || "Mislukt"; }
+    }).catch(function(){ msgEl.textContent = "Netwerkfout"; });
   });
 
   var btnDdImport = document.getElementById("btn-dd-import");

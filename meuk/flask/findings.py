@@ -7,6 +7,7 @@ from werkzeug.utils import secure_filename
 import datetime
 import json
 import os
+import re as _re
 import uuid
 
 
@@ -336,6 +337,108 @@ def template_bewerken(template_id):
     return render_template('template_page.html', form=form, title='Template bewerken')
 
 
+def _strip_latex(text):
+    """Verwijder LaTeX-opmaak en geef leesbare platte tekst terug."""
+    if not text:
+        return ''
+    t = str(text)
+    # \item[Label:] -> "Label: "
+    t = _re.sub(r'\\item\s*\[([^\]]*?)\]', r'\1 ', t)
+    t = _re.sub(r'\\item\b', '', t)
+    # omgevingen \begin{..}/\end{..}
+    t = _re.sub(r'\\(begin|end)\s*\{[^}]*\}', ' ', t)
+    # \textbf{x}, \texttt{x}, \emph{x}, \textit{x} -> x
+    t = _re.sub(r'\\(?:textbf|texttt|emph|textit|textsc|underline)\s*\{([^{}]*)\}', r'\1', t)
+    # \href{url}{tekst} -> tekst
+    t = _re.sub(r'\\href\s*\{[^}]*\}\s*\{([^{}]*)\}', r'\1', t)
+    # overige commando's met argument -> argument
+    t = _re.sub(r'\\[a-zA-Z]+\s*\{([^{}]*)\}', r'\1', t)
+    # losse commando's
+    t = _re.sub(r'\\[a-zA-Z]+\*?', ' ', t)
+    # LaTeX-accenten die als \"e etc. zijn blijven staan
+    t = t.replace('\\"', '').replace('\\', '')
+    # resterende haakjes/opsommingstekens opruimen
+    t = t.replace('{', '').replace('}', '')
+    t = _re.sub(r'\s+', ' ', t).strip()
+    return t
+
+
+# Generieke, inhoudsarme openingszinnen die we overslaan bij de impact.
+_ZWAKKE_OPENER = _re.compile(
+    r'^(de|het)\s+impact\s+van\b.*?(kan|is|hangt|varieert|vari)\b'
+    r'|^the\s+impact\s+of\b.*?(can|is|depends|may|varies)\b'
+    r'|^de\s+impact\s+(kan|is|hangt|varieert)\b'
+    r'|^the\s+impact\s+(can|is|depends|may|varies)\b',
+    _re.IGNORECASE)
+
+
+def _zinnen(t):
+    return [z.strip() for z in _re.split(r'(?<=[.!?])\s+', t) if z.strip()]
+
+
+def _beknopt(text, max_len=255):
+    """Beknopte, LaTeX-vrije samenvatting: eerste inhoudelijke zin."""
+    t = _strip_latex(text)
+    if not t:
+        return ''
+    zinnen = _zinnen(t)
+    gekozen = ''
+    for z in zinnen:
+        if _ZWAKKE_OPENER.search(z) and len(zinnen) > 1:
+            continue  # sla generieke "de impact van ... kan ..." over
+        gekozen = z
+        break
+    if not gekozen:
+        gekozen = zinnen[0] if zinnen else t
+    if len(gekozen) > max_len:
+        gekozen = gekozen[:max_len - 1].rstrip() + '…'
+    return gekozen
+
+
+def _beknopt_aanbeveling(text, taal='nl', max_len=255):
+    """Beknopte aanbeveling: vat de kernmaatregelen (item-labels) samen, of val
+    terug op de eerste inhoudelijke zin."""
+    raw = str(text or '')
+    # Maatregel-labels uit een LaTeX description-lijst: \item[Label:]
+    labels = _re.findall(r'\\item\s*\[([^\]]+?)\]', raw)
+    labels = [_strip_latex(lab).rstrip(':').strip() for lab in labels]
+    labels = [lab for lab in labels if lab]
+    if len(labels) >= 2:
+        prefix = 'Aanbevolen maatregelen: ' if taal == 'nl' else 'Recommended measures: '
+        s = prefix + ', '.join(labels)
+        if not s.endswith('.'):
+            s += '.'
+        if len(s) > max_len:
+            s = s[:max_len - 1].rstrip() + '…'
+        return s
+    return _beknopt(text, max_len=max_len)
+
+
+def _vul_kort_velden(tmpl, overschrijf=False):
+    """Vul de *kort-velden met een beknopte samenvatting van de lange impact/
+    aanbeveling. overschrijf=False laat reeds ingevulde korte velden ongemoeid."""
+    # (kort-veld, lang-veld, soort, taal)
+    paren = (
+        ('nlimpactkort', 'nlimpact', 'impact', 'nl'),
+        ('enimpactkort', 'enimpact', 'impact', 'en'),
+        ('nlaanbevelingkort', 'nlaanbeveling', 'aanbeveling', 'nl'),
+        ('enaanbevelingkort', 'enaanbeveling', 'aanbeveling', 'en'),
+    )
+    gewijzigd = 0
+    for kort, lang, soort, taal in paren:
+        if not overschrijf and (getattr(tmpl, kort, '') or '').strip():
+            continue
+        bron = getattr(tmpl, lang, '') or ''
+        if soort == 'aanbeveling':
+            nieuw = _beknopt_aanbeveling(bron, taal=taal)
+        else:
+            nieuw = _beknopt(bron)
+        if nieuw and nieuw != (getattr(tmpl, kort, '') or ''):
+            setattr(tmpl, kort, nieuw)
+            gewijzigd += 1
+    return gewijzigd
+
+
 @findings_bp.route('/dashboard/findings/templates/save', methods=['POST'])
 def template_opslaan():
     form = BevindingTemplateForm()
@@ -360,6 +463,7 @@ def template_opslaan():
                 tmpl.nlaanbeveling = form.nlaanbeveling.data
                 tmpl.enaanbeveling = form.enaanbeveling.data
                 tmpl.referenties = form.referenties.data
+                _vul_kort_velden(tmpl, overschrijf=True)
                 db.session.commit()
         except (ValueError, TypeError):
             tmpl = db_bevindingen_templates(
@@ -379,10 +483,37 @@ def template_opslaan():
                 enaanbeveling=form.enaanbeveling.data,
                 referenties=form.referenties.data,
             )
+            _vul_kort_velden(tmpl, overschrijf=True)
             db.session.add(tmpl)
             db.session.commit()
 
     return redirect(url_for('findings_bp.bevindingen_overzicht'))
+
+
+@findings_bp.route('/api/findings/templates/fill-kort', methods=['POST'])
+def templates_fill_kort():
+    """Vul de beknopte impact-/aanbevelingsvelden van bestaande templates.
+
+    Body: {overschrijf?: bool}. Standaard worden alleen lege korte velden
+    gevuld (bestaande handmatige waarden blijven staan)."""
+    from flask import current_app
+    if current_app.config.get('WTF_CSRF_ENABLED', True):
+        from flask_wtf.csrf import validate_csrf
+        try:
+            validate_csrf(request.headers.get('X-CSRFToken', ''))
+        except Exception:
+            return jsonify({'ok': False, 'error': 'CSRF-fout'}), 403
+    overschrijf = bool((request.get_json(silent=True) or {}).get('overschrijf', False))
+    templates_bijgewerkt = 0
+    velden_gevuld = 0
+    for tmpl in db_bevindingen_templates.query.all():
+        n = _vul_kort_velden(tmpl, overschrijf=overschrijf)
+        if n:
+            templates_bijgewerkt += 1
+            velden_gevuld += n
+    db.session.commit()
+    return jsonify({'ok': True, 'templates': templates_bijgewerkt,
+                    'velden': velden_gevuld})
 
 
 @findings_bp.route('/dashboard/findings/templates/delete/<int:template_id>', methods=['POST'])
@@ -2116,6 +2247,8 @@ def _create_template_from_standard(sf):
         tmpl.referenties = '\n'.join(
             r.get('url') or r.get('title', '') for r in refs
         )
+    # Beknopte impact/aanbeveling afleiden uit de lange teksten
+    _vul_kort_velden(tmpl, overschrijf=True)
     return tmpl
 
 

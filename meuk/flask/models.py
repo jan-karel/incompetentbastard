@@ -7,6 +7,13 @@ from flask import current_app as app
 from app import db
 
 
+def nu_utc():
+    """Huidige UTC-tijd als naïeve datetime. Vervangt het in Python 3.12+
+    deprecated datetime.utcnow() en behoudt de naïeve semantiek die de
+    DateTime-kolommen en bestaande vergelijkingen verwachten."""
+    return datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
+
+
 class db_xxs_cookies(db.Model):
     """Bevindingen model."""
     __tablename__ = 'db_xxs_cookies'
@@ -36,7 +43,7 @@ class db_xxs_hooked(db.Model):
     """Bevindingen model."""
     __tablename__ = 'db_xxs_hooked'
     id = db.Column(db.Integer, primary_key=True)
-    datum = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+    datum = db.Column(db.DateTime, default=nu_utc)
     agent = db.Column(db.String(255))
     ip = db.Column(db.String(255))
     md5 = db.Column(db.String(32))
@@ -84,7 +91,7 @@ class db_xxs_commands(db.Model):
     opdracht = db.Column(db.Text())
     status = db.Column(db.String(16), default='queued')
     result = db.Column(db.Text())
-    created = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+    created = db.Column(db.DateTime, default=nu_utc)
 
 
 
@@ -186,8 +193,8 @@ class db_bevindingen(db.Model):
     gebruikersvlag = db.Column(db.String(255))
     rootvlag = db.Column(db.String(255))
     status = db.Column(db.String(16), default='draft')
-    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=nu_utc)
+    updated_at = db.Column(db.DateTime, default=nu_utc, onupdate=nu_utc)
     discovered_at = db.Column(db.DateTime)
     remediation_status = db.Column(db.String(20), default='open')
     remediation_target_date = db.Column(db.Date)
@@ -225,7 +232,7 @@ class db_opdracht(db.Model):
     start_datum = db.Column(db.Date)
     eind_datum = db.Column(db.Date)
     status = db.Column(db.String(20), default='gepland')   # gepland / actief / afgerond
-    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=nu_utc)
     bevindingen = db.relationship('db_bevindingen', backref='opdracht', lazy='selectin')
     config = db.relationship('db_opdracht_config', backref='opdracht', uselist=False,
                              cascade='all, delete-orphan', lazy='selectin')
@@ -303,8 +310,8 @@ class db_rapport_template(db.Model):
     section_order = db.Column(db.Text(), default='[]')  # JSON: [sectie_key, ...] (hoofdsecties)
     custom_tex_path = db.Column(db.String(300), default='')
     taal = db.Column(db.String(5), default='')  # leeg = volg projectinstelling
-    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=nu_utc)
+    updated_at = db.Column(db.DateTime, default=nu_utc, onupdate=nu_utc)
 
 
 class db_evidence(db.Model):
@@ -314,7 +321,7 @@ class db_evidence(db.Model):
     filename = db.Column(db.String(300), nullable=False)
     original_filename = db.Column(db.String(300))
     content_type = db.Column(db.String(120))
-    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=nu_utc)
     tool_name = db.Column(db.String(100))
     timestamp_captured = db.Column(db.DateTime)
     evidence_category = db.Column(db.String(50))
@@ -360,7 +367,7 @@ class db_commands(db.Model):
 class db_xxe(db.Model):
     __tablename__ = 'db_xxe'
     id = db.Column(db.Integer, primary_key=True)
-    datum = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+    datum = db.Column(db.DateTime, default=nu_utc)
     ip = db.Column(db.String(255))
     bestand = db.Column(db.Text())
     data = db.Column(db.Text())
@@ -371,7 +378,7 @@ class db_xxe(db.Model):
 class db_csrf(db.Model):
     __tablename__ = 'db_csrf'
     id = db.Column(db.Integer, primary_key=True)
-    datum = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+    datum = db.Column(db.DateTime, default=nu_utc)
     ip = db.Column(db.String(255))
     agent = db.Column(db.String(255))
     locatie = db.Column(db.Text())
@@ -384,7 +391,7 @@ class db_csrf(db.Model):
 class db_sqli(db.Model):
     __tablename__ = 'db_sqli'
     id = db.Column(db.Integer, primary_key=True)
-    datum = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+    datum = db.Column(db.DateTime, default=nu_utc)
     ip = db.Column(db.String(255))
     doel = db.Column(db.Text())
     methode = db.Column(db.String(10))
@@ -397,7 +404,7 @@ class db_sqli(db.Model):
 class db_sqli_secondorder(db.Model):
     __tablename__ = 'db_sqli_secondorder'
     id = db.Column(db.Integer, primary_key=True)
-    datum = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+    datum = db.Column(db.DateTime, default=nu_utc)
     ip = db.Column(db.String(255))
     label = db.Column(db.String(255))
     stap = db.Column(db.Integer)
@@ -413,7 +420,7 @@ class db_sqli_secondorder(db.Model):
 class db_sqli_mssql_link(db.Model):
     __tablename__ = 'db_sqli_mssql_link'
     id = db.Column(db.Integer, primary_key=True)
-    datum = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+    datum = db.Column(db.DateTime, default=nu_utc)
     ip = db.Column(db.String(255))
     instance = db.Column(db.String(255))
     linked_to = db.Column(db.String(255))
@@ -427,7 +434,7 @@ class db_sqli_mssql_link(db.Model):
 class db_ssrf(db.Model):
     __tablename__ = 'db_ssrf'
     id = db.Column(db.Integer, primary_key=True)
-    datum = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+    datum = db.Column(db.DateTime, default=nu_utc)
     ip = db.Column(db.String(255))
     doel = db.Column(db.Text())
     callback_data = db.Column(db.Text())
@@ -440,7 +447,7 @@ class db_finding_related(db.Model):
     finding_id = db.Column(db.Integer, db.ForeignKey('db_bevinding.id'), nullable=False, index=True)
     related_id = db.Column(db.Integer, db.ForeignKey('db_bevinding.id'), nullable=False, index=True)
     relation_type = db.Column(db.String(20), default='related')
-    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=nu_utc)
 
     finding = db.relationship('db_bevindingen', foreign_keys=[finding_id], backref=db.backref('related_from', lazy='selectin'))
     related = db.relationship('db_bevindingen', foreign_keys=[related_id], backref=db.backref('related_to', lazy='selectin'))
@@ -453,8 +460,8 @@ class db_checklist(db.Model):
     checklist_type = db.Column(db.String(40), nullable=False)
     target = db.Column(db.String(255), default='')
     status = db.Column(db.String(16), default='active')
-    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=nu_utc)
+    updated_at = db.Column(db.DateTime, default=nu_utc, onupdate=nu_utc)
     opdracht_id = db.Column(db.Integer, db.ForeignKey('db_opdracht.id'), nullable=True, index=True)
     items = db.relationship('db_checklist_item', backref='checklist', cascade='all, delete-orphan', lazy='selectin')
 
@@ -469,8 +476,8 @@ class db_checklist_template(db.Model):
     scope = db.Column(db.String(255), default='')
     description = db.Column(db.Text(), default='')
     data = db.Column(db.Text(), nullable=False, default='{"phases": []}')  # JSON: {"phases": [...]}
-    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=nu_utc)
+    updated_at = db.Column(db.DateTime, default=nu_utc, onupdate=nu_utc)
 
 
 class db_checklist_item(db.Model):
@@ -482,7 +489,7 @@ class db_checklist_item(db.Model):
     notitie = db.Column(db.Text(), default='')
     note_id = db.Column(db.Integer)
     finding_id = db.Column(db.Integer)
-    updated_at = db.Column(db.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=nu_utc, onupdate=nu_utc)
 
 
 class db_changelog(db.Model):
@@ -494,7 +501,7 @@ class db_changelog(db.Model):
     old_value = db.Column(db.Text())
     new_value = db.Column(db.Text())
     changed_by = db.Column(db.String(200), default='operator')
-    changed_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+    changed_at = db.Column(db.DateTime, default=nu_utc)
 
 
 class db_defectdojo_sync(db.Model):
@@ -508,7 +515,7 @@ class db_defectdojo_sync(db.Model):
     last_action = db.Column(db.String(20), default='')   # 'create', 'update', 'status'
     last_status = db.Column(db.String(20), default='')   # resultaat: 'ok', 'error'
     last_message = db.Column(db.Text(), default='')
-    synced_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+    synced_at = db.Column(db.DateTime, default=nu_utc)
 
 
 class db_asset(db.Model):
@@ -531,8 +538,8 @@ class db_asset(db.Model):
     getest = db.Column(db.String(16), default='untested')    # untested/in_progress/tested/out_of_scope
     in_scope = db.Column(db.Boolean, default=True)
     notitie = db.Column(db.Text(), default='')
-    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=nu_utc)
+    updated_at = db.Column(db.DateTime, default=nu_utc, onupdate=nu_utc)
 
     opdracht = db.relationship('db_opdracht', backref=db.backref('assets', lazy='selectin'))
     kinderen = db.relationship('db_asset', backref=db.backref('ouder', remote_side=[id]), lazy='selectin')
@@ -552,7 +559,7 @@ class db_asset_anchor(db.Model):
     asset_id = db.Column(db.Integer, db.ForeignKey('db_asset.id'), nullable=False, index=True)
     finding_id = db.Column(db.Integer, db.ForeignKey('db_bevinding.id'), nullable=False, index=True)
     relatie = db.Column(db.String(20), default='affected')   # affected/tested/pivot
-    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=nu_utc)
 
     __table_args__ = (
         db.UniqueConstraint('asset_id', 'finding_id', name='uq_anchor_asset_finding'),
@@ -578,7 +585,7 @@ class db_explore_node(db.Model):
     status = db.Column(db.String(20), default='pending')
     prioriteit = db.Column(db.Integer, default=5)   # 0..9 (hoger = belangrijker)
     finding_id = db.Column(db.Integer, db.ForeignKey('db_bevinding.id'), nullable=True, index=True)
-    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=nu_utc)
 
     opdracht = db.relationship('db_opdracht', backref=db.backref('explore_nodes', lazy='selectin'))
     finding = db.relationship('db_bevindingen', backref=db.backref('explore_nodes', lazy='selectin'))
@@ -598,7 +605,7 @@ class db_explore_edge(db.Model):
     from_node = db.Column(db.Integer, db.ForeignKey('db_explore_node.id'), nullable=False, index=True)
     to_node = db.Column(db.Integer, db.ForeignKey('db_explore_node.id'), nullable=False, index=True)
     edge_type = db.Column(db.String(20), default='derive')
-    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=nu_utc)
 
     __table_args__ = (
         db.UniqueConstraint('from_node', 'to_node', 'edge_type', name='uq_explore_edge'),
@@ -621,7 +628,7 @@ class db_explore_asset_anchor(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     node_id = db.Column(db.Integer, db.ForeignKey('db_explore_node.id'), nullable=False, index=True)
     asset_id = db.Column(db.Integer, db.ForeignKey('db_asset.id'), nullable=False, index=True)
-    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=nu_utc)
 
     __table_args__ = (
         db.UniqueConstraint('node_id', 'asset_id', name='uq_explore_asset_anchor'),

@@ -111,7 +111,7 @@ def ssrf_callback():
     if not os.path.exists(loot_dir):
         os.makedirs(loot_dir)
 
-    date = datetime.datetime.utcnow()
+    date = nu_utc()
     tijdstip = calendar.timegm(date.utctimetuple())
     schrijven(f"raw/loot/{ip}/ssrf/{tijdstip}_ssrf.txt", data or f'callback from {ip}')
 

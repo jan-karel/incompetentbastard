@@ -21,7 +21,7 @@ from flask import Blueprint, request, jsonify
 
 from meuk.flask.models import (
     db, db_bevindingen, db_bevindingen_templates, db_evidence,
-    db_defectdojo_sync, db_asset, db_asset_anchor,
+    db_defectdojo_sync, db_asset, db_asset_anchor, nu_utc,
 )
 from meuk.flask.findings import _cvss_to_severity, _get_appdata
 from meuk.flask.security import require_dashboard_access
@@ -219,7 +219,7 @@ def _finding_payload(bev, template, test_id, endpoint_ids=None):
         'mitigation': aanbeveling,
         'impact': impact,
         'references': refs,
-        'date': (bev.discovered_at or bev.created_at or datetime.datetime.utcnow()).strftime('%Y-%m-%d'),
+        'date': (bev.discovered_at or bev.created_at or nu_utc()).strftime('%Y-%m-%d'),
         'numerical_severity': _DD_NUM_SEVERITY.get(dd_sev, 'S4'),
     }
     # CVSS basescore als float
@@ -315,7 +315,7 @@ def _log_sync(finding_id, dd_finding_id, engagement_id, action, status, message)
     row.last_action = action
     row.last_status = status
     row.last_message = (message or '')[:2000]
-    row.synced_at = datetime.datetime.utcnow()
+    row.synced_at = nu_utc()
 
 
 # ---------------------------------------------------------------------------

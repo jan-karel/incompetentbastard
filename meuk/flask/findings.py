@@ -406,6 +406,25 @@ _ZWAKKE_OPENER = _re.compile(
     _re.IGNORECASE)
 
 
+# Inhoudsarme aanhef die we wegstrippen zodat de kern van de impact vooraan komt
+# te staan (bv. "De impact van deze bevinding is dat ..." -> "...").
+_ZWAKKE_AANHEF = _re.compile(
+    r'^\s*(?:de|het)\s+impact\b[^.]*?\b(?:dat|is|kan|betekent|:)\s+(?:dat\s+)?'
+    r'|^\s*the\s+impact\b[^.]*?\b(?:that|is|can|means|:)\s+(?:that\s+)?',
+    _re.IGNORECASE)
+
+
+def _strip_zwakke_aanhef(z):
+    """Verwijder een inhoudsarme 'de impact ... is/dat'-aanhef, mits er genoeg
+    kern overblijft; anders de zin ongewijzigd laten."""
+    m = _ZWAKKE_AANHEF.match(z)
+    if m:
+        rest = z[m.end():].strip()
+        if len(rest) >= 20:
+            return rest[0].upper() + rest[1:]
+    return z
+
+
 def _zinnen(t):
     return [z.strip() for z in _re.split(r'(?<=[.!?])\s+', t) if z.strip()]
 
@@ -424,6 +443,7 @@ def _beknopt(text, max_len=255):
         break
     if not gekozen:
         gekozen = zinnen[0] if zinnen else t
+    gekozen = _strip_zwakke_aanhef(gekozen)
     if len(gekozen) > max_len:
         gekozen = gekozen[:max_len - 1].rstrip() + '…'
     return gekozen
@@ -438,8 +458,9 @@ def _beknopt_aanbeveling(text, taal='nl', max_len=255):
     labels = [_strip_latex(lab).rstrip(':').strip() for lab in labels]
     labels = [lab for lab in labels if lab]
     if len(labels) >= 2:
-        prefix = 'Aanbevolen maatregelen: ' if taal == 'nl' else 'Recommended measures: '
-        s = prefix + ', '.join(labels)
+        # Alleen de kernmaatregelen zelf; geen overbodige inleidende tekst.
+        s = ', '.join(labels)
+        s = s[0].upper() + s[1:]
         if not s.endswith('.'):
             s += '.'
         if len(s) > max_len:
@@ -653,7 +674,7 @@ def bevinding_bewerken(bevinding_id):
 def bevinding_verwijderen(bevindingen_id):
     _csrf_check(request.form.get('csrf_token'))
     verwijder = db_bevindingen.query.filter_by(id=bevindingen_id).first_or_404()
-    verwijder.deleted_at = datetime.datetime.utcnow()
+    verwijder.deleted_at = nu_utc()
     db.session.commit()
     return redirect(url_for('findings_bp.bevindingen_overzicht'))
 
@@ -1137,7 +1158,7 @@ def export_findings():
 
     payload = {
         'schema_version': '1.0',
-        'exported_at': datetime.datetime.utcnow().isoformat() + 'Z',
+        'exported_at': nu_utc().isoformat() + 'Z',
         'project': {'name': 'Incompetent Bastard', 'description': ''},
         'catalogs': catalogs,
         'project_findings': project_findings,
@@ -2399,7 +2420,7 @@ def batch_action():
         for fid in ids:
             bev = db.session.get(db_bevindingen, fid)
             if bev and not bev.deleted_at:
-                bev.deleted_at = datetime.datetime.utcnow()
+                bev.deleted_at = nu_utc()
                 affected += 1
 
     else:
@@ -2778,7 +2799,7 @@ def findings_merge():
             keep.uitwerken = ((keep.uitwerken or '').rstrip()
                               + '\n\n--- Samengevoegd uit #{} ---\n'.format(mid)
                               + m.uitwerken)
-        m.deleted_at = datetime.datetime.utcnow()
+        m.deleted_at = nu_utc()
         _log_change('db_bevinding', mid, 'merged_into', '', str(keep_id))
         samengevoegd += 1
     db.session.commit()

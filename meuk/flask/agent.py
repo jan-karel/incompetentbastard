@@ -8,7 +8,7 @@ from secrets import token_urlsafe
 from flask import Blueprint, jsonify, render_template, request
 
 from app import db
-from meuk.flask.models import db_agents, db_commands
+from meuk.flask.models import db_agents, db_commands, nu_utc
 from meuk.flask.security import require_dashboard_access
 
 agent_bp = Blueprint('agent_bp', __name__,
@@ -92,7 +92,7 @@ def _rec_response(agent, response_text):
 def agent_checkin():
     data = request.get_json(silent=True) or {}
     aid = token_urlsafe(24)
-    now = datetime.utcnow()
+    now = nu_utc()
     agent = db_agents(
         agent_id=aid,
         hostname=data.get('hostname', 'unknown'),
@@ -119,7 +119,7 @@ def agent_get_cmd(agent_id):
     agent = db_agents.query.filter_by(agent_id=agent_id).first()
     if not agent:
         return '', 404
-    agent.last_seen = datetime.utcnow()
+    agent.last_seen = nu_utc()
     cmd = db_commands.query.filter_by(agent_id=agent_id, status='queued') \
         .order_by(db_commands.id.asc()).first()
     if not cmd:
@@ -139,7 +139,7 @@ def agent_post_res(cmd_id):
         return '', 404
     cmd.response = request.get_data(as_text=True)
     cmd.status = 'done'
-    cmd.completed = datetime.utcnow()
+    cmd.completed = nu_utc()
     db.session.commit()
     # Log de response in de recording
     agent = db_agents.query.filter_by(agent_id=cmd.agent_id).first()
@@ -153,7 +153,7 @@ def agent_heartbeat(agent_id):
     agent = db_agents.query.filter_by(agent_id=agent_id).first()
     if not agent:
         return '', 404
-    agent.last_seen = datetime.utcnow()
+    agent.last_seen = nu_utc()
     db.session.commit()
     return '', 200
 
@@ -170,7 +170,7 @@ def agents_dashboard():
 def api_agents_list():
     require_dashboard_access()
     agents = db_agents.query.order_by(db_agents.last_seen.desc()).all()
-    now = datetime.utcnow()
+    now = nu_utc()
     result = []
     for a in agents:
         delta = (now - a.last_seen).total_seconds() if a.last_seen else 9999
@@ -230,7 +230,7 @@ def api_agent_command(agent_id):
         agent_id=agent_id,
         command=command_text,
         status='queued',
-        created=datetime.utcnow(),
+        created=nu_utc(),
     )
     db.session.add(cmd)
     db.session.commit()

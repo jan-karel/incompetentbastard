@@ -57,7 +57,7 @@ def froufrou():
         naam = request.args.get('naam').replace('.', '').replace('/', '_')
         schrijven(f"raw/loot/{ip}/xxe/{naam}.txt", data)
     else:
-        date = datetime.datetime.utcnow()
+        date = nu_utc()
         tijdstip = calendar.timegm(date.utctimetuple())
         schrijven(f"raw/loot/{ip}/xxe/{tijdstip}_xxe.txt", data)
 

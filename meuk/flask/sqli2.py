@@ -148,7 +148,7 @@ def sqli2_callback():
     if not os.path.exists(loot_dir):
         os.makedirs(loot_dir)
 
-    date = datetime.datetime.utcnow()
+    date = nu_utc()
     tijdstip = calendar.timegm(date.utctimetuple())
     schrijven(f"raw/loot/{ip}/sqli/{tijdstip}_sqli.txt", data)
 

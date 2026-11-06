@@ -16,6 +16,7 @@ from meuk.flask.models import (
     db_checklist_template,
     db_instellingen,
     db_notes,
+    nu_utc,
 )
 from meuk.flask.security import require_dashboard_access
 
@@ -342,7 +343,7 @@ def update_item_status(checklist_id, item_ref):
         return jsonify({"ok": False, "error": "item niet gevonden"}), 404
 
     item.status = new_status
-    cl.updated_at = datetime.datetime.utcnow()
+    cl.updated_at = nu_utc()
     db.session.commit()
     return jsonify({"ok": True, "status": item.status})
 
@@ -892,7 +893,7 @@ def update_checklist(checklist_id):
         cl.target = (body.get("target") or "").strip()[:255]
     if "status" in body:
         cl.status = (body.get("status") or "active").strip()[:16] or "active"
-    cl.updated_at = datetime.datetime.utcnow()
+    cl.updated_at = nu_utc()
     db.session.commit()
     return jsonify({"ok": True, "naam": cl.naam, "target": cl.target,
                     "status": cl.status})

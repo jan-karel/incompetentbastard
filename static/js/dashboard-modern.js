@@ -115,15 +115,15 @@
   if (hostModal) hostModal.addEventListener("click", (e) => { if (e.target === hostModal) closeHostModal(); });
 
   // ── Instellingen modal ──────────────────────────────────────
-  const settingsModal = document.getElementById("settings-modal");
+  const settingsModal = document.getElementById("settings-modal-dash");
   const togglePublicUpload = document.getElementById("toggle-public-upload");
   const togglePublicDownloads = document.getElementById("toggle-public-downloads");
   const togglePublicPayloads = document.getElementById("toggle-public-payloads");
   const toggleProxy = document.getElementById("toggle-proxy");
   const toggleObfuscate = document.getElementById("toggle-obfuscate");
   const obfTechniqueSelect = document.getElementById("obf-technique-select");
-  const btnSettings = document.getElementById("btn-settings");
-  const btnSettingsClose = document.getElementById("btn-settings-close");
+  const btnSettings = document.getElementById("btn-settings-dash");
+  const btnSettingsClose = document.getElementById("btn-settings-dash-close");
   const btnSettingsSave = document.getElementById("btn-settings-save");
 
   function openSettingsModal() {

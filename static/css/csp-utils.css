@@ -1,0 +1,38 @@
+/* CSP-strikte utility-klassen — vervangen inline style="..."-attributen op
+   dashboard-pagina's (style-src 'self' 'nonce-...', geen unsafe-inline).
+   JS mag element.style blijven zetten (valt buiten style-src-attr). */
+
+.is-hidden { display: none; }
+.nowrap { white-space: nowrap; }
+
+.mt6 { margin-top: 6px; }
+.mt12 { margin-top: 12px; }
+.mt14 { margin-top: 14px; }
+.ml-auto { margin-left: auto; }
+.ml10 { margin-left: 10px; }
+
+.w80 { width: 80px; }
+.w100 { width: 100px; }
+.w140 { width: 140px; }
+.minw200 { min-width: 200px; }
+.mw360 { max-width: 360px; }
+
+.grow200 { flex: 1; min-width: 200px; }
+.grow240 { flex: 1; min-width: 240px; }
+
+.fs12 { font-size: 12px; }
+.pad4-10 { padding: 4px 10px; }
+.muted-text { color: var(--muted); }
+
+.flex-col { display: flex; flex-direction: column; min-height: 420px; }
+.flex-end { display: flex; gap: 4px; align-items: end; }
+.grid-span-all { grid-column: 1 / -1; }
+.border-top-pad { border-top: 1px solid var(--border, #333); padding-top: 8px; }
+
+/* severity-/status-badges (rapport-validatie) */
+.rv-badge { padding: 2px 8px; border-radius: 3px; font-size: 12px; }
+.rv-badge-sev { color: #fff; }
+.rv-badge-rem { background: #e5e7eb; }
+.rv-danger { color: var(--danger, #ef4444); margin-bottom: 8px; }
+.rv-warning { color: var(--warning, #f59e0b); }
+.rv-success { color: var(--success, #22c55e); }

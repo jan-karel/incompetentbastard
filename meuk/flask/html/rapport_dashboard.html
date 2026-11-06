@@ -464,7 +464,7 @@
     <div class="mt-6">
       <label class="fs-12"><input type="checkbox" id="include-checklists"> Checklists als bijlage</label>
     </div>
-    <div id="checklist-select-wrap" class="mt-6" style="display:none">
+    <div id="checklist-select-wrap" class="mt-6 is-hidden">
       {% for cl in checklists %}
       <label class="fs-12 d-block"><input type="checkbox" class="checklist-cb" value="{{ cl.id }}" checked>
         {{ cl.naam }} ({{ cl.checklist_type }}) — {{ cl.target }}</label>
@@ -816,17 +816,17 @@
       .then(function(d) {
         var html = "";
         if (d.errors && d.errors.length) {
-          html += '<div style="color:var(--danger,#ef4444);margin-bottom:8px">';
+          html += '<div class="rv-danger">';
           d.errors.forEach(function(e) { html += "<p>&#10060; " + e + "</p>"; });
           html += "</div>";
         }
         if (d.warnings && d.warnings.length) {
-          html += '<div style="color:var(--warning,#f59e0b)">';
+          html += '<div class="rv-warning">';
           d.warnings.forEach(function(w) { html += "<p>&#9888; " + w + "</p>"; });
           html += "</div>";
         }
         if (!d.errors.length && !d.warnings.length) {
-          html = '<p style="color:var(--success,#22c55e)">&#10004; Geen problemen gevonden</p>';
+          html = '<p class="rv-success">&#10004; Geen problemen gevonden</p>';
         }
         html += "<p class='help'>" + (d.findings_count || 0) + " bevindingen klaar voor rapport</p>";
         resultsEl.innerHTML = html;
@@ -845,15 +845,17 @@
           var sevColors = {critical:"#820000",high:"#e60000",medium:"#f09600",low:"#ffdc00",none:"#00be00"};
           var html = "";
           Object.keys(d.severity || {}).forEach(function(k) {
-            html += '<span style="padding:2px 8px;border-radius:3px;background:' + (sevColors[k]||"#eee") + ';color:#fff;font-size:12px">' + k + ": " + d.severity[k] + "</span> ";
+            html += '<span class="rv-badge rv-badge-sev" data-bg="' + (sevColors[k]||"#eee") + '">' + k + ": " + d.severity[k] + "</span> ";
           });
           sevEl.innerHTML = html;
+          // CSP-strikt: dynamische achtergrond via DOM i.p.v. inline style-attribuut
+          sevEl.querySelectorAll('[data-bg]').forEach(function(el){ el.style.background = el.dataset.bg; });
         }
         var remEl = document.getElementById("metric-remediation");
         if (remEl) {
           var html2 = "";
           Object.keys(d.remediation || {}).forEach(function(k) {
-            html2 += '<span style="padding:2px 8px;border-radius:3px;background:#e5e7eb;font-size:12px">' + k + ": " + d.remediation[k] + "</span> ";
+            html2 += '<span class="rv-badge rv-badge-rem">' + k + ": " + d.remediation[k] + "</span> ";
           });
           remEl.innerHTML = html2;
         }

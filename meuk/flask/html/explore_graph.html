@@ -4,7 +4,7 @@
 {% block styles %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/safe-overview.css') }}" />
 <link rel="stylesheet" href="{{ url_for('static', filename='css/finding-form.css') }}" />
-<style>
+<style nonce="{{ csp_nonce }}">
   .ex-layout { display: flex; gap: 14px; align-items: flex-start; }
   .ex-canvas-wrap { flex: 1; min-width: 0; overflow: auto; max-height: 72vh; border: 1px solid #e5e7eb; border-radius: 8px; background: #fafbfc; }
   .ex-svg { display: block; }
@@ -17,6 +17,16 @@
   .ex-legend { display: flex; gap: 12px; flex-wrap: wrap; font-size: 12px; align-items: center; }
   .lg { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 4px; vertical-align: middle; }
   .lg-line { display: inline-block; width: 18px; height: 3px; margin-right: 4px; vertical-align: middle; }
+  /* CSP-strikt: geen inline style-attributen */
+  .pad12 { padding: 12px; }
+  .nowrap { white-space: nowrap; }
+  .grow { flex: 1; min-width: 220px; }
+  .scan-preview { margin-top: 8px; max-height: 180px; overflow: auto; background: #f6f7f9; padding: 8px; border-radius: 6px; font-size: 12px; }
+  .lg-start { background: #64748b; } .lg-goal { background: #059669; }
+  .lg-intent { background: #3b82f6; } .lg-fact { background: #d97706; }
+  .lg-vuln { background: #dc2626; } .lg-hint { background: #8b5cf6; }
+  .lgl-derive { background: #10b981; } .lgl-intent { background: #6366f1; }
+  .lgl-produce { background: #f59e0b; } .lgl-prove { background: #ef4444; }
 </style>
 {% endblock %}
 
@@ -35,19 +45,19 @@
       <select id="filter-opdracht" class="form-control w-220"><option value="">Alle opdrachten</option></select>
       <span class="ex-legend">
         <strong>Knopen:</strong>
-        <span><span class="lg" style="background:#64748b"></span>Start</span>
-        <span><span class="lg" style="background:#059669"></span>Doel</span>
-        <span><span class="lg" style="background:#3b82f6"></span>Intent</span>
-        <span><span class="lg" style="background:#d97706"></span>Feit</span>
-        <span><span class="lg" style="background:#dc2626"></span>Kwetsbaarheid</span>
-        <span><span class="lg" style="background:#8b5cf6"></span>Hint</span>
+        <span><span class="lg lg-start"></span>Start</span>
+        <span><span class="lg lg-goal"></span>Doel</span>
+        <span><span class="lg lg-intent"></span>Intent</span>
+        <span><span class="lg lg-fact"></span>Feit</span>
+        <span><span class="lg lg-vuln"></span>Kwetsbaarheid</span>
+        <span><span class="lg lg-hint"></span>Hint</span>
       </span>
       <span class="ex-legend ml-auto">
         <strong>Kanten:</strong>
-        <span><span class="lg-line" style="background:#10b981"></span>Afgeleid</span>
-        <span><span class="lg-line" style="background:#6366f1"></span>Intent-keten</span>
-        <span><span class="lg-line" style="background:#f59e0b"></span>Produceert</span>
-        <span><span class="lg-line" style="background:#ef4444"></span>Bewijst</span>
+        <span><span class="lg-line lgl-derive"></span>Afgeleid</span>
+        <span><span class="lg-line lgl-intent"></span>Intent-keten</span>
+        <span><span class="lg-line lgl-produce"></span>Produceert</span>
+        <span><span class="lg-line lgl-prove"></span>Bewijst</span>
       </span>
       <span>
         <button class="btn btn-sm" id="btn-import-chains" type="button" title="Bestaande exploit-chains importeren als knopen/kanten">Importeer chains</button>
@@ -71,7 +81,7 @@
         <option value="vulnerability">Kwetsbaarheid</option>
         <option value="hint">Hint</option>
       </select>
-      <input type="text" id="new-titel" class="form-control" placeholder="Titel van de knoop" style="flex:1;min-width:220px" />
+      <input type="text" id="new-titel" class="form-control grow" placeholder="Titel van de knoop" />
       <input type="number" id="new-prio" class="form-control w-120" placeholder="Prioriteit 0-9" min="0" max="9" />
       <button class="btn" id="btn-add-node" type="button">Knoop toevoegen</button>
     </div>
@@ -100,21 +110,21 @@
         <option value="paste">Geplakte tekst</option>
         <option value="output">Output-bestand</option>
       </select>
-      <select id="scan-output-id" class="form-control" style="flex:1;min-width:220px;display:none"></select>
+      <select id="scan-output-id" class="form-control grow"></select>
       <input type="text" id="scan-label" class="form-control w-220" placeholder="Label (bijv. nmap acme)" />
-      <label class="d-flex items-center gap-8" style="white-space:nowrap"><input type="checkbox" id="scan-findings" checked /> Bevindingen aanmaken</label>
+      <label class="d-flex items-center gap-8 nowrap"><input type="checkbox" id="scan-findings" checked /> Bevindingen aanmaken</label>
       <button class="btn" id="btn-scan-preview" type="button">Preview</button>
       <button class="btn" id="btn-scan-import" type="button">Importeren</button>
       <span id="scan-msg" class="help"></span>
     </div>
     <textarea id="scan-text" class="form-control" rows="4" placeholder="Plak hier scan-/tooloutput…"></textarea>
-    <pre id="scan-preview" style="display:none;margin-top:8px;max-height:180px;overflow:auto;background:#f6f7f9;padding:8px;border-radius:6px;font-size:12px"></pre>
+    <pre id="scan-preview" class="scan-preview"></pre>
   </div>
 </section>
 
 <div class="ex-layout">
   <section class="card ex-canvas-wrap" id="canvas-wrap">
-    <div id="ex-canvas"><p class="help" style="padding:12px">Laden…</p></div>
+    <div id="ex-canvas"><p class="help pad12">Laden…</p></div>
   </section>
   <section class="card ex-side">
     <div class="card-head"><h2>Detail</h2></div>
@@ -193,7 +203,7 @@
     canvas.innerHTML = "";
     var nodes = data.nodes || [];
     if (!nodes.length) {
-      canvas.innerHTML = '<p class="help" style="padding:12px">Nog geen knopen. Voeg een start/doel toe en bouw de keten.</p>';
+      canvas.innerHTML = '<p class="help pad12">Nog geen knopen. Voeg een start/doel toe en bouw de keten.</p>';
       return;
     }
     var coords = layout(nodes);
@@ -369,7 +379,7 @@
         var sel = (d.nodes || []).filter(function(n){ return n.id === selectedId; })[0];
         if (sel) showDetail(sel);
       }
-    }).catch(function(){ canvas.innerHTML = '<p class="help" style="padding:12px">Fout bij laden.</p>'; });
+    }).catch(function(){ canvas.innerHTML = '<p class="help pad12">Fout bij laden.</p>'; });
   }
 
   jsonFetch("/api/opdrachten").then(function(d){
@@ -432,6 +442,9 @@
   var scanText = document.getElementById("scan-text");
   var scanMsg = document.getElementById("scan-msg");
   var scanPreview = document.getElementById("scan-preview");
+  // Begintoestand via JS (CSP-strikt: geen inline style-attributen)
+  scanOutputSel.style.display = "none";
+  scanPreview.style.display = "none";
 
   function toggleScanSource() {
     var isOutput = scanSource.value === "output";

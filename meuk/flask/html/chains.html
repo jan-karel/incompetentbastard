@@ -4,12 +4,13 @@
 {% block styles %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/safe-overview.css') }}" />
 <link rel="stylesheet" href="{{ url_for('static', filename='css/finding-form.css') }}" />
-<style>
+<style nonce="{{ csp_nonce }}">
   .chain-row { overflow-x: auto; padding: 8px 0; }
   .chain-svg { display: block; }
   .chain-node rect { stroke: #333; stroke-width: 1; rx: 6; }
   .chain-node text { font: 12px sans-serif; fill: #111; }
   .chain-edge { stroke: #555; stroke-width: 2; marker-end: url(#arrow); fill: none; }
+  .chain-select { min-width: 260px; flex: 1; }
 </style>
 {% endblock %}
 
@@ -28,11 +29,11 @@
   <div class="card-body">
     <p class="help">Koppel twee bevindingen als opeenvolgende stappen (van &rarr; naar). Kies uit bestaande bevindingen. Bestaande schakels verwijder je hieronder bij &ldquo;Schakels&rdquo;.</p>
     <div class="d-flex gap-8 items-center flex-wrap">
-      <select id="chain-from" class="form-control" style="min-width:260px;flex:1">
+      <select id="chain-from" class="form-control chain-select">
         <option value="">Van bevinding…</option>
       </select>
       <span>&rarr;</span>
-      <select id="chain-to" class="form-control" style="min-width:260px;flex:1">
+      <select id="chain-to" class="form-control chain-select">
         <option value="">Naar bevinding…</option>
       </select>
       <button class="btn" id="btn-add-chain" type="button">Koppelen</button>

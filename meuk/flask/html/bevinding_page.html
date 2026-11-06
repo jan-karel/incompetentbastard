@@ -33,9 +33,9 @@
     <div class="evidence-gallery" id="evidence-gallery"></div>
     <div class="mt-8">
       <div class="d-flex gap-8 flex-wrap mb-8">
-        <input type="text" id="evidence-description" class="form-control" placeholder="Beschrijving (optioneel)" style="flex:1;min-width:200px" />
-        <input type="text" id="evidence-tool" class="form-control" placeholder="Tool (bijv. nmap)" style="width:140px" />
-        <select id="evidence-category" class="form-control" style="width:140px">
+        <input type="text" id="evidence-description" class="form-control grow200" placeholder="Beschrijving (optioneel)" />
+        <input type="text" id="evidence-tool" class="form-control w140" placeholder="Tool (bijv. nmap)" />
+        <select id="evidence-category" class="form-control w140">
           <option value="">Categorie…</option>
           <option value="screenshot">Screenshot</option>
           <option value="log">Log</option>
@@ -55,7 +55,7 @@
   <div class="card-head"><h2>Opdracht</h2></div>
   <div class="card-body">
     <div class="d-flex gap-8 items-center">
-      <select id="finding-opdracht" class="form-control" style="max-width:360px"
+      <select id="finding-opdracht" class="form-control mw360"
               data-huidige="{{ huidige_opdracht if huidige_opdracht is not none else '' }}">
         <option value="">-- Geen opdracht --</option>
       </select>
@@ -97,7 +97,7 @@
         <option value="app">Applicatie</option>
         <option value="endpoint">Endpoint (URL)</option>
       </select>
-      <input type="text" id="asset-waarde" class="form-control" placeholder="bijv. app.klant.nl of https://app.klant.nl/login" style="flex:1;min-width:240px" />
+      <input type="text" id="asset-waarde" class="form-control grow240" placeholder="bijv. app.klant.nl of https://app.klant.nl/login" />
       <input type="number" id="asset-poort" class="form-control w-140" placeholder="Poort (optioneel)" />
       <button class="btn" id="btn-add-asset" type="button">Koppelen</button>
     </div>

@@ -5,6 +5,12 @@
 <link rel="stylesheet" href="{{ url_for('static', filename='css/generator.css') }}" />
 <link rel="stylesheet" href="{{ url_for('static', filename='css/commands.css') }}" />
 <link rel="stylesheet" href="{{ url_for('static', filename='css/screen-terminal.css') }}" />
+<style nonce="{{ csp_nonce }}">
+  .term-output { flex: 1; min-height: 300px; }
+  .msf-panel { background: #050510; font-size: 12px; padding: 10px; margin: 0; max-height: 200px; overflow-y: auto; }
+  .msf-panel-loot { color: #94a3b8; }
+  .msf-panel-creds { color: #fbbf24; }
+</style>
 {% endblock %}
 
 {% block content %}
@@ -111,7 +117,7 @@
 <section class="card mt-14">
   <div class="card-head">
     <h2>Metasploit Terminal</h2>
-    <span id="msf-term-badge" class="status-badge msf-err" style="margin-left:10px">Niet verbonden</span>
+    <span id="msf-term-badge" class="status-badge msf-err ml10">Niet verbonden</span>
     <a href="/dashboard/msf" class="btn btn-link ml-auto fs-12">MSF Sessies &rarr;</a>
   </div>
   <div class="card-body">
@@ -123,15 +129,15 @@
           <option value="session">Meterpreter / Shell sessie</option>
         </select>
       </div>
-      <div class="field" id="msf-sid-field" style="display:none">
+      <div class="field is-hidden" id="msf-sid-field">
         <label for="msf-sid-input">Sessie #</label>
-        <input class="input" type="text" id="msf-sid-input" placeholder="1" style="width:80px" />
+        <input class="input w80" type="text" id="msf-sid-input" placeholder="1" />
       </div>
     </div>
     <div class="gen-actions screen-controls mt-8">
       <button type="button" id="msf-connect-btn" class="btn btn-primary">Verbinden</button>
       <button type="button" id="msf-disconnect-btn" class="btn" disabled>Stoppen</button>
-      <button type="button" id="msf-upgrade-btn" class="btn" style="display:none">&#8679; Upgrade Meterpreter</button>
+      <button type="button" id="msf-upgrade-btn" class="btn is-hidden">&#8679; Upgrade Meterpreter</button>
       <button type="button" id="msf-loot-btn" class="btn">Loot</button>
       <button type="button" id="msf-creds-btn" class="btn">Credentials</button>
       <span id="msf-term-status" class="status"></span>
@@ -141,20 +147,20 @@
 
 <section class="card mt-14">
   <div class="card-body p-0">
-    <div id="msf-terminal-workspace" class="term-main" style="display:flex;flex-direction:column;min-height:420px">
+    <div id="msf-terminal-workspace" class="term-main flex-col">
       <div class="term-toolbar">
         <h2 class="m-0 fs-15">Metasploit uitvoer</h2>
         <span class="spacer"></span>
         <button type="button" id="msf-clear-btn" class="btn-fs">Wis</button>
       </div>
-      <div class="screen-terminal" id="msf-output" style="flex:1;min-height:300px"></div>
+      <div class="screen-terminal term-output" id="msf-output"></div>
       <div class="screen-input-row">
         <input type="text" id="msf-cmd-input" placeholder="Typ een commando en druk Enter..." disabled />
         <button type="button" id="msf-send-btn" class="btn btn-primary" disabled>Verstuur</button>
       </div>
     </div>
-    <pre id="msf-loot-panel" style="display:none;background:#050510;color:#94a3b8;font-size:12px;padding:10px;margin:0;max-height:200px;overflow-y:auto"></pre>
-    <pre id="msf-creds-panel" style="display:none;background:#050510;color:#fbbf24;font-size:12px;padding:10px;margin:0;max-height:200px;overflow-y:auto"></pre>
+    <pre id="msf-loot-panel" class="msf-panel msf-panel-loot is-hidden"></pre>
+    <pre id="msf-creds-panel" class="msf-panel msf-panel-creds is-hidden"></pre>
   </div>
 </section>
 

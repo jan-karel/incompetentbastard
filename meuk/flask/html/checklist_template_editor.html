@@ -3,7 +3,7 @@
 
 {% block styles %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/checklists.css') }}" />
-<style>
+<style nonce="{{ csp_nonce }}">
   .tpl-meta { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   .tpl-meta .full { grid-column: 1 / -1; }
   .tpl-phase { border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px; margin-bottom: 12px; background: #fafbfc; }

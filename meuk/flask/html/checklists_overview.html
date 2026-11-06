@@ -3,6 +3,9 @@
 
 {% block styles %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/checklists.css') }}" />
+<style nonce="{{ csp_nonce }}">
+  .is-hidden { display: none; }
+</style>
 {% endblock %}
 
 {% block content %}
@@ -48,7 +51,7 @@
         <div class="d-flex gap-8 items-center flex-wrap">
           <a href="/dashboard/checklists/template/new" class="btn btn-sm">+ Nieuw sjabloon</a>
           <button type="button" class="btn btn-sm" id="btn-import-template">Importeer sjabloon</button>
-          <input type="file" id="file-import-template" accept="application/json,.json" style="display:none" />
+          <input type="file" id="file-import-template" accept="application/json,.json" class="is-hidden" />
           <span id="tpl-import-status" class="help"></span>
         </div>
       </div>
@@ -113,7 +116,7 @@
     <h2>Actieve checklists</h2>
     <div class="d-flex gap-8 items-center">
       <button type="button" class="btn btn-sm" id="btn-import-checklist">Importeer checklist</button>
-      <input type="file" id="file-import-checklist" accept="application/json,.json" style="display:none" />
+      <input type="file" id="file-import-checklist" accept="application/json,.json" class="is-hidden" />
       <span id="cl-import-status" class="help"></span>
     </div>
   </div>

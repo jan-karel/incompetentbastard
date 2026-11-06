@@ -4,7 +4,7 @@
 {% block styles %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/safe-overview.css') }}" />
 <link rel="stylesheet" href="{{ url_for('static', filename='css/finding-form.css') }}" />
-<style>
+<style nonce="{{ csp_nonce }}">
   .bof-out { font-family: monospace; white-space: pre-wrap; word-break: break-all;
              background: #f0f0f0; padding: 10px; border-radius: 4px; }
   :root[data-theme="dark"] .bof-out { background: #1c2230; }

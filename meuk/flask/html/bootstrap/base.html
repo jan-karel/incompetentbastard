@@ -12,6 +12,11 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='css/cvss4-calculator.css') }}" />
   <link rel="stylesheet" href="{{ url_for('static', filename='css/utility.css') }}" />
   <link rel="stylesheet" href="{{ url_for('static', filename='css/inject-modal.css') }}" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/csp-utils.css') }}" />
+  <style nonce="{{ csp_nonce }}">
+    .project-switcher { display: flex; align-items: center; gap: 6px; margin-left: 8px; }
+    .project-switcher select { max-width: 220px; padding: 4px 8px; border-radius: 6px; }
+  </style>
   {% block styles %}{% endblock %}
 </head>
 <body>
@@ -55,10 +60,9 @@
             <button id="searchClear" class="clear" type="button" aria-label="Clear search">✕</button>
           </div>
           {% if nav_opdrachten %}
-          <div class="project-switcher" style="display:flex;align-items:center;gap:6px;margin-left:8px">
+          <div class="project-switcher">
             <span title="Actief project" aria-hidden="true">📁</span>
-            <select id="project-select" title="Actief project" aria-label="Actief project"
-                    style="max-width:220px;padding:4px 8px;border-radius:6px">
+            <select id="project-select" title="Actief project" aria-label="Actief project">
               {% for o in nav_opdrachten %}
               <option value="{{ o.id }}" {% if o.id == nav_active_opdracht_id %}selected{% endif %}>{{ o.naam }}{% if o.klant %} — {{ o.klant }}{% endif %}</option>
               {% endfor %}

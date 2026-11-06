@@ -244,6 +244,15 @@ def create_app():
             except Exception:
                 pass
 
+            # Auto-migrate: multi-project — opdracht_id op notes/checklist/dd-sync
+            for tbl in ("db_notes", "db_checklist", "db_defectdojo_sync"):
+                try:
+                    conn.execute(db.text(
+                        f"ALTER TABLE {tbl} ADD COLUMN opdracht_id INTEGER"))
+                    conn.commit()
+                except Exception:
+                    pass
+
             # Auto-migrate: debrief (lessons learned)
             for col, coltype in [
                 ("debrief_context",  "TEXT DEFAULT ''"),
@@ -335,9 +344,11 @@ def create_app():
         # Now safe to import blueprints (some query db at module level)
         from meuk.flask import admin
         from meuk.flask import agent
+        from meuk.flask import audit_modules
         from meuk.flask import amsi
         from meuk.flask import bof
         from meuk.flask import chains
+        from meuk.flask import explore
         from meuk.flask import checklists
         from meuk.flask import csrf
         from meuk.flask import defectdojo
@@ -362,6 +373,7 @@ def create_app():
         from meuk.flask import xxs
 
         app.register_blueprint(agent.agent_bp)
+        app.register_blueprint(audit_modules.audit_modules_bp)
         app.register_blueprint(amsi.amsi_bp)
         app.register_blueprint(checklists.checklists_bp)
         app.register_blueprint(index.index_bp)
@@ -380,6 +392,7 @@ def create_app():
         app.register_blueprint(opdracht.opdracht_bp)
         app.register_blueprint(docker_status.docker_bp)
         app.register_blueprint(chains.chains_bp)
+        app.register_blueprint(explore.explore_bp)
         app.register_blueprint(bof.bof_bp)
         app.register_blueprint(macro.macro_bp)
         app.register_blueprint(notes.notes_bp)

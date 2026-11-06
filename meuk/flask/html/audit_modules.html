@@ -1,0 +1,23 @@
+{% extends "bootstrap/base.html" %}
+{% block title %}Auditmodules{% endblock %}
+{% block content %}
+<h1>Auditmodules</h1>
+<p>Bekijk moduleontwerpen en platformvereisten. De catalogus voert geen modules uit.</p>
+<p><a href="/api/audit-modules/demo-result/example">Bekijk het fictieve voorbeeldresultaat</a></p>
+{% for module in modules %}
+<section class="card">
+  <div class="card-body">
+    <h2>{{ module.name }}</h2>
+    <p>{{ module.description }}</p>
+    <dl>
+      <dt>Versie</dt><dd>{{ module.version }}</dd>
+      <dt>Platform</dt><dd>{{ module.platforms | join(', ') }}</dd>
+      <dt>Architectuur</dt><dd>{{ module.architectures | join(', ') }}</dd>
+      <dt>Runtime</dt><dd>{{ module.runtime }}</dd>
+      <dt>Vereiste rechten</dt><dd>{{ module.required_privilege }}</dd>
+      <dt>Beschikbaarheid</dt><dd>{% if module.implementation == 'fixture' %}Fictief voorbeeld{% else %}Gepland{% endif %}</dd>
+    </dl>
+  </div>
+</section>
+{% endfor %}
+{% endblock %}

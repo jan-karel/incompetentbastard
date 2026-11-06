@@ -528,15 +528,22 @@ def _build_checklist_appendix(checklist_ids, taal='nl'):
 
 @rapport_bp.route('/dashboard/report', methods=['GET'])
 def rapport_dashboard():
-    findings = db_bevindingen.query.all()
-    notes = db_notes.query.order_by(db_notes.volgorde.asc(), db_notes.id.desc()).all()
+    from meuk.flask import project as _project
+    _oid = _project.current_opdracht_id()
+    findings = _project.apply_scope(
+        db_bevindingen.query, db_bevindingen.opdracht_id, _oid).all()
+    notes = _project.apply_scope(
+        db_notes.query, db_notes.opdracht_id, _oid
+    ).order_by(db_notes.volgorde.asc(), db_notes.id.desc()).all()
     templates = db_bevindingen_templates.query.all()
     template_map = {str(t.id): t for t in templates}
     severity_map = {}
     for f in findings:
         sev, _ = _cvss_to_severity(f.basescore or (template_map.get(f.ref, None) and template_map[f.ref].basescore) or '0')
         severity_map[f.id] = sev
-    checklists = db_checklist.query.order_by(db_checklist.id.desc()).all()
+    checklists = _project.apply_scope(
+        db_checklist.query, db_checklist.opdracht_id, _oid
+    ).order_by(db_checklist.id.desc()).all()
     return render_template('rapport_dashboard.html',
                            findings=findings, notes=notes,
                            template_map=template_map, severity_map=severity_map,
@@ -549,18 +556,26 @@ def gen_rapport():
     evidence_dir = os.path.join(_RAPPORT_DIR, 'evidence')
     os.makedirs(evidence_dir, exist_ok=True)
 
+    # Actief project bepalen (query-arg wint, bv. in de async-thread; anders sessie)
+    from meuk.flask import project as _project
+    _oid = _project.resolve_opdracht_id(request.args.get('opdracht_id', type=int))
+    _project.set_override(_oid)  # alle onderliggende helpers scopen hierop
+
     # Status filter
     include_draft = request.args.get('include_draft', '0') == '1'
-    base_query = db_bevindingen.query
+    base_query = _project.apply_scope(
+        db_bevindingen.query, db_bevindingen.opdracht_id, _oid)
     if not include_draft:
         base_query = base_query.filter(db_bevindingen.status == 'final')
 
-    # Notities met rapport=True, gesorteerd op volgorde
-    notities = db_notes.query.filter_by(rapport=True).order_by(db_notes.volgorde.asc()).all()
+    # Notities met rapport=True (gescoped op het project), gesorteerd op volgorde
+    notities = _project.apply_scope(
+        db_notes.query.filter_by(rapport=True), db_notes.opdracht_id, _oid
+    ).order_by(db_notes.volgorde.asc()).all()
     notes_data = [{'naam': n.naam or '', 'uitwerken': n.uitwerken or ''} for n in notities]
 
-    # Metadata
-    s = _get_appdata()
+    # Metadata uit de projectconfig (val terug op globale instellingen)
+    s = _project.config_for(_oid) or _get_appdata()
 
     # Taal ophalen
     taal = (getattr(s, 'rapport_taal', '') if s else '') or 'nl'
@@ -1047,6 +1062,54 @@ def _chains_md_lines(taal='nl'):
     return lines
 
 
+def _coverage_data():
+    """Haal de asset-coverage-graaf op (lazy import om cirkels te vermijden)."""
+    try:
+        from meuk.flask.findings import build_asset_graph
+        return build_asset_graph()
+    except Exception:
+        return {'nodes': [], 'edges': [], 'stats': {}}
+
+
+def _append_coverage_html(parts, taal='nl'):
+    """Voeg een asset-dekkingshoofdstuk toe aan de HTML (in scope/getest + tabel)."""
+    data = _coverage_data()
+    nodes = data.get('nodes', [])
+    if not nodes:
+        return
+    s = data.get('stats', {})
+    heading = 'Asset Coverage' if taal == 'en' else 'Asset-dekking'
+    parts.append('<h2>{}</h2>'.format(heading))
+    if taal == 'en':
+        parts.append('<p>In scope: {} &middot; Tested: {} &middot; Derived: {} &middot; Total: {}</p>'.format(
+            s.get('in_scope', 0), s.get('tested', 0), s.get('derived_tested', 0), s.get('total', 0)))
+        cols = ('Asset', 'Type', 'Status', 'Scope', 'Findings')
+        status_lbl = {'untested': 'Untested', 'in_progress': 'In progress',
+                      'tested': 'Tested', 'out_of_scope': 'Out of scope'}
+    else:
+        parts.append('<p>In scope: {} &middot; Getest: {} &middot; Afgeleid: {} &middot; Totaal: {}</p>'.format(
+            s.get('in_scope', 0), s.get('tested', 0), s.get('derived_tested', 0), s.get('total', 0)))
+        cols = ('Asset', 'Type', 'Status', 'Scope', 'Bevindingen')
+        status_lbl = {'untested': 'Ongetest', 'in_progress': 'Bezig',
+                      'tested': 'Getest', 'out_of_scope': 'Out of scope'}
+    parts.append('<table><thead><tr>' + ''.join('<th>{}</th>'.format(c) for c in cols) +
+                 '</tr></thead><tbody>')
+    for n in sorted(nodes, key=lambda x: (x.get('label') or '')):
+        st = status_lbl.get(n.get('getest', 'untested'), n.get('getest', ''))
+        if n.get('derived_tested') and n.get('getest') != 'tested':
+            st += ' (via exploration)'
+        label = n.get('label', '') + (':' + str(n['poort']) if n.get('poort') else '')
+        row = [
+            html_escape(label),
+            html_escape(n.get('type', '')),
+            html_escape(st),
+            ('in' if n.get('in_scope') else 'out'),
+            str(len(n.get('findings', []))),
+        ]
+        parts.append('<tr>' + ''.join('<td>{}</td>'.format(c) for c in row) + '</tr>')
+    parts.append('</tbody></table>')
+
+
 def _append_signoff_html(parts, taal='nl'):
     """Voeg sign-off tabel toe aan HTML parts."""
     label = 'Sign-off'
@@ -1244,6 +1307,7 @@ def _generate_html_preview(findings, grouped, counts, titel, auteur, subtitel, d
     _append_sla_html(parts, findings, taal)
     _append_detection_html(parts, findings, taal)
     _append_chains_html(parts, taal)
+    _append_coverage_html(parts, taal)
 
     # Notities (verkenning & ontdekking)
     if notes:
@@ -1909,19 +1973,21 @@ def _generate_retest_markdown(findings, titel, auteur, datum, taal='nl'):
 def gen_retest_rapport():
     """Genereer een compact retestrapport (HTML + Markdown + DOCX indien pandoc)."""
     os.makedirs(_RAPPORT_DIR, exist_ok=True)
-    s = _get_appdata()
+    from meuk.flask import project as _project
+    _oid = _project.current_opdracht_id()
+    s = _project.config_for(_oid) or _get_appdata()
     taal = (getattr(s, 'rapport_taal', '') if s else '') or 'nl'
     titel = ((s.rapport_titel if s else '') or 'Penetration Test Report') + \
             (' — Retest' if taal != 'en' else ' — Retest')
     auteur = (s.rapport_auteur if s else '') or 'Incompetent Bastard'
     datum = datetime.date.today().strftime('%d-%m-%Y')
 
-    # Alleen bevindingen met een actieve retest-status
+    # Alleen bevindingen met een actieve retest-status (gescoped op het project)
     retest_statuses = ('pending_retest', 'retested_fixed', 'retested_open')
-    base_query = db_bevindingen.query.filter(
+    base_query = _project.apply_scope(db_bevindingen.query.filter(
         db_bevindingen.deleted_at.is_(None),
         db_bevindingen.retest_status.in_(retest_statuses),
-    )
+    ), db_bevindingen.opdracht_id, _oid)
     findings = _build_findings_data(base_query, taal=taal)
 
     html = _generate_retest_html(findings, titel, auteur, datum, taal)
@@ -1943,10 +2009,11 @@ def gen_retest_rapport():
 
 def _build_debrief_stats(taal='nl'):
     """Verzamel automatische debrief-statistieken uit de definitieve bevindingen."""
-    findings = db_bevindingen.query.filter(
+    from meuk.flask import project as _project
+    findings = _project.apply_scope(db_bevindingen.query.filter(
         db_bevindingen.deleted_at.is_(None),
         db_bevindingen.status == 'final',
-    ).all()
+    ), db_bevindingen.opdracht_id, _project.current_opdracht_id()).all()
     templates = {str(t.id): t for t in db_bevindingen_templates.query.all()}
 
     faalmodus = {'opzet': 0, 'bestaan': 0, 'werking': 0}
@@ -2093,7 +2160,8 @@ def _generate_debrief_markdown(s, taal='nl'):
 def gen_debrief():
     """Genereer het debrief-rapport (HTML + Markdown + DOCX indien pandoc)."""
     os.makedirs(_RAPPORT_DIR, exist_ok=True)
-    s = _get_appdata()
+    from meuk.flask import project as _project
+    s = _project.current_config() or _get_appdata()
     taal = (getattr(s, 'rapport_taal', '') if s else '') or 'nl'
     html = _generate_debrief_html(s, taal)
     schrijven(os.path.join(_RAPPORT_DIR, 'debrief.html'), html)
@@ -2280,7 +2348,8 @@ def rapport_logo_upload():
     safe = _sf(f.filename)
     dest = os.path.join(_RAPPORT_DIR, 'logo_' + safe)
     f.save(dest)
-    s = _get_appdata()
+    from meuk.flask import project as _project
+    s = _project.current_config() or _get_appdata()
     if s:
         s.rapport_logo_path = dest
         db.session.commit()
@@ -2311,7 +2380,9 @@ def rapport_versions():
 
 @rapport_bp.route('/api/report/validate', methods=['GET'])
 def rapport_validate():
-    s = _get_appdata()
+    from meuk.flask import project as _project
+    _oid = _project.current_opdracht_id()
+    s = _project.config_for(_oid) or _get_appdata()
     warnings = []
     errors = []
 
@@ -2320,7 +2391,9 @@ def rapport_validate():
     if not s or not getattr(s, 'rapport_auteur', ''):
         warnings.append('Auteur is niet ingesteld')
 
-    findings = db_bevindingen.query.filter(db_bevindingen.status == 'final').all()
+    findings = _project.apply_scope(
+        db_bevindingen.query.filter(db_bevindingen.status == 'final'),
+        db_bevindingen.opdracht_id, _oid).all()
     if not findings:
         warnings.append('Geen findings met status "definitief"')
 
@@ -2334,7 +2407,9 @@ def rapport_validate():
             if not tmpl or not tmpl.basescore:
                 warnings.append('Finding {} ({}) heeft geen CVSS score'.format(f.id, f.naam or ''))
 
-    notes_count = db_notes.query.filter_by(rapport=True).count()
+    notes_count = _project.apply_scope(
+        db_notes.query.filter_by(rapport=True),
+        db_notes.opdracht_id, _oid).count()
     if notes_count == 0:
         warnings.append('Geen notes geselecteerd voor het rapport')
 
@@ -2352,7 +2427,10 @@ def rapport_validate():
 
 @rapport_bp.route('/api/report/metrics', methods=['GET'])
 def rapport_metrics():
-    findings = db_bevindingen.query.filter(db_bevindingen.status == 'final').all()
+    from meuk.flask import project as _project
+    findings = _project.apply_scope(
+        db_bevindingen.query.filter(db_bevindingen.status == 'final'),
+        db_bevindingen.opdracht_id, _project.current_opdracht_id()).all()
     templates = db_bevindingen_templates.query.all()
     tmpl_map = {str(t.id): t for t in templates}
 
@@ -2388,7 +2466,7 @@ def rapport_metrics():
 # Async report generation
 # ---------------------------------------------------------------------------
 
-def _async_generate(run_id, app, include_draft, include_checklists=''):
+def _async_generate(run_id, app, include_draft, include_checklists='', opdracht_id=None):
     """Worker die gen_rapport() uitvoert in een achtergrond-thread."""
     with _async_lock:
         _async_runs[run_id]['status'] = 'running'
@@ -2396,6 +2474,8 @@ def _async_generate(run_id, app, include_draft, include_checklists=''):
         qs = 'include_draft=' + ('1' if include_draft else '0')
         if include_checklists:
             qs += '&include_checklists=' + include_checklists
+        if opdracht_id is not None:
+            qs += '&opdracht_id=' + str(opdracht_id)
         with app.test_request_context('/dashboard/report/generate?' + qs):
             gen_rapport()
         with _async_lock:
@@ -2415,6 +2495,8 @@ def rapport_generate_async():
     run_id = str(_uuid.uuid4())
     include_draft = request.json.get('include_draft', False) if request.is_json else False
     include_checklists = request.json.get('include_checklists', '') if request.is_json else ''
+    from meuk.flask import project as _project
+    opdracht_id = _project.current_opdracht_id()
     with _async_lock:
         _async_runs[run_id] = {
             'id': run_id,
@@ -2425,7 +2507,8 @@ def rapport_generate_async():
         }
     t = threading.Thread(
         target=_async_generate,
-        args=(run_id, current_app._get_current_object(), include_draft, include_checklists),
+        args=(run_id, current_app._get_current_object(), include_draft,
+              include_checklists, opdracht_id),
         daemon=True,
     )
     t.start()

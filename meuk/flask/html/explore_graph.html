@@ -1,0 +1,510 @@
+{% extends "bootstrap/base.html" %}
+{% block title %}Exploration — aanvalsketen{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/safe-overview.css') }}" />
+<link rel="stylesheet" href="{{ url_for('static', filename='css/finding-form.css') }}" />
+<style>
+  .ex-layout { display: flex; gap: 14px; align-items: flex-start; }
+  .ex-canvas-wrap { flex: 1; min-width: 0; overflow: auto; max-height: 72vh; border: 1px solid #e5e7eb; border-radius: 8px; background: #fafbfc; }
+  .ex-svg { display: block; }
+  .ex-node rect { stroke: #374151; stroke-width: 1; rx: 8; cursor: pointer; }
+  .ex-node rect.sel { stroke: #111; stroke-width: 3; }
+  .ex-node text { font: 12px sans-serif; fill: #fff; pointer-events: none; }
+  .ex-node text.tag { font: 10px sans-serif; fill: #fff; opacity: .85; }
+  .ex-edge { fill: none; stroke-width: 2; cursor: pointer; }
+  .ex-side { width: 330px; flex: 0 0 330px; }
+  .ex-legend { display: flex; gap: 12px; flex-wrap: wrap; font-size: 12px; align-items: center; }
+  .lg { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 4px; vertical-align: middle; }
+  .lg-line { display: inline-block; width: 18px; height: 3px; margin-right: 4px; vertical-align: middle; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-title">
+  <div>
+    <h1>Exploration — aanvalsketen</h1>
+    <div class="breadcrumbs"><a href="/">Start</a> / <a href="/dashboard/findings">Bevindingen</a> / Exploration</div>
+  </div>
+</div>
+
+<section class="card mb-14">
+  <div class="card-body">
+    <div class="d-flex gap-8 items-center flex-wrap">
+      <label class="help">Opdracht:</label>
+      <select id="filter-opdracht" class="form-control w-220"><option value="">Alle opdrachten</option></select>
+      <span class="ex-legend">
+        <strong>Knopen:</strong>
+        <span><span class="lg" style="background:#64748b"></span>Start</span>
+        <span><span class="lg" style="background:#059669"></span>Doel</span>
+        <span><span class="lg" style="background:#3b82f6"></span>Intent</span>
+        <span><span class="lg" style="background:#d97706"></span>Feit</span>
+        <span><span class="lg" style="background:#dc2626"></span>Kwetsbaarheid</span>
+        <span><span class="lg" style="background:#8b5cf6"></span>Hint</span>
+      </span>
+      <span class="ex-legend ml-auto">
+        <strong>Kanten:</strong>
+        <span><span class="lg-line" style="background:#10b981"></span>Afgeleid</span>
+        <span><span class="lg-line" style="background:#6366f1"></span>Intent-keten</span>
+        <span><span class="lg-line" style="background:#f59e0b"></span>Produceert</span>
+        <span><span class="lg-line" style="background:#ef4444"></span>Bewijst</span>
+      </span>
+      <span>
+        <button class="btn btn-sm" id="btn-import-chains" type="button" title="Bestaande exploit-chains importeren als knopen/kanten">Importeer chains</button>
+        <button class="btn btn-sm" id="zoom-out" type="button">−</button>
+        <button class="btn btn-sm" id="zoom-in" type="button">+</button>
+        <button class="btn btn-sm" id="btn-refresh" type="button">Vernieuwen</button>
+      </span>
+    </div>
+  </div>
+</section>
+
+<section class="card mb-14">
+  <div class="card-head"><h2>Knoop / kant toevoegen</h2></div>
+  <div class="card-body">
+    <div class="d-flex gap-8 items-center flex-wrap mb-8">
+      <select id="new-type" class="form-control w-160">
+        <option value="start">Start</option>
+        <option value="goal">Doel</option>
+        <option value="intent" selected>Intent</option>
+        <option value="fact">Feit</option>
+        <option value="vulnerability">Kwetsbaarheid</option>
+        <option value="hint">Hint</option>
+      </select>
+      <input type="text" id="new-titel" class="form-control" placeholder="Titel van de knoop" style="flex:1;min-width:220px" />
+      <input type="number" id="new-prio" class="form-control w-120" placeholder="Prioriteit 0-9" min="0" max="9" />
+      <button class="btn" id="btn-add-node" type="button">Knoop toevoegen</button>
+    </div>
+    <div class="d-flex gap-8 items-center flex-wrap">
+      <input type="number" id="edge-from" class="form-control w-120" placeholder="Van ID" />
+      <span>&rarr;</span>
+      <input type="number" id="edge-to" class="form-control w-120" placeholder="Naar ID" />
+      <select id="edge-type" class="form-control w-160">
+        <option value="derive">Afgeleid</option>
+        <option value="intent_chain">Intent-keten</option>
+        <option value="produce">Produceert</option>
+        <option value="prove">Bewijst</option>
+      </select>
+      <button class="btn" id="btn-add-edge" type="button">Kant toevoegen</button>
+      <span id="ex-msg" class="help"></span>
+    </div>
+  </div>
+</section>
+
+<section class="card mb-14">
+  <div class="card-head"><h2>Scan-output importeren</h2></div>
+  <div class="card-body">
+    <p class="help">Doelen uit scan-/tooloutput worden assets + een scan-knoop en vuln-knopen in deze exploration-graaf (CVE/VULNERABLE desgewenst ook als bevinding).</p>
+    <div class="d-flex gap-8 items-center flex-wrap mb-8">
+      <select id="scan-source" class="form-control w-160">
+        <option value="paste">Geplakte tekst</option>
+        <option value="output">Output-bestand</option>
+      </select>
+      <select id="scan-output-id" class="form-control" style="flex:1;min-width:220px;display:none"></select>
+      <input type="text" id="scan-label" class="form-control w-220" placeholder="Label (bijv. nmap acme)" />
+      <label class="d-flex items-center gap-8" style="white-space:nowrap"><input type="checkbox" id="scan-findings" checked /> Bevindingen aanmaken</label>
+      <button class="btn" id="btn-scan-preview" type="button">Preview</button>
+      <button class="btn" id="btn-scan-import" type="button">Importeren</button>
+      <span id="scan-msg" class="help"></span>
+    </div>
+    <textarea id="scan-text" class="form-control" rows="4" placeholder="Plak hier scan-/tooloutput…"></textarea>
+    <pre id="scan-preview" style="display:none;margin-top:8px;max-height:180px;overflow:auto;background:#f6f7f9;padding:8px;border-radius:6px;font-size:12px"></pre>
+  </div>
+</section>
+
+<div class="ex-layout">
+  <section class="card ex-canvas-wrap" id="canvas-wrap">
+    <div id="ex-canvas"><p class="help" style="padding:12px">Laden…</p></div>
+  </section>
+  <section class="card ex-side">
+    <div class="card-head"><h2>Detail</h2></div>
+    <div class="card-body" id="ex-detail">
+      <p class="help">Klik op een knoop om details te zien en te bewerken.</p>
+    </div>
+  </section>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script nonce="{{ csp_nonce }}">
+(function() {
+  "use strict";
+  var TYPE_COLORS = {
+    start: "#64748b", goal: "#059669", intent: "#3b82f6",
+    fact: "#d97706", vulnerability: "#dc2626", hint: "#8b5cf6"
+  };
+  var TYPE_LABEL = {
+    start: "Start", goal: "Doel", intent: "Intent",
+    fact: "Feit", vulnerability: "Kwetsbaarheid", hint: "Hint"
+  };
+  var EDGE_COLORS = {
+    derive: "#10b981", intent_chain: "#6366f1", produce: "#f59e0b", prove: "#ef4444"
+  };
+  var EDGE_LABEL = {
+    derive: "Afgeleid", intent_chain: "Intent-keten", produce: "Produceert", prove: "Bewijst"
+  };
+  var STATUS_LABEL = {
+    pending: "Te doen", in_progress: "Bezig", done: "Klaar", achieved: "Bereikt"
+  };
+
+  var canvas = document.getElementById("ex-canvas");
+  var detail = document.getElementById("ex-detail");
+  var filterOpdracht = document.getElementById("filter-opdracht");
+  var msg = document.getElementById("ex-msg");
+  var csrfToken = (function () {
+    var m = document.querySelector('meta[name="csrf-token"]');
+    if (m) { return m.getAttribute("content") || ""; }
+    var inp = document.getElementById("finding-csrf");
+    return inp ? (inp.value || "") : "";
+  })();
+
+  var NODE_W = 190, NODE_H = 54, GAP_X = 80, GAP_Y = 20, PAD = 16;
+  var zoom = 1, lastData = null, selectedId = null, assetCache = [];
+
+  function svgEl(name, attrs) {
+    var el = document.createElementNS("http://www.w3.org/2000/svg", name);
+    for (var k in attrs) { el.setAttribute(k, attrs[k]); }
+    return el;
+  }
+  function jsonFetch(url, opts) { return fetch(url, opts).then(function(r){ return r.json(); }); }
+  function escapeHtml(s) {
+    return String(s || "").replace(/[&<>"]/g, function(c){
+      return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];
+    });
+  }
+
+  function layout(nodes) {
+    var byDepth = {};
+    nodes.forEach(function(n){ (byDepth[n.depth] = byDepth[n.depth] || []).push(n); });
+    var coords = {};
+    Object.keys(byDepth).forEach(function(d){
+      byDepth[d].forEach(function(n, i){
+        coords[n.id] = {
+          x: PAD + parseInt(d, 10) * (NODE_W + GAP_X),
+          y: PAD + i * (NODE_H + GAP_Y)
+        };
+      });
+    });
+    return coords;
+  }
+
+  function render(data) {
+    lastData = data;
+    canvas.innerHTML = "";
+    var nodes = data.nodes || [];
+    if (!nodes.length) {
+      canvas.innerHTML = '<p class="help" style="padding:12px">Nog geen knopen. Voeg een start/doel toe en bouw de keten.</p>';
+      return;
+    }
+    var coords = layout(nodes);
+    var maxX = 0, maxY = 0;
+    nodes.forEach(function(n){ var c = coords[n.id]; if (c.x>maxX) maxX=c.x; if (c.y>maxY) maxY=c.y; });
+    var w = maxX + NODE_W + PAD, h = maxY + NODE_H + PAD;
+    var svg = svgEl("svg", {"class": "ex-svg", width: w * zoom, height: h * zoom,
+      viewBox: "0 0 " + w + " " + h});
+
+    var defs = svgEl("defs", {});
+    Object.keys(EDGE_COLORS).forEach(function(t){
+      var m = svgEl("marker", {id: "arr-" + t, markerWidth: 8, markerHeight: 8,
+        refX: 7, refY: 3, orient: "auto", markerUnits: "strokeWidth"});
+      m.appendChild(svgEl("path", {d: "M0,0 L7,3 L0,6 Z", fill: EDGE_COLORS[t]}));
+      defs.appendChild(m);
+    });
+    svg.appendChild(defs);
+
+    (data.edges || []).forEach(function(e){
+      var a = coords[e.from], b = coords[e.to];
+      if (!a || !b) return;
+      var x1 = a.x + NODE_W, y1 = a.y + NODE_H / 2, x2 = b.x, y2 = b.y + NODE_H / 2;
+      var mx = (x1 + x2) / 2;
+      var col = EDGE_COLORS[e.type] || "#555";
+      var p = svgEl("path", {"class": "ex-edge", stroke: col,
+        "marker-end": "url(#arr-" + e.type + ")",
+        d: "M" + x1 + "," + y1 + " C" + mx + "," + y1 + " " + mx + "," + y2 + " " + x2 + "," + y2});
+      p.addEventListener("click", function(){ if (confirm("Kant verwijderen?")) deleteEdge(e.id); });
+      svg.appendChild(p);
+    });
+
+    nodes.forEach(function(n){
+      var c = coords[n.id];
+      var g = svgEl("g", {"class": "ex-node"});
+      var rect = svgEl("rect", {x: c.x, y: c.y, width: NODE_W, height: NODE_H,
+        fill: TYPE_COLORS[n.type] || "#6b7280"});
+      if (n.status === "pending") rect.setAttribute("opacity", "0.72");
+      if (n.id === selectedId) rect.setAttribute("class", "sel");
+      rect.addEventListener("click", function(){ selectedId = n.id; showDetail(n); render(lastData); });
+      g.appendChild(rect);
+      var tag = svgEl("text", {x: c.x + 8, y: c.y + 16, "class": "tag"});
+      var ex = "";
+      if (n.severity) ex += " · " + n.severity.toUpperCase();
+      if (n.retest && n.retest !== "not_applicable") ex += " · retest:" + n.retest;
+      if (n.assets && n.assets.length) ex += " · ⚓" + n.assets.length;
+      tag.textContent = "#" + n.id + " · " + (TYPE_LABEL[n.type] || n.type) +
+                        " · P" + n.prioriteit + " · " + (STATUS_LABEL[n.status] || n.status) + ex;
+      g.appendChild(tag);
+      var label = svgEl("text", {x: c.x + 8, y: c.y + 38});
+      var t = n.titel || "";
+      label.textContent = t.length > 26 ? t.slice(0, 25) + "…" : t;
+      g.appendChild(label);
+      svg.appendChild(g);
+    });
+    canvas.appendChild(svg);
+  }
+
+  function selEl(id, options, current) {
+    var s = document.createElement("select");
+    s.className = "form-control"; s.id = id;
+    options.forEach(function(o){
+      var opt = new Option(o[1], o[0]);
+      if (o[0] === current) opt.selected = true;
+      s.appendChild(opt);
+    });
+    return s;
+  }
+
+  function showDetail(n) {
+    detail.innerHTML = "";
+    var head = document.createElement("div");
+    head.innerHTML = "<strong>#" + n.id + " " + escapeHtml(n.titel) + "</strong>";
+    detail.appendChild(head);
+
+    var tLbl = document.createElement("p"); tLbl.className = "help mt-8"; tLbl.textContent = "Type:";
+    detail.appendChild(tLbl);
+    var tSel = selEl("d-type", Object.keys(TYPE_COLORS).map(function(k){ return [k, TYPE_LABEL[k]]; }), n.type);
+    tSel.addEventListener("change", function(){ updateNode(n.id, {node_type: tSel.value}); });
+    detail.appendChild(tSel);
+
+    var sLbl = document.createElement("p"); sLbl.className = "help mt-8"; sLbl.textContent = "Status:";
+    detail.appendChild(sLbl);
+    var sSel = selEl("d-status", Object.keys(STATUS_LABEL).map(function(k){ return [k, STATUS_LABEL[k]]; }), n.status);
+    sSel.addEventListener("change", function(){ updateNode(n.id, {status: sSel.value}); });
+    detail.appendChild(sSel);
+
+    var pLbl = document.createElement("p"); pLbl.className = "help mt-8"; pLbl.textContent = "Prioriteit (0-9):";
+    detail.appendChild(pLbl);
+    var pIn = document.createElement("input");
+    pIn.type = "number"; pIn.min = 0; pIn.max = 9; pIn.value = n.prioriteit; pIn.className = "form-control";
+    pIn.addEventListener("change", function(){ updateNode(n.id, {prioriteit: parseInt(pIn.value, 10)}); });
+    detail.appendChild(pIn);
+
+    var oLbl = document.createElement("p"); oLbl.className = "help mt-8"; oLbl.textContent = "Omschrijving:";
+    detail.appendChild(oLbl);
+    var oTa = document.createElement("textarea");
+    oTa.className = "form-control"; oTa.rows = 3; oTa.value = n.omschrijving || "";
+    oTa.addEventListener("blur", function(){ updateNode(n.id, {omschrijving: oTa.value}); });
+    detail.appendChild(oTa);
+
+    // Koppeling aan bevinding
+    var fLbl = document.createElement("p"); fLbl.className = "help mt-8"; fLbl.textContent = "Bevinding-ID (optioneel):";
+    detail.appendChild(fLbl);
+    var fWrap = document.createElement("div"); fWrap.className = "d-flex gap-8 items-center";
+    var fIn = document.createElement("input");
+    fIn.type = "number"; fIn.className = "form-control w-120"; fIn.value = n.finding_id || "";
+    fIn.addEventListener("change", function(){ updateNode(n.id, {finding_id: fIn.value ? parseInt(fIn.value, 10) : null}); });
+    fWrap.appendChild(fIn);
+    if (n.finding_id) {
+      var fl = document.createElement("a");
+      fl.href = "/dashboard/findings/edit/" + n.finding_id;
+      fl.textContent = "open" + (n.finding_naam ? " · " + n.finding_naam : "");
+      fWrap.appendChild(fl);
+    }
+    detail.appendChild(fWrap);
+
+    // Gekoppelde assets (ARTEX-anchors)
+    var aLbl = document.createElement("p"); aLbl.className = "help mt-8"; aLbl.textContent = "Gekoppelde assets:";
+    detail.appendChild(aLbl);
+    (n.assets || []).forEach(function(a){
+      var row = document.createElement("div");
+      row.className = "d-flex gap-8 items-center";
+      var s = document.createElement("span"); s.textContent = "⚓ " + a.label;
+      var x = document.createElement("button");
+      x.className = "btn btn-sm"; x.type = "button"; x.textContent = "✕";
+      x.addEventListener("click", function(){
+        fetch("/api/explore/assets/anchor/" + a.anchor_id, {method: "DELETE", headers: {"X-CSRFToken": csrfToken}})
+          .then(function(){ load(true); });
+      });
+      row.appendChild(s); row.appendChild(x);
+      detail.appendChild(row);
+    });
+    var aSel = document.createElement("select");
+    aSel.className = "form-control mt-8";
+    aSel.appendChild(new Option("-- Asset koppelen… --", ""));
+    assetCache.forEach(function(a){ aSel.appendChild(new Option(a.waarde, a.id)); });
+    aSel.addEventListener("change", function(){
+      if (!aSel.value) return;
+      jsonFetch("/api/explore/nodes/" + n.id + "/assets", {
+        method: "POST", headers: {"Content-Type": "application/json", "X-CSRFToken": csrfToken},
+        body: JSON.stringify({asset_id: parseInt(aSel.value, 10)})
+      }).then(function(){ load(true); });
+    });
+    detail.appendChild(aSel);
+
+    var del = document.createElement("button");
+    del.className = "btn btn-sm mt-8"; del.type = "button"; del.textContent = "Knoop verwijderen";
+    del.addEventListener("click", function(){
+      if (!confirm("Knoop en zijn kanten verwijderen?")) return;
+      fetch("/api/explore/nodes/" + n.id, {method: "DELETE", headers: {"X-CSRFToken": csrfToken}})
+        .then(function(){ selectedId = null; detail.innerHTML = '<p class="help">Verwijderd.</p>'; load(); });
+    });
+    detail.appendChild(del);
+  }
+
+  function updateNode(id, body) {
+    jsonFetch("/api/explore/nodes/" + id, {
+      method: "POST", headers: {"Content-Type": "application/json", "X-CSRFToken": csrfToken},
+      body: JSON.stringify(body)
+    }).then(function(d){ if (d.ok) load(true); else if (msg) msg.textContent = d.error || "Mislukt"; });
+  }
+  function deleteEdge(id) {
+    fetch("/api/explore/edges/" + id, {method: "DELETE", headers: {"X-CSRFToken": csrfToken}})
+      .then(function(){ load(true); });
+  }
+
+  function load(keepSel) {
+    var op = filterOpdracht.value;
+    jsonFetch("/api/explore/graph" + (op ? "?opdracht_id=" + op : "")).then(function(d){
+      if (!keepSel) selectedId = null;
+      render(d);
+      if (selectedId) {
+        var sel = (d.nodes || []).filter(function(n){ return n.id === selectedId; })[0];
+        if (sel) showDetail(sel);
+      }
+    }).catch(function(){ canvas.innerHTML = '<p class="help" style="padding:12px">Fout bij laden.</p>'; });
+  }
+
+  jsonFetch("/api/opdrachten").then(function(d){
+    (d.opdrachten || []).forEach(function(o){
+      if (o && o.id) filterOpdracht.appendChild(new Option(o.naam || ("Opdracht " + o.id), o.id));
+    });
+  }).catch(function(){});
+  filterOpdracht.addEventListener("change", function(){ load(); });
+
+  function loadAssetCache() {
+    jsonFetch("/api/assets").then(function(d){ assetCache = d.assets || []; }).catch(function(){});
+  }
+  loadAssetCache();
+
+  document.getElementById("btn-import-chains").addEventListener("click", function(){
+    jsonFetch("/api/explore/import-chains", {
+      method: "POST", headers: {"Content-Type": "application/json", "X-CSRFToken": csrfToken},
+      body: JSON.stringify({opdracht_id: filterOpdracht.value || null})
+    }).then(function(d){
+      if (d.ok) { msg.textContent = "Geïmporteerd: " + d.nodes + " knopen, " + d.edges + " kanten"; load(); }
+      else msg.textContent = d.error || "Mislukt";
+    });
+  });
+
+  document.getElementById("btn-add-node").addEventListener("click", function(){
+    var titel = (document.getElementById("new-titel").value || "").trim();
+    if (!titel) { msg.textContent = "Titel is verplicht."; return; }
+    var body = {
+      titel: titel,
+      node_type: document.getElementById("new-type").value,
+      opdracht_id: filterOpdracht.value || null
+    };
+    var prio = document.getElementById("new-prio").value;
+    if (prio !== "") body.prioriteit = parseInt(prio, 10);
+    jsonFetch("/api/explore/nodes", {
+      method: "POST", headers: {"Content-Type": "application/json", "X-CSRFToken": csrfToken},
+      body: JSON.stringify(body)
+    }).then(function(d){
+      if (d.ok) { document.getElementById("new-titel").value = ""; document.getElementById("new-prio").value = ""; msg.textContent = ""; load(true); }
+      else msg.textContent = d.error || "Mislukt";
+    });
+  });
+
+  document.getElementById("btn-add-edge").addEventListener("click", function(){
+    var from = parseInt(document.getElementById("edge-from").value, 10);
+    var to = parseInt(document.getElementById("edge-to").value, 10);
+    if (!from || !to) { msg.textContent = "Geef van- en naar-ID."; return; }
+    jsonFetch("/api/explore/edges", {
+      method: "POST", headers: {"Content-Type": "application/json", "X-CSRFToken": csrfToken},
+      body: JSON.stringify({from: from, to: to, edge_type: document.getElementById("edge-type").value})
+    }).then(function(d){
+      if (d.ok) { document.getElementById("edge-from").value = ""; document.getElementById("edge-to").value = ""; msg.textContent = ""; load(true); }
+      else msg.textContent = d.error || "Mislukt";
+    });
+  });
+
+  // ── Scan-output importeren ────────────────────
+  var scanSource = document.getElementById("scan-source");
+  var scanOutputSel = document.getElementById("scan-output-id");
+  var scanText = document.getElementById("scan-text");
+  var scanMsg = document.getElementById("scan-msg");
+  var scanPreview = document.getElementById("scan-preview");
+
+  function toggleScanSource() {
+    var isOutput = scanSource.value === "output";
+    scanOutputSel.style.display = isOutput ? "" : "none";
+    scanText.style.display = isOutput ? "none" : "";
+    if (isOutput && scanOutputSel.options.length <= 0) {
+      jsonFetch("/api/outputs").then(function(d){
+        (d.outputs || []).forEach(function(o){
+          scanOutputSel.appendChild(new Option(o.name + " (" + o.path + ")", o.id));
+        });
+      }).catch(function(){});
+    }
+  }
+  scanSource.addEventListener("change", toggleScanSource);
+
+  function scanBody(extra) {
+    var body = {
+      source: scanSource.value,
+      label: (document.getElementById("scan-label").value || "").trim() || undefined,
+      create_findings: document.getElementById("scan-findings").checked,
+      opdracht_id: filterOpdracht.value || null
+    };
+    if (scanSource.value === "output") body.output_id = scanOutputSel.value;
+    else body.text = scanText.value;
+    for (var k in (extra || {})) body[k] = extra[k];
+    return body;
+  }
+
+  document.getElementById("btn-scan-preview").addEventListener("click", function(){
+    scanMsg.textContent = "Bezig…";
+    jsonFetch("/api/scan/import", {
+      method: "POST",
+      headers: {"Content-Type": "application/json", "X-CSRFToken": csrfToken},
+      body: JSON.stringify(scanBody({dry_run: true}))
+    }).then(function(d){
+      scanMsg.textContent = "";
+      if (!d.ok) { scanMsg.textContent = d.error || "Mislukt"; return; }
+      var lines = [];
+      lines.push("Hosts (" + d.hosts.length + "):");
+      d.hosts.forEach(function(h){
+        lines.push("  " + h.host + (h.ip ? " (" + h.ip + ")" : "") +
+          (h.services.length ? " — " + h.services.map(function(s){return s.port+"/"+s.proto;}).join(", ") : ""));
+      });
+      lines.push("Signalen (" + d.signals.length + "):");
+      d.signals.forEach(function(s){ lines.push("  [" + s.severity + "] " + (s.cve ? s.cve + " " : "") + s.title); });
+      lines.push("Losse doelen (" + d.flat_targets.length + "): " + d.flat_targets.join(", "));
+      scanPreview.textContent = lines.join("\n");
+      scanPreview.style.display = "";
+    });
+  });
+
+  document.getElementById("btn-scan-import").addEventListener("click", function(){
+    scanMsg.textContent = "Bezig…";
+    jsonFetch("/api/scan/import", {
+      method: "POST",
+      headers: {"Content-Type": "application/json", "X-CSRFToken": csrfToken},
+      body: JSON.stringify(scanBody())
+    }).then(function(d){
+      if (d.ok) {
+        scanMsg.textContent = d.assets_total + " assets (" + d.assets_created + " nieuw), " +
+          d.findings_created + " bevindingen, " + d.nodes_created + " vuln-knopen + scan-knoop";
+        scanText.value = "";
+        scanPreview.style.display = "none";
+        load();
+      } else { scanMsg.textContent = d.error || "Mislukt"; }
+    });
+  });
+
+  document.getElementById("zoom-in").addEventListener("click", function(){ zoom = Math.min(zoom*1.2, 3); render(lastData); });
+  document.getElementById("zoom-out").addEventListener("click", function(){ zoom = Math.max(zoom/1.2, 0.4); render(lastData); });
+  document.getElementById("btn-refresh").addEventListener("click", function(){ load(); });
+
+  load();
+})();
+</script>
+{% endblock %}

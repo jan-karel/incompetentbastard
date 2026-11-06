@@ -142,9 +142,13 @@ def index(cms_pag):
         cookies = db_xxs_cookies.query.order_by('datum').all()
         keylogger = db_xxs_keylogger.query.order_by('datum').all()
         localstorage=db_xxs_localstorage.query.order_by('datum').all()
+        from meuk.flask import project as _project
+        _oid = _project.current_opdracht_id()
         template = db_bevindingen_templates.query.all()
-        bevindingen = db_bevindingen.query.all()
-        notes = db_notes.query.all()
+        bevindingen = _project.apply_scope(
+            db_bevindingen.query, db_bevindingen.opdracht_id, _oid).all()
+        notes = _project.apply_scope(
+            db_notes.query, db_notes.opdracht_id, _oid).all()
 
         d="jQuery.getScript('"+appdata.localhost+"/x.js');"
         js1=base64.b64encode(bytes(d, 'utf-8'))
@@ -168,7 +172,9 @@ def index(cms_pag):
 @index_bp.route('/api/settings')
 def api_settings():
     require_dashboard_access()
+    from meuk.flask import project as _project
     s = db_instellingen.query.first()
+    p = _project.current_config()  # projectvelden komen uit het actieve project
     return jsonify({
         'public_upload': bool(getattr(s, 'public_upload', False)),
         'public_downloads': bool(getattr(s, 'public_downloads', False)),
@@ -177,45 +183,45 @@ def api_settings():
         'obfuscate_downloads': bool(getattr(s, 'obfuscate_downloads', False)),
         'obfuscate_technique': getattr(s, 'obfuscate_technique', '') or 'mixed',
         'default_payload': getattr(s, 'default_payload', '') or '',
-        'localhost': s.localhost or '',
-        'rapport_titel': getattr(s, 'rapport_titel', '') or '',
-        'rapport_auteur': getattr(s, 'rapport_auteur', '') or '',
-        'rapport_subtitel': getattr(s, 'rapport_subtitel', '') or '',
-        'rapport_project': getattr(s, 'rapport_project', '') or '',
-        'rapport_omgeving': getattr(s, 'rapport_omgeving', '') or '',
-        'rapport_classificatie': getattr(s, 'rapport_classificatie', '') or 'TLP:RED',
-        'rapport_taal': getattr(s, 'rapport_taal', '') or 'nl',
-        'rapport_isdraft': bool(getattr(s, 'rapport_isdraft', True)),
-        'rapport_testtype': getattr(s, 'rapport_testtype', '') or 'pentest',
-        'rapport_testscope': getattr(s, 'rapport_testscope', '') or 'blackbox',
-        'rapport_management_samenvatting': getattr(s, 'rapport_management_samenvatting', '') or '',
-        'rapport_legsup_startpunt': getattr(s, 'rapport_legsup_startpunt', '') or '',
-        'rapport_legsup_privileges': getattr(s, 'rapport_legsup_privileges', '') or '',
-        'rapport_legsup_informatie': getattr(s, 'rapport_legsup_informatie', '') or '',
-        'rapport_scenarios': json.loads(getattr(s, 'rapport_scenarios', '[]') or '[]'),
-        'rapport_scope_targets': json.loads(getattr(s, 'rapport_scope_targets', '[]') or '[]'),
-        'rapport_logo_path': getattr(s, 'rapport_logo_path', '') or '',
-        'rapport_template_variant': getattr(s, 'rapport_template_variant', '') or 'detailed',
-        'rapport_roe': getattr(s, 'rapport_roe', '') or '',
-        'rapport_test_start_date': str(getattr(s, 'rapport_test_start_date', '') or ''),
-        'rapport_test_end_date': str(getattr(s, 'rapport_test_end_date', '') or ''),
-        'rapport_versie': getattr(s, 'rapport_versie', '') or '',
-        'rapport_versie_status': getattr(s, 'rapport_versie_status', '') or 'concept',
+        'localhost': (s.localhost if s else '') or '',
+        'rapport_titel': getattr(p, 'rapport_titel', '') or '',
+        'rapport_auteur': getattr(p, 'rapport_auteur', '') or '',
+        'rapport_subtitel': getattr(p, 'rapport_subtitel', '') or '',
+        'rapport_project': getattr(p, 'rapport_project', '') or '',
+        'rapport_omgeving': getattr(p, 'rapport_omgeving', '') or '',
+        'rapport_classificatie': getattr(p, 'rapport_classificatie', '') or 'TLP:RED',
+        'rapport_taal': getattr(p, 'rapport_taal', '') or 'nl',
+        'rapport_isdraft': bool(getattr(p, 'rapport_isdraft', True)),
+        'rapport_testtype': getattr(p, 'rapport_testtype', '') or 'pentest',
+        'rapport_testscope': getattr(p, 'rapport_testscope', '') or 'blackbox',
+        'rapport_management_samenvatting': getattr(p, 'rapport_management_samenvatting', '') or '',
+        'rapport_legsup_startpunt': getattr(p, 'rapport_legsup_startpunt', '') or '',
+        'rapport_legsup_privileges': getattr(p, 'rapport_legsup_privileges', '') or '',
+        'rapport_legsup_informatie': getattr(p, 'rapport_legsup_informatie', '') or '',
+        'rapport_scenarios': json.loads(getattr(p, 'rapport_scenarios', '[]') or '[]'),
+        'rapport_scope_targets': json.loads(getattr(p, 'rapport_scope_targets', '[]') or '[]'),
+        'rapport_logo_path': getattr(p, 'rapport_logo_path', '') or '',
+        'rapport_template_variant': getattr(p, 'rapport_template_variant', '') or 'detailed',
+        'rapport_roe': getattr(p, 'rapport_roe', '') or '',
+        'rapport_test_start_date': str(getattr(p, 'rapport_test_start_date', '') or ''),
+        'rapport_test_end_date': str(getattr(p, 'rapport_test_end_date', '') or ''),
+        'rapport_versie': getattr(p, 'rapport_versie', '') or '',
+        'rapport_versie_status': getattr(p, 'rapport_versie_status', '') or 'concept',
         # Debrief (lessons learned)
-        'debrief_context': getattr(s, 'debrief_context', '') or '',
-        'debrief_werkte': getattr(s, 'debrief_werkte', '') or '',
-        'debrief_faalde': getattr(s, 'debrief_faalde', '') or '',
-        'debrief_detectie': getattr(s, 'debrief_detectie', '') or '',
-        'debrief_vervolg': getattr(s, 'debrief_vervolg', '') or '',
+        'debrief_context': getattr(p, 'debrief_context', '') or '',
+        'debrief_werkte': getattr(p, 'debrief_werkte', '') or '',
+        'debrief_faalde': getattr(p, 'debrief_faalde', '') or '',
+        'debrief_detectie': getattr(p, 'debrief_detectie', '') or '',
+        'debrief_vervolg': getattr(p, 'debrief_vervolg', '') or '',
         # PDF-beveiliging: nooit het wachtwoord zelf teruggeven, alleen of het gezet is
-        'rapport_pdf_protected': bool(getattr(s, 'rapport_pdf_password', '') or ''),
+        'rapport_pdf_protected': bool(getattr(p, 'rapport_pdf_password', '') or ''),
         # DefectDojo: API-sleutel gemaskeerd
-        'dd_url': getattr(s, 'dd_url', '') or '',
-        'dd_api_key_set': bool(getattr(s, 'dd_api_key', '') or ''),
-        'dd_product_id': getattr(s, 'dd_product_id', None),
-        'dd_engagement_id': getattr(s, 'dd_engagement_id', None),
-        'dd_verify_ssl': bool(getattr(s, 'dd_verify_ssl', True)),
-        'dd_auto_push': bool(getattr(s, 'dd_auto_push', False)),
+        'dd_url': getattr(p, 'dd_url', '') or '',
+        'dd_api_key_set': bool(getattr(p, 'dd_api_key', '') or ''),
+        'dd_product_id': getattr(p, 'dd_product_id', None),
+        'dd_engagement_id': getattr(p, 'dd_engagement_id', None),
+        'dd_verify_ssl': bool(getattr(p, 'dd_verify_ssl', True)),
+        'dd_auto_push': bool(getattr(p, 'dd_auto_push', False)),
     })
 
 
@@ -225,7 +231,9 @@ def api_settings_update():
     if not is_local_request():
         abort(403)
     data = request.get_json(force=True)
+    from meuk.flask import project as _project
     s = db_instellingen.query.first()
+    p = _project.current_config()  # projectvelden schrijven we naar het actieve project
     for key in ('public_upload', 'public_downloads', 'public_payloads', 'behind_proxy'):
         if key in data:
             setattr(s, key, bool(data[key]))
@@ -247,12 +255,12 @@ def api_settings_update():
                  'rapport_project', 'rapport_omgeving', 'rapport_classificatie', 'rapport_taal',
                  'rapport_testtype', 'rapport_testscope'):
         if key in data and isinstance(data[key], str):
-            setattr(s, key, data[key].strip()[:200])
+            setattr(p, key, data[key].strip()[:200])
     if 'rapport_management_samenvatting' in data and isinstance(data['rapport_management_samenvatting'], str):
-        s.rapport_management_samenvatting = data['rapport_management_samenvatting'].strip()[:10000]
+        p.rapport_management_samenvatting = data['rapport_management_samenvatting'].strip()[:10000]
     for key in ('rapport_legsup_startpunt', 'rapport_legsup_privileges', 'rapport_legsup_informatie'):
         if key in data and isinstance(data[key], str):
-            setattr(s, key, data[key].strip()[:10000])
+            setattr(p, key, data[key].strip()[:10000])
     if 'rapport_scenarios' in data and isinstance(data['rapport_scenarios'], list):
         scenarios = data['rapport_scenarios'][:20]
         clean = []
@@ -262,7 +270,7 @@ def api_settings_update():
                     'naam': str(sc.get('naam', ''))[:500],
                     'beschrijving': str(sc.get('beschrijving', ''))[:5000],
                 })
-        s.rapport_scenarios = json.dumps(clean)
+        p.rapport_scenarios = json.dumps(clean)
     _SCOPE_TARGET_TYPES = ('host', 'netwerk', 'url', 'applicatie')
     if 'rapport_scope_targets' in data and isinstance(data['rapport_scope_targets'], list):
         raw_targets = data['rapport_scope_targets'][:50]
@@ -274,66 +282,66 @@ def api_settings_update():
                     'type': str(st.get('type', 'host'))[:20] if str(st.get('type', 'host')) in _SCOPE_TARGET_TYPES else 'host',
                     'beschrijving': str(st.get('beschrijving', ''))[:500],
                 })
-        s.rapport_scope_targets = json.dumps(clean_targets)
+        p.rapport_scope_targets = json.dumps(clean_targets)
     if 'rapport_isdraft' in data:
-        s.rapport_isdraft = bool(data['rapport_isdraft'])
+        p.rapport_isdraft = bool(data['rapport_isdraft'])
     if 'rapport_template_variant' in data and isinstance(data['rapport_template_variant'], str):
         if data['rapport_template_variant'] in ('detailed', 'executive', 'board'):
-            s.rapport_template_variant = data['rapport_template_variant']
+            p.rapport_template_variant = data['rapport_template_variant']
     if 'rapport_roe' in data and isinstance(data['rapport_roe'], str):
-        s.rapport_roe = data['rapport_roe'].strip()[:10000]
+        p.rapport_roe = data['rapport_roe'].strip()[:10000]
     if 'rapport_test_start_date' in data:
         val = data['rapport_test_start_date']
         if val:
             try:
                 import datetime as _dt
-                s.rapport_test_start_date = _dt.date.fromisoformat(str(val))
+                p.rapport_test_start_date = _dt.date.fromisoformat(str(val))
             except (ValueError, TypeError):
                 pass
         else:
-            s.rapport_test_start_date = None
+            p.rapport_test_start_date = None
     if 'rapport_test_end_date' in data:
         val = data['rapport_test_end_date']
         if val:
             try:
                 import datetime as _dt
-                s.rapport_test_end_date = _dt.date.fromisoformat(str(val))
+                p.rapport_test_end_date = _dt.date.fromisoformat(str(val))
             except (ValueError, TypeError):
                 pass
         else:
-            s.rapport_test_end_date = None
+            p.rapport_test_end_date = None
     if 'rapport_versie' in data and isinstance(data['rapport_versie'], str):
-        s.rapport_versie = data['rapport_versie'].strip()[:20]
+        p.rapport_versie = data['rapport_versie'].strip()[:20]
     if 'rapport_versie_status' in data and isinstance(data['rapport_versie_status'], str):
         if data['rapport_versie_status'] in ('concept', 'definitief', 'herzien'):
-            s.rapport_versie_status = data['rapport_versie_status']
+            p.rapport_versie_status = data['rapport_versie_status']
     # Debrief-teksten
     for key in ('debrief_context', 'debrief_werkte', 'debrief_faalde',
                 'debrief_detectie', 'debrief_vervolg'):
         if key in data and isinstance(data[key], str):
-            setattr(s, key, data[key].strip()[:10000])
+            setattr(p, key, data[key].strip()[:10000])
     # PDF-beveiliging: leeg -> uit; None/weglaten -> ongewijzigd
     if 'rapport_pdf_password' in data and isinstance(data['rapport_pdf_password'], str):
-        s.rapport_pdf_password = data['rapport_pdf_password'][:200]
+        p.rapport_pdf_password = data['rapport_pdf_password'][:200]
     # DefectDojo-configuratie
     if 'dd_url' in data and isinstance(data['dd_url'], str):
-        s.dd_url = data['dd_url'].strip().rstrip('/')[:300]
+        p.dd_url = data['dd_url'].strip().rstrip('/')[:300]
     if 'dd_api_key' in data and isinstance(data['dd_api_key'], str):
         # Lege string wist de sleutel; anders overschrijven
-        s.dd_api_key = data['dd_api_key'].strip()[:300]
+        p.dd_api_key = data['dd_api_key'].strip()[:300]
     for key in ('dd_product_id', 'dd_engagement_id'):
         if key in data:
             val = data[key]
             if val in (None, ''):
-                setattr(s, key, None)
+                setattr(p, key, None)
             else:
                 try:
-                    setattr(s, key, int(val))
+                    setattr(p, key, int(val))
                 except (ValueError, TypeError):
                     pass
     if 'dd_verify_ssl' in data:
-        s.dd_verify_ssl = bool(data['dd_verify_ssl'])
+        p.dd_verify_ssl = bool(data['dd_verify_ssl'])
     if 'dd_auto_push' in data:
-        s.dd_auto_push = bool(data['dd_auto_push'])
+        p.dd_auto_push = bool(data['dd_auto_push'])
     db.session.commit()
     return jsonify({'ok': True})

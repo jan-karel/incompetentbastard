@@ -26,11 +26,15 @@
     <h2>Keten-schakel toevoegen</h2>
   </div>
   <div class="card-body">
-    <p class="help">Koppel twee bevindingen als opeenvolgende stappen (van &rarr; naar). Verwijderen kan via de relaties op de bevinding zelf.</p>
+    <p class="help">Koppel twee bevindingen als opeenvolgende stappen (van &rarr; naar). Kies uit bestaande bevindingen. Bestaande schakels verwijder je hieronder bij &ldquo;Schakels&rdquo;.</p>
     <div class="d-flex gap-8 items-center flex-wrap">
-      <input type="number" id="chain-from" class="form-control w-140" placeholder="Van bevinding-ID" />
+      <select id="chain-from" class="form-control" style="min-width:260px;flex:1">
+        <option value="">Van bevinding…</option>
+      </select>
       <span>&rarr;</span>
-      <input type="number" id="chain-to" class="form-control w-140" placeholder="Naar bevinding-ID" />
+      <select id="chain-to" class="form-control" style="min-width:260px;flex:1">
+        <option value="">Naar bevinding…</option>
+      </select>
       <button class="btn" id="btn-add-chain" type="button">Koppelen</button>
       <span id="chain-msg" class="help"></span>
     </div>
@@ -44,6 +48,14 @@
   </div>
   <div class="card-body">
     <div id="chains-container"><p class="help">Laden…</p></div>
+  </div>
+</section>
+
+<section class="card mb-14">
+  <div class="card-head"><h2>Schakels</h2></div>
+  <div class="card-body">
+    <p class="help">Alle keten-koppelingen (van &rarr; naar). Verwijder een schakel om die stap uit de keten te halen; de bevindingen zelf blijven bestaan.</p>
+    <div id="chain-links"><p class="help">Laden…</p></div>
   </div>
 </section>
 {% endblock %}
@@ -60,9 +72,12 @@
   var container = document.getElementById("chains-container");
   var msg = document.getElementById("chain-msg");
 
-  var csrfToken = (document.querySelector('meta[name="csrf-token"]') || {}).getAttribute
-    ? (document.querySelector('meta[name="csrf-token"]').getAttribute("content") || "")
-    : "";
+  var csrfToken = (function () {
+    var m = document.querySelector('meta[name="csrf-token"]');
+    if (m) { return m.getAttribute("content") || ""; }
+    var inp = document.getElementById("finding-csrf");
+    return inp ? (inp.value || "") : "";
+  })();
 
   var NODE_W = 170, NODE_H = 46, GAP_X = 60, GAP_Y = 24, PAD = 10;
 
@@ -109,8 +124,58 @@
     return svg;
   }
 
+  var linksBox = document.getElementById("chain-links");
+
+  function renderLinks(data) {
+    if (!linksBox) return;
+    linksBox.innerHTML = "";
+    var nodesById = {};
+    (data.nodes || []).forEach(function(n) { nodesById[n.id] = n; });
+    var edges = data.edges || [];
+    if (!edges.length) {
+      linksBox.innerHTML = '<p class="help">Nog geen schakels.</p>';
+      return;
+    }
+    edges.forEach(function(e) {
+      var row = document.createElement("div");
+      row.className = "d-flex items-center gap-8 mb-8";
+      var label = document.createElement("span");
+      var vn = (nodesById[e.from] && nodesById[e.from].naam) || ("#" + e.from);
+      var nn = (nodesById[e.to] && nodesById[e.to].naam) || ("#" + e.to);
+      label.textContent = "#" + e.from + " " + vn + "  →  #" + e.to + " " + nn;
+      var btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "btn btn-sm";
+      btn.textContent = "Verwijder";
+      if (e.relation_id == null) {
+        btn.disabled = true;
+        btn.title = "Geen relatie-ID beschikbaar";
+      } else {
+        btn.addEventListener("click", function() { deleteLink(e.relation_id, label.textContent); });
+      }
+      row.appendChild(label);
+      row.appendChild(btn);
+      linksBox.appendChild(row);
+    });
+  }
+
+  function deleteLink(relationId, naam) {
+    if (!window.confirm("Schakel verwijderen?\n" + naam)) return;
+    fetch("/api/findings/relations/" + relationId, {
+      method: "DELETE",
+      headers: {"X-CSRFToken": csrfToken}
+    })
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        if (d.ok) { load(); }
+        else if (msg) { msg.textContent = d.error || "Verwijderen mislukt"; msg.style.color = "var(--danger,#ef4444)"; }
+      })
+      .catch(function() { if (msg) msg.textContent = "Netwerkfout"; });
+  }
+
   function render(data) {
     container.innerHTML = "";
+    renderLinks(data);
     if (!data.paths || !data.paths.length) {
       container.innerHTML = '<p class="help">Nog geen exploit chains. Koppel bevindingen als keten-schakels hierboven of via de relaties op een bevinding (type "Keten").</p>';
       return;
@@ -136,12 +201,45 @@
       .catch(function() { container.innerHTML = '<p class="help">Fout bij laden.</p>'; });
   }
 
+  var selFrom = document.getElementById("chain-from");
+  var selTo = document.getElementById("chain-to");
+
+  function optionLabel(f) {
+    var sev = f.severity && f.severity !== "none" ? " · " + f.severity : "";
+    var loc = f.locatie ? " · " + f.locatie : "";
+    return "#" + f.id + " — " + (f.naam || "(zonder naam)") + sev + loc;
+  }
+
+  function fillSelect(sel, findings, placeholder) {
+    var keep = sel.value;
+    sel.innerHTML = "";
+    sel.appendChild(new Option(placeholder, ""));
+    findings.forEach(function(f) {
+      sel.appendChild(new Option(optionLabel(f), String(f.id)));
+    });
+    if (keep && sel.querySelector('option[value="' + keep + '"]')) sel.value = keep;
+  }
+
+  function loadFindings() {
+    fetch("/api/findings")
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        var findings = (d && d.findings) || [];
+        fillSelect(selFrom, findings, "Van bevinding…");
+        fillSelect(selTo, findings, "Naar bevinding…");
+        if (!findings.length && msg) {
+          msg.textContent = "Nog geen bevindingen om te koppelen.";
+        }
+      })
+      .catch(function() { if (msg) msg.textContent = "Kon bevindingen niet laden."; });
+  }
+
   var btnAdd = document.getElementById("btn-add-chain");
   if (btnAdd) btnAdd.addEventListener("click", function() {
-    var from = parseInt(document.getElementById("chain-from").value, 10);
-    var to = parseInt(document.getElementById("chain-to").value, 10);
+    var from = parseInt(selFrom.value, 10);
+    var to = parseInt(selTo.value, 10);
     if (!from || !to || from === to) {
-      if (msg) { msg.textContent = "Geef twee verschillende ID's"; msg.style.color = "var(--danger,#ef4444)"; }
+      if (msg) { msg.textContent = "Kies twee verschillende bevindingen"; msg.style.color = "var(--danger,#ef4444)"; }
       return;
     }
     fetch("/api/findings/" + from + "/relations", {
@@ -153,8 +251,8 @@
       .then(function(d) {
         if (d.ok) {
           if (msg) { msg.textContent = "Gekoppeld"; msg.style.color = "var(--success,#22c55e)"; }
-          document.getElementById("chain-from").value = "";
-          document.getElementById("chain-to").value = "";
+          selFrom.value = "";
+          selTo.value = "";
           load();
         } else if (msg) {
           msg.textContent = d.error || "Mislukt"; msg.style.color = "var(--danger,#ef4444)";
@@ -163,8 +261,9 @@
   });
 
   var btnRefresh = document.getElementById("btn-refresh");
-  if (btnRefresh) btnRefresh.addEventListener("click", load);
+  if (btnRefresh) btnRefresh.addEventListener("click", function() { load(); loadFindings(); });
   load();
+  loadFindings();
 })();
 </script>
 {% endblock %}

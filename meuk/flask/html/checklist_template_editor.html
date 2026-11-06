@@ -1,0 +1,227 @@
+{% extends "bootstrap/base.html" %}
+{% block title %}Checklist-sjabloon bewerken{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/checklists.css') }}" />
+<style>
+  .tpl-meta { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .tpl-meta .full { grid-column: 1 / -1; }
+  .tpl-phase { border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px; margin-bottom: 12px; background: #fafbfc; }
+  .tpl-phase-head { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+  .tpl-phase-head input { flex: 1; }
+  .tpl-item { border: 1px solid #e5e7eb; border-radius: 6px; padding: 10px; margin: 8px 0; background: #fff; }
+  .tpl-item-row { display: flex; gap: 8px; align-items: center; margin-bottom: 6px; }
+  .tpl-item-row input { flex: 1; }
+  .tpl-item label { font-size: 12px; color: #6b7280; display: block; margin-top: 6px; }
+  .tpl-item textarea { width: 100%; font-family: monospace; font-size: 12px; }
+  .tpl-drag { color: #9ca3af; cursor: default; font-size: 12px; white-space: nowrap; }
+  .tpl-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 12px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-title">
+  <div>
+    <h1 id="tpl-heading">Sjabloon</h1>
+    <div class="breadcrumbs"><a href="/">Start</a> / <a href="/dashboard/checklists">Checklists</a> / Sjabloon-editor</div>
+  </div>
+</div>
+
+<section class="card">
+  <div class="card-body">
+    <div class="tpl-meta">
+      <div>
+        <label for="tpl-title"><strong>Titel</strong></label>
+        <input class="form-control" type="text" id="tpl-title" placeholder="Bijv. Cloud (Azure)" />
+      </div>
+      <div>
+        <label for="tpl-icon"><strong>Icoon</strong></label>
+        <select class="form-control" id="tpl-icon">
+          <option value="list">Lijst</option>
+          <option value="globe">Globe (extern)</option>
+          <option value="server">Server (intern)</option>
+          <option value="cloud">Cloud</option>
+          <option value="lock">Slot</option>
+        </select>
+      </div>
+      <div>
+        <label for="tpl-scope"><strong>Scope-omschrijving</strong></label>
+        <input class="form-control" type="text" id="tpl-scope" placeholder="Bijv. Tenants, blobs, IAM" />
+      </div>
+      <div class="full">
+        <label for="tpl-desc"><strong>Beschrijving</strong></label>
+        <input class="form-control" type="text" id="tpl-desc" placeholder="Korte uitleg over dit type" />
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="card mt-14">
+  <div class="card-head"><h2>Fasen &amp; items</h2></div>
+  <div class="card-body">
+    <div id="tpl-phases"></div>
+    <button type="button" class="btn btn-sm" id="btn-add-phase">+ Fase toevoegen</button>
+  </div>
+</section>
+
+<div class="tpl-actions">
+  <button type="button" class="btn btn-primary" id="btn-save">Opslaan</button>
+  <a href="/dashboard/checklists" class="btn btn-sm">Annuleren</a>
+  <span id="tpl-status" class="help"></span>
+</div>
+
+<template id="tpl-phase-proto">
+  <div class="tpl-phase">
+    <div class="tpl-phase-head">
+      <span class="tpl-drag">Fase</span>
+      <input class="form-control phase-title" type="text" placeholder="Fase-titel (bijv. Recon)" />
+      <button type="button" class="btn btn-sm btn-move-up" title="Omhoog">↑</button>
+      <button type="button" class="btn btn-sm btn-move-down" title="Omlaag">↓</button>
+      <button type="button" class="btn btn-sm btn-del-phase" title="Fase verwijderen">✕</button>
+    </div>
+    <div class="phase-items"></div>
+    <button type="button" class="btn btn-sm btn-add-item">+ Item</button>
+  </div>
+</template>
+
+<template id="tpl-item-proto">
+  <div class="tpl-item">
+    <div class="tpl-item-row">
+      <input class="form-control item-title" type="text" placeholder="Item-titel" />
+      <button type="button" class="btn btn-sm btn-del-item" title="Item verwijderen">✕</button>
+    </div>
+    <label>Beschrijving</label>
+    <textarea class="item-desc" rows="2" placeholder="Wat test je hier?"></textarea>
+    <label>Commando's (één per regel)</label>
+    <textarea class="item-cmds" rows="2" placeholder="nmap -sV ..."></textarea>
+    <label>Finding-referenties (één per regel &mdash; titels van bevinding-templates)</label>
+    <textarea class="item-refs" rows="1" placeholder="SQL Injection"></textarea>
+  </div>
+</template>
+{% endblock %}
+
+{% block scripts %}
+<script type="application/json" id="tpl-initial">{{ initial|tojson }}</script>
+<script nonce="{{ csp_nonce }}">
+(function(){
+  var MODE = {{ mode|tojson }};
+  var TYPE_KEY = {{ type_key|tojson }};
+  var initial = {};
+  try { initial = JSON.parse(document.getElementById("tpl-initial").textContent || "{}"); }
+  catch (e) { initial = {}; }
+
+  var phasesEl = document.getElementById("tpl-phases");
+  var statusEl = document.getElementById("tpl-status");
+  var phaseProto = document.getElementById("tpl-phase-proto");
+  var itemProto = document.getElementById("tpl-item-proto");
+
+  document.getElementById("tpl-heading").textContent =
+    (MODE === "edit" ? "Sjabloon bewerken" : "Nieuw sjabloon");
+  document.getElementById("tpl-title").value = initial.title || "";
+  document.getElementById("tpl-icon").value = initial.icon || "list";
+  document.getElementById("tpl-scope").value = initial.scope || "";
+  document.getElementById("tpl-desc").value = initial.description || "";
+
+  function addItem(container, item) {
+    item = item || {};
+    var node = itemProto.content.cloneNode(true);
+    var wrap = node.querySelector(".tpl-item");
+    wrap.querySelector(".item-title").value = item.title || "";
+    wrap.querySelector(".item-desc").value = item.description || "";
+    wrap.querySelector(".item-cmds").value = (item.commands || []).join("\n");
+    wrap.querySelector(".item-refs").value = (item.finding_refs || []).join("\n");
+    wrap.dataset.id = item.id || "";
+    wrap.querySelector(".btn-del-item").addEventListener("click", function(){
+      wrap.remove();
+    });
+    container.appendChild(wrap);
+  }
+
+  function addPhase(phase) {
+    phase = phase || {};
+    var node = phaseProto.content.cloneNode(true);
+    var wrap = node.querySelector(".tpl-phase");
+    wrap.querySelector(".phase-title").value = phase.title || "";
+    wrap.dataset.id = phase.id || "";
+    var itemsEl = wrap.querySelector(".phase-items");
+    (phase.items || []).forEach(function(it){ addItem(itemsEl, it); });
+    wrap.querySelector(".btn-add-item").addEventListener("click", function(){
+      addItem(itemsEl, {});
+    });
+    wrap.querySelector(".btn-del-phase").addEventListener("click", function(){
+      wrap.remove();
+    });
+    wrap.querySelector(".btn-move-up").addEventListener("click", function(){
+      var prev = wrap.previousElementSibling;
+      if (prev) phasesEl.insertBefore(wrap, prev);
+    });
+    wrap.querySelector(".btn-move-down").addEventListener("click", function(){
+      var next = wrap.nextElementSibling;
+      if (next) phasesEl.insertBefore(next, wrap);
+    });
+    phasesEl.appendChild(wrap);
+  }
+
+  (initial.phases && initial.phases.length ? initial.phases : [{}]).forEach(addPhase);
+
+  document.getElementById("btn-add-phase").addEventListener("click", function(){
+    addPhase({});
+  });
+
+  function splitLines(v) {
+    return (v || "").split("\n").map(function(s){ return s.trim(); })
+      .filter(function(s){ return s.length; });
+  }
+
+  function collect() {
+    var phases = [];
+    phasesEl.querySelectorAll(".tpl-phase").forEach(function(pw){
+      var ptitle = pw.querySelector(".phase-title").value.trim();
+      if (!ptitle) return;
+      var items = [];
+      pw.querySelectorAll(".tpl-item").forEach(function(iw){
+        var ititle = iw.querySelector(".item-title").value.trim();
+        if (!ititle) return;
+        var it = {title: ititle};
+        if (iw.dataset.id) it.id = iw.dataset.id;
+        var desc = iw.querySelector(".item-desc").value.trim();
+        if (desc) it.description = desc;
+        var cmds = splitLines(iw.querySelector(".item-cmds").value);
+        if (cmds.length) it.commands = cmds;
+        var refs = splitLines(iw.querySelector(".item-refs").value);
+        if (refs.length) it.finding_refs = refs;
+        items.push(it);
+      });
+      var p = {title: ptitle, items: items};
+      if (pw.dataset.id) p.id = pw.dataset.id;
+      phases.push(p);
+    });
+    return {
+      title: document.getElementById("tpl-title").value.trim(),
+      icon: document.getElementById("tpl-icon").value,
+      scope: document.getElementById("tpl-scope").value.trim(),
+      description: document.getElementById("tpl-desc").value.trim(),
+      phases: phases
+    };
+  }
+
+  document.getElementById("btn-save").addEventListener("click", function(){
+    var payload = collect();
+    if (!payload.title) { statusEl.textContent = "Titel is verplicht."; return; }
+    if (!payload.phases.length) { statusEl.textContent = "Voeg minstens één fase met een titel toe."; return; }
+    statusEl.textContent = "Bezig…";
+    var url = (MODE === "edit")
+      ? "/api/checklists/templates/" + encodeURIComponent(TYPE_KEY)
+      : "/api/checklists/templates";
+    fetch(url, {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify(payload)
+    }).then(function(r){ return r.json(); }).then(function(d){
+      if (d.ok) { window.location.href = "/dashboard/checklists"; }
+      else { statusEl.textContent = d.error || "Opslaan mislukt"; }
+    }).catch(function(){ statusEl.textContent = "Netwerkfout"; });
+  });
+})();
+</script>
+{% endblock %}

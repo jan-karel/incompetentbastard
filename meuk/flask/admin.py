@@ -111,3 +111,5 @@ admin.add_view(Tijdelijk(db_xxs_localstorage, db.session, name="db_xxs_localstor
 admin.add_view(Tijdelijk(db_xxs_keylogger, db.session, name="db_xxs_keylogger", category="XSS"))
 admin.add_view(Tijdelijk(db_xxs_form, db.session, name="db_xxs_form", category="XSS"))
 admin.add_view(Instellingen(db_instellingen, db.session, name="Instellingen"))
+admin.add_view(Tijdelijk(db_opdracht, db.session, name="Projecten"))
+admin.add_view(Tijdelijk(db_opdracht_config, db.session, name="Projectconfig"))

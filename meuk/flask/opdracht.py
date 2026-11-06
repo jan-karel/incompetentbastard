@@ -5,8 +5,9 @@ import datetime
 
 from flask import Blueprint, request, jsonify, render_template
 
-from meuk.flask.models import db, db_opdracht, db_bevindingen, db_instellingen
+from meuk.flask.models import db, db_opdracht, db_bevindingen
 from meuk.flask.security import require_dashboard_access
+from meuk.flask import project as _project
 
 opdracht_bp = Blueprint('opdracht_bp', __name__, template_folder='html')
 
@@ -16,6 +17,17 @@ _VALID_STATUS = {'gepland', 'actief', 'afgerond'}
 @opdracht_bp.before_request
 def _check_dashboard_access():
     require_dashboard_access()
+
+
+@opdracht_bp.app_context_processor
+def _inject_projects():
+    """Lever de projectlijst + actief project aan alle templates (voor de kiezer)."""
+    try:
+        opdrachten = db_opdracht.query.order_by(db_opdracht.id.desc()).all()
+        active = _project.current_opdracht_id()
+    except Exception:
+        opdrachten, active = [], None
+    return {'nav_opdrachten': opdrachten, 'nav_active_opdracht_id': active}
 
 
 def _parse_date(val):
@@ -77,6 +89,7 @@ def api_opdracht_create():
     )
     db.session.add(o)
     db.session.commit()
+    _project.get_or_create_config(o)
     return jsonify({'ok': True, 'opdracht': _opdracht_dict(o)})
 
 
@@ -140,22 +153,42 @@ def api_opdracht_assign(opdracht_id):
     return jsonify({'ok': True, 'changed': changed})
 
 
-@opdracht_bp.route('/api/opdrachten/<int:opdracht_id>/activeer-rapport', methods=['POST'])
-def api_opdracht_naar_rapport(opdracht_id):
-    """Neem scope/RoE/tijdvenster van de opdracht over in de rapportinstellingen."""
+@opdracht_bp.route('/api/opdrachten/active', methods=['GET'])
+def api_opdracht_active():
+    """Het huidige actieve project + de volledige projectlijst voor de kiezer."""
+    oid = _project.current_opdracht_id()
+    opdrachten = db_opdracht.query.order_by(db_opdracht.id.desc()).all()
+    return jsonify({
+        'active_id': oid,
+        'opdrachten': [{'id': o.id, 'naam': o.naam or '', 'klant': o.klant or '',
+                        'status': o.status or 'gepland'} for o in opdrachten],
+    })
+
+
+@opdracht_bp.route('/api/opdrachten/<int:opdracht_id>/activeer', methods=['POST'])
+def api_opdracht_activeer(opdracht_id):
+    """Maak een project actief voor deze sessie."""
     o = db.session.get(db_opdracht, opdracht_id)
     if not o:
         return jsonify({'ok': False, 'error': 'niet gevonden'}), 404
-    s = db_instellingen.query.first()
-    if not s:
-        return jsonify({'ok': False, 'error': 'geen instellingen'}), 400
-    if o.roe:
-        s.rapport_roe = o.roe
-    if o.start_datum:
-        s.rapport_test_start_date = o.start_datum
-    if o.eind_datum:
-        s.rapport_test_end_date = o.eind_datum
-    if o.klant:
-        s.rapport_project = o.klant
-    db.session.commit()
-    return jsonify({'ok': True})
+    _project.set_active(opdracht_id)
+    _project.get_or_create_config(o)
+    return jsonify({'ok': True, 'active_id': opdracht_id, 'naam': o.naam})
+
+
+@opdracht_bp.route('/api/opdrachten/backfill', methods=['POST'])
+def api_opdracht_backfill():
+    """Wijs bestaande (niet-toegewezen) data toe aan het standaardproject."""
+    result = _project.backfill_to_default()
+    return jsonify({'ok': True, **result})
+
+
+@opdracht_bp.route('/api/opdrachten/<int:opdracht_id>/activeer-rapport', methods=['POST'])
+def api_opdracht_naar_rapport(opdracht_id):
+    """Compat: activeer het project (config staat nu per project, geen kopie meer nodig)."""
+    o = db.session.get(db_opdracht, opdracht_id)
+    if not o:
+        return jsonify({'ok': False, 'error': 'niet gevonden'}), 404
+    _project.set_active(opdracht_id)
+    _project.get_or_create_config(o)
+    return jsonify({'ok': True, 'active_id': opdracht_id})

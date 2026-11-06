@@ -28,9 +28,11 @@ def build_chains():
     # Alle chain-kanten tussen niet-verwijderde bevindingen
     actieve_ids = {b.id for b in _active_findings().all()}
     edges = []
+    edge_relation_id = {}  # (van, naar) -> db_finding_related.id (eerste match)
     for r in db_finding_related.query.filter_by(relation_type='chain').all():
         if r.finding_id in actieve_ids and r.related_id in actieve_ids:
             edges.append((r.finding_id, r.related_id))
+            edge_relation_id.setdefault((r.finding_id, r.related_id), r.id)
     edges = list(dict.fromkeys(edges))  # dedup, volgorde behouden
 
     # Betrokken knopen
@@ -77,7 +79,12 @@ def build_chains():
     for s in sorted(sources):
         paths.append(_walk(s))
 
-    return {'nodes': nodes, 'edges': [{'from': a, 'to': b} for a, b in edges], 'paths': paths}
+    return {
+        'nodes': nodes,
+        'edges': [{'from': a, 'to': b, 'relation_id': edge_relation_id.get((a, b))}
+                  for a, b in edges],
+        'paths': paths,
+    }
 
 
 @chains_bp.route('/dashboard/chains', methods=['GET'])

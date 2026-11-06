@@ -23,6 +23,12 @@ python3 -m venv .venv.
  .venv/bin/activate
 pip install -r requirements-dev.txt
 ```
+MacOS
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+```
 
 Start the app:
 

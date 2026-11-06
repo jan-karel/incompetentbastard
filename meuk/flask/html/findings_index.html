@@ -278,6 +278,37 @@
     </div>
   </section>
 
+  <section class="card mb-14">
+    <div class="card-head"><h2>DefectDojo</h2></div>
+    <div class="card-body">
+      <p class="help m-0 mb-8">Synchroniseer bevindingen met een DefectDojo-engagement. Configuratie (URL, API-sleutel, product/engagement) staat op het <a href="/dashboard/report">rapport-dashboard</a>.</p>
+      <div class="grid cols-2 gap-16">
+        <div>
+          <h3 class="fs-14 m-0 mb-8">Naar DefectDojo</h3>
+          <label class="d-flex items-center gap-8 mb-8" style="white-space:nowrap">
+            <input type="checkbox" id="dd-only-final" checked /> Alleen definitieve bevindingen
+          </label>
+          <div class="d-flex gap-8 flex-wrap">
+            <button type="button" id="btn-dd-test" class="btn">Verbinding testen</button>
+            <button type="button" id="btn-dd-export" class="btn btn-primary">Exporteren (push)</button>
+            <button type="button" id="btn-dd-update" class="btn">Gekoppelde bijwerken</button>
+          </div>
+        </div>
+        <div>
+          <h3 class="fs-14 m-0 mb-8">Uit DefectDojo</h3>
+          <label class="d-flex items-center gap-8 mb-8" style="white-space:nowrap">
+            <input type="checkbox" id="dd-import-open" checked /> Alleen actieve findings
+          </label>
+          <div class="d-flex gap-8 flex-wrap">
+            <button type="button" id="btn-dd-import" class="btn">Importeren (pull)</button>
+          </div>
+          <p class="help m-0 mt-8">Nieuwe findings komen als concept binnen; al gekoppelde worden overgeslagen. Gebruik "Gekoppelde bijwerken" om bestaande te verversen.</p>
+        </div>
+      </div>
+      <div id="dd-msg" class="help mt-8"></div>
+    </div>
+  </section>
+
   <section class="card">
     <div class="card-head"><h2>Prullenbak <span class="text-muted fs-12">({{ deleted_count }})</span></h2></div>
     <div class="card-body">
@@ -514,6 +545,64 @@
     window._applyFindingsFilter = function() { _origFilter(); _pgPage = 0; _pgRender(); };
   }
   setTimeout(_pgRender, 50);
+
+  // ── DefectDojo: test / export / import / update ──
+  var ddMsg = document.getElementById("dd-msg");
+  function ddBusy(t) { if (ddMsg) ddMsg.textContent = t; }
+  function ddPost(url, body, label, onOk) {
+    ddBusy(label + "…");
+    fetch(url, {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify(body || {})
+    }).then(function(r){ return r.json(); }).then(function(d){
+      if (d.ok) { onOk(d); }
+      else { ddBusy("Mislukt: " + (d.error || JSON.stringify(d.detail || d))); }
+    }).catch(function(){ ddBusy("Netwerkfout"); });
+  }
+
+  var btnDdTest = document.getElementById("btn-dd-test");
+  if (btnDdTest) btnDdTest.addEventListener("click", function(){
+    ddBusy("Verbinding testen…");
+    fetch("/api/defectdojo/test").then(function(r){ return r.json(); }).then(function(d){
+      if (d.ok) {
+        var extra = [];
+        if (d.product) extra.push("product: " + d.product);
+        if (d.engagement) extra.push("engagement: " + d.engagement);
+        ddBusy("Verbinding OK" + (extra.length ? " (" + extra.join(", ") + ")" : ""));
+      } else { ddBusy("Mislukt: " + (d.error || "onbekend")); }
+    }).catch(function(){ ddBusy("Netwerkfout"); });
+  });
+
+  var btnDdExport = document.getElementById("btn-dd-export");
+  if (btnDdExport) btnDdExport.addEventListener("click", function(){
+    var onlyFinal = document.getElementById("dd-only-final").checked;
+    if (!window.confirm("Bevindingen naar DefectDojo exporteren?")) return;
+    ddPost("/api/defectdojo/push", {only_final: onlyFinal}, "Exporteren", function(d){
+      ddBusy("Export klaar: " + d.created + " aangemaakt, " + d.updated +
+             " bijgewerkt, " + d.failed + " mislukt.");
+    });
+  });
+
+  var btnDdUpdate = document.getElementById("btn-dd-update");
+  if (btnDdUpdate) btnDdUpdate.addEventListener("click", function(){
+    if (!window.confirm("Gekoppelde bevindingen bijwerken vanuit DefectDojo? Dit overschrijft naam/score/uitwerking/herstelstatus.")) return;
+    ddPost("/api/defectdojo/pull", {}, "Bijwerken", function(d){
+      ddBusy("Bijgewerkt: " + d.updated + " bevindingen (" + d.failed + " mislukt).");
+      if (d.updated) setTimeout(function(){ window.location.reload(); }, 1200);
+    });
+  });
+
+  var btnDdImport = document.getElementById("btn-dd-import");
+  if (btnDdImport) btnDdImport.addEventListener("click", function(){
+    var onlyOpen = document.getElementById("dd-import-open").checked;
+    if (!window.confirm("Bevindingen uit DefectDojo importeren als concept?")) return;
+    ddPost("/api/defectdojo/import", {only_open: onlyOpen}, "Importeren", function(d){
+      ddBusy("Import klaar: " + d.imported + " nieuw, " + d.skipped +
+             " overgeslagen (van " + d.total + ").");
+      if (d.imported) setTimeout(function(){ window.location.reload(); }, 1200);
+    });
+  });
 
 })();
 </script>

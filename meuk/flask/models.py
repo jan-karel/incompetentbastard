@@ -227,6 +227,67 @@ class db_opdracht(db.Model):
     status = db.Column(db.String(20), default='gepland')   # gepland / actief / afgerond
     created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
     bevindingen = db.relationship('db_bevindingen', backref='opdracht', lazy='selectin')
+    config = db.relationship('db_opdracht_config', backref='opdracht', uselist=False,
+                             cascade='all, delete-orphan', lazy='selectin')
+
+
+# Velden die per project verschillen (rapport/scope/DefectDojo/debrief).
+# Deze staan los van db_instellingen, dat alleen globale app-instellingen houdt.
+_PROJECT_CONFIG_FIELDS = (
+    'rapport_titel', 'rapport_auteur', 'rapport_subtitel', 'rapport_project',
+    'rapport_omgeving', 'rapport_classificatie', 'rapport_taal', 'rapport_isdraft',
+    'rapport_testtype', 'rapport_testscope', 'rapport_management_samenvatting',
+    'rapport_legsup_startpunt', 'rapport_legsup_privileges', 'rapport_legsup_informatie',
+    'rapport_scenarios', 'rapport_scope_targets', 'rapport_logo_path',
+    'rapport_template_variant', 'rapport_roe', 'rapport_test_start_date',
+    'rapport_test_end_date', 'rapport_versie', 'rapport_versie_status',
+    'rapport_pdf_password', 'debrief_context', 'debrief_werkte', 'debrief_faalde',
+    'debrief_detectie', 'debrief_vervolg', 'dd_url', 'dd_api_key', 'dd_product_id',
+    'dd_engagement_id', 'dd_verify_ssl', 'dd_auto_push',
+)
+
+
+class db_opdracht_config(db.Model):
+    """Per-project rapport-, scope-, DefectDojo- en debrief-configuratie (1:1 met db_opdracht)."""
+    __tablename__ = 'db_opdracht_config'
+    id = db.Column(db.Integer, primary_key=True)
+    opdracht_id = db.Column(db.Integer, db.ForeignKey('db_opdracht.id'),
+                            unique=True, nullable=False, index=True)
+    rapport_titel = db.Column(db.String(200), default='Penetration Test Report')
+    rapport_auteur = db.Column(db.String(200), default='')
+    rapport_subtitel = db.Column(db.String(200), default='')
+    rapport_project = db.Column(db.String(200), default='')
+    rapport_omgeving = db.Column(db.String(200), default='')
+    rapport_classificatie = db.Column(db.String(200), default='TLP:RED')
+    rapport_taal = db.Column(db.String(5), default='nl')
+    rapport_isdraft = db.Column(db.Boolean, default=True)
+    rapport_testtype = db.Column(db.String(20), default='pentest')
+    rapport_testscope = db.Column(db.String(60), default='blackbox')
+    rapport_management_samenvatting = db.Column(db.Text(), default='')
+    rapport_legsup_startpunt = db.Column(db.Text(), default='')
+    rapport_legsup_privileges = db.Column(db.Text(), default='')
+    rapport_legsup_informatie = db.Column(db.Text(), default='')
+    rapport_scenarios = db.Column(db.Text(), default='[]')
+    rapport_scope_targets = db.Column(db.Text(), default='[]')
+    rapport_logo_path = db.Column(db.String(300), default='')
+    rapport_template_variant = db.Column(db.String(20), default='detailed')
+    rapport_roe = db.Column(db.Text(), default='')
+    rapport_test_start_date = db.Column(db.Date)
+    rapport_test_end_date = db.Column(db.Date)
+    rapport_versie = db.Column(db.String(20), default='')
+    rapport_versie_status = db.Column(db.String(20), default='concept')
+    rapport_pdf_password = db.Column(db.String(200), default='')
+    debrief_context = db.Column(db.Text(), default='')
+    debrief_werkte = db.Column(db.Text(), default='')
+    debrief_faalde = db.Column(db.Text(), default='')
+    debrief_detectie = db.Column(db.Text(), default='')
+    debrief_vervolg = db.Column(db.Text(), default='')
+    dd_url = db.Column(db.String(300), default='')
+    dd_api_key = db.Column(db.String(300), default='')
+    dd_product_id = db.Column(db.Integer)
+    dd_engagement_id = db.Column(db.Integer)
+    dd_verify_ssl = db.Column(db.Boolean, default=True)
+    dd_auto_push = db.Column(db.Boolean, default=False)
 
 
 class db_evidence(db.Model):
@@ -253,6 +314,7 @@ class db_notes(db.Model):
     uitwerken = db.Column(db.Text())
     rapport = db.Column(db.Boolean, default=False)
     volgorde = db.Column(db.Integer, default=0)
+    opdracht_id = db.Column(db.Integer, db.ForeignKey('db_opdracht.id'), nullable=True, index=True)
 
 class db_agents(db.Model):
     __tablename__ = 'db_agents'
@@ -371,12 +433,27 @@ class db_checklist(db.Model):
     __tablename__ = 'db_checklist'
     id = db.Column(db.Integer, primary_key=True)
     naam = db.Column(db.String(255), nullable=False)
-    checklist_type = db.Column(db.String(20), nullable=False)
+    checklist_type = db.Column(db.String(40), nullable=False)
     target = db.Column(db.String(255), default='')
     status = db.Column(db.String(16), default='active')
     created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+    opdracht_id = db.Column(db.Integer, db.ForeignKey('db_opdracht.id'), nullable=True, index=True)
     items = db.relationship('db_checklist_item', backref='checklist', cascade='all, delete-orphan', lazy='selectin')
+
+
+class db_checklist_template(db.Model):
+    """Eigen (bewerkbare) checklist-sjablonen naast de ingebouwde JSON-types."""
+    __tablename__ = 'db_checklist_template'
+    id = db.Column(db.Integer, primary_key=True)
+    type_key = db.Column(db.String(40), unique=True, nullable=False, index=True)
+    title = db.Column(db.String(255), nullable=False)
+    icon = db.Column(db.String(40), default='list')
+    scope = db.Column(db.String(255), default='')
+    description = db.Column(db.Text(), default='')
+    data = db.Column(db.Text(), nullable=False, default='{"phases": []}')  # JSON: {"phases": [...]}
+    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
 
 
 class db_checklist_item(db.Model):
@@ -408,12 +485,135 @@ class db_defectdojo_sync(db.Model):
     __tablename__ = 'db_defectdojo_sync'
     id = db.Column(db.Integer, primary_key=True)
     finding_id = db.Column(db.Integer, db.ForeignKey('db_bevinding.id'), nullable=False, index=True)
+    opdracht_id = db.Column(db.Integer, db.ForeignKey('db_opdracht.id'), nullable=True, index=True)
     dd_finding_id = db.Column(db.Integer)
     dd_engagement_id = db.Column(db.Integer)
     last_action = db.Column(db.String(20), default='')   # 'create', 'update', 'status'
     last_status = db.Column(db.String(20), default='')   # resultaat: 'ok', 'error'
     last_message = db.Column(db.Text(), default='')
     synced_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+
+
+class db_asset(db.Model):
+    """Asset-inventaris — gededupliceerde doelen (domein/host/service/endpoint).
+
+    Gedeeld over opdrachten (asset-graph), zelf-refererend voor lineage
+    (domein -> subdomein -> service -> endpoint). Vervangt het vrije-tekstveld
+    db_bevindingen.affected_assets door een eerste-klas entiteit, zodat
+    coverage-views en gestructureerde DefectDojo-endpoints mogelijk worden.
+    """
+    __tablename__ = 'db_asset'
+    id = db.Column(db.Integer, primary_key=True)
+    opdracht_id = db.Column(db.Integer, db.ForeignKey('db_opdracht.id'), nullable=True, index=True)
+    parent_id = db.Column(db.Integer, db.ForeignKey('db_asset.id'), nullable=True, index=True)
+    asset_type = db.Column(db.String(20), default='host')   # domain/subdomain/ip/service/app/endpoint
+    waarde = db.Column(db.String(500), nullable=False)        # bijv. example.com, 10.0.0.1, https://x/login
+    dedupe_key = db.Column(db.String(600), unique=True, index=True)  # genormaliseerde sleutel
+    poort = db.Column(db.Integer, nullable=True)
+    protocol = db.Column(db.String(20), default='')
+    getest = db.Column(db.String(16), default='untested')    # untested/in_progress/tested/out_of_scope
+    in_scope = db.Column(db.Boolean, default=True)
+    notitie = db.Column(db.Text(), default='')
+    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+
+    opdracht = db.relationship('db_opdracht', backref=db.backref('assets', lazy='selectin'))
+    kinderen = db.relationship('db_asset', backref=db.backref('ouder', remote_side=[id]), lazy='selectin')
+
+    def __repr__(self):
+        return '<db_asset %r>' % self.waarde
+
+
+class db_asset_anchor(db.Model):
+    """Anchor — koppelt een asset aan een bevinding (ARTEX-stijl).
+
+    Maakt zichtbaar welke bevinding op welk doel slaat en, omgekeerd, welke
+    assets wel/niet geraakt zijn (coverage).
+    """
+    __tablename__ = 'db_asset_anchor'
+    id = db.Column(db.Integer, primary_key=True)
+    asset_id = db.Column(db.Integer, db.ForeignKey('db_asset.id'), nullable=False, index=True)
+    finding_id = db.Column(db.Integer, db.ForeignKey('db_bevinding.id'), nullable=False, index=True)
+    relatie = db.Column(db.String(20), default='affected')   # affected/tested/pivot
+    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+
+    __table_args__ = (
+        db.UniqueConstraint('asset_id', 'finding_id', name='uq_anchor_asset_finding'),
+    )
+
+    asset = db.relationship('db_asset', backref=db.backref('anchors', lazy='selectin', cascade='all, delete-orphan'))
+    finding = db.relationship('db_bevindingen', backref=db.backref('asset_anchors', lazy='selectin', cascade='all, delete-orphan'))
+
+
+class db_explore_node(db.Model):
+    """Knoop in de exploration-/aanvalsketen-graaf (ARTEX-stijl, handmatig).
+
+    node_type: start/goal/intent/fact/vulnerability/hint
+    status:    pending/in_progress/done/achieved
+    Een 'vulnerability'-knoop kan naar een bestaande bevinding verwijzen.
+    """
+    __tablename__ = 'db_explore_node'
+    id = db.Column(db.Integer, primary_key=True)
+    opdracht_id = db.Column(db.Integer, db.ForeignKey('db_opdracht.id'), nullable=True, index=True)
+    node_type = db.Column(db.String(20), default='intent')
+    titel = db.Column(db.String(255), nullable=False)
+    omschrijving = db.Column(db.Text(), default='')
+    status = db.Column(db.String(20), default='pending')
+    prioriteit = db.Column(db.Integer, default=5)   # 0..9 (hoger = belangrijker)
+    finding_id = db.Column(db.Integer, db.ForeignKey('db_bevinding.id'), nullable=True, index=True)
+    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+
+    opdracht = db.relationship('db_opdracht', backref=db.backref('explore_nodes', lazy='selectin'))
+    finding = db.relationship('db_bevindingen', backref=db.backref('explore_nodes', lazy='selectin'))
+
+    def __repr__(self):
+        return '<db_explore_node %r>' % self.titel
+
+
+class db_explore_edge(db.Model):
+    """Gerichte, getypeerde kant in de exploration-graaf.
+
+    edge_type: derive (afgeleid) / intent_chain (intent-keten) /
+               produce (produceert) / prove (bewijst)
+    """
+    __tablename__ = 'db_explore_edge'
+    id = db.Column(db.Integer, primary_key=True)
+    from_node = db.Column(db.Integer, db.ForeignKey('db_explore_node.id'), nullable=False, index=True)
+    to_node = db.Column(db.Integer, db.ForeignKey('db_explore_node.id'), nullable=False, index=True)
+    edge_type = db.Column(db.String(20), default='derive')
+    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+
+    __table_args__ = (
+        db.UniqueConstraint('from_node', 'to_node', 'edge_type', name='uq_explore_edge'),
+    )
+
+    bron = db.relationship('db_explore_node', foreign_keys=[from_node],
+                           backref=db.backref('uitgaand', lazy='selectin', cascade='all, delete-orphan'))
+    doel = db.relationship('db_explore_node', foreign_keys=[to_node],
+                           backref=db.backref('inkomend', lazy='selectin', cascade='all, delete-orphan'))
+
+
+class db_explore_asset_anchor(db.Model):
+    """Anchor tussen een exploration-knoop en een asset (ARTEX-mechanisme).
+
+    Hiermee volgt de dekking van een asset uit de voortgang van de
+    exploration-graaf: een asset geldt als 'aangeraakt' zodra een gekoppelde
+    knoop de status done/achieved heeft.
+    """
+    __tablename__ = 'db_explore_asset_anchor'
+    id = db.Column(db.Integer, primary_key=True)
+    node_id = db.Column(db.Integer, db.ForeignKey('db_explore_node.id'), nullable=False, index=True)
+    asset_id = db.Column(db.Integer, db.ForeignKey('db_asset.id'), nullable=False, index=True)
+    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+
+    __table_args__ = (
+        db.UniqueConstraint('node_id', 'asset_id', name='uq_explore_asset_anchor'),
+    )
+
+    node = db.relationship('db_explore_node', backref=db.backref(
+        'asset_anchors', lazy='selectin', cascade='all, delete-orphan'))
+    asset = db.relationship('db_asset', backref=db.backref(
+        'explore_anchors', lazy='selectin', cascade='all, delete-orphan'))
 
 
 class db_amsi_preset(db.Model):

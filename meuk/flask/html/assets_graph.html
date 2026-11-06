@@ -1,0 +1,556 @@
+{% extends "bootstrap/base.html" %}
+{% block title %}Assets — dekkingsgraaf{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/safe-overview.css') }}" />
+<link rel="stylesheet" href="{{ url_for('static', filename='css/finding-form.css') }}" />
+<style>
+  .asset-layout { display: flex; gap: 14px; align-items: flex-start; }
+  .asset-canvas-wrap { flex: 1; min-width: 0; overflow: auto; max-height: 72vh; border: 1px solid #e5e7eb; border-radius: 8px; background: #fafbfc; }
+  .asset-svg { display: block; }
+  .asset-node rect { stroke: #374151; stroke-width: 1; rx: 8; cursor: pointer; }
+  .asset-node rect.sel { stroke: #2563eb; stroke-width: 3; }
+  .asset-node text { font: 12px sans-serif; fill: #111; pointer-events: none; }
+  .asset-node text.tag { font: 10px sans-serif; fill: #374151; opacity: .8; }
+  .asset-edge { stroke: #9ca3af; stroke-width: 1.5; fill: none; }
+  .asset-side { width: 320px; flex: 0 0 320px; }
+  .asset-legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; align-items: center; }
+  .legend-dot { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 4px; vertical-align: middle; }
+  .cov-counter { font-weight: 600; }
+  .asset-finding-link { display: block; padding: 3px 0; }
+  .zoom-ctrl { display: inline-flex; gap: 6px; }
+  .scope-chip { display: inline-block; padding: 2px 8px; border: 1px solid #cbd5e1; border-radius: 999px; background: #f1f5f9; font-size: 12px; color: #334155; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-title">
+  <div>
+    <h1>Assets — dekkingsgraaf</h1>
+    <div class="breadcrumbs"><a href="/">Start</a> / <a href="/dashboard/findings">Bevindingen</a> / Assets</div>
+  </div>
+</div>
+
+<section class="card mb-14">
+  <div class="card-body">
+    <div class="d-flex gap-8 items-center flex-wrap">
+      <label class="help">Opdracht:</label>
+      <select id="filter-opdracht" class="form-control w-220">
+        <option value="">Alle opdrachten</option>
+      </select>
+      <span class="cov-counter" id="cov-counter"></span>
+      <span class="asset-legend ml-auto">
+        <span><span class="legend-dot" style="background:#16a34a"></span>Getest</span>
+        <span><span class="legend-dot" style="background:#f59e0b"></span>Bezig</span>
+        <span><span class="legend-dot" style="background:#9ca3af"></span>Ongetest</span>
+        <span><span class="legend-dot" style="background:#e5e7eb;border:1px dashed #9ca3af"></span>Out of scope</span>
+      </span>
+      <span class="zoom-ctrl">
+        <button class="btn btn-sm" id="btn-seed-tel" type="button" title="Assets afleiden uit hooked agents + lab-telemetrie">Seed uit telemetrie</button>
+        <button class="btn btn-sm" id="btn-seed-find" type="button" title="Bevinding-locaties omzetten naar assets + anchors">Migreer locaties</button>
+        <button class="btn btn-sm" id="btn-sync-scope" type="button" title="Scope-targets uit instellingen/opdracht synchroniseren">Sync scope</button>
+        <button class="btn btn-sm" id="zoom-out" type="button">−</button>
+        <button class="btn btn-sm" id="zoom-in" type="button">+</button>
+        <button class="btn btn-sm" id="btn-refresh" type="button">Vernieuwen</button>
+      </span>
+    </div>
+  </div>
+</section>
+
+<section class="card mb-14">
+  <div class="card-head"><h2>Scope-targets</h2></div>
+  <div class="card-body">
+    {% if scope_targets %}
+    <p class="help">Doelen uit de rapport-scope (instellingen). Met <strong>Sync scope</strong> worden ze in-scope assets.</p>
+    <div class="d-flex gap-8 flex-wrap mb-8">
+      {% for st in scope_targets %}
+        {% if st is mapping %}
+        <span class="scope-chip" title="{{ st.beschrijving|default('', true) }}">{{ st.target }}{% if st.type %} · {{ st.type }}{% endif %}</span>
+        {% else %}
+        <span class="scope-chip">{{ st }}</span>
+        {% endif %}
+      {% endfor %}
+    </div>
+    <label class="d-flex items-center gap-8" style="white-space:nowrap">
+      <input type="checkbox" id="scope-mark-out" /> Assets buiten de scope als out-of-scope markeren bij sync
+    </label>
+    {% else %}
+    <p class="help">Geen scope-targets geconfigureerd. Stel ze in op het <a href="/dashboard/report">rapport-dashboard</a>; daarna kun je ze hier met <strong>Sync scope</strong> als in-scope assets overnemen.</p>
+    {% endif %}
+  </div>
+</section>
+
+<section class="card mb-14">
+  <div class="card-head"><h2>Asset toevoegen</h2></div>
+  <div class="card-body">
+    <div class="d-flex gap-8 items-center flex-wrap">
+      <select id="new-type" class="form-control w-140">
+        <option value="domain">Domein</option>
+        <option value="subdomain">Subdomein</option>
+        <option value="host">Host</option>
+        <option value="ip">IP</option>
+        <option value="service">Service</option>
+        <option value="app">Applicatie</option>
+        <option value="endpoint">Endpoint (URL)</option>
+      </select>
+      <input type="text" id="new-waarde" class="form-control" placeholder="bijv. acme.com of https://acme.com/login" style="flex:1;min-width:220px" />
+      <input type="number" id="new-poort" class="form-control w-140" placeholder="Poort (optioneel)" />
+      <select id="new-parent" class="form-control w-220"><option value="">-- Geen ouder --</option></select>
+      <button class="btn" id="btn-add-asset" type="button">Toevoegen</button>
+      <span id="add-msg" class="help"></span>
+    </div>
+  </div>
+</section>
+
+<section class="card mb-14">
+  <div class="card-head"><h2>Scan-output importeren</h2></div>
+  <div class="card-body">
+    <p class="help">Doelen uit scan-/tooloutput worden assets (getest) + een scan-knoop in de exploration-graaf.</p>
+    <div class="d-flex gap-8 items-center flex-wrap mb-8">
+      <select id="scan-source" class="form-control w-160">
+        <option value="paste">Geplakte tekst</option>
+        <option value="output">Output-bestand</option>
+      </select>
+      <select id="scan-output-id" class="form-control" style="flex:1;min-width:220px;display:none"></select>
+      <input type="text" id="scan-label" class="form-control w-220" placeholder="Label (bijv. nmap acme)" />
+      <label class="d-flex items-center gap-8" style="white-space:nowrap"><input type="checkbox" id="scan-findings" checked /> Bevindingen aanmaken</label>
+      <button class="btn" id="btn-scan-preview" type="button">Preview</button>
+      <button class="btn" id="btn-scan-import" type="button">Importeren</button>
+      <span id="scan-msg" class="help"></span>
+    </div>
+    <textarea id="scan-text" class="form-control" rows="4" placeholder="Plak hier scan-/tooloutput…"></textarea>
+    <pre id="scan-preview" style="display:none;margin-top:8px;max-height:180px;overflow:auto;background:#f6f7f9;padding:8px;border-radius:6px;font-size:12px"></pre>
+  </div>
+</section>
+
+<div class="asset-layout">
+  <section class="card asset-canvas-wrap" id="canvas-wrap">
+    <div id="asset-canvas"><p class="help" style="padding:12px">Laden…</p></div>
+  </section>
+  <section class="card asset-side">
+    <div class="card-head"><h2>Detail</h2></div>
+    <div class="card-body" id="asset-detail">
+      <p class="help">Klik op een knoop om details te zien en te bewerken.</p>
+    </div>
+  </section>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script nonce="{{ csp_nonce }}">
+(function() {
+  "use strict";
+  var STATUS_COLORS = {
+    tested: "#16a34a", in_progress: "#f59e0b",
+    untested: "#9ca3af", out_of_scope: "#e5e7eb"
+  };
+  var STATUS_LABEL = {
+    tested: "Getest", in_progress: "Bezig",
+    untested: "Ongetest", out_of_scope: "Out of scope"
+  };
+  var TYPE_LABEL = {
+    domain: "Domein", subdomain: "Subdomein", host: "Host", ip: "IP",
+    service: "Service", app: "App", endpoint: "Endpoint"
+  };
+
+  var canvas = document.getElementById("asset-canvas");
+  var detail = document.getElementById("asset-detail");
+  var counter = document.getElementById("cov-counter");
+  var filterOpdracht = document.getElementById("filter-opdracht");
+  var newParent = document.getElementById("new-parent");
+  var addMsg = document.getElementById("add-msg");
+  var csrfToken = (function () {
+    var m = document.querySelector('meta[name="csrf-token"]');
+    if (m) { return m.getAttribute("content") || ""; }
+    var inp = document.getElementById("finding-csrf");
+    return inp ? (inp.value || "") : "";
+  })();
+
+  var NODE_W = 180, NODE_H = 48, GAP_X = 70, GAP_Y = 18, PAD = 16;
+  var zoom = 1;
+  var lastData = null, selectedId = null;
+
+  function svgEl(name, attrs) {
+    var el = document.createElementNS("http://www.w3.org/2000/svg", name);
+    for (var k in attrs) { el.setAttribute(k, attrs[k]); }
+    return el;
+  }
+  function jsonFetch(url, opts) { return fetch(url, opts).then(function(r){ return r.json(); }); }
+
+  // ── Boomlayout: rijen per blad, ouders gecentreerd op hun kinderen ──
+  function layout(nodes) {
+    var byId = {}, children = {};
+    nodes.forEach(function(n){ byId[n.id] = n; children[n.id] = []; });
+    var roots = [];
+    nodes.forEach(function(n){
+      if (n.parent_id && byId[n.parent_id]) children[n.parent_id].push(n.id);
+      else roots.push(n.id);
+    });
+    var pos = {}, row = 0;
+    function dfs(id) {
+      var kids = children[id];
+      if (!kids.length) { pos[id] = row; row += 1; return pos[id]; }
+      var ys = kids.map(dfs);
+      pos[id] = (ys[0] + ys[ys.length - 1]) / 2;
+      return pos[id];
+    }
+    roots.forEach(dfs);
+    var coords = {};
+    nodes.forEach(function(n){
+      coords[n.id] = {
+        x: PAD + n.depth * (NODE_W + GAP_X),
+        y: PAD + pos[n.id] * (NODE_H + GAP_Y)
+      };
+    });
+    return coords;
+  }
+
+  function render(data) {
+    lastData = data;
+    canvas.innerHTML = "";
+    var nodes = data.nodes || [];
+    if (!nodes.length) {
+      canvas.innerHTML = '<p class="help" style="padding:12px">Nog geen assets. Voeg er een toe, of koppel assets aan een bevinding.</p>';
+      counter.textContent = "";
+      return;
+    }
+    var coords = layout(nodes);
+    var maxX = 0, maxY = 0;
+    nodes.forEach(function(n){
+      var c = coords[n.id];
+      if (c.x > maxX) maxX = c.x; if (c.y > maxY) maxY = c.y;
+    });
+    var width = (maxX + NODE_W + PAD) * zoom, height = (maxY + NODE_H + PAD) * zoom;
+    var svg = svgEl("svg", {"class": "asset-svg", width: width, height: height,
+      viewBox: "0 0 " + (maxX + NODE_W + PAD) + " " + (maxY + NODE_H + PAD)});
+
+    (data.edges || []).forEach(function(e){
+      var a = coords[e.from], b = coords[e.to];
+      if (!a || !b) return;
+      var x1 = a.x + NODE_W, y1 = a.y + NODE_H / 2, x2 = b.x, y2 = b.y + NODE_H / 2;
+      var mx = (x1 + x2) / 2;
+      svg.appendChild(svgEl("path", {"class": "asset-edge",
+        d: "M" + x1 + "," + y1 + " C" + mx + "," + y1 + " " + mx + "," + y2 + " " + x2 + "," + y2}));
+    });
+
+    nodes.forEach(function(n){
+      var c = coords[n.id];
+      var g = svgEl("g", {"class": "asset-node"});
+      var fill = STATUS_COLORS[n.getest] || "#9ca3af";
+      var rectAttrs = {x: c.x, y: c.y, width: NODE_W, height: NODE_H, fill: fill};
+      if (!n.in_scope || n.getest === "out_of_scope") {
+        rectAttrs["stroke-dasharray"] = "4,3";
+      }
+      var rect = svgEl("rect", rectAttrs);
+      if (n.id === selectedId) rect.setAttribute("class", "sel");
+      rect.addEventListener("click", function(){ selectedId = n.id; showDetail(n); render(lastData); });
+      g.appendChild(rect);
+      var dark = (n.getest === "untested" || n.getest === "out_of_scope");
+      var fg = dark ? "#111" : "#fff";
+      var tag = svgEl("text", {x: c.x + 8, y: c.y + 15, "class": "tag"});
+      var extra = "";
+      if (n.max_severity) extra += " · " + n.max_severity.toUpperCase();
+      if (n.agent) extra += " · ●" + (n.agent.status || "live");
+      if (n.derived_tested && n.getest !== "tested") extra += " · ✓exploration";
+      tag.textContent = (TYPE_LABEL[n.type] || n.type) + (n.poort ? " · :" + n.poort : "") +
+                        (n.findings.length ? " · " + n.findings.length + "✓" : "") + extra;
+      g.appendChild(tag);
+      // Severity-stip rechtsboven
+      if (n.max_severity) {
+        var SEV = {critical:"#820000", high:"#e60000", medium:"#f09600", low:"#ffdc00", none:"#00be00"};
+        g.appendChild(svgEl("circle", {cx: c.x + NODE_W - 10, cy: c.y + 10, r: 5,
+          fill: SEV[n.max_severity] || "#999", stroke: "#fff", "stroke-width": 1}));
+      }
+      var label = svgEl("text", {x: c.x + 8, y: c.y + 34, fill: fg});
+      var lbl = n.label || "";
+      label.textContent = lbl.length > 26 ? lbl.slice(0, 25) + "…" : lbl;
+      g.appendChild(label);
+      svg.appendChild(g);
+    });
+    canvas.appendChild(svg);
+
+    var s = data.stats || {};
+    counter.textContent = "In scope: " + (s.in_scope || 0) + " · Getest: " +
+                          (s.tested || 0) + " · Afgeleid: " + (s.derived_tested || 0) +
+                          " · Totaal: " + (s.total || 0);
+  }
+
+  function statusButtons(n) {
+    var wrap = document.createElement("div");
+    wrap.className = "d-flex gap-8 flex-wrap mt-8";
+    ["untested", "in_progress", "tested", "out_of_scope"].forEach(function(st){
+      var b = document.createElement("button");
+      b.className = "btn btn-sm";
+      b.type = "button";
+      b.textContent = STATUS_LABEL[st];
+      if (st === n.getest) b.style.outline = "2px solid #2563eb";
+      b.addEventListener("click", function(){ updateAsset(n.id, {getest: st}); });
+      wrap.appendChild(b);
+    });
+    return wrap;
+  }
+
+  function showDetail(n) {
+    detail.innerHTML = "";
+    var h = document.createElement("div");
+    h.innerHTML = "<strong>" + escapeHtml(n.label) + "</strong><br>" +
+      '<span class="help">' + (TYPE_LABEL[n.type] || n.type) +
+      (n.poort ? " · poort " + n.poort : "") + "</span>";
+    detail.appendChild(h);
+
+    var stLbl = document.createElement("p");
+    stLbl.className = "help mt-8";
+    stLbl.textContent = "Dekkingsstatus:";
+    detail.appendChild(stLbl);
+    detail.appendChild(statusButtons(n));
+
+    // Scope-toggle
+    var scope = document.createElement("label");
+    scope.className = "d-block mt-8";
+    var cb = document.createElement("input");
+    cb.type = "checkbox"; cb.checked = !!n.in_scope;
+    cb.addEventListener("change", function(){ updateAsset(n.id, {in_scope: cb.checked}); });
+    scope.appendChild(cb);
+    scope.appendChild(document.createTextNode(" In scope"));
+    detail.appendChild(scope);
+
+    // Ouder kiezen
+    var pLbl = document.createElement("p");
+    pLbl.className = "help mt-8"; pLbl.textContent = "Ouder:";
+    detail.appendChild(pLbl);
+    var psel = document.createElement("select");
+    psel.className = "form-control";
+    psel.appendChild(new Option("-- Geen --", ""));
+    (lastData.nodes || []).forEach(function(o){
+      if (o.id === n.id) return;
+      var opt = new Option(o.label, o.id);
+      if (o.id === n.parent_id) opt.selected = true;
+      psel.appendChild(opt);
+    });
+    psel.addEventListener("change", function(){
+      updateAsset(n.id, {parent_id: psel.value || null});
+    });
+    detail.appendChild(psel);
+
+    // Gekoppelde bevindingen
+    var fLbl = document.createElement("p");
+    fLbl.className = "help mt-8"; fLbl.textContent = "Gekoppelde bevindingen:";
+    detail.appendChild(fLbl);
+    if (n.findings.length) {
+      n.findings.forEach(function(f){
+        var a = document.createElement("a");
+        a.className = "asset-finding-link";
+        a.href = "/dashboard/findings/edit/" + f.id;
+        a.textContent = "#" + f.id + " " + f.naam;
+        detail.appendChild(a);
+      });
+    } else {
+      var none = document.createElement("span");
+      none.className = "help"; none.textContent = "geen";
+      detail.appendChild(none);
+    }
+
+    // Verwijderen
+    var del = document.createElement("button");
+    del.className = "btn btn-sm mt-8"; del.type = "button";
+    del.textContent = "Asset verwijderen";
+    del.addEventListener("click", function(){
+      fetch("/api/assets/" + n.id, {method: "DELETE", headers: {"X-CSRFToken": csrfToken}})
+        .then(function(){ selectedId = null; detail.innerHTML = '<p class="help">Verwijderd.</p>'; load(); });
+    });
+    detail.appendChild(del);
+  }
+
+  function updateAsset(id, body) {
+    jsonFetch("/api/assets/" + id, {
+      method: "POST",
+      headers: {"Content-Type": "application/json", "X-CSRFToken": csrfToken},
+      body: JSON.stringify(body)
+    }).then(function(d){
+      if (d.ok) { load(true); }
+      else if (addMsg) { addMsg.textContent = d.error || "Mislukt"; }
+    });
+  }
+
+  function escapeHtml(s) {
+    return String(s || "").replace(/[&<>"]/g, function(c){
+      return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];
+    });
+  }
+
+  function fillParentOptions(nodes) {
+    var keep = newParent.value;
+    newParent.innerHTML = '<option value="">-- Geen ouder --</option>';
+    nodes.forEach(function(n){ newParent.appendChild(new Option(n.label, n.id)); });
+    newParent.value = keep;
+  }
+
+  function load(keepSelection) {
+    var op = filterOpdracht.value;
+    var url = "/api/assets/graph" + (op ? "?opdracht_id=" + op : "");
+    jsonFetch(url).then(function(d){
+      if (!keepSelection) selectedId = null;
+      render(d);
+      fillParentOptions(d.nodes || []);
+      if (selectedId) {
+        var sel = (d.nodes || []).filter(function(n){ return n.id === selectedId; })[0];
+        if (sel) showDetail(sel);
+      }
+    }).catch(function(){ canvas.innerHTML = '<p class="help" style="padding:12px">Fout bij laden.</p>'; });
+  }
+
+  // Opdracht-filter vullen
+  jsonFetch("/api/opdrachten").then(function(d){
+    (d.opdrachten || d || []).forEach(function(o){
+      if (o && o.id) filterOpdracht.appendChild(new Option(o.naam || ("Opdracht " + o.id), o.id));
+    });
+  }).catch(function(){});
+  filterOpdracht.addEventListener("change", function(){ load(); });
+
+  // Asset toevoegen
+  document.getElementById("btn-add-asset").addEventListener("click", function(){
+    var waarde = (document.getElementById("new-waarde").value || "").trim();
+    if (!waarde) { addMsg.textContent = "Waarde is verplicht."; return; }
+    var body = {
+      waarde: waarde,
+      asset_type: document.getElementById("new-type").value,
+      opdracht_id: filterOpdracht.value || null,
+      parent_id: newParent.value || null
+    };
+    var poort = document.getElementById("new-poort").value;
+    if (poort) body.poort = parseInt(poort, 10);
+    jsonFetch("/api/assets", {
+      method: "POST",
+      headers: {"Content-Type": "application/json", "X-CSRFToken": csrfToken},
+      body: JSON.stringify(body)
+    }).then(function(d){
+      if (d.ok) {
+        document.getElementById("new-waarde").value = "";
+        document.getElementById("new-poort").value = "";
+        addMsg.textContent = "";
+        load(true);
+      } else { addMsg.textContent = d.error || "Mislukt"; }
+    });
+  });
+
+  function seed(url, label) {
+    addMsg.textContent = "Bezig…";
+    jsonFetch(url, {
+      method: "POST",
+      headers: {"Content-Type": "application/json", "X-CSRFToken": csrfToken},
+      body: JSON.stringify({opdracht_id: filterOpdracht.value || null})
+    }).then(function(d){
+      if (d.ok) {
+        addMsg.textContent = label + ": " + (d.created || 0) + " nieuw" +
+          (d.anchored !== undefined ? ", " + d.anchored + " gekoppeld" : "");
+        load(true);
+      } else { addMsg.textContent = d.error || "Mislukt"; }
+    });
+  }
+  document.getElementById("btn-seed-tel").addEventListener("click", function(){
+    seed("/api/assets/seed-telemetry", "Telemetrie");
+  });
+  document.getElementById("btn-seed-find").addEventListener("click", function(){
+    seed("/api/assets/seed-findings", "Locaties");
+  });
+  document.getElementById("btn-sync-scope").addEventListener("click", function(){
+    addMsg.textContent = "Bezig…";
+    var markOutEl = document.getElementById("scope-mark-out");
+    jsonFetch("/api/assets/sync-scope", {
+      method: "POST",
+      headers: {"Content-Type": "application/json", "X-CSRFToken": csrfToken},
+      body: JSON.stringify({
+        opdracht_id: filterOpdracht.value || null,
+        mark_others_out: !!(markOutEl && markOutEl.checked)
+      })
+    }).then(function(d){
+      if (d.ok) {
+        addMsg.textContent = "Scope: " + d.created + " nieuw, " + d.in_scope + " in scope" +
+          (d.marked_out ? ", " + d.marked_out + " out" : "");
+        load(true);
+      } else { addMsg.textContent = d.error || "Mislukt"; }
+    });
+  });
+
+  // ── Scan-output importeren ────────────────────
+  var scanSource = document.getElementById("scan-source");
+  var scanOutputSel = document.getElementById("scan-output-id");
+  var scanText = document.getElementById("scan-text");
+  var scanMsg = document.getElementById("scan-msg");
+
+  function toggleScanSource() {
+    var isOutput = scanSource.value === "output";
+    scanOutputSel.style.display = isOutput ? "" : "none";
+    scanText.style.display = isOutput ? "none" : "";
+    if (isOutput && scanOutputSel.options.length <= 0) {
+      jsonFetch("/api/outputs").then(function(d){
+        (d.outputs || []).forEach(function(o){
+          scanOutputSel.appendChild(new Option(o.name + " (" + o.path + ")", o.id));
+        });
+      }).catch(function(){});
+    }
+  }
+  scanSource.addEventListener("change", toggleScanSource);
+
+  var scanPreview = document.getElementById("scan-preview");
+  function scanBody(extra) {
+    var body = {
+      source: scanSource.value,
+      label: (document.getElementById("scan-label").value || "").trim() || undefined,
+      create_findings: document.getElementById("scan-findings").checked,
+      opdracht_id: filterOpdracht.value || null
+    };
+    if (scanSource.value === "output") body.output_id = scanOutputSel.value;
+    else body.text = scanText.value;
+    for (var k in (extra || {})) body[k] = extra[k];
+    return body;
+  }
+
+  document.getElementById("btn-scan-preview").addEventListener("click", function(){
+    scanMsg.textContent = "Bezig…";
+    jsonFetch("/api/scan/import", {
+      method: "POST",
+      headers: {"Content-Type": "application/json", "X-CSRFToken": csrfToken},
+      body: JSON.stringify(scanBody({dry_run: true}))
+    }).then(function(d){
+      scanMsg.textContent = "";
+      if (!d.ok) { scanMsg.textContent = d.error || "Mislukt"; return; }
+      var lines = [];
+      lines.push("Hosts (" + d.hosts.length + "):");
+      d.hosts.forEach(function(h){
+        lines.push("  " + h.host + (h.ip ? " (" + h.ip + ")" : "") +
+          (h.services.length ? " — " + h.services.map(function(s){return s.port+"/"+s.proto;}).join(", ") : ""));
+      });
+      lines.push("Signalen (" + d.signals.length + "):");
+      d.signals.forEach(function(s){ lines.push("  [" + s.severity + "] " + (s.cve ? s.cve + " " : "") + s.title); });
+      lines.push("Losse doelen (" + d.flat_targets.length + "): " + d.flat_targets.join(", "));
+      scanPreview.textContent = lines.join("\n");
+      scanPreview.style.display = "";
+    });
+  });
+
+  document.getElementById("btn-scan-import").addEventListener("click", function(){
+    scanMsg.textContent = "Bezig…";
+    jsonFetch("/api/scan/import", {
+      method: "POST",
+      headers: {"Content-Type": "application/json", "X-CSRFToken": csrfToken},
+      body: JSON.stringify(scanBody())
+    }).then(function(d){
+      if (d.ok) {
+        scanMsg.textContent = d.assets_total + " assets (" + d.assets_created + " nieuw), " +
+          d.findings_created + " bevindingen, " + d.nodes_created + " vuln-knopen";
+        scanText.value = "";
+        scanPreview.style.display = "none";
+        load(true);
+      } else { scanMsg.textContent = d.error || "Mislukt"; }
+    });
+  });
+
+  document.getElementById("zoom-in").addEventListener("click", function(){ zoom = Math.min(zoom * 1.2, 3); render(lastData); });
+  document.getElementById("zoom-out").addEventListener("click", function(){ zoom = Math.max(zoom / 1.2, 0.4); render(lastData); });
+  document.getElementById("btn-refresh").addEventListener("click", function(){ load(); });
+
+  load();
+})();
+</script>
+{% endblock %}

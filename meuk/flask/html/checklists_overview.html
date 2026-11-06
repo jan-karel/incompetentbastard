@@ -43,7 +43,15 @@
       <input class="form-control" type="text" id="cl-naam" placeholder="Bijv. Pentest Acme Corp Q1 2026" />
     </div>
     <div class="mb-10">
-      <label><strong>Kies type</strong></label>
+      <div class="d-flex items-center justify-between flex-wrap gap-8">
+        <label><strong>Kies type</strong></label>
+        <div class="d-flex gap-8 items-center flex-wrap">
+          <a href="/dashboard/checklists/template/new" class="btn btn-sm">+ Nieuw sjabloon</a>
+          <button type="button" class="btn btn-sm" id="btn-import-template">Importeer sjabloon</button>
+          <input type="file" id="file-import-template" accept="application/json,.json" style="display:none" />
+          <span id="tpl-import-status" class="help"></span>
+        </div>
+      </div>
       <div class="cl-type-cards">
         {% for ctype, info in type_cards.items() %}
         <div class="cl-type-card" data-type="{{ ctype }}" tabindex="0">
@@ -66,6 +74,15 @@
               {% for p in info.phases %}
               <span class="cl-phase-chip">{{ loop.index }}. {{ p }}</span>
               {% endfor %}
+            </div>
+            <div class="cl-type-card-actions d-flex gap-8 flex-wrap mt-8">
+              <a href="/api/checklists/templates/{{ ctype }}/export" class="btn btn-sm tpl-act">Exporteer</a>
+              {% if info.builtin %}
+              <a href="/dashboard/checklists/template/new?from={{ ctype }}" class="btn btn-sm tpl-act">Dupliceer</a>
+              {% else %}
+              <a href="/dashboard/checklists/template/{{ ctype }}" class="btn btn-sm tpl-act">Bewerk</a>
+              <button type="button" class="btn btn-sm tpl-act tpl-del-btn" data-type="{{ ctype }}" data-title="{{ info.title }}">Verwijder</button>
+              {% endif %}
             </div>
           </div>
           <div class="cl-type-card-check">
@@ -92,7 +109,14 @@
 
 {# ---- Bestaande checklists ---- #}
 <section class="card mt-14">
-  <div class="card-head"><h2>Actieve checklists</h2></div>
+  <div class="card-head d-flex items-center justify-between">
+    <h2>Actieve checklists</h2>
+    <div class="d-flex gap-8 items-center">
+      <button type="button" class="btn btn-sm" id="btn-import-checklist">Importeer checklist</button>
+      <input type="file" id="file-import-checklist" accept="application/json,.json" style="display:none" />
+      <span id="cl-import-status" class="help"></span>
+    </div>
+  </div>
   <div class="card-body">
     {% if checklists %}
     {% for cl in checklists %}
@@ -102,7 +126,7 @@
     <div class="cl-overview-item">
       <div class="cl-overview-info">
         <strong>{{ cl.naam }}</strong>
-        <span class="badge {% if cl.checklist_type == 'extern' %}badge-extern{% else %}badge-intern{% endif %}">{{ cl.checklist_type }}</span>
+        <span class="badge {% if cl.checklist_type == 'extern' %}badge-extern{% elif cl.checklist_type == 'intern' %}badge-intern{% endif %}">{{ cl.checklist_type }}</span>
         {% if cl.target %}<span class="cl-target-small">{{ cl.target }}</span>{% endif %}
       </div>
       <div class="cl-progress-wrap">
@@ -113,6 +137,8 @@
       </div>
       <div class="cl-overview-actions">
         <a href="/dashboard/checklists/{{ cl.id }}" class="btn btn-primary btn-sm">Ga verder</a>
+        <a href="/api/checklists/{{ cl.id }}/export" class="btn btn-sm">Exporteer</a>
+        <button type="button" class="btn btn-sm cl-rename-btn" data-id="{{ cl.id }}" data-naam="{{ cl.naam }}" data-target="{{ cl.target or '' }}">Hernoem</button>
         <button type="button" class="btn btn-sm cl-delete-btn" data-id="{{ cl.id }}" data-naam="{{ cl.naam }}">Verwijder</button>
       </div>
     </div>
@@ -188,6 +214,90 @@
       fetch('/api/checklists/' + id, {method:'DELETE'})
         .then(function(r){return r.json();})
         .then(function(d){ if(d.ok) window.location.reload(); });
+    });
+  });
+
+  /* ---- Kaart-acties niet laten doorklikken naar type-selectie ---- */
+  document.querySelectorAll('.tpl-act').forEach(function(el){
+    el.addEventListener('click', function(e){ e.stopPropagation(); });
+  });
+
+  /* ---- Sjabloon verwijderen ---- */
+  document.querySelectorAll('.tpl-del-btn').forEach(function(b){
+    b.addEventListener('click', function(e){
+      e.stopPropagation();
+      var type = this.dataset.type;
+      var title = this.dataset.title;
+      if (!confirm("Sjabloon '" + title + "' verwijderen?")) return;
+      fetch('/api/checklists/templates/' + encodeURIComponent(type), {method:'DELETE'})
+        .then(function(r){return r.json();})
+        .then(function(d){
+          if (d.ok) { window.location.reload(); }
+          else { alert(d.error || 'Verwijderen mislukt'); }
+        });
+    });
+  });
+
+  /* ---- Bestand importeren (gedeeld) ---- */
+  function importFile(fileInput, url, statusEl, onOk) {
+    var f = fileInput.files && fileInput.files[0];
+    if (!f) return;
+    statusEl.textContent = 'Bezig…';
+    var reader = new FileReader();
+    reader.onload = function(){
+      var payload;
+      try { payload = JSON.parse(reader.result); }
+      catch (err) { statusEl.textContent = 'Geen geldige JSON'; return; }
+      fetch(url, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload)
+      }).then(function(r){return r.json();}).then(function(d){
+        if (d.ok) { onOk(d); }
+        else { statusEl.textContent = d.error || 'Import mislukt'; }
+      }).catch(function(){ statusEl.textContent = 'Netwerkfout'; });
+    };
+    reader.readAsText(f);
+    fileInput.value = '';
+  }
+
+  var tplFile = document.getElementById('file-import-template');
+  var tplImportStatus = document.getElementById('tpl-import-status');
+  document.getElementById('btn-import-template').addEventListener('click', function(){ tplFile.click(); });
+  tplFile.addEventListener('change', function(){
+    importFile(tplFile, '/api/checklists/templates', tplImportStatus, function(){
+      window.location.reload();
+    });
+  });
+
+  var clFile = document.getElementById('file-import-checklist');
+  var clImportStatus = document.getElementById('cl-import-status');
+  document.getElementById('btn-import-checklist').addEventListener('click', function(){ clFile.click(); });
+  clFile.addEventListener('change', function(){
+    importFile(clFile, '/api/checklists/import', clImportStatus, function(d){
+      window.location.href = '/dashboard/checklists/' + d.id;
+    });
+  });
+
+  /* ---- Checklist hernoemen ---- */
+  document.querySelectorAll('.cl-rename-btn').forEach(function(b){
+    b.addEventListener('click', function(){
+      var id = this.dataset.id;
+      var naam = prompt("Nieuwe naam:", this.dataset.naam || "");
+      if (naam === null) return;
+      naam = naam.trim();
+      if (!naam) return;
+      var target = prompt("Target (optioneel):", this.dataset.target || "");
+      var body = {naam: naam};
+      if (target !== null) body.target = target.trim();
+      fetch('/api/checklists/' + id, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(body)
+      }).then(function(r){return r.json();}).then(function(d){
+        if (d.ok) { window.location.reload(); }
+        else { alert(d.error || 'Opslaan mislukt'); }
+      });
     });
   });
 })();

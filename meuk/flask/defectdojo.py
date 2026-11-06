@@ -21,7 +21,7 @@ from flask import Blueprint, request, jsonify
 
 from meuk.flask.models import (
     db, db_bevindingen, db_bevindingen_templates, db_evidence,
-    db_defectdojo_sync,
+    db_defectdojo_sync, db_asset, db_asset_anchor,
 )
 from meuk.flask.findings import _cvss_to_severity, _get_appdata
 from meuk.flask.security import require_dashboard_access
@@ -58,8 +58,9 @@ def _check_dashboard_access():
 # ---------------------------------------------------------------------------
 
 def _dd_config():
-    """Haal DefectDojo-config op; None-waarden indien niet geconfigureerd."""
-    s = _get_appdata()
+    """Haal DefectDojo-config op uit het actieve project; None indien niet geconfigureerd."""
+    from meuk.flask import project as _project
+    s = _project.current_config() or _get_appdata()
     if not s:
         return None
     url = (getattr(s, 'dd_url', '') or '').rstrip('/')
@@ -120,7 +121,74 @@ def _status_flags(bev):
     return flags
 
 
-def _finding_payload(bev, template, test_id):
+def _parse_asset_endpoint(asset):
+    """Zet een db_asset om naar DefectDojo-endpoint velden (protocol/host/port/path)."""
+    from urllib.parse import urlparse
+    waarde = (asset.waarde or '').strip()
+    proto = (asset.protocol or '').strip().lower()
+    host = waarde
+    port = asset.poort
+    path = ''
+    if '://' in waarde:
+        p = urlparse(waarde)
+        proto = proto or (p.scheme or '')
+        host = p.hostname or host
+        port = port or p.port
+        path = (p.path or '').lstrip('/')
+    ep = {'host': host}
+    if proto:
+        ep['protocol'] = proto
+    if port:
+        try:
+            ep['port'] = int(port)
+        except (TypeError, ValueError):
+            pass
+    if path:
+        ep['path'] = path
+    return ep
+
+
+def _ensure_endpoint(cfg, product_id, ep):
+    """Vind of maak een DefectDojo-endpoint onder het product. Retourneert id|None."""
+    ok, _code, body = _dd_request(cfg, 'GET', '/api/v2/endpoints/',
+                                  params={'product': product_id, 'host': ep['host'], 'limit': 100})
+    if ok and isinstance(body, dict):
+        for r in body.get('results', []):
+            if (r.get('port') == ep.get('port')
+                    and (r.get('path') or '') == ep.get('path', '')
+                    and (r.get('protocol') or '') == ep.get('protocol', '')):
+                return r.get('id')
+    create = dict(ep)
+    create['product'] = product_id
+    ok, _code, body = _dd_request(cfg, 'POST', '/api/v2/endpoints/', json_body=create)
+    if ok and isinstance(body, dict) and body.get('id'):
+        return body['id']
+    return None
+
+
+def _endpoints_for_finding(cfg, bev):
+    """Vind/maak DefectDojo-endpoints voor de assets gekoppeld aan deze bevinding.
+
+    Retourneert een lijst endpoint-ids (leeg als er geen product-ID of geen
+    gekoppelde assets zijn — dan valt de payload terug op de locatie-tekst).
+    """
+    product_id = cfg.get('product_id')
+    if not product_id:
+        return []
+    ids = []
+    for anchor in getattr(bev, 'asset_anchors', None) or []:
+        asset = anchor.asset
+        if asset is None or not (asset.waarde or '').strip():
+            continue
+        if getattr(asset, 'in_scope', True) is False:
+            continue
+        eid = _ensure_endpoint(cfg, product_id, _parse_asset_endpoint(asset))
+        if eid is not None and eid not in ids:
+            ids.append(eid)
+    return ids
+
+
+def _finding_payload(bev, template, test_id, endpoint_ids=None):
     """Bouw een DefectDojo-finding payload voor een IB-bevinding."""
     basescore = bev.basescore or (template.basescore if template else '') or '0'
     sev, _ = _cvss_to_severity(basescore)
@@ -163,8 +231,10 @@ def _finding_payload(bev, template, test_id):
     cwe = (template.cwe if template else '') or ''
     if str(cwe).isdigit():
         payload['cwe'] = int(cwe)
-    # Locatie als endpoint-hint in description
-    if bev.locatie:
+    # Gestructureerde endpoints (asset-anchors) hebben voorrang; anders locatie-tekst
+    if endpoint_ids:
+        payload['endpoints'] = endpoint_ids
+    elif bev.locatie:
         payload['description'] += '\n\n**Locatie:** ' + bev.locatie
     payload.update(_status_flags(bev))
     return payload
@@ -236,6 +306,9 @@ def _log_sync(finding_id, dd_finding_id, engagement_id, action, status, message)
     if row is None:
         row = db_defectdojo_sync(finding_id=finding_id)
         db.session.add(row)
+    if getattr(row, 'opdracht_id', None) is None:
+        from meuk.flask import project as _project
+        row.opdracht_id = _project.current_opdracht_id()
     if dd_finding_id is not None:
         row.dd_finding_id = dd_finding_id
     row.dd_engagement_id = engagement_id
@@ -285,7 +358,10 @@ def dd_push():
     finding_ids = data.get('finding_ids')
     only_final = data.get('only_final', True)
 
-    query = db_bevindingen.query.filter(db_bevindingen.deleted_at.is_(None))
+    from meuk.flask import project as _project
+    query = _project.apply_scope(
+        db_bevindingen.query.filter(db_bevindingen.deleted_at.is_(None)),
+        db_bevindingen.opdracht_id, _project.current_opdracht_id())
     if finding_ids and isinstance(finding_ids, list):
         query = query.filter(db_bevindingen.id.in_([int(x) for x in finding_ids if str(x).isdigit()]))
     elif only_final:
@@ -304,7 +380,8 @@ def dd_push():
     created = updated = failed = 0
     for bev in bevindingen:
         template = templates.get(str(bev.ref))
-        payload = _finding_payload(bev, template, test_id)
+        endpoint_ids = _endpoints_for_finding(cfg, bev)
+        payload = _finding_payload(bev, template, test_id, endpoint_ids=endpoint_ids)
         # Bestaat er al een DD-finding voor deze bevinding?
         existing = db_defectdojo_sync.query.filter_by(finding_id=bev.id).order_by(
             db_defectdojo_sync.id.desc()).first()
@@ -359,3 +436,171 @@ def dd_status():
         'message': r.last_message,
         'synced_at': r.synced_at.isoformat() if r.synced_at else None,
     } for r in rows]})
+
+
+# ---------------------------------------------------------------------------
+# Import (DefectDojo -> IB) en pull-update van gelinkte bevindingen
+# ---------------------------------------------------------------------------
+
+# DefectDojo severity -> representatieve CVSS-basescore (als cvssv3_score ontbreekt)
+_DD_SEV_TO_BASESCORE = {
+    'Critical': '9.5', 'High': '8.0', 'Medium': '5.5', 'Low': '3.0', 'Info': '0.0',
+}
+
+
+def _reverse_remediation_status(dd):
+    """Leid de IB-herstelstatus af uit de DefectDojo-statusvlaggen."""
+    if dd.get('false_p'):
+        return 'open'
+    if dd.get('risk_accepted'):
+        return 'accepted'
+    if dd.get('is_mitigated') or dd.get('mitigated'):
+        return 'fixed'
+    return 'open'
+
+
+def _dd_to_bev_fields(dd):
+    """Map een DefectDojo-finding (dict) naar IB-bevindingvelden."""
+    sev = dd.get('severity') or 'Info'
+    score = dd.get('cvssv3_score')
+    if score in (None, ''):
+        basescore = _DD_SEV_TO_BASESCORE.get(sev, '0.0')
+    else:
+        basescore = str(score)
+    fields = {
+        'naam': (dd.get('title') or 'DefectDojo-finding').strip()[:255],
+        'basescore': basescore[:10],
+        'uitwerken': dd.get('description') or '',
+        'remediation_status': _reverse_remediation_status(dd),
+    }
+    vector = dd.get('cvssv3') or ''
+    if vector:
+        fields['cvss'] = str(vector)[:255]
+    mitigation = dd.get('mitigation') or ''
+    if mitigation:
+        fields['uitwerken'] = (fields['uitwerken'] +
+                               '\n\n## Mitigatie (DefectDojo)\n\n' + mitigation).strip()
+    return fields
+
+
+def _linked_dd_ids():
+    """Set van DefectDojo-finding-ids die al aan een IB-bevinding gekoppeld zijn."""
+    out = {}
+    for r in db_defectdojo_sync.query.filter(
+            db_defectdojo_sync.dd_finding_id.isnot(None)).all():
+        out[r.dd_finding_id] = r.finding_id
+    return out
+
+
+@defectdojo_bp.route('/api/defectdojo/import', methods=['POST'])
+def dd_import():
+    """Haal bevindingen op uit DefectDojo en maak nieuwe IB-bevindingen aan.
+
+    Body: {only_open?: bool (default True), limit?: int (default 100),
+           test_id?: int, engagement_id?: int}. Al gekoppelde DD-findings
+    worden overgeslagen (gebruik /pull om die bij te werken).
+    """
+    cfg = _dd_config()
+    if not cfg:
+        return jsonify({'ok': False, 'error': 'DefectDojo is niet geconfigureerd'}), 400
+
+    data = request.get_json(silent=True) or {}
+    only_open = data.get('only_open', True)
+    try:
+        limit = max(1, min(int(data.get('limit', 100)), 500))
+    except (TypeError, ValueError):
+        limit = 100
+    test_id = data.get('test_id')
+    engagement_id = data.get('engagement_id') or cfg.get('engagement_id')
+
+    params = {'limit': limit, 'offset': 0}
+    if test_id:
+        params['test'] = test_id
+    elif engagement_id:
+        params['test__engagement'] = engagement_id
+    if only_open:
+        params['active'] = 'true'
+
+    ok, code, body = _dd_request(cfg, 'GET', '/api/v2/findings/', params=params)
+    if not ok:
+        return jsonify({'ok': False, 'error': 'Ophalen mislukt', 'detail': body,
+                        'status': code}), 502
+    dd_findings = body.get('results', []) if isinstance(body, dict) else []
+
+    linked = _linked_dd_ids()
+    imported = skipped = 0
+    results = []
+    for dd in dd_findings:
+        dd_id = dd.get('id')
+        if dd_id in linked:
+            skipped += 1
+            continue
+        fields = _dd_to_bev_fields(dd)
+        bev = db_bevindingen(status='draft', **fields)
+        db.session.add(bev)
+        db.session.flush()
+        _log_sync(bev.id, dd_id, engagement_id, 'import', 'ok', '')
+        imported += 1
+        results.append({'finding_id': bev.id, 'dd_finding_id': dd_id,
+                        'naam': bev.naam})
+
+    db.session.commit()
+    return jsonify({'ok': True, 'imported': imported, 'skipped': skipped,
+                    'total': len(dd_findings), 'results': results})
+
+
+@defectdojo_bp.route('/api/defectdojo/pull', methods=['POST'])
+def dd_pull():
+    """Werk gekoppelde IB-bevindingen bij met de huidige stand in DefectDojo.
+
+    Body: {finding_ids?: [int]} — standaard alle gekoppelde bevindingen.
+    Overschrijft naam/basescore/cvss/uitwerking/herstelstatus vanuit DD.
+    """
+    cfg = _dd_config()
+    if not cfg:
+        return jsonify({'ok': False, 'error': 'DefectDojo is niet geconfigureerd'}), 400
+
+    data = request.get_json(silent=True) or {}
+    finding_ids = data.get('finding_ids')
+
+    from meuk.flask import project as _project
+    q = _project.apply_scope(
+        db_defectdojo_sync.query.filter(db_defectdojo_sync.dd_finding_id.isnot(None)),
+        db_defectdojo_sync.opdracht_id, _project.current_opdracht_id())
+    if finding_ids and isinstance(finding_ids, list):
+        ids = [int(x) for x in finding_ids if str(x).isdigit()]
+        q = q.filter(db_defectdojo_sync.finding_id.in_(ids))
+    # Meest recente sync-rij per bevinding
+    seen = set()
+    links = []
+    for r in q.order_by(db_defectdojo_sync.id.desc()).all():
+        if r.finding_id in seen:
+            continue
+        seen.add(r.finding_id)
+        links.append(r)
+
+    updated = failed = missing = 0
+    results = []
+    for link in links:
+        bev = db.session.get(db_bevindingen, link.finding_id)
+        if not bev or bev.deleted_at is not None:
+            missing += 1
+            continue
+        ok, _code, dd = _dd_request(
+            cfg, 'GET', '/api/v2/findings/{}/'.format(link.dd_finding_id))
+        if not ok or not isinstance(dd, dict):
+            failed += 1
+            _log_sync(bev.id, link.dd_finding_id, link.dd_engagement_id,
+                      'pull', 'error', str(dd))
+            results.append({'finding_id': bev.id, 'error': dd})
+            continue
+        for k, v in _dd_to_bev_fields(dd).items():
+            setattr(bev, k, v)
+        _log_sync(bev.id, link.dd_finding_id, link.dd_engagement_id,
+                  'pull', 'ok', '')
+        updated += 1
+        results.append({'finding_id': bev.id, 'dd_finding_id': link.dd_finding_id})
+
+    db.session.commit()
+    return jsonify({'ok': failed == 0, 'updated': updated, 'failed': failed,
+                    'missing': missing, 'results': results})

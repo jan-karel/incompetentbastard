@@ -38,7 +38,8 @@
   var selectedAgent = null;
   var agentPollTimer = null;
   var historyPollTimer = null;
-  var lastHistoryLen = 0;
+  var lastHistorySnapshot = null;
+  var historyRequestId = 0;
   var allCommands = [];
   var collapsedCategories = {};
 
@@ -95,7 +96,7 @@
   // ── Select agent ────────────────────────────────────────────
   function selectAgent(agentId, agentData) {
     selectedAgent = agentId;
-    lastHistoryLen = 0;
+    lastHistorySnapshot = null;
     shellOutput.innerHTML = '';
     shellCard.style.display = '';
     shellTitle.textContent = 'Shell: ' + (agentData.hostname || agentId) + ' (' + (agentData.ip || '') + ')';
@@ -124,11 +125,20 @@
   // ── Command history ─────────────────────────────────────────
   function fetchHistory() {
     if (!selectedAgent) return;
-    fetch('/api/agents/' + selectedAgent + '/history')
-      .then(function (r) { return r.json(); })
+    var agentId = selectedAgent;
+    var requestId = ++historyRequestId;
+    fetch('/api/agents/' + agentId + '/history')
+      .then(function (r) {
+        if (!r.ok) throw new Error('Geschiedenis ophalen mislukt');
+        return r.json();
+      })
       .then(function (cmds) {
-        if (cmds.length === lastHistoryLen) return;
-        lastHistoryLen = cmds.length;
+        if (selectedAgent !== agentId || requestId !== historyRequestId) return;
+        var snapshot = JSON.stringify(cmds.map(function (c) {
+          return [c.id, c.command, c.status, c.response];
+        }));
+        if (snapshot === lastHistorySnapshot) return;
+        lastHistorySnapshot = snapshot;
         renderHistory(cmds);
       })
       .catch(function () {});
@@ -161,7 +171,7 @@
       shellOutput.innerHTML += '<div class="cmd-line">$ ' + escapeHtml(cmdText) + '</div>' +
                                '<div class="cmd-pending">[in wachtrij]</div>';
       shellOutput.scrollTop = shellOutput.scrollHeight;
-      lastHistoryLen = 0;
+      lastHistorySnapshot = null;
     }).catch(function () {});
   }
 

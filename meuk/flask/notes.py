@@ -5,6 +5,7 @@ from flask import Blueprint, jsonify, redirect, render_template, request
 from app import db
 from meuk.flask.models import db_notes
 from meuk.flask.security import require_dashboard_access
+from meuk.flask import project as _project
 
 
 notes_bp = Blueprint("notes_bp", __name__, template_folder="html", static_folder="static")
@@ -15,9 +16,16 @@ def _guard():
     require_dashboard_access()
 
 
+def _scoped_notes_query():
+    return _project.apply_scope(
+        db_notes.query, db_notes.opdracht_id, _project.current_opdracht_id()
+    )
+
+
 @notes_bp.route("/dashboard/notes", methods=["GET"])
 def notes_page():
-    notes = db_notes.query.order_by(db_notes.volgorde.asc(), db_notes.id.desc()).all()
+    notes = _scoped_notes_query().order_by(
+        db_notes.volgorde.asc(), db_notes.id.desc()).all()
     return render_template("notes_overview.html", notes=notes)
 
 
@@ -57,7 +65,8 @@ def notes_delete(note_id):
 
 @notes_bp.route("/api/notes", methods=["GET"])
 def notes_api():
-    notes = db_notes.query.order_by(db_notes.volgorde.asc(), db_notes.id.desc()).all()
+    notes = _scoped_notes_query().order_by(
+        db_notes.volgorde.asc(), db_notes.id.desc()).all()
     return jsonify({
         "notes": [
             {

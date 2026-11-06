@@ -33,6 +33,7 @@
       <a href="/dashboard/notes"><span class="left">Notities</span></a>
       <a href="/dashboard/xxs"><span class="left">XXS</span></a>
       <a href="/dashboard/agents"><span class="left">Agents</span></a>
+      <a href="/dashboard/audit-modules"><span class="left">Auditmodules</span></a>
       <a href="/dashboard/screen"><span class="left">Screen</span></a>
       <a href="/dashboard/tasks"><span class="left">Tasks</span></a>
       <a href="/dashboard/outputs"><span class="left">Outputs</span></a>
@@ -53,6 +54,17 @@
             <input id="searchBox" type="search" placeholder="Zoeken…" aria-label="Search" />
             <button id="searchClear" class="clear" type="button" aria-label="Clear search">✕</button>
           </div>
+          {% if nav_opdrachten %}
+          <div class="project-switcher" style="display:flex;align-items:center;gap:6px;margin-left:8px">
+            <span title="Actief project" aria-hidden="true">📁</span>
+            <select id="project-select" title="Actief project" aria-label="Actief project"
+                    style="max-width:220px;padding:4px 8px;border-radius:6px">
+              {% for o in nav_opdrachten %}
+              <option value="{{ o.id }}" {% if o.id == nav_active_opdracht_id %}selected{% endif %}>{{ o.naam }}{% if o.klant %} — {{ o.klant }}{% endif %}</option>
+              {% endfor %}
+            </select>
+          </div>
+          {% endif %}
         </div>
 
         <div class="h-right">
@@ -65,6 +77,18 @@
         </div>
       </div>
     </header>
+    <script nonce="{{ csp_nonce }}">
+      (function(){
+        var sel = document.getElementById('project-select');
+        if (!sel) return;
+        sel.addEventListener('change', function(){
+          fetch('/api/opdrachten/' + this.value + '/activeer',
+                {method:'POST', headers:{'Content-Type':'application/json'}, body:'{}'})
+            .then(function(r){ return r.json(); })
+            .then(function(d){ if (d.ok) window.location.reload(); });
+        });
+      })();
+    </script>
 
     <main id="main" class="content">
       {% with messages = get_flashed_messages(with_categories=true) %}

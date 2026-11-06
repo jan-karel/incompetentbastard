@@ -15,17 +15,23 @@ def _get_appdata():
 
 
 def _get_scope_targets():
-    """Haal scope targets op uit instellingen."""
-    s = _get_appdata()
+    """Haal scope targets op uit de config van het actieve project."""
+    from meuk.flask import project as _project
+    cfg = _project.current_config()
     try:
-        return json.loads(getattr(s, 'rapport_scope_targets', '[]') or '[]')
+        return json.loads(getattr(cfg, 'rapport_scope_targets', '[]') or '[]')
     except (json.JSONDecodeError, TypeError):
         return []
 
 
-def _active_findings():
-    """Geeft een query terug die soft-deleted bevindingen uitsluit."""
-    return db_bevindingen.query.filter(db_bevindingen.deleted_at.is_(None))
+def _active_findings(opdracht_id=None):
+    """Query van niet-verwijderde bevindingen, gescoped op het actieve project.
+
+    Geen project aanwezig -> geen scoping (alle bevindingen)."""
+    from meuk.flask import project as _project
+    q = db_bevindingen.query.filter(db_bevindingen.deleted_at.is_(None))
+    oid = _project.resolve_opdracht_id(opdracht_id)
+    return _project.apply_scope(q, db_bevindingen.opdracht_id, oid)
 
 
 def _csrf_check(token, as_json=False):
@@ -1111,6 +1117,843 @@ def delete_evidence(evidence_id):
     if os.path.exists(filepath):
         os.remove(filepath)
     db.session.delete(ev)
+    db.session.commit()
+    return jsonify({'ok': True})
+
+
+# ---------------------------------------------------------------------------
+# Assets & anchors — koppel doelen (host/service/endpoint) aan bevindingen
+# ---------------------------------------------------------------------------
+
+def _asset_dedupe_key(asset_type, waarde, poort):
+    """Genormaliseerde unieke sleutel voor een asset (type|waarde|poort)."""
+    t = (asset_type or 'host').strip().lower()
+    w = (waarde or '').strip().lower().rstrip('/')
+    p = str(poort) if poort not in (None, '', 0) else ''
+    return '{}|{}|{}'.format(t, w, p)
+
+
+def _asset_dict(a):
+    return {
+        'id': a.id,
+        'opdracht_id': a.opdracht_id,
+        'asset_type': a.asset_type,
+        'waarde': a.waarde,
+        'poort': a.poort,
+        'protocol': a.protocol or '',
+        'getest': a.getest,
+        'in_scope': bool(a.in_scope),
+        'notitie': a.notitie or '',
+    }
+
+
+@findings_bp.route('/api/findings/<int:finding_id>/assets', methods=['GET'])
+def list_finding_assets(finding_id):
+    """Lijst van assets die aan deze bevinding gekoppeld zijn (via anchors)."""
+    bev = db.session.get(db_bevindingen, finding_id)
+    if not bev:
+        return jsonify({'error': 'bevinding niet gevonden'}), 404
+    anchors = db_asset_anchor.query.filter_by(finding_id=finding_id).all()
+    return jsonify({'assets': [
+        dict(_asset_dict(an.asset), anchor_id=an.id, relatie=an.relatie)
+        for an in anchors if an.asset is not None
+    ]})
+
+
+@findings_bp.route('/api/findings/<int:finding_id>/assets', methods=['POST'])
+def add_finding_asset(finding_id):
+    """Maak (of hergebruik) een asset en koppel deze aan de bevinding.
+
+    Body (JSON): {waarde, asset_type?, poort?, protocol?, relatie?, opdracht_id?}.
+    Dedupliceert op genormaliseerde sleutel; bestaat de asset al, dan wordt alleen
+    een anchor toegevoegd.
+    """
+    from flask import current_app
+    if current_app.config.get('WTF_CSRF_ENABLED', True):
+        from flask_wtf.csrf import validate_csrf
+        try:
+            validate_csrf(request.headers.get('X-CSRFToken', ''))
+        except Exception:
+            return jsonify({'error': 'CSRF-fout'}), 403
+    bev = db.session.get(db_bevindingen, finding_id)
+    if not bev:
+        return jsonify({'error': 'bevinding niet gevonden'}), 404
+
+    data = request.get_json(silent=True) or {}
+    waarde = (data.get('waarde') or '').strip()
+    if not waarde:
+        return jsonify({'error': 'waarde is verplicht'}), 400
+    asset_type = (data.get('asset_type') or 'host').strip().lower()
+    poort = data.get('poort') or None
+    try:
+        poort = int(poort) if poort not in (None, '') else None
+    except (TypeError, ValueError):
+        poort = None
+    protocol = (data.get('protocol') or '').strip().lower()
+    relatie = (data.get('relatie') or 'affected').strip().lower()
+    opdracht_id = data.get('opdracht_id') or bev.opdracht_id
+
+    dedupe = _asset_dedupe_key(asset_type, waarde, poort)
+    asset = db_asset.query.filter_by(dedupe_key=dedupe).first()
+    if asset is None:
+        asset = db_asset(
+            opdracht_id=opdracht_id, asset_type=asset_type, waarde=waarde,
+            poort=poort, protocol=protocol, dedupe_key=dedupe,
+        )
+        db.session.add(asset)
+        db.session.flush()   # id beschikbaar voor de anchor
+
+    anchor = db_asset_anchor.query.filter_by(
+        asset_id=asset.id, finding_id=finding_id).first()
+    if anchor is None:
+        anchor = db_asset_anchor(asset_id=asset.id, finding_id=finding_id, relatie=relatie)
+        db.session.add(anchor)
+    else:
+        anchor.relatie = relatie
+    db.session.commit()
+
+    return jsonify({'ok': True, 'asset': dict(_asset_dict(asset),
+                                              anchor_id=anchor.id, relatie=anchor.relatie)})
+
+
+@findings_bp.route('/api/findings/assets/anchor/<int:anchor_id>', methods=['DELETE'])
+def remove_finding_asset(anchor_id):
+    """Verwijder de koppeling (anchor) tussen een asset en een bevinding.
+
+    De asset zelf blijft bestaan (kan aan andere bevindingen hangen).
+    """
+    from flask import current_app
+    if current_app.config.get('WTF_CSRF_ENABLED', True):
+        from flask_wtf.csrf import validate_csrf
+        try:
+            validate_csrf(request.headers.get('X-CSRFToken', ''))
+        except Exception:
+            return jsonify({'error': 'CSRF-fout'}), 403
+    anchor = db.session.get(db_asset_anchor, anchor_id)
+    if not anchor:
+        return jsonify({'error': 'koppeling niet gevonden'}), 404
+    db.session.delete(anchor)
+    db.session.commit()
+    return jsonify({'ok': True})
+
+
+@findings_bp.route('/api/assets', methods=['GET'])
+def list_assets():
+    """Alle assets (optioneel per opdracht) met aantal gekoppelde bevindingen."""
+    q = db_asset.query
+    opdracht_id = request.args.get('opdracht_id', type=int)
+    if opdracht_id:
+        q = q.filter(db_asset.opdracht_id == opdracht_id)
+    assets = q.order_by(db_asset.asset_type, db_asset.waarde).all()
+    return jsonify({'assets': [
+        dict(_asset_dict(a), anchors=len(a.anchors)) for a in assets
+    ]})
+
+
+_VALID_ASSET_STATUS = {'untested', 'in_progress', 'tested', 'out_of_scope'}
+
+
+def _asset_depth_of(aid, by_id):
+    """Aantal parent-hops tot de wortel (parentless = 0), met cyclusbescherming."""
+    d = 0
+    seen = set()
+    cur = by_id.get(aid)
+    while cur and cur.parent_id and cur.parent_id in by_id and cur.parent_id not in seen:
+        seen.add(cur.id)
+        cur = by_id[cur.parent_id]
+        d += 1
+    return d
+
+
+def build_asset_graph(opdracht_id=None):
+    """Bouw de asset-coverage-graaf: knopen (met gekoppelde bevindingen,
+    hoogste severity, live host-status en afgeleide dekking), parent->child-
+    kanten en dekkingsstatistiek."""
+    q = db_asset.query
+    if opdracht_id:
+        q = q.filter(db_asset.opdracht_id == opdracht_id)
+    assets = q.order_by(db_asset.id).all()
+    by_id = {a.id: a for a in assets}
+    ids = set(by_id)
+
+    fmap = {}           # asset_id -> [findings]
+    sevmap = {}         # asset_id -> (severity, rank)
+    derivedmap = {}     # asset_id -> bool (afgeleid uit exploration)
+    if ids:
+        anchors = db_asset_anchor.query.filter(db_asset_anchor.asset_id.in_(ids)).all()
+        fids = {an.finding_id for an in anchors}
+        bevs = {b.id: b for b in db_bevindingen.query.filter(
+            db_bevindingen.id.in_(fids)).all()} if fids else {}
+        for an in anchors:
+            b = bevs.get(an.finding_id)
+            fmap.setdefault(an.asset_id, []).append({
+                'id': an.finding_id,
+                'naam': (b.naam if b else '') or ('#' + str(an.finding_id)),
+                'anchor_id': an.id,
+            })
+            sev, rank = _cvss_to_severity(b.basescore if b else '0')
+            prev = sevmap.get(an.asset_id)
+            if prev is None or rank < prev[1]:
+                sevmap[an.asset_id] = (sev, rank)
+        # Afgeleide dekking uit exploration-anchors (knoop done/achieved)
+        ex_anchors = db_explore_asset_anchor.query.filter(
+            db_explore_asset_anchor.asset_id.in_(ids)).all()
+        if ex_anchors:
+            nids = {ea.node_id for ea in ex_anchors}
+            exnodes = {n.id: n for n in db_explore_node.query.filter(
+                db_explore_node.id.in_(nids)).all()}
+            for ea in ex_anchors:
+                n = exnodes.get(ea.node_id)
+                if n and n.status in ('done', 'achieved'):
+                    derivedmap[ea.asset_id] = True
+
+    # Live host-status uit hooked agents (match op hostname/ip)
+    agentmap = {}
+    for ag in db_agents.query.all():
+        for key in (ag.hostname, ag.ip):
+            if key:
+                agentmap[key.strip().lower()] = {
+                    'status': ag.status,
+                    'last_seen': ag.last_seen.isoformat() + 'Z' if ag.last_seen else None,
+                }
+
+    nodes = []
+    for a in assets:
+        sev = sevmap.get(a.id)
+        nodes.append({
+            'id': a.id,
+            'type': a.asset_type,
+            'label': a.waarde,
+            'poort': a.poort,
+            'protocol': a.protocol or '',
+            'getest': a.getest or 'untested',
+            'in_scope': bool(a.in_scope),
+            'parent_id': a.parent_id,
+            'depth': _asset_depth_of(a.id, by_id),
+            'findings': fmap.get(a.id, []),
+            'max_severity': sev[0] if sev else None,
+            'derived_tested': bool(derivedmap.get(a.id)),
+            'agent': agentmap.get((a.waarde or '').strip().lower()),
+        })
+    edges = [{'from': a.parent_id, 'to': a.id}
+             for a in assets if a.parent_id and a.parent_id in ids]
+    stats = {
+        'total': len(assets),
+        'in_scope': sum(1 for a in assets if a.in_scope),
+        'tested': sum(1 for a in assets if (a.getest or '') == 'tested'),
+        'derived_tested': sum(1 for a in assets if derivedmap.get(a.id)),
+    }
+    return {'nodes': nodes, 'edges': edges, 'stats': stats}
+
+
+# ── Asset auto-afleiding uit bestaande data ────────────────────────────────
+
+def _looks_like_ip(s):
+    import ipaddress
+    try:
+        ipaddress.ip_address(s)
+        return True
+    except ValueError:
+        return False
+
+
+def _normalize_asset_input(raw):
+    """Leid (asset_type, waarde, poort) af uit een vrije string (URL/host/IP).
+
+    Retourneert None voor lege/onbruikbare waarden (bevat witruimte of te lang)."""
+    from urllib.parse import urlparse
+    v = (raw or '').strip()
+    if not v or len(v) > 500 or any(ch.isspace() for ch in v):
+        return None
+    if '://' in v:
+        p = urlparse(v)
+        host = p.hostname or v
+        if p.path and p.path not in ('', '/'):
+            return ('endpoint', v.rstrip('/'), p.port)
+        if _looks_like_ip(host):
+            return ('ip', host, p.port)
+        return ('host', host, p.port)
+    poort = None
+    hostpart = v
+    if v.count(':') == 1 and not _looks_like_ip(v):
+        a, b = v.split(':')
+        if b.isdigit():
+            hostpart, poort = a, int(b)
+    if _looks_like_ip(hostpart):
+        return ('ip', hostpart, poort)
+    return ('host', hostpart, poort)
+
+
+def _get_or_create_asset(asset_type, waarde, poort=None, opdracht_id=None):
+    """Dedupliceer-of-maak een asset. Retourneert (asset, is_nieuw)."""
+    dedupe = _asset_dedupe_key(asset_type, waarde, poort)
+    a = db_asset.query.filter_by(dedupe_key=dedupe).first()
+    if a is not None:
+        return a, False
+    a = db_asset(asset_type=asset_type, waarde=waarde, poort=poort,
+                 dedupe_key=dedupe, opdracht_id=opdracht_id)
+    db.session.add(a)
+    return a, True
+
+
+@findings_bp.route('/api/assets/seed-telemetry', methods=['POST'])
+def seed_assets_telemetry():
+    """Leid assets af uit hooked agents en lab-telemetrie (xxs/xxe/csrf/sqli/ssrf)."""
+    from flask import current_app
+    if current_app.config.get('WTF_CSRF_ENABLED', True):
+        from flask_wtf.csrf import validate_csrf
+        try:
+            validate_csrf(request.headers.get('X-CSRFToken', ''))
+        except Exception:
+            return jsonify({'error': 'CSRF-fout'}), 403
+    data = request.get_json(silent=True) or {}
+    opdracht_id = data.get('opdracht_id') or None
+    seen = set()
+    created = {'n': 0}
+
+    def add(raw):
+        norm = _normalize_asset_input(raw)
+        if not norm:
+            return
+        key = _asset_dedupe_key(*norm)
+        if key in seen:
+            return
+        seen.add(key)
+        _, is_new = _get_or_create_asset(norm[0], norm[1], norm[2], opdracht_id)
+        if is_new:
+            created['n'] += 1
+
+    for ag in db_agents.query.all():
+        add(ag.hostname)
+        add(ag.ip)
+    sources = [
+        (db_xxs_cookies, ['ip', 'locatie']), (db_xxs_form, ['ip', 'locatie']),
+        (db_xxs_hooked, ['ip']), (db_xxs_localstorage, ['ip', 'locatie']),
+        (db_xxs_keylogger, ['ip', 'locatie']), (db_xxe, ['ip']),
+        (db_csrf, ['ip', 'locatie']), (db_sqli, ['ip', 'doel']),
+        (db_ssrf, ['ip', 'doel']),
+    ]
+    for model, fields in sources:
+        for row in model.query.all():
+            for f in fields:
+                add(getattr(row, f, None))
+    db.session.commit()
+    return jsonify({'ok': True, 'created': created['n']})
+
+
+@findings_bp.route('/api/assets/seed-findings', methods=['POST'])
+def seed_assets_findings():
+    """Migreer bevinding-locatie/affected_assets naar assets + anchors."""
+    from flask import current_app
+    if current_app.config.get('WTF_CSRF_ENABLED', True):
+        from flask_wtf.csrf import validate_csrf
+        try:
+            validate_csrf(request.headers.get('X-CSRFToken', ''))
+        except Exception:
+            return jsonify({'error': 'CSRF-fout'}), 403
+    data = request.get_json(silent=True) or {}
+    opdracht_id = data.get('opdracht_id') or None
+    created = anchored = 0
+    for bev in _active_findings().all():
+        raws = []
+        if bev.locatie:
+            raws.append(bev.locatie)
+        aa = getattr(bev, 'affected_assets', '') or ''
+        if aa:
+            for part in aa.replace('\n', ',').replace(';', ',').split(','):
+                raws.append(part.strip())
+        for raw in raws:
+            norm = _normalize_asset_input(raw)
+            if not norm:
+                continue
+            a, is_new = _get_or_create_asset(norm[0], norm[1], norm[2],
+                                             opdracht_id or bev.opdracht_id)
+            if is_new:
+                created += 1
+            db.session.flush()
+            exists = db_asset_anchor.query.filter_by(
+                asset_id=a.id, finding_id=bev.id).first()
+            if not exists:
+                db.session.add(db_asset_anchor(
+                    asset_id=a.id, finding_id=bev.id, relatie='affected'))
+                anchored += 1
+    db.session.commit()
+    return jsonify({'ok': True, 'created': created, 'anchored': anchored})
+
+
+_SCOPE_TYPE_MAP = {'host': 'host', 'netwerk': 'ip', 'url': 'endpoint', 'applicatie': 'app'}
+
+
+@findings_bp.route('/api/assets/sync-scope', methods=['POST'])
+def sync_scope():
+    """Synchroniseer assets met de opdracht-/rapportscope.
+
+    Scope-targets (db_instellingen.rapport_scope_targets) en optioneel
+    db_opdracht.scope worden in-scope assets; met mark_others_out=true worden
+    assets buiten de scope als out-of-scope gemarkeerd."""
+    from flask import current_app
+    if current_app.config.get('WTF_CSRF_ENABLED', True):
+        from flask_wtf.csrf import validate_csrf
+        try:
+            validate_csrf(request.headers.get('X-CSRFToken', ''))
+        except Exception:
+            return jsonify({'error': 'CSRF-fout'}), 403
+    data = request.get_json(silent=True) or {}
+    opdracht_id = data.get('opdracht_id') or None
+    mark_others_out = bool(data.get('mark_others_out', False))
+
+    targets = []   # (raw, type_hint)
+    for item in _get_scope_targets():
+        if isinstance(item, str) and item.strip():
+            targets.append((item.strip(), None))
+        elif isinstance(item, dict) and item.get('target'):
+            targets.append((str(item['target']).strip(),
+                            _SCOPE_TYPE_MAP.get(item.get('type'))))
+    if opdracht_id:
+        op = db.session.get(db_opdracht, opdracht_id)
+        if op and op.scope:
+            for part in op.scope.replace('\n', ',').replace(';', ',').split(','):
+                if part.strip():
+                    targets.append((part.strip(), None))
+
+    created = 0
+    in_scope_keys = set()
+    for raw, type_hint in targets:
+        norm = _normalize_asset_input(raw)
+        if not norm:
+            continue
+        asset_type = type_hint or norm[0]
+        a, is_new = _get_or_create_asset(asset_type, norm[1], norm[2], opdracht_id)
+        if is_new:
+            created += 1
+            db.session.flush()   # id + defaults (in_scope=True) toekennen
+        if not a.in_scope:
+            _log_change('db_asset', a.id, 'in_scope', a.in_scope, True)
+            a.in_scope = True
+        in_scope_keys.add(a.dedupe_key)
+
+    marked_out = 0
+    if mark_others_out and in_scope_keys:
+        q = db_asset.query
+        if opdracht_id:
+            q = q.filter(db_asset.opdracht_id == opdracht_id)
+        for a in q.all():
+            if a.dedupe_key not in in_scope_keys and a.in_scope:
+                _log_change('db_asset', a.id, 'in_scope', a.in_scope, False)
+                a.in_scope = False
+                marked_out += 1
+    db.session.commit()
+    return jsonify({'ok': True, 'created': created,
+                    'in_scope': len(in_scope_keys), 'marked_out': marked_out})
+
+
+# ── Scan-/tool-output importeren in de grafen ──────────────────────────────
+
+# Laatste labels die op bestandsextensies lijken (geen hostnamen)
+_NIET_TLD = {
+    'txt', 'log', 'exe', 'dll', 'ps1', 'sh', 'py', 'json', 'xml', 'html',
+    'htm', 'csv', 'md', 'conf', 'ini', 'bak', 'zip', 'gz', 'tar', 'pdf',
+    'png', 'jpg', 'jpeg', 'gif', 'bin', 'dat', 'db', 'sqlite', 'yml', 'yaml',
+}
+
+_MAX_SCAN_TARGETS = 300
+
+
+def _extract_targets(text):
+    """Haal doelen (URL/host:poort/IP/FQDN) uit vrije scan-output. Gededupliceerd."""
+    import re
+    if not text:
+        return []
+    url_re = re.compile(r'https?://[^\s"\'<>()]+')
+    hostport_re = re.compile(
+        r'\b((?:[a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}|(?:\d{1,3}\.){3}\d{1,3}):(\d{1,5})\b')
+    ip_re = re.compile(r'\b(?:\d{1,3}\.){3}\d{1,3}\b')
+    fqdn_re = re.compile(r'\b(?:[a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}\b')
+
+    raws = []
+    seen = set()
+
+    def push(val):
+        v = (val or '').strip().rstrip('.,);:')
+        if not v or v.lower() in seen:
+            return
+        # FQDN met bestandsextensie-achtig laatste label overslaan
+        laatste = v.rsplit('.', 1)[-1].lower()
+        if '://' not in v and ':' not in v and laatste in _NIET_TLD:
+            return
+        seen.add(v.lower())
+        raws.append(v)
+
+    def mark(val):
+        if val:
+            seen.add(val.strip().lower())
+
+    from urllib.parse import urlparse
+    for m in url_re.findall(text):
+        push(m)
+        mark(urlparse(m).hostname)   # bare host niet nogmaals toevoegen
+    for host, port in hostport_re.findall(text):
+        push('{}:{}'.format(host, port))
+        mark(host)
+    for m in ip_re.findall(text):
+        push(m)
+    for m in fqdn_re.findall(text):
+        push(m)
+    return raws[:_MAX_SCAN_TARGETS]
+
+
+def _scan_text(source, data):
+    """Haal de te parseren tekst op uit paste/output-store/task-run. (tekst|None, fout|None)."""
+    if source == 'paste':
+        return (data.get('text') or ''), None
+    if source == 'output':
+        oid = data.get('output_id')
+        if not oid:
+            return None, 'output_id vereist'
+        from meuk.flask.output_view import _resolve_output, _MAX_READ_BYTES
+        path = _resolve_output(oid)
+        if path is None:
+            return None, 'output niet gevonden'
+        with path.open('r', encoding='utf-8', errors='replace') as fh:
+            return fh.read(_MAX_READ_BYTES), None
+    if source == 'task':
+        rid = data.get('run_id')
+        if not rid:
+            return None, 'run_id vereist'
+        from meuk.flask import tasks
+        with tasks._RUNS_LOCK:
+            run = tasks._RUNS.get(rid)
+            if run is None:
+                return None, 'run niet gevonden'
+            return '\n'.join(run.get('output') or []), None
+    return None, 'ongeldige bron'
+
+
+_SIGNAL_SCORE = {'critical': '9.5', 'high': '8.0', 'medium': '5.5', 'low': '3.0'}
+
+
+def _sev_from_line(ln):
+    """Grove severity-heuristiek uit een outputregel."""
+    low = (ln or '').lower()
+    if any(k in low for k in ('critical', 'rce', 'remote code', 'unauth')):
+        return 'critical'
+    if any(k in low for k in ('high', 'vulnerable', 'exploit')):
+        return 'high'
+    if 'low' in low:
+        return 'low'
+    return 'medium'
+
+
+def _parse_scan(text):
+    """Parse nmap-achtige hosts/poorten en vuln-signalen (CVE/VULNERABLE) uit output.
+
+    Retourneert (hosts, signals):
+      hosts: {host: {'ip': ip|None, 'services': [{'port','proto','service'}]}}
+      signals: [{'cve'|None, 'title', 'severity', 'host'|None}]
+    """
+    import re
+    if not text:
+        return {}, []
+    cve_re = re.compile(r'CVE-\d{4}-\d{4,7}', re.I)
+    port_re = re.compile(r'^\s*(\d{1,5})/(tcp|udp)\s+(open(?:\|filtered)?)\s+(\S+)', re.I)
+    host_re = re.compile(r'Nmap scan report for\s+([^\s()]+)(?:\s+\(([\d.]+)\))?', re.I)
+    vuln_re = re.compile(r'VULNERABLE|\bexploit\b', re.I)
+    hosts = {}
+    signals = []
+    current = None
+    for ln in text.splitlines():
+        hm = host_re.search(ln)
+        if hm:
+            current = hm.group(1)
+            hosts.setdefault(current, {'ip': hm.group(2), 'services': []})
+            continue
+        pm = port_re.match(ln)
+        if pm and current:
+            hosts[current]['services'].append(
+                {'port': int(pm.group(1)), 'proto': pm.group(2).lower(), 'service': pm.group(4)})
+            continue
+        cm = cve_re.search(ln)
+        if cm:
+            signals.append({'cve': cm.group(0).upper(), 'title': (ln.strip()[:200] or cm.group(0).upper()),
+                            'severity': _sev_from_line(ln), 'host': current})
+            continue
+        if vuln_re.search(ln):
+            signals.append({'cve': None, 'title': ln.strip()[:200],
+                            'severity': _sev_from_line(ln), 'host': current})
+    return hosts, signals
+
+
+def _scope_keys():
+    keys = set()
+    for item in _get_scope_targets():
+        raw = item.get('target') if isinstance(item, dict) else item
+        n = _normalize_asset_input(raw) if raw else None
+        if n:
+            keys.add(_asset_dedupe_key(*n))
+    return keys
+
+
+@findings_bp.route('/api/scan/import', methods=['POST'])
+def scan_import():
+    """Importeer scan-/tool-output in beide grafen.
+
+    Body: {source, text?|output_id?|run_id?, opdracht_id?, status?, label?,
+           dry_run?, create_findings?, store_note?}.
+
+    - hosts/poorten -> assets met service-kinderen (hiërarchie), scope-bewust
+    - CVE/VULNERABLE-signalen -> vulnerability-knopen + (optioneel) bevindingen,
+      geanchord aan de host-asset (die lopen zo mee in rapport/DefectDojo)
+    - een scan-knoop (fact) met herkomst, geanchord aan alle assets
+    - dry_run: alleen de parse teruggeven, niets aanmaken
+    """
+    from flask import current_app
+    if current_app.config.get('WTF_CSRF_ENABLED', True):
+        from flask_wtf.csrf import validate_csrf
+        try:
+            validate_csrf(request.headers.get('X-CSRFToken', ''))
+        except Exception:
+            return jsonify({'error': 'CSRF-fout'}), 403
+    data = request.get_json(silent=True) or {}
+    source = (data.get('source') or 'paste').strip().lower()
+    text, err = _scan_text(source, data)
+    if err:
+        return jsonify({'error': err}), 400
+
+    hosts, signals = _parse_scan(text)
+    flat = _extract_targets(text)
+    if not hosts and not flat and not signals:
+        return jsonify({'ok': False, 'error': 'geen doelen/signalen in de output'}), 400
+
+    if data.get('dry_run'):
+        return jsonify({'ok': True, 'preview': True,
+                        'hosts': [{'host': h, 'ip': v['ip'], 'services': v['services']}
+                                  for h, v in hosts.items()],
+                        'signals': signals, 'flat_targets': flat})
+
+    opdracht_id = data.get('opdracht_id') or None
+    status = data.get('status') if data.get('status') in _VALID_ASSET_STATUS else 'in_progress'
+    create_findings = data.get('create_findings', True)
+    store_note = data.get('store_note', True)
+    label = (data.get('label') or '').strip() or 'Scan-import ({})'.format(source)
+    scope = _scope_keys()
+
+    def mkasset(atype, waarde, poort=None, parent=None, in_scope_override=None):
+        a, is_new = _get_or_create_asset(atype, waarde, poort, opdracht_id)
+        db.session.flush()
+        in_scope = in_scope_override if in_scope_override is not None else (
+            (not scope) or (a.dedupe_key in scope))
+        st = status if in_scope else 'out_of_scope'
+        if a.getest != st:
+            _log_change('db_asset', a.id, 'getest', a.getest, st)
+            a.getest = st
+        a.in_scope = in_scope
+        if parent and a.parent_id != parent:
+            a.parent_id = parent
+        return a, is_new, in_scope
+
+    created = 0
+    all_ids = []
+    host_asset = {}
+    for host, info in hosts.items():
+        atype = 'ip' if _looks_like_ip(host) else 'host'
+        a, isnew, in_scope = mkasset(atype, host)
+        if isnew:
+            created += 1
+        host_asset[host] = a
+        all_ids.append(a.id)
+        for svc in info['services']:
+            sv, isn, _ = mkasset('service', '{}:{}'.format(host, svc['port']),
+                                 svc['port'], parent=a.id, in_scope_override=in_scope)
+            if isn:
+                created += 1
+            sv.protocol = svc['proto']
+            all_ids.append(sv.id)
+
+    host_keys = {a.dedupe_key for a in host_asset.values()}
+    for raw in flat:
+        norm = _normalize_asset_input(raw)
+        if not norm or _asset_dedupe_key(*norm) in host_keys:
+            continue
+        a, isnew, _ = mkasset(norm[0], norm[1], norm[2])
+        if isnew:
+            created += 1
+        all_ids.append(a.id)
+
+    findings_created = nodes_created = 0
+    for sig in signals:
+        ha = host_asset.get(sig['host'])
+        score = _SIGNAL_SCORE.get(sig['severity'], '5.5')
+        fid = None
+        if create_findings:
+            bev = db_bevindingen(
+                naam=sig['title'][:255], ref=(sig['cve'] or ''), basescore=score,
+                status='draft', locatie=(sig['host'] or ''),
+                uitwerken='Automatisch afgeleid uit scan-import ({}).'.format(source),
+                opdracht_id=opdracht_id)
+            db.session.add(bev)
+            db.session.flush()
+            fid = bev.id
+            findings_created += 1
+            if ha is not None:
+                db.session.add(db_asset_anchor(asset_id=ha.id, finding_id=bev.id, relatie='affected'))
+        vn = db_explore_node(node_type='vulnerability', titel=sig['title'][:255],
+                             status='done', prioriteit=7, finding_id=fid, opdracht_id=opdracht_id)
+        db.session.add(vn)
+        db.session.flush()
+        nodes_created += 1
+        if ha is not None:
+            db.session.add(db_explore_asset_anchor(node_id=vn.id, asset_id=ha.id))
+
+    prov = 'Scan-import · bron={}'.format(source)
+    if data.get('output_id'):
+        prov += ' · output={}'.format(data['output_id'])
+    if data.get('run_id'):
+        prov += ' · run={}'.format(data['run_id'])
+    prov += ' · {} hosts, {} signalen'.format(len(hosts), len(signals))
+    scan_node = db_explore_node(node_type='fact', titel=label, status='done',
+                                prioriteit=5, omschrijving=prov, opdracht_id=opdracht_id)
+    db.session.add(scan_node)
+    db.session.flush()
+    for aid in dict.fromkeys(all_ids):
+        db.session.add(db_explore_asset_anchor(node_id=scan_node.id, asset_id=aid))
+
+    if store_note and text.strip():
+        db.session.add(db_notes(naam='Scan-output: ' + label, uitwerken=text[:20000], rapport=False))
+
+    db.session.commit()
+    return jsonify({'ok': True, 'assets_created': created,
+                    'assets_total': len(set(all_ids)),
+                    'findings_created': findings_created,
+                    'nodes_created': nodes_created,
+                    'scan_node_id': scan_node.id})
+
+
+@findings_bp.route('/dashboard/assets', methods=['GET'])
+def assets_dashboard():
+    """Pagina met de interactieve asset-coverage-graaf."""
+    return render_template('assets_graph.html', title='Assets — dekkingsgraaf',
+                           scope_targets=_get_scope_targets())
+
+
+@findings_bp.route('/api/assets/graph', methods=['GET'])
+def api_assets_graph():
+    opdracht_id = request.args.get('opdracht_id', type=int)
+    return jsonify(build_asset_graph(opdracht_id))
+
+
+@findings_bp.route('/api/assets', methods=['POST'])
+def create_asset():
+    """Maak (of hergebruik) een losstaande asset — optioneel met ouder/opdracht."""
+    from flask import current_app
+    if current_app.config.get('WTF_CSRF_ENABLED', True):
+        from flask_wtf.csrf import validate_csrf
+        try:
+            validate_csrf(request.headers.get('X-CSRFToken', ''))
+        except Exception:
+            return jsonify({'error': 'CSRF-fout'}), 403
+    data = request.get_json(silent=True) or {}
+    waarde = (data.get('waarde') or '').strip()
+    if not waarde:
+        return jsonify({'error': 'waarde is verplicht'}), 400
+    asset_type = (data.get('asset_type') or 'host').strip().lower()
+    poort = data.get('poort') or None
+    try:
+        poort = int(poort) if poort not in (None, '') else None
+    except (TypeError, ValueError):
+        poort = None
+    dedupe = _asset_dedupe_key(asset_type, waarde, poort)
+    asset = db_asset.query.filter_by(dedupe_key=dedupe).first()
+    if asset is None:
+        asset = db_asset(
+            asset_type=asset_type, waarde=waarde, poort=poort,
+            protocol=(data.get('protocol') or '').strip().lower(),
+            dedupe_key=dedupe,
+            opdracht_id=data.get('opdracht_id') or None,
+            parent_id=data.get('parent_id') or None,
+        )
+        db.session.add(asset)
+        db.session.commit()
+    return jsonify({'ok': True, 'asset': _asset_dict(asset)})
+
+
+def _would_cycle(asset_id, new_parent_id, by_id):
+    """True als new_parent_id onder asset_id hangt (zou een cyclus maken)."""
+    seen = set()
+    cur = by_id.get(new_parent_id)
+    while cur is not None and cur.id not in seen:
+        if cur.id == asset_id:
+            return True
+        seen.add(cur.id)
+        cur = by_id.get(cur.parent_id)
+    return False
+
+
+@findings_bp.route('/api/assets/<int:asset_id>', methods=['POST'])
+def update_asset(asset_id):
+    """Wijzig coverage-status, scope, ouder of notitie van een asset."""
+    from flask import current_app
+    if current_app.config.get('WTF_CSRF_ENABLED', True):
+        from flask_wtf.csrf import validate_csrf
+        try:
+            validate_csrf(request.headers.get('X-CSRFToken', ''))
+        except Exception:
+            return jsonify({'error': 'CSRF-fout'}), 403
+    a = db.session.get(db_asset, asset_id)
+    if not a:
+        return jsonify({'error': 'asset niet gevonden'}), 404
+    data = request.get_json(silent=True) or {}
+    if 'getest' in data:
+        if data['getest'] not in _VALID_ASSET_STATUS:
+            return jsonify({'error': 'ongeldige status'}), 400
+        if a.getest != data['getest']:
+            _log_change('db_asset', a.id, 'getest', a.getest, data['getest'])
+        a.getest = data['getest']
+    if 'in_scope' in data:
+        nieuw = bool(data['in_scope'])
+        if bool(a.in_scope) != nieuw:
+            _log_change('db_asset', a.id, 'in_scope', a.in_scope, nieuw)
+        a.in_scope = nieuw
+    if 'notitie' in data:
+        a.notitie = str(data['notitie'])[:2000]
+    if 'parent_id' in data:
+        pid = data['parent_id'] or None
+        if pid:
+            try:
+                pid = int(pid)
+            except (TypeError, ValueError):
+                return jsonify({'error': 'ongeldige parent_id'}), 400
+            if pid == asset_id:
+                return jsonify({'error': 'asset kan niet zijn eigen ouder zijn'}), 400
+            by_id = {x.id: x for x in db_asset.query.all()}
+            if _would_cycle(asset_id, pid, by_id):
+                return jsonify({'error': 'dit zou een cyclus maken'}), 400
+            if a.parent_id != pid:
+                _log_change('db_asset', a.id, 'parent_id', a.parent_id, pid)
+            a.parent_id = pid
+        else:
+            if a.parent_id is not None:
+                _log_change('db_asset', a.id, 'parent_id', a.parent_id, None)
+            a.parent_id = None
+    db.session.commit()
+    return jsonify({'ok': True, 'asset': _asset_dict(a)})
+
+
+@findings_bp.route('/api/assets/<int:asset_id>', methods=['DELETE'])
+def delete_asset(asset_id):
+    """Verwijder een asset (anchors cascaden; kinderen worden losgekoppeld)."""
+    from flask import current_app
+    if current_app.config.get('WTF_CSRF_ENABLED', True):
+        from flask_wtf.csrf import validate_csrf
+        try:
+            validate_csrf(request.headers.get('X-CSRFToken', ''))
+        except Exception:
+            return jsonify({'error': 'CSRF-fout'}), 403
+    a = db.session.get(db_asset, asset_id)
+    if not a:
+        return jsonify({'error': 'asset niet gevonden'}), 404
+    for kind in list(a.kinderen):
+        kind.parent_id = None
+    db.session.delete(a)
     db.session.commit()
     return jsonify({'ok': True})
 

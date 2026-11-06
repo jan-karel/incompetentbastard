@@ -80,6 +80,30 @@
     </div>
   </div>
 </section>
+
+{# Gekoppelde assets/doelen #}
+<section class="card mt-14" data-advanced-fields>
+  <div class="card-head"><h2>Assets / doelen</h2></div>
+  <div class="card-body">
+    <p class="help">Gekoppelde doelen worden als DefectDojo-endpoints meegestuurd bij het pushen.</p>
+    <div id="assets-list"></div>
+    <div class="mt-8 d-flex gap-8 items-center flex-wrap">
+      <select id="asset-type" class="form-control w-140">
+        <option value="host">Host</option>
+        <option value="domain">Domein</option>
+        <option value="subdomain">Subdomein</option>
+        <option value="ip">IP</option>
+        <option value="service">Service</option>
+        <option value="app">Applicatie</option>
+        <option value="endpoint">Endpoint (URL)</option>
+      </select>
+      <input type="text" id="asset-waarde" class="form-control" placeholder="bijv. app.klant.nl of https://app.klant.nl/login" style="flex:1;min-width:240px" />
+      <input type="number" id="asset-poort" class="form-control w-140" placeholder="Poort (optioneel)" />
+      <button class="btn" id="btn-add-asset" type="button">Koppelen</button>
+    </div>
+    <span id="asset-msg" class="help"></span>
+  </div>
+</section>
 {% endif %}
 {% endblock %}
 
@@ -390,6 +414,79 @@
       if (d.ok) { document.getElementById("related-finding-id").value = ""; loadRelations(); }
     });
   });
+
+  // ── Assets / doelen ───────────────────────────
+  var assetsList = document.getElementById("assets-list");
+  var assetMsg = document.getElementById("asset-msg");
+
+  function removeAsset(anchorId) {
+    fetch("/api/findings/assets/anchor/" + anchorId, {
+      method: "DELETE",
+      headers: {"X-CSRFToken": csrfToken}
+    }).then(function() { loadAssets(); });
+  }
+
+  function loadAssets() {
+    if (!assetsList) return;
+    fetch("/api/findings/" + findingId + "/assets")
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        assetsList.textContent = "";
+        (d.assets || []).forEach(function(a) {
+          var row = document.createElement("div");
+          row.className = "d-flex gap-8 items-center mt-8";
+          var label = document.createElement("span");
+          var tekst = "[" + a.asset_type + "] " + a.waarde;
+          if (a.poort) tekst += ":" + a.poort;
+          label.textContent = tekst;
+          var del = document.createElement("button");
+          del.className = "btn btn-sm";
+          del.type = "button";
+          del.textContent = "Ontkoppelen";
+          del.addEventListener("click", function() { removeAsset(a.anchor_id); });
+          row.appendChild(label);
+          row.appendChild(del);
+          assetsList.appendChild(row);
+        });
+        if (!d.assets || !d.assets.length) {
+          var leeg = document.createElement("span");
+          leeg.className = "help";
+          leeg.textContent = "Nog geen assets gekoppeld.";
+          assetsList.appendChild(leeg);
+        }
+      });
+  }
+
+  var btnAsset = document.getElementById("btn-add-asset");
+  if (btnAsset) btnAsset.addEventListener("click", function() {
+    var waarde = (document.getElementById("asset-waarde") || {}).value || "";
+    waarde = waarde.trim();
+    if (!waarde) { if (assetMsg) assetMsg.textContent = "Waarde is verplicht."; return; }
+    var body = {
+      waarde: waarde,
+      asset_type: (document.getElementById("asset-type") || {}).value || "host"
+    };
+    var poort = (document.getElementById("asset-poort") || {}).value || "";
+    if (poort) body.poort = parseInt(poort, 10);
+    fetch("/api/findings/" + findingId + "/assets", {
+      method: "POST",
+      headers: {"Content-Type": "application/json", "X-CSRFToken": csrfToken},
+      body: JSON.stringify(body)
+    })
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        if (d.ok) {
+          document.getElementById("asset-waarde").value = "";
+          document.getElementById("asset-poort").value = "";
+          if (assetMsg) assetMsg.textContent = "";
+          loadAssets();
+        } else if (assetMsg) {
+          assetMsg.textContent = d.error || "Koppelen mislukt.";
+        }
+      });
+  });
+
+  loadAssets();
 })();
 </script>
 {% endif %}

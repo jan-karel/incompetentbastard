@@ -253,6 +253,22 @@ def create_app():
                 except Exception:
                     pass
 
+            # Auto-migrate: gekozen eigen rapport-template per project
+            try:
+                conn.execute(db.text(
+                    "ALTER TABLE db_opdracht_config ADD COLUMN rapport_template_id INTEGER"))
+                conn.commit()
+            except Exception:
+                pass
+
+            # Auto-migrate: eigen sectievolgorde op rapport-template
+            try:
+                conn.execute(db.text(
+                    "ALTER TABLE db_rapport_template ADD COLUMN section_order TEXT DEFAULT '[]'"))
+                conn.commit()
+            except Exception:
+                pass
+
             # Auto-migrate: debrief (lessons learned)
             for col, coltype in [
                 ("debrief_context",  "TEXT DEFAULT ''"),
@@ -419,7 +435,18 @@ def create_app():
 
         nonce = getattr(g, "csp_nonce", "")
 
-        if getattr(g, "is_public_page", False):
+        if getattr(g, "report_preview", False):
+            # Zelf-gegenereerde rapport-HTML (preview): inline styles toestaan, geen scripts
+            csp = (
+                "default-src 'self'; "
+                "script-src 'none'; "
+                "style-src 'self' 'unsafe-inline'; "
+                "img-src 'self' data:; "
+                "connect-src 'self'; "
+                "frame-src 'none'; "
+                "object-src 'none'"
+            )
+        elif getattr(g, "is_public_page", False):
             csp = (
                 "default-src 'self'; "
                 f"script-src 'unsafe-eval' 'nonce-{nonce}'; "

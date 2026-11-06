@@ -25,6 +25,36 @@ def _get_scope_targets():
         return []
 
 
+# Oplostijd (SLA) in dagen per severity — gelijk aan rapport._SLA_DAYS
+_SLA_DAGEN = {'critical': 1, 'high': 7, 'medium': 30, 'low': 90, 'none': 365}
+# Herstelstatussen die als "afgehandeld" tellen (niet meer overschrijdbaar)
+_REM_AFGEHANDELD = ('fixed', 'verified', 'accepted')
+
+
+def _sev_van_bevinding(bev, tmpl=None):
+    bs = bev.basescore or (tmpl.basescore if tmpl else '') or '0'
+    sev, _ = _cvss_to_severity(bs)
+    return sev
+
+
+def _sla_doeldatum(bev, tmpl=None):
+    """Bereken de aanbevolen hersteldoeldatum (ontdekdatum/aanmaak + SLA-dagen)."""
+    sev = _sev_van_bevinding(bev, tmpl)
+    basis = None
+    if getattr(bev, 'discovered_at', None):
+        basis = bev.discovered_at.date() if hasattr(bev.discovered_at, 'date') else bev.discovered_at
+    elif getattr(bev, 'created_at', None):
+        basis = bev.created_at.date() if hasattr(bev.created_at, 'date') else bev.created_at
+    if basis is None:
+        basis = datetime.date.today()
+    return basis + datetime.timedelta(days=_SLA_DAGEN.get(sev, 90))
+
+
+def _zet_sla_doeldatum_indien_leeg(bev, tmpl=None):
+    if not getattr(bev, 'remediation_target_date', None):
+        bev.remediation_target_date = _sla_doeldatum(bev, tmpl)
+
+
 def _active_findings(opdracht_id=None):
     """Query van niet-verwijderde bevindingen, gescoped op het actieve project.
 
@@ -332,6 +362,10 @@ def template_bewerken(template_id):
         enimpact=item.enimpact,
         nlaanbeveling=item.nlaanbeveling,
         enaanbeveling=item.enaanbeveling,
+        nlimpactkort=getattr(item, 'nlimpactkort', '') or '',
+        enimpactkort=getattr(item, 'enimpactkort', '') or '',
+        nlaanbevelingkort=getattr(item, 'nlaanbevelingkort', '') or '',
+        enaanbevelingkort=getattr(item, 'enaanbevelingkort', '') or '',
         referenties=item.referenties,
     )
     return render_template('template_page.html', form=form, title='Template bewerken')
@@ -462,8 +496,13 @@ def template_opslaan():
                 tmpl.enimpact = form.enimpact.data
                 tmpl.nlaanbeveling = form.nlaanbeveling.data
                 tmpl.enaanbeveling = form.enaanbeveling.data
+                tmpl.nlimpactkort = (form.nlimpactkort.data or '').strip()
+                tmpl.enimpactkort = (form.enimpactkort.data or '').strip()
+                tmpl.nlaanbevelingkort = (form.nlaanbevelingkort.data or '').strip()
+                tmpl.enaanbevelingkort = (form.enaanbevelingkort.data or '').strip()
                 tmpl.referenties = form.referenties.data
-                _vul_kort_velden(tmpl, overschrijf=True)
+                # Lege korte velden automatisch afleiden; ingevulde blijven staan
+                _vul_kort_velden(tmpl, overschrijf=False)
                 db.session.commit()
         except (ValueError, TypeError):
             tmpl = db_bevindingen_templates(
@@ -481,9 +520,13 @@ def template_opslaan():
                 enimpact=form.enimpact.data,
                 nlaanbeveling=form.nlaanbeveling.data,
                 enaanbeveling=form.enaanbeveling.data,
+                nlimpactkort=(form.nlimpactkort.data or '').strip(),
+                enimpactkort=(form.enimpactkort.data or '').strip(),
+                nlaanbevelingkort=(form.nlaanbevelingkort.data or '').strip(),
+                enaanbevelingkort=(form.enaanbevelingkort.data or '').strip(),
                 referenties=form.referenties.data,
             )
-            _vul_kort_velden(tmpl, overschrijf=True)
+            _vul_kort_velden(tmpl, overschrijf=False)
             db.session.add(tmpl)
             db.session.commit()
 
@@ -554,11 +597,18 @@ def bevindingen_overzicht():
     findings = _active_findings().all()
     templates = db_bevindingen_templates.query.all()
     template_groups = _group_templates(templates)
+    # SLA-overschrijding: doeldatum (expliciet of afgeleid) in het verleden en nog niet afgehandeld
+    _vandaag = datetime.date.today()
+    overdue_ids = {
+        f.id for f in findings
+        if (f.remediation_target_date or _sla_doeldatum(f)) < _vandaag
+        and (f.remediation_status or 'open') not in _REM_AFGEHANDELD
+    }
     deleted_count = db_bevindingen.query.filter(db_bevindingen.deleted_at.isnot(None)).count()
     deleted_findings = db_bevindingen.query.filter(db_bevindingen.deleted_at.isnot(None)).order_by(db_bevindingen.deleted_at.desc()).all() if deleted_count else []
     return render_template('findings_index.html', findings=findings, templates=templates,
                            template_groups=template_groups, deleted_count=deleted_count,
-                           deleted_findings=deleted_findings)
+                           deleted_findings=deleted_findings, overdue_ids=overdue_ids)
 
 
 @findings_bp.route('/dashboard/findings/edit/<bevinding_id>', methods=['GET', 'POST'])
@@ -675,6 +725,7 @@ def bevinding_opslaan():
             bev.detectie_notitie  = form.detectie_notitie.data
             bev.kans              = form.kans.data
             bev.impact_niveau     = form.impact_niveau.data
+            _zet_sla_doeldatum_indien_leeg(bev)
             db.session.commit()
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                 return jsonify({'ok': True, 'id': bev.id})
@@ -703,6 +754,7 @@ def bevinding_opslaan():
                 kans=form.kans.data,
                 impact_niveau=form.impact_niveau.data,
             )
+            _zet_sla_doeldatum_indien_leeg(bevdb)
             db.session.add(bevdb)
             db.session.commit()
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
@@ -886,6 +938,9 @@ def finding_status_update(finding_id):
     bev.status = new_status
     if old_status != new_status:
         _log_change('db_bevinding', finding_id, 'status', old_status, new_status)
+    # Bij finaliseren: zet een hersteldoeldatum op basis van de SLA indien nog leeg
+    if new_status == 'final':
+        _zet_sla_doeldatum_indien_leeg(bev)
     db.session.commit()
     return jsonify({'ok': True, 'id': bev.id, 'status': bev.status})
 
@@ -2408,6 +2463,10 @@ def api_findings_list():
             'remediation_effort': bev.remediation_effort or '',
             'ncsc': '{} - {}'.format(ncsc_code, ncsc_richtlijnen[ncsc_code]) if ncsc_code and ncsc_code in ncsc_richtlijnen else '',
             'ref': bev.ref or '',
+            'sla_target': str(_sla_doeldatum(bev, tmpl)),
+            'sla_overdue': bool(
+                (bev.remediation_target_date or _sla_doeldatum(bev, tmpl)) < datetime.date.today()
+                and (bev.remediation_status or 'open') not in _REM_AFGEHANDELD),
             'sort_key': sort_key,
         })
 
@@ -2635,3 +2694,92 @@ def finding_remediation_history(finding_id):
             'changed_at': e.changed_at.isoformat() + 'Z' if e.changed_at else None,
         } for e in entries
     ]})
+
+
+# ---------------------------------------------------------------------------
+# Duplicaten: detecteren + samenvoegen (merge)
+# ---------------------------------------------------------------------------
+
+def _dedupe_sleutel(bev):
+    """Sleutel om duplicaten te groeperen: ref (indien gezet) of naam, + locatie."""
+    kern = (bev.ref or '').strip() or (bev.naam or '').strip().lower()
+    return (kern, (bev.locatie or '').strip().lower())
+
+
+@findings_bp.route('/api/findings/duplicates', methods=['GET'])
+def findings_duplicates():
+    require_dashboard_access()
+    groepen = {}
+    for bev in _active_findings().all():
+        k = _dedupe_sleutel(bev)
+        if not k[0]:
+            continue
+        groepen.setdefault(k, []).append(bev)
+    out = []
+    for (kern, loc), bevs in groepen.items():
+        if len(bevs) < 2:
+            continue
+        out.append({
+            'sleutel': kern + ('@' + loc if loc else ''),
+            'findings': [{'id': b.id, 'naam': b.naam or '', 'locatie': b.locatie or '',
+                          'basescore': b.basescore or '', 'status': b.status or 'draft'}
+                         for b in sorted(bevs, key=lambda x: x.id)],
+        })
+    return jsonify({'ok': True, 'groups': out})
+
+
+@findings_bp.route('/api/findings/merge', methods=['POST'])
+def findings_merge():
+    require_dashboard_access()
+    from flask import current_app
+    if current_app.config.get('WTF_CSRF_ENABLED', True):
+        from flask_wtf.csrf import validate_csrf
+        try:
+            validate_csrf(request.headers.get('X-CSRFToken', ''))
+        except Exception:
+            return jsonify({'ok': False, 'error': 'CSRF-fout'}), 403
+    data = request.get_json(silent=True) or {}
+    try:
+        keep_id = int(data.get('keep_id'))
+    except (TypeError, ValueError):
+        return jsonify({'ok': False, 'error': 'keep_id ontbreekt'}), 400
+    ids = [int(x) for x in (data.get('ids') or []) if str(x).isdigit() and int(x) != keep_id]
+    keep = db.session.get(db_bevindingen, keep_id)
+    if not keep or keep.deleted_at is not None:
+        return jsonify({'ok': False, 'error': 'doelbevinding niet gevonden'}), 404
+
+    keep_assets = {a.asset_id for a in db_asset_anchor.query.filter_by(finding_id=keep_id).all()}
+    samengevoegd = 0
+    for mid in ids:
+        m = db.session.get(db_bevindingen, mid)
+        if not m or m.deleted_at is not None:
+            continue
+        # Bewijs herkoppelen
+        db_evidence.query.filter_by(finding_id=mid).update({'finding_id': keep_id})
+        # Asset-anchors herkoppelen (dubbele overslaan)
+        for a in db_asset_anchor.query.filter_by(finding_id=mid).all():
+            if a.asset_id in keep_assets:
+                db.session.delete(a)
+            else:
+                a.finding_id = keep_id
+                keep_assets.add(a.asset_id)
+        # Relaties herkoppelen; self-/lege relaties verwijderen
+        for r in db_finding_related.query.filter(
+                db.or_(db_finding_related.finding_id == mid,
+                       db_finding_related.related_id == mid)).all():
+            if r.finding_id == mid:
+                r.finding_id = keep_id
+            if r.related_id == mid:
+                r.related_id = keep_id
+            if r.finding_id == r.related_id:
+                db.session.delete(r)
+        # Uitwerking samenvoegen
+        if (m.uitwerken or '').strip():
+            keep.uitwerken = ((keep.uitwerken or '').rstrip()
+                              + '\n\n--- Samengevoegd uit #{} ---\n'.format(mid)
+                              + m.uitwerken)
+        m.deleted_at = datetime.datetime.utcnow()
+        _log_change('db_bevinding', mid, 'merged_into', '', str(keep_id))
+        samengevoegd += 1
+    db.session.commit()
+    return jsonify({'ok': True, 'keep_id': keep_id, 'merged': samengevoegd})

@@ -124,12 +124,44 @@
         </label>
       </div>
       <div>
-        <label class="form-label" for="rap-variant">Template variant</label>
-        <select id="rap-variant" class="form-control" data-rap="rapport_template_variant">
-          <option value="detailed">Detailed (alles)</option>
-          <option value="executive">Executive (KPI + critical/high)</option>
-          <option value="board">Board (KPI + top 3)</option>
-        </select>
+        <label class="form-label" for="rap-template-select">Rapport-template</label>
+        <div class="d-flex gap-8 items-center flex-wrap">
+          <select id="rap-template-select" class="form-control mw360"></select>
+          <button type="button" class="btn btn-sm" id="btn-tpl-preview">Preview</button>
+          <button type="button" class="btn btn-sm" id="btn-tpl-manage">Beheer&hellip;</button>
+          <span id="tpl-select-msg" class="help"></span>
+        </div>
+        <div id="tpl-manager" class="is-hidden mt12">
+          <div class="d-flex gap-8 items-center flex-wrap mb-8">
+            <input type="text" id="tpl-naam" class="form-control mw360" placeholder="Naam van eigen template" />
+            <select id="tpl-scope" class="form-control">
+              <option value="all">Alle bevindingen</option>
+              <option value="critical_high">Alleen critical/high</option>
+              <option value="top3">Top 3</option>
+            </select>
+            <button type="button" class="btn btn-sm" id="btn-tpl-new">Nieuw</button>
+            <button type="button" class="btn btn-primary btn-sm" id="btn-tpl-save">Opslaan</button>
+            <button type="button" class="btn btn-sm" id="btn-tpl-delete">Verwijder</button>
+          </div>
+          <p class="help m-0 mb-8">Secties in dit template:</p>
+          <div id="tpl-sections" class="d-flex gap-8 flex-wrap mb-8"></div>
+          <p class="help m-0 mb-8">Volgorde van secties (gebruik &uarr;/&darr;):</p>
+          <ol id="tpl-order" class="tpl-order mb-8"></ol>
+          <div class="d-flex gap-8 items-center flex-wrap">
+            <label class="form-label m-0">Eigen LaTeX (.tex):</label>
+            <input type="file" id="tpl-tex-file" accept=".tex" class="fs13" />
+            <button type="button" class="btn btn-sm" id="btn-tpl-tex-upload">Uploaden</button>
+            <button type="button" class="btn btn-sm" id="btn-tpl-tex-validate">Valideren</button>
+            <button type="button" class="btn btn-sm" id="btn-tpl-tex-vars">Variabelen&hellip;</button>
+            <span id="tpl-tex-status" class="help"></span>
+          </div>
+          <p class="help m-0 mt12">
+            Delimiters: <code>[% ... %]</code> logica, <code>[[ ... ]]</code> waarde,
+            <code>[# ... #]</code> commentaar. Een eigen template wordt bij uploaden
+            dry-run gevalideerd (onbekende variabelen en syntaxfouten worden geweigerd).
+          </p>
+          <div id="tpl-tex-vars" class="is-hidden tpl-vars"></div>
+        </div>
       </div>
       <div>
         <label class="form-label" for="rap-testtype">Type test</label>
@@ -526,6 +558,17 @@
   <div class="card-head"><h2>Rapportversies</h2></div>
   <div class="card-body">
     <div id="versions-list" class="help">Laden...</div>
+    <hr class="hr-sep" />
+    <h3 class="fs-14 m-0 mb-8">Versies vergelijken</h3>
+    <div class="d-flex gap-8 items-center flex-wrap mb-8">
+      <select id="diff-a" class="form-control mw360"></select>
+      <span>&rarr;</span>
+      <select id="diff-b" class="form-control mw360"></select>
+      <button type="button" class="btn btn-sm" id="btn-diff">Vergelijk</button>
+      <span id="diff-msg" class="help"></span>
+    </div>
+    <div id="diff-summary" class="mb-8"></div>
+    <pre id="diff-output" class="diff-pre is-hidden"></pre>
   </div>
 </section>
 
@@ -862,6 +905,296 @@
       });
   }
   loadMetrics();
+
+  // ── Rapport-templates (selectie + beheer + preview) ─────────────
+  var SEC_LABELS = {
+    managementsamenvatting: "Managementsamenvatting", methodologie: "Methodologie",
+    legsup: "Legs Up", scenarios: "Scenario's",
+    samenvatting_bevindingen: "Samenvatting bevindingen", risicomatrix: "Risicomatrix",
+    sla: "Oplostijden (SLA)", detecteerbaarheid: "Detecteerbaarheid",
+    verkenning: "Verkenning (notities)", bevindingen: "Bevindingen (detail)",
+    aanbevelingen: "Aanbevelingen", killchain: "Kill chain",
+    asset_dekking: "Asset-dekking", checklists: "Checklists",
+    appendices: "Bijlagen (OWASP/NCSC)"
+  };
+  var tplSelect = document.getElementById("rap-template-select");
+  var tplManager = document.getElementById("tpl-manager");
+  var tplSectionsBox = document.getElementById("tpl-sections");
+  var tplSelMsg = document.getElementById("tpl-select-msg");
+  var tplData = {builtin: [], custom: [], section_keys: [], selected: {}};
+  var tplEditId = null;  // null = ingebouwd/nieuw; getal = eigen template
+
+  function renderSections(sections) {
+    tplSectionsBox.innerHTML = "";
+    (tplData.section_keys || Object.keys(SEC_LABELS)).forEach(function(k){
+      var lab = document.createElement("label");
+      lab.className = "nowrap";
+      var cb = document.createElement("input");
+      cb.type = "checkbox"; cb.dataset.sec = k;
+      cb.checked = sections ? !!sections[k] : true;
+      lab.appendChild(cb);
+      lab.appendChild(document.createTextNode(" " + (SEC_LABELS[k] || k)));
+      tplSectionsBox.appendChild(lab);
+    });
+  }
+
+  var tplOrderBox = document.getElementById("tpl-order");
+  var _tplOrder = [];
+
+  function moveOrder(i, delta) {
+    var j = i + delta;
+    if (j < 0 || j >= _tplOrder.length) return;
+    var tmp = _tplOrder[i]; _tplOrder[i] = _tplOrder[j]; _tplOrder[j] = tmp;
+    renderOrder(_tplOrder);
+  }
+
+  function renderOrder(order) {
+    if (!tplOrderBox) return;
+    var keys = tplData.reorderable_keys || [];
+    var norm = (order || []).filter(function(k){ return keys.indexOf(k) !== -1; });
+    keys.forEach(function(k){ if (norm.indexOf(k) === -1) norm.push(k); });
+    _tplOrder = norm;
+    tplOrderBox.innerHTML = "";
+    _tplOrder.forEach(function(k, i){
+      var li = document.createElement("li");
+      li.className = "tpl-order-item"; li.dataset.key = k;
+      var span = document.createElement("span");
+      span.className = "tpl-order-label";
+      span.textContent = SEC_LABELS[k] || k;
+      var up = document.createElement("button");
+      up.type = "button"; up.className = "btn btn-sm tpl-order-btn";
+      up.innerHTML = "&uarr;"; up.disabled = (i === 0);
+      up.addEventListener("click", function(){ moveOrder(i, -1); });
+      var dn = document.createElement("button");
+      dn.type = "button"; dn.className = "btn btn-sm tpl-order-btn";
+      dn.innerHTML = "&darr;"; dn.disabled = (i === _tplOrder.length - 1);
+      dn.addEventListener("click", function(){ moveOrder(i, 1); });
+      li.appendChild(span); li.appendChild(up); li.appendChild(dn);
+      tplOrderBox.appendChild(li);
+    });
+  }
+
+  function collectOrder() { return _tplOrder.slice(); }
+
+  function currentOptionMeta() {
+    var val = tplSelect.value;  // "builtin:detailed" of "custom:<id>"
+    if (val.indexOf("custom:") === 0) {
+      var id = parseInt(val.slice(7), 10);
+      return {type: "custom", row: tplData.custom.filter(function(c){return c.id===id;})[0]};
+    }
+    return {type: "builtin", row: tplData.builtin.filter(function(b){return b.variant===val.slice(8);})[0]};
+  }
+
+  function loadEditorFromSelection() {
+    var m = currentOptionMeta();
+    if (m.type === "custom" && m.row) {
+      tplEditId = m.row.id;
+      document.getElementById("tpl-naam").value = m.row.naam;
+      document.getElementById("tpl-scope").value = m.row.findings_scope;
+      renderSections(m.row.sections);
+      renderOrder(m.row.section_order || []);
+      document.getElementById("tpl-tex-status").textContent = m.row.has_custom_tex ? "eigen .tex ingesteld" : "";
+    } else {
+      tplEditId = null;
+      document.getElementById("tpl-naam").value = "";
+      document.getElementById("tpl-scope").value = m.row ? m.row.findings_scope : "all";
+      renderSections(m.row ? m.row.sections : null);
+      renderOrder(m.row ? (m.row.section_order || []) : []);
+      document.getElementById("tpl-tex-status").textContent = "";
+    }
+  }
+
+  function populateSelect() {
+    tplSelect.innerHTML = "";
+    var og1 = document.createElement("optgroup"); og1.label = "Ingebouwd";
+    tplData.builtin.forEach(function(b){
+      var o = new Option(b.naam.charAt(0).toUpperCase()+b.naam.slice(1), "builtin:"+b.variant);
+      og1.appendChild(o);
+    });
+    tplSelect.appendChild(og1);
+    if (tplData.custom.length) {
+      var og2 = document.createElement("optgroup"); og2.label = "Eigen";
+      tplData.custom.forEach(function(c){ og2.appendChild(new Option(c.naam, "custom:"+c.id)); });
+      tplSelect.appendChild(og2);
+    }
+    var sel = tplData.selected || {};
+    tplSelect.value = sel.template_id ? ("custom:"+sel.template_id) : ("builtin:"+(sel.variant||"detailed"));
+    if (!tplSelect.value) tplSelect.value = "builtin:detailed";
+  }
+
+  function loadTemplates(cb) {
+    fetch("/api/report/templates").then(function(r){return r.json();}).then(function(d){
+      if (!d.ok) return;
+      tplData = d;
+      populateSelect();
+      if (cb) cb();
+    });
+  }
+
+  tplSelect.addEventListener("change", function(){
+    var m = currentOptionMeta();
+    var body = m.type === "custom" ? {template_id: m.row.id} : {variant: tplSelect.value.slice(8)};
+    tplSelMsg.textContent = "Opslaan…";
+    fetch("/api/report/templates/select", {
+      method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(body)
+    }).then(function(r){return r.json();}).then(function(d){
+      tplSelMsg.textContent = d.ok ? "Opgeslagen" : (d.error || "Fout");
+      if (!tplManager.classList.contains("is-hidden")) loadEditorFromSelection();
+    });
+  });
+
+  document.getElementById("btn-tpl-manage").addEventListener("click", function(){
+    tplManager.classList.toggle("is-hidden");
+    if (!tplManager.classList.contains("is-hidden")) loadEditorFromSelection();
+  });
+
+  document.getElementById("btn-tpl-preview").addEventListener("click", function(){
+    window.open("/dashboard/report/generate?preview=1&include_draft=1", "_blank");
+  });
+
+  document.getElementById("btn-tpl-new").addEventListener("click", function(){
+    tplEditId = null;
+    document.getElementById("tpl-naam").value = "";
+    document.getElementById("tpl-scope").value = "all";
+    renderSections(null);
+    renderOrder([]);
+    document.getElementById("tpl-tex-status").textContent = "";
+  });
+
+  function collectSections() {
+    var out = {};
+    tplSectionsBox.querySelectorAll("input[data-sec]").forEach(function(cb){ out[cb.dataset.sec] = cb.checked; });
+    return out;
+  }
+
+  document.getElementById("btn-tpl-save").addEventListener("click", function(){
+    var naam = document.getElementById("tpl-naam").value.trim();
+    if (!naam) { tplSelMsg.textContent = "Naam verplicht"; return; }
+    var body = {naam: naam, findings_scope: document.getElementById("tpl-scope").value, sections: collectSections(), section_order: collectOrder()};
+    var url = tplEditId ? ("/api/report/templates/"+tplEditId) : "/api/report/templates";
+    fetch(url, {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(body)})
+      .then(function(r){return r.json();}).then(function(d){
+        if (d.ok) { tplSelMsg.textContent = "Template opgeslagen"; loadTemplates(function(){
+          if (d.id) { tplSelect.value = "custom:"+d.id; tplEditId = d.id; }
+        }); }
+        else { tplSelMsg.textContent = d.error || "Fout"; }
+      });
+  });
+
+  document.getElementById("btn-tpl-delete").addEventListener("click", function(){
+    if (!tplEditId) { tplSelMsg.textContent = "Alleen eigen templates"; return; }
+    if (!window.confirm("Dit eigen template verwijderen?")) return;
+    fetch("/api/report/templates/"+tplEditId, {method:"DELETE"}).then(function(r){return r.json();}).then(function(d){
+      if (d.ok) { tplSelMsg.textContent = "Verwijderd"; loadTemplates(); }
+      else { tplSelMsg.textContent = d.error || "Fout"; }
+    });
+  });
+
+  var tplTexStatus = document.getElementById("tpl-tex-status");
+  function showTexResult(d) {
+    if (!d.ok) { tplTexStatus.textContent = d.error || "Fout"; return; }
+    tplTexStatus.textContent = d.warning
+      ? ("OK — " + d.warning)
+      : "OK — template gevalideerd";
+  }
+
+  document.getElementById("btn-tpl-tex-upload").addEventListener("click", function(){
+    if (!tplEditId) { tplTexStatus.textContent = "Sla eerst het template op"; return; }
+    var fi = document.getElementById("tpl-tex-file");
+    if (!fi.files || !fi.files[0]) { tplTexStatus.textContent = "Kies een .tex"; return; }
+    var fd = new FormData(); fd.append("file", fi.files[0]);
+    tplTexStatus.textContent = "Valideren…";
+    fetch("/api/report/templates/"+tplEditId+"/tex", {method:"POST", body: fd})
+      .then(function(r){return r.json();}).then(function(d){
+        showTexResult(d);
+        if (d.ok) loadTemplates();
+      });
+  });
+
+  document.getElementById("btn-tpl-tex-validate").addEventListener("click", function(){
+    if (!tplEditId) { tplTexStatus.textContent = "Alleen voor opgeslagen eigen templates"; return; }
+    tplTexStatus.textContent = "Valideren…";
+    fetch("/api/report/templates/"+tplEditId+"/tex/validate", {method:"POST"})
+      .then(function(r){return r.json();}).then(showTexResult);
+  });
+
+  var texVarsBox = document.getElementById("tpl-tex-vars");
+  var texVarsLoaded = false;
+  document.getElementById("btn-tpl-tex-vars").addEventListener("click", function(){
+    texVarsBox.classList.toggle("is-hidden");
+    if (texVarsLoaded || texVarsBox.classList.contains("is-hidden")) return;
+    fetch("/api/report/templates/tex-variables").then(function(r){return r.json();}).then(function(d){
+      if (!d.ok) return;
+      texVarsLoaded = true;
+      var tbl = document.createElement("table");
+      tbl.className = "table compact tpl-vars-table";
+      var head = document.createElement("tr");
+      ["Variabele", "Type", "Omschrijving"].forEach(function(h){
+        var th = document.createElement("th"); th.textContent = h; head.appendChild(th);
+      });
+      tbl.appendChild(head);
+      d.variables.forEach(function(v){
+        var tr = document.createElement("tr");
+        var c1 = document.createElement("td");
+        var code = document.createElement("code"); code.textContent = v.naam; c1.appendChild(code);
+        var c2 = document.createElement("td"); c2.textContent = v.type;
+        var c3 = document.createElement("td"); c3.textContent = v.omschrijving;
+        tr.appendChild(c1); tr.appendChild(c2); tr.appendChild(c3);
+        tbl.appendChild(tr);
+      });
+      texVarsBox.innerHTML = "";
+      texVarsBox.appendChild(tbl);
+    });
+  });
+
+  loadTemplates();
+
+  // ── Rapportversies + diff ───────────────────────
+  var diffA = document.getElementById("diff-a");
+  var diffB = document.getElementById("diff-b");
+  var diffMsg = document.getElementById("diff-msg");
+  var diffOut = document.getElementById("diff-output");
+  var diffSum = document.getElementById("diff-summary");
+  var versionsList = document.getElementById("versions-list");
+
+  function loadVersions() {
+    fetch("/api/report/versions").then(function(r){return r.json();}).then(function(d){
+      var vs = (d && d.versions) || [];
+      if (versionsList) {
+        versionsList.textContent = vs.length
+          ? (vs.length + " versie(s) — nieuwste: " + vs[0].timestamp)
+          : "Nog geen versies (genereer eerst een rapport).";
+      }
+      [diffA, diffB].forEach(function(sel){
+        sel.innerHTML = "";
+        vs.forEach(function(v){ sel.appendChild(new Option(v.timestamp, v.timestamp)); });
+      });
+      if (vs.length >= 2) { diffA.value = vs[1].timestamp; diffB.value = vs[0].timestamp; }
+    }).catch(function(){ if (versionsList) versionsList.textContent = "Kon versies niet laden."; });
+  }
+
+  document.getElementById("btn-diff").addEventListener("click", function(){
+    if (!diffA.value || !diffB.value) { diffMsg.textContent = "Kies twee versies."; return; }
+    diffMsg.textContent = "Vergelijken…";
+    fetch("/api/report/versions/diff?a=" + encodeURIComponent(diffA.value) + "&b=" + encodeURIComponent(diffB.value))
+      .then(function(r){return r.json();}).then(function(d){
+        if (!d.ok) { diffMsg.textContent = d.error || "Mislukt"; return; }
+        diffMsg.textContent = "";
+        var c = d.count;
+        diffSum.innerHTML = "<strong>" + c.added + "</strong> toegevoegd, <strong>" +
+          c.removed + "</strong> verwijderd, <strong>" + c.changed + "</strong> gewijzigd.";
+        // Gekleurde unified diff
+        var html = d.diff.split("\n").map(function(line){
+          var cls = line.charAt(0) === "+" ? "diff-add" : (line.charAt(0) === "-" ? "diff-del" : "");
+          var esc = line.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+          return cls ? '<span class="' + cls + '">' + esc + '</span>' : esc;
+        }).join("\n");
+        diffOut.innerHTML = html;
+        diffOut.classList.remove("is-hidden");
+      }).catch(function(){ diffMsg.textContent = "Netwerkfout"; });
+  });
+
+  loadVersions();
 
   // ── Logo upload ────────────────────────────────
   var logoForm = document.getElementById("logo-upload-form");

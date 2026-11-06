@@ -288,6 +288,23 @@ class db_opdracht_config(db.Model):
     dd_engagement_id = db.Column(db.Integer)
     dd_verify_ssl = db.Column(db.Boolean, default=True)
     dd_auto_push = db.Column(db.Boolean, default=False)
+    # Gekozen eigen rapport-template (per project); leeg = ingebouwde variant
+    rapport_template_id = db.Column(db.Integer, db.ForeignKey('db_rapport_template.id'), nullable=True)
+
+
+class db_rapport_template(db.Model):
+    """Eigen, herbruikbaar rapport-template: welke secties, findings-scope en
+    optioneel een eigen LaTeX-bestand. Ingebouwde varianten staan in code."""
+    __tablename__ = 'db_rapport_template'
+    id = db.Column(db.Integer, primary_key=True)
+    naam = db.Column(db.String(200), unique=True, nullable=False)
+    findings_scope = db.Column(db.String(20), default='all')  # all|critical_high|top3
+    sections = db.Column(db.Text(), default='{}')  # JSON: {sectie_key: bool}
+    section_order = db.Column(db.Text(), default='[]')  # JSON: [sectie_key, ...] (hoofdsecties)
+    custom_tex_path = db.Column(db.String(300), default='')
+    taal = db.Column(db.String(5), default='')  # leeg = volg projectinstelling
+    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
 
 
 class db_evidence(db.Model):

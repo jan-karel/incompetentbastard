@@ -149,7 +149,8 @@ De volgende systemen zijn onderdeel van de test:
 [% endif %]
 \end{itemize}
 
-[% if management_samenvatting %]
+[% if sections.managementsamenvatting and management_samenvatting %]
+%SEC:managementsamenvatting%
 % --- Managementsamenvatting ---
 [% if taal == 'en' %]
 \section{Executive Summary}
@@ -160,6 +161,8 @@ De volgende systemen zijn onderdeel van de test:
 [[ management_samenvatting ]]
 
 [% endif %]
+[% if sections.methodologie %]
+%SEC:methodologie%
 % --- Methodologie ---
 [% if taal == 'en' %]
 \section{Methodology}
@@ -292,7 +295,9 @@ De specifieke tools die worden ingezet kunnen varieren afhankelijk van de scope 
 Alle tools worden ingezet conform de overeengekomen Rules of Engagement.
 [% endif %]
 
-[% if testtype == 'redteam' and (legsup_startpunt or legsup_privileges or legsup_informatie) %]
+[% endif %]
+[% if sections.legsup and testtype == "redteam" and (legsup_startpunt or legsup_privileges or legsup_informatie) %]
+%SEC:legsup%
 % --- Legs Up ---
 \section{Legs Up}
 
@@ -328,7 +333,8 @@ Alle tools worden ingezet conform de overeengekomen Rules of Engagement.
 [% endif %]
 [% endif %]
 
-[% if testtype == 'redteam' and scenarios %]
+[% if sections.scenarios and testtype == "redteam" and scenarios %]
+%SEC:scenarios%
 % --- Scenario's ---
 [% if taal == 'en' %]
 \section{Scenarios}
@@ -344,6 +350,8 @@ Alle tools worden ingezet conform de overeengekomen Rules of Engagement.
 [% endfor %]
 [% endif %]
 
+[% if sections.risicomatrix %]
+%SEC:risicomatrix%
 % --- Risicoinschatting ---
 [% if taal == 'en' %]
 \section{Risk Assessment}
@@ -385,6 +393,30 @@ De ernst van bevindingen wordt bepaald aan de hand van het CVSS 4.0 framework
 \end{center}
 [% endif %]
 
+[% if heatmap_rows %]
+[% if taal == 'en' %]
+\subsection*{Risk Matrix}
+[% else %]
+\subsection*{Risicomatrix}
+[% endif %]
+
+\begin{center}
+\renewcommand{\arraystretch}{1.6}
+\begin{tabular}{|c|c|c|c|c|c|}
+  \hline
+  [% if taal == 'en' %]\textbf{Lik.\textbackslash Imp.}[% else %]\textbf{Kans\textbackslash Imp.}[% endif %] & \textbf{1} & \textbf{2} & \textbf{3} & \textbf{4} & \textbf{5} \\
+  \hline
+[% for row in heatmap_rows %]
+  \textbf{[[ row.kans ]]} [% for cell in row.cells %]& \cellcolor{[[ cell.color ]]}\textcolor{white}{\small [[ cell.ids ]]} [% endfor %]\\
+  \hline
+[% endfor %]
+\end{tabular}
+\renewcommand{\arraystretch}{1.0}
+\end{center}
+[% endif %]
+[% endif %]
+[% if sections.samenvatting_bevindingen %]
+%SEC:samenvatting_bevindingen%
 % --- Samenvatting bevindingen ---
 [% if taal == 'en' %]
 \section{Summary of Findings}
@@ -428,31 +460,10 @@ In totaal zijn \textbf{[[ findings|length ]]} bevindingen geidentificeerd:
 \end{center}
 [% endif %]
 
-% --- Risicomatrix (heatmap) ---
-[% if heatmap_rows %]
-[% if taal == 'en' %]
-\subsection*{Risk Matrix}
-[% else %]
-\subsection*{Risicomatrix}
 [% endif %]
-
-\begin{center}
-\renewcommand{\arraystretch}{1.6}
-\begin{tabular}{|c|c|c|c|c|c|}
-  \hline
-  [% if taal == 'en' %]\textbf{Lik.\textbackslash Imp.}[% else %]\textbf{Kans\textbackslash Imp.}[% endif %] & \textbf{1} & \textbf{2} & \textbf{3} & \textbf{4} & \textbf{5} \\
-  \hline
-[% for row in heatmap_rows %]
-  \textbf{[[ row.kans ]]} [% for cell in row.cells %]& \cellcolor{[[ cell.color ]]}\textcolor{white}{\small [[ cell.ids ]]} [% endfor %]\\
-  \hline
-[% endfor %]
-\end{tabular}
-\renewcommand{\arraystretch}{1.0}
-\end{center}
-[% endif %]
-
 % --- Oplostijden (SLA) ---
-[% if sla_rows %]
+[% if sections.sla and sla_rows %]
+%SEC:sla%
 [% if taal == 'en' %]
 \subsection*{Remediation Timelines}
 
@@ -482,7 +493,8 @@ De aanbevolen maximale hersteltermijn is gebaseerd op de risicoclassificatie van
 [% endif %]
 
 % --- Detecteerbaarheid & SOC/CDC-aanbevelingen ---
-[% if detection_rated %]
+[% if sections.detecteerbaarheid and detection_rated %]
+%SEC:detecteerbaarheid%
 [% if taal == 'en' %]
 \subsection*{Detectability \& SOC/CDC Recommendations}
 
@@ -537,7 +549,8 @@ De volgende bevindingen waren niet (volledig) detecteerbaar. Versterking van mon
 \newpage
 
 % --- Verkenning & ontdekking (notities) ---
-[% if notes %]
+[% if sections.verkenning and notes %]
+%SEC:verkenning%
 [% if taal == 'en' %]
 \section{Reconnaissance \& Discovery}
 [% else %]
@@ -553,6 +566,8 @@ De volgende bevindingen waren niet (volledig) detecteerbaar. Versterking van mon
 \newpage
 [% endif %]
 
+[% if sections.bevindingen %]
+%SEC:bevindingen%
 % --- Bevindingen ---
 [% if taal == 'en' %]
 \section{Findings}
@@ -582,6 +597,11 @@ De volgende bevindingen waren niet (volledig) detecteerbaar. Versterking van mon
 [% else %]
 \noindent\textbf{Locatie:} \texttt{[[ item.locatie | latex_escape ]]}
 [% endif %]
+\vspace{0.3em}
+[% endif %]
+
+[% if item.assets %]
+\noindent\textbf{[% if taal == 'en' %]Affected assets:[% else %]Getroffen assets:[% endif %]} [[ item.assets | map(attribute='waarde') | join(', ') | latex_escape ]]
 \vspace{0.3em}
 [% endif %]
 
@@ -627,6 +647,9 @@ De volgende bevindingen waren niet (volledig) detecteerbaar. Versterking van mon
 [% endif %]
 [% endfor %]
 
+[% endif %]
+[% if sections.aanbevelingen %]
+%SEC:aanbevelingen%
 % --- Aanbevelingen ---
 [% if taal == 'en' %]
 \section{Recommendations Overview}
@@ -651,7 +674,9 @@ De volgende bevindingen waren niet (volledig) detecteerbaar. Versterking van mon
 [% endfor %]
 \end{longtable}
 
-[% if checklists %]
+[% endif %]
+%SEC-END%
+[% if sections.checklists and checklists %]
 % --- Checklist appendix ---
 \appendix
 [% if taal == 'en' %]
@@ -688,7 +713,7 @@ De volgende bevindingen waren niet (volledig) detecteerbaar. Versterking van mon
 \appendix
 [% endif %]
 
-[% if chain_paths %]
+[% if sections.killchain and chain_paths %]
 [% if taal == 'en' %]
 \section{Exploit Chains / Kill Chain}
 [% else %]
@@ -701,7 +726,7 @@ De volgende bevindingen waren niet (volledig) detecteerbaar. Versterking van mon
 \end{itemize}
 [% endif %]
 
-[% if owasp_rows %]
+[% if sections.appendices and owasp_rows %]
 [% if taal == 'en' %]
 \section{OWASP Top 10 Mapping}
 \begin{longtable}{|c|p{7cm}|p{3cm}|p{2.5cm}|}
@@ -724,7 +749,7 @@ De volgende bevindingen waren niet (volledig) detecteerbaar. Versterking van mon
 \end{longtable}
 [% endif %]
 
-[% if ncsc_rows %]
+[% if sections.appendices and ncsc_rows %]
 [% if taal == 'en' %]
 \section{NCSC Guidelines Mapping}
 \begin{longtable}{|c|p{6cm}|p{4cm}|p{3cm}|}

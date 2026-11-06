@@ -99,6 +99,23 @@
       </div>
 
       <div>
+        <label for="nlimpactkort">Impact kort (NL)</label>
+        {{ form.nlimpactkort(id='nlimpactkort', class='form-control', placeholder='Leeg = automatisch afgeleid uit de lange impact') }}
+      </div>
+      <div>
+        <label for="enimpactkort">Impact kort (EN)</label>
+        {{ form.enimpactkort(id='enimpactkort', class='form-control', placeholder='Leeg = automatisch afgeleid') }}
+      </div>
+      <div>
+        <label for="nlaanbevelingkort">Aanbeveling kort (NL)</label>
+        {{ form.nlaanbevelingkort(id='nlaanbevelingkort', class='form-control', placeholder='Leeg = automatisch afgeleid') }}
+      </div>
+      <div>
+        <label for="enaanbevelingkort">Aanbeveling kort (EN)</label>
+        {{ form.enaanbevelingkort(id='enaanbevelingkort', class='form-control', placeholder='Leeg = automatisch afgeleid') }}
+      </div>
+
+      <div>
         <label for="referenties">Referenties</label>
         {{ form.referenties(id='referenties', rows='3', class='form-control', placeholder='Eén referentie per regel') }}
       </div>

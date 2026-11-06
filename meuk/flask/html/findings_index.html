@@ -9,6 +9,8 @@
 <style nonce="{{ csp_nonce }}">
   .nowrap { white-space: nowrap; }
   .w90 { width: 90px; }
+  .sla-overdue-badge { display: inline-block; padding: 1px 7px; border-radius: 999px;
+    background: #b91c1c; color: #fff; font-size: 11px; font-weight: 600; vertical-align: middle; }
 </style>
 {% endblock %}
 
@@ -109,7 +111,7 @@
           <tr data-name="{{ f.naam }}" data-host="{{ f.locatie }}" data-status="{{ f.status or 'draft' }}" data-remediation="{{ f.remediation_status or 'open' }}" data-severity="{{ f.basescore | cvss_severity }}">
             <td><input type="checkbox" class="batch-check" data-id="{{ f.id }}" /></td>
             <td>{{ f.id | nulvul }}</td>
-            <td>{{ f.naam }}</td>
+            <td>{{ f.naam }}{% if f.id in overdue_ids|default([]) %} <span class="sla-overdue-badge" title="Hersteltermijn (SLA) overschreden">SLA verlopen</span>{% endif %}</td>
             <td>{{ f.locatie }}</td>
             <td>{{ f.basescore or '-' }}</td>
             <td>
@@ -317,6 +319,16 @@
         </div>
       </div>
       <div id="dd-msg" class="help mt-8"></div>
+    </div>
+  </section>
+
+  <section class="card mb-14">
+    <div class="card-head"><h2>Mogelijke duplicaten</h2></div>
+    <div class="card-body">
+      <p class="help m-0 mb-8">Bevindingen met dezelfde template/naam én host. Kies welke je behoudt; de rest wordt samengevoegd (bewijs, assets en relaties verhuizen mee, de uitwerking wordt toegevoegd) en in de prullenbak gezet.</p>
+      <button type="button" class="btn btn-sm" id="btn-dupes-scan">Zoek duplicaten</button>
+      <span id="dupes-msg" class="help ml-8"></span>
+      <div id="dupes-list" class="mt12"></div>
     </div>
   </section>
 
@@ -629,6 +641,60 @@
              " overgeslagen (van " + d.total + ").");
       if (d.imported) setTimeout(function(){ window.location.reload(); }, 1200);
     });
+  });
+
+  // ── Duplicaten zoeken & samenvoegen ──────────────
+  var dupesBtn = document.getElementById("btn-dupes-scan");
+  var dupesList = document.getElementById("dupes-list");
+  var dupesMsg = document.getElementById("dupes-msg");
+  function csrfTok() { return (document.getElementById("finding-csrf") || {}).value || ""; }
+
+  if (dupesBtn) dupesBtn.addEventListener("click", function(){
+    dupesMsg.textContent = "Zoeken…";
+    fetch("/api/findings/duplicates").then(function(r){return r.json();}).then(function(d){
+      dupesMsg.textContent = "";
+      dupesList.innerHTML = "";
+      if (!d.ok || !d.groups.length) { dupesList.textContent = "Geen duplicaten gevonden."; return; }
+      d.groups.forEach(function(g, gi){
+        var box = document.createElement("div");
+        box.className = "card mb-14";
+        var body = document.createElement("div");
+        body.className = "card-body";
+        var h = document.createElement("p");
+        h.innerHTML = "<strong>" + g.sleutel.replace(/</g,"&lt;") + "</strong>";
+        body.appendChild(h);
+        g.findings.forEach(function(f, i){
+          var lab = document.createElement("label");
+          lab.className = "d-block";
+          var rb = document.createElement("input");
+          rb.type = "radio"; rb.name = "keep-" + gi; rb.value = f.id; rb.checked = (i === 0);
+          lab.appendChild(rb);
+          lab.appendChild(document.createTextNode(
+            " behoud #" + f.id + " — " + f.naam + " (" + (f.basescore || "-") + ", " + f.status + ")"));
+          body.appendChild(lab);
+        });
+        var btn = document.createElement("button");
+        btn.type = "button"; btn.className = "btn btn-sm mt6"; btn.textContent = "Samenvoegen";
+        btn.addEventListener("click", function(){
+          var sel = box.querySelector('input[name="keep-' + gi + '"]:checked');
+          if (!sel) return;
+          var keep = parseInt(sel.value, 10);
+          var ids = g.findings.map(function(f){ return f.id; });
+          if (!window.confirm("De overige bevindingen in deze groep samenvoegen in #" + keep + "?")) return;
+          fetch("/api/findings/merge", {
+            method: "POST",
+            headers: {"Content-Type": "application/json", "X-CSRFToken": csrfTok()},
+            body: JSON.stringify({keep_id: keep, ids: ids})
+          }).then(function(r){return r.json();}).then(function(res){
+            if (res.ok) { window.location.reload(); }
+            else { dupesMsg.textContent = res.error || "Mislukt"; }
+          });
+        });
+        body.appendChild(btn);
+        box.appendChild(body);
+        dupesList.appendChild(box);
+      });
+    }).catch(function(){ dupesMsg.textContent = "Netwerkfout"; });
   });
 
 })();

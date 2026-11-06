@@ -1,16 +1,20 @@
 """Rapport generatie blueprint — afgesplitst van findings.py."""
 
 from meuk.hacksec import lezen, schrijven
-from flask import Blueprint, request, send_file, jsonify, render_template
-from jinja2 import Environment, FileSystemLoader
+from flask import Blueprint, request, send_file, jsonify, render_template, Response
+from jinja2 import Environment, FileSystemLoader, StrictUndefined
+from jinja2 import TemplateError, TemplateSyntaxError, UndefinedError
 from markupsafe import escape as html_escape
-from meuk.flask.models import db_bevindingen, db_bevindingen_templates, db_evidence, db_notes, db, db_finding_related, db_instellingen, db_checklist
+from meuk.flask.models import db_bevindingen, db_bevindingen_templates, db_evidence, db_notes, db, db_finding_related, db_instellingen, db_checklist, db_rapport_template, db_opdracht_config, db_asset, db_asset_anchor
 from meuk.flask.findings import _cvss_to_severity, _latex_escape, owasptop10, _get_appdata
 from meuk.flask.security import require_dashboard_access
 import datetime
+import difflib
 import html as html_mod
 import json
+import math
 import os
+import re as _re
 import shutil
 import subprocess
 import threading
@@ -164,10 +168,10 @@ _TLP_MAP = {
 # Oplostijden (SLA) per severity — maximale hersteltermijn conform
 # gangbare NCSC/BIO-richtlijnen. (severity -> (dagen, NL-label, EN-label))
 _SLA_DAYS = {
-    'critical': (7,   'Binnen 1 week',    'Within 1 week'),
-    'high':     (30,  'Binnen 1 maand',   'Within 1 month'),
-    'medium':   (90,  'Binnen 3 maanden', 'Within 3 months'),
-    'low':      (180, 'Binnen 6 maanden', 'Within 6 months'),
+    'critical': (1,   'Binnen 1 dag',     'Within 1 day'),
+    'high':     (7,   'Binnen 1 week',    'Within 1 week'),
+    'medium':   (30,  'Binnen 1 maand',   'Within 1 month'),
+    'low':      (90,  'Binnen 3 maanden', 'Within 3 months'),
     'none':     (365, 'Naar inzicht',     'At discretion'),
 }
 
@@ -429,6 +433,17 @@ def _build_findings_data(base_query, taal='nl'):
                         'type': r.relation_type,
                     })
 
+            # Gekoppelde assets (anchors) ophalen
+            asset_items = []
+            for anc in db_asset_anchor.query.filter_by(finding_id=item.id).all():
+                ass = db.session.get(db_asset, anc.asset_id)
+                if ass:
+                    asset_items.append({
+                        'waarde': ass.waarde or '',
+                        'type': ass.asset_type or '',
+                        'relatie': getattr(anc, 'relatie', '') or '',
+                    })
+
             findings.append({
                 'id': item.id,
                 'titel': item.naam or '',
@@ -449,6 +464,7 @@ def _build_findings_data(base_query, taal='nl'):
                 'remediation_target_date': getattr(item, 'remediation_target_date', None),
                 'remediation_owner': getattr(item, 'remediation_owner', '') or '',
                 'related': related_items,
+                'assets': asset_items,
                 # WOEF controle-mapping + faalmodus
                 'faalmodus': getattr(item, 'faalmodus', '') or '',
                 'control_ref': getattr(item, 'control_ref', '') or '',
@@ -614,6 +630,9 @@ def gen_rapport():
     testscope = (getattr(s, 'rapport_testscope', '') if s else '') or 'blackbox'
     testscopes = [t.strip() for t in testscope.split(',') if t.strip()]
     management_samenvatting = (getattr(s, 'rapport_management_samenvatting', '') if s else '') or ''
+    if not management_samenvatting.strip():
+        management_samenvatting = _auto_management_samenvatting(counts, len(findings), taal)
+    rapport_omgeving = (getattr(s, 'rapport_omgeving', '') if s else '') or ''
     legsup_startpunt = (getattr(s, 'rapport_legsup_startpunt', '') if s else '') or ''
     legsup_privileges = (getattr(s, 'rapport_legsup_privileges', '') if s else '') or ''
     legsup_informatie = (getattr(s, 'rapport_legsup_informatie', '') if s else '') or ''
@@ -636,6 +655,15 @@ def gen_rapport():
     datum = datetime.date.today().strftime('%d-%m-%Y')
     tlp_latex, tlp_html_bg, tlp_html_fg = _TLP_MAP.get(classificatie, ('tlpred', '#FF2B2B', '#ffffff'))
 
+    # Rapport-template resolven (override > eigen template > ingebouwde variant) + scope
+    _ov_tid = request.args.get('template_id', type=int)
+    _ov_var = request.args.get('variant') or None
+    _rtpl = _resolve_report_template(s, tid=_ov_tid, variant=_ov_var)
+    _sections = _rtpl['sections']
+    _scope = _rtpl['findings_scope']
+    _custom_tex = _rtpl['custom_tex_path']
+    findings_scoped, grouped_scoped = _scope_findings(findings, grouped, _scope)
+
     # Gemeenschappelijke extra kwargs
     _extra_kwargs = dict(
         rapport_roe=rapport_roe,
@@ -644,7 +672,25 @@ def gen_rapport():
         variant=variant,
         rapport_versie=rapport_versie,
         rapport_versie_status=rapport_versie_status,
+        sections=_sections,
+        findings_scope=_scope,
+        rapport_omgeving=rapport_omgeving,
+        section_order=_rtpl.get('section_order') or [],
     )
+
+    # Live preview: alleen de HTML teruggeven (geen xelatex/docx/stix)
+    if request.args.get('preview') == '1':
+        from flask import g as _g
+        _g.report_preview = True  # relaxte CSP: inline styles in zelf-gegenereerde HTML
+        html = _generate_html_preview(
+            findings, grouped, counts, titel, auteur, subtitel, datum,
+            classificatie, is_draft, notes_data, tlp_html_bg, tlp_html_fg,
+            management_samenvatting=management_samenvatting, testtype=testtype,
+            testscope=testscope, testscopes=testscopes,
+            legsup_startpunt=legsup_startpunt, legsup_privileges=legsup_privileges,
+            legsup_informatie=legsup_informatie, scenarios=scenarios, taal=taal,
+            scope_targets=scope_targets, checklists=checklists_data, **_extra_kwargs)
+        return Response(html, mimetype='text/html')
 
     # --- Render LaTeX via Jinja2 met aangepaste delimiters ---
     template_dir = os.path.join(os.path.dirname(__file__), 'html')
@@ -659,7 +705,14 @@ def gen_rapport():
         autoescape=False,
     )
     latex_env.filters['latex_escape'] = _latex_escape
-    tmpl = latex_env.get_template('rapport_latex.tex')
+    # Eigen .tex-template indien ingesteld, anders de standaard
+    if _custom_tex and os.path.exists(_custom_tex):
+        try:
+            tmpl = latex_env.from_string(lezen(_custom_tex))
+        except Exception:
+            tmpl = latex_env.get_template('rapport_latex.tex')
+    else:
+        tmpl = latex_env.get_template('rapport_latex.tex')
 
     tex_content = tmpl.render(
         titel=_latex_escape(titel),
@@ -670,8 +723,9 @@ def gen_rapport():
         tlp_color=tlp_latex,
         datum=datum,
         is_draft=is_draft,
-        findings=findings,
-        grouped_findings=grouped,
+        sections=_sections,
+        findings=findings_scoped,
+        grouped_findings=grouped_scoped,
         counts=counts,
         scoped_hosts=scoped_hosts,
         scope_targets=scope_targets,
@@ -690,6 +744,12 @@ def gen_rapport():
         detect_labels=_DETECT_LABELS,
         **_build_rapport_appendices(findings, taal=taal),
     )
+
+    # Herorden sectieblokken volgens de gekozen sectievolgorde. Markers zijn
+    # LaTeX-commentaar (%SEC:..%), dus onschadelijk als ze onverhoopt blijven
+    # staan; bij een eigen .tex zonder markers is dit een no-op.
+    tex_content = _reorder_marked(
+        tex_content, _rtpl.get('section_order') or [], '%SEC:{k}%', '%SEC-END%')
 
     # Schrijf .tex bestand
     tex_path = os.path.join(_RAPPORT_DIR, 'rapport.tex')
@@ -1124,7 +1184,208 @@ def _append_signoff_html(parts, taal='nl'):
     parts.append('</table>')
 
 
-def _generate_html_preview(findings, grouped, counts, titel, auteur, subtitel, datum, classificatie, is_draft, notes=None, tlp_bg='#FF2B2B', tlp_fg='#ffffff', management_samenvatting='', testtype='pentest', testscope='blackbox', testscopes=None, legsup_startpunt='', legsup_privileges='', legsup_informatie='', scenarios=None, taal='nl', rapport_roe='', test_start='', test_end='', variant='detailed', rapport_versie='', rapport_versie_status='concept', scope_targets=None, checklists=None):
+# ---------------------------------------------------------------------------
+# Rapport-template-engine: secties + findings-scope (ingebouwd + eigen)
+# ---------------------------------------------------------------------------
+
+# Canonieke, toggelbare rapportsecties (volgorde = logische rapportvolgorde).
+_SECTION_KEYS = (
+    'managementsamenvatting', 'methodologie', 'legsup', 'scenarios',
+    'samenvatting_bevindingen', 'risicomatrix', 'sla', 'detecteerbaarheid',
+    'verkenning', 'bevindingen', 'aanbevelingen', 'killchain',
+    'asset_dekking', 'checklists', 'appendices',
+)
+
+
+def _all_sections(enabled=True):
+    return {k: enabled for k in _SECTION_KEYS}
+
+
+# Herordenbare hoofdsecties (de appendix-groep blijft als groep achteraan).
+_REORDERABLE_SECTIONS = (
+    'managementsamenvatting', 'methodologie', 'legsup', 'scenarios',
+    'samenvatting_bevindingen', 'risicomatrix', 'sla', 'detecteerbaarheid',
+    'verkenning', 'bevindingen', 'aanbevelingen',
+)
+
+
+def _normalize_order(order):
+    """Geldige, volledige volgorde van de herordenbare secties."""
+    seen, out = set(), []
+    for k in (order or []):
+        if k in _REORDERABLE_SECTIONS and k not in seen:
+            seen.add(k)
+            out.append(k)
+    for k in _REORDERABLE_SECTIONS:
+        if k not in seen:
+            out.append(k)
+    return out
+
+
+def _reorder_marked(text, order, mk_fmt, end_tok):
+    """Herorden sectieblokken die met open-markers (mk_fmt met '{k}') zijn
+    gemarkeerd en begrensd door end_tok. Het gebied van de eerste marker t/m
+    end_tok wordt op volgorde herschikt; markers + end_tok worden verwijderd."""
+    mk_re = _re.compile(_re.escape(mk_fmt).replace(r'\{k\}', r'([a-z_]+)'))
+    first = mk_re.search(text)
+    if not first:
+        return text.replace(end_tok, '')
+    end_idx = text.find(end_tok, first.start())
+    if end_idx == -1:
+        return text.replace(end_tok, '')
+    region = text[first.start():end_idx]
+    matches = list(mk_re.finditer(region))
+    blocks, seen = {}, []
+    for i, m in enumerate(matches):
+        key = m.group(1)
+        b_end = matches[i + 1].start() if i + 1 < len(matches) else len(region)
+        blocks[key] = region[m.end():b_end]
+        seen.append(key)
+    norm = _normalize_order(order)
+    keys = [k for k in norm if k in blocks] + [k for k in seen if k not in norm]
+    new_region = ''.join(blocks[k] for k in keys)
+    return (text[:first.start()] + new_region + text[end_idx:]).replace(end_tok, '')
+
+
+# Ingebouwde varianten als sectie-presets + findings-scope.
+_BUILTIN_VARIANTS = {
+    'detailed': {'sections': _all_sections(True), 'findings_scope': 'all'},
+    'executive': {'sections': {**_all_sections(False),
+                               'managementsamenvatting': True,
+                               'samenvatting_bevindingen': True,
+                               'risicomatrix': True, 'sla': True,
+                               'bevindingen': True, 'aanbevelingen': True},
+                  'findings_scope': 'critical_high'},
+    'board': {'sections': {**_all_sections(False),
+                           'managementsamenvatting': True,
+                           'samenvatting_bevindingen': True,
+                           'bevindingen': True},
+              'findings_scope': 'top3'},
+}
+
+
+def _resolve_report_template(cfg, tid=None, variant=None):
+    """Bepaal {naam, sections, findings_scope, custom_tex_path, taal} voor het
+    actieve rapport-template: expliciete override (tid/variant) > eigen template
+    (rapport_template_id) > ingebouwde variant (rapport_template_variant)."""
+    if variant and variant in _BUILTIN_VARIANTS:
+        base = _BUILTIN_VARIANTS[variant]
+        return {'naam': variant, 'sections': dict(base['sections']),
+                'findings_scope': base['findings_scope'], 'custom_tex_path': '', 'taal': '',
+                'section_order': _normalize_order([])}
+    if tid is None:
+        tid = getattr(cfg, 'rapport_template_id', None) if cfg else None
+    if tid:
+        row = db.session.get(db_rapport_template, tid)
+        if row is not None:
+            try:
+                secs = json.loads(row.sections or '{}')
+            except (json.JSONDecodeError, TypeError):
+                secs = {}
+            sections = _all_sections(True)
+            sections.update({k: bool(v) for k, v in secs.items() if k in _SECTION_KEYS})
+            try:
+                order = json.loads(row.section_order or '[]')
+            except (json.JSONDecodeError, TypeError):
+                order = []
+            return {
+                'naam': row.naam,
+                'sections': sections,
+                'findings_scope': row.findings_scope or 'all',
+                'custom_tex_path': row.custom_tex_path or '',
+                'taal': row.taal or '',
+                'section_order': _normalize_order(order),
+            }
+    variant = (getattr(cfg, 'rapport_template_variant', '') if cfg else '') or 'detailed'
+    base = _BUILTIN_VARIANTS.get(variant, _BUILTIN_VARIANTS['detailed'])
+    return {'naam': variant, 'sections': dict(base['sections']), 'section_order': _normalize_order([]),
+            'findings_scope': base['findings_scope'], 'custom_tex_path': '', 'taal': ''}
+
+
+def _scope_findings(findings, grouped, scope):
+    """Filter findings/grouped op basis van de scope (all|critical_high|top3).
+    counts blijven ongemoeid (samenvatting toont altijd de totalen)."""
+    if scope == 'critical_high':
+        sevs = ('critical', 'high')
+        f2 = [f for f in findings if f['severity'] in sevs]
+        g2 = [(lbl, [x for x in grp if x['severity'] in sevs]) for lbl, grp in grouped]
+        return f2, g2
+    if scope == 'top3':
+        ordered = [x for _lbl, grp in grouped for x in grp]
+        keep = {x['id'] for x in ordered[:3]}
+        f2 = [f for f in findings if f['id'] in keep]
+        g2 = [(lbl, [x for x in grp if x['id'] in keep]) for lbl, grp in grouped]
+        return f2, g2
+    return findings, grouped
+
+
+def _auto_management_samenvatting(counts, total, taal):
+    """Genereer een beknopte managementsamenvatting uit de severity-tellingen,
+    als fallback wanneer er geen handmatige samenvatting is."""
+    labels = _SEVERITY_LABELS_EN if taal == 'en' else _SEVERITY_LABELS
+    delen = ['{} {}'.format(counts.get(s, 0), labels.get(s, s).lower())
+             for s in ('critical', 'high', 'medium', 'low', 'none') if counts.get(s, 0)]
+    urgent = bool(counts.get('critical') or counts.get('high'))
+    if taal == 'en':
+        opsomming = ', '.join(delen) if delen else 'no'
+        tail = ('Immediate attention is required for the critical and high-risk findings.'
+                if urgent else 'No critical or high-risk findings were identified.')
+        return ('During this assessment {} finding(s) were identified ({}). {} '
+                'This summary was generated automatically; refine it where needed.').format(total, opsomming, tail)
+    opsomming = ', '.join(delen) if delen else 'geen'
+    tail = ('De kritieke en hoge bevindingen vragen directe aandacht.'
+            if urgent else 'Er zijn geen kritieke of hoge bevindingen aangetroffen.')
+    return ('Tijdens dit onderzoek zijn {} bevinding(en) geïdentificeerd ({}). {} '
+            'Deze samenvatting is automatisch gegenereerd; pas \'m desgewenst aan.').format(total, opsomming, tail)
+
+
+def _severity_donut_svg(counts, taal, sev_labels, severity_colors):
+    """Inline-SVG donut van de severity-verdeling (CSP-veilig, geen script)."""
+    order = ('critical', 'high', 'medium', 'low', 'none')
+    total = sum(int(counts.get(s, 0) or 0) for s in order)
+    if not total:
+        return ''
+    cx = cy = 80
+    r = 58
+    circ = 2 * math.pi * r
+    offset = 0.0
+    segs = []
+    for s in order:
+        v = int(counts.get(s, 0) or 0)
+        if not v:
+            continue
+        seg = (v / total) * circ
+        segs.append(
+            '<circle cx="{cx}" cy="{cy}" r="{r}" fill="none" stroke="{col}" '
+            'stroke-width="22" stroke-dasharray="{seg:.2f} {rest:.2f}" '
+            'stroke-dashoffset="{off:.2f}" transform="rotate(-90 {cx} {cy})"/>'.format(
+                cx=cx, cy=cy, r=r, col=severity_colors.get(s, '#ccc'),
+                seg=seg, rest=circ - seg, off=-offset))
+        offset += seg
+    label = 'findings' if taal == 'en' else 'bevindingen'
+    parts = ['<div style="display:flex;gap:24px;align-items:center;flex-wrap:wrap;margin:12px 0">']
+    parts.append('<svg width="160" height="160" viewBox="0 0 160 160" role="img" '
+                 'aria-label="Severity-verdeling">')
+    parts.extend(segs)
+    parts.append('<text x="80" y="76" text-anchor="middle" font-size="26" '
+                 'font-family="sans-serif" font-weight="bold">{}</text>'.format(total))
+    parts.append('<text x="80" y="98" text-anchor="middle" font-size="11" '
+                 'font-family="sans-serif" fill="#555">{}</text></svg>'.format(label))
+    # Legenda
+    parts.append('<div>')
+    for s in order:
+        v = int(counts.get(s, 0) or 0)
+        if not v:
+            continue
+        parts.append('<div style="margin:2px 0"><span style="display:inline-block;width:12px;'
+                     'height:12px;border-radius:2px;background:{};margin-right:6px"></span>'
+                     '{} &mdash; {}</div>'.format(
+                         severity_colors.get(s, '#ccc'), html_escape(sev_labels.get(s, s)), v))
+    parts.append('</div></div>')
+    return ''.join(parts)
+
+
+def _generate_html_preview(findings, grouped, counts, titel, auteur, subtitel, datum, classificatie, is_draft, notes=None, tlp_bg='#FF2B2B', tlp_fg='#ffffff', management_samenvatting='', testtype='pentest', testscope='blackbox', testscopes=None, legsup_startpunt='', legsup_privileges='', legsup_informatie='', scenarios=None, taal='nl', rapport_roe='', test_start='', test_end='', variant='detailed', rapport_versie='', rapport_versie_status='concept', scope_targets=None, checklists=None, sections=None, findings_scope=None, rapport_omgeving='', section_order=None):
     """Genereer HTML preview van het rapport."""
     t = _T.get(taal, _T['nl'])
     sev_labels = _SEVERITY_LABELS_EN if taal == 'en' else _SEVERITY_LABELS
@@ -1132,6 +1393,19 @@ def _generate_html_preview(findings, grouped, counts, titel, auteur, subtitel, d
         'critical': '#820000', 'high': '#e60000', 'medium': '#f09600',
         'low': '#ffdc00', 'none': '#00be00',
     }
+    # Secties + findings-scope bepalen (val terug op de ingebouwde variant)
+    if sections is None:
+        _base = _BUILTIN_VARIANTS.get(variant, _BUILTIN_VARIANTS['detailed'])
+        sections = _base['sections']
+        if findings_scope is None:
+            findings_scope = _base['findings_scope']
+    if findings_scope is None:
+        findings_scope = 'all'
+
+    def _sec(k):
+        return sections.get(k, True)
+
+    findings, grouped = _scope_findings(findings, grouped, findings_scope)
     parts = ['<html><head><style>',
              'body{font-family:sans-serif;max-width:900px;margin:0 auto;padding:20px}',
              'pre{background:#f0f0f0;padding:10px;overflow-x:auto}',
@@ -1154,34 +1428,11 @@ def _generate_html_preview(findings, grouped, counts, titel, auteur, subtitel, d
     parts.append('<p>{} &mdash; {}</p>'.format(html_escape(auteur), html_escape(datum)))
     parts.append('<p>{}: <span class="tlp-badge" style="background:{};color:{}">{}</span></p>'.format(
         t['classificatie'], tlp_bg, tlp_fg, html_escape(classificatie)))
+    if rapport_omgeving:
+        parts.append('<p><strong>{}:</strong> {}</p>'.format(
+            'Environment' if taal == 'en' else 'Omgeving', html_escape(rapport_omgeving)))
     if is_draft:
         parts.append('<p style="color:red;font-size:1.2em"><strong>{}</strong></p>'.format(t['concept']))
-
-    # Board variant: KPI + top 3 only
-    if variant == 'board':
-        parts.append('<h2>Summary</h2>' if taal == 'en' else '<h2>Samenvatting</h2>')
-        parts.append('<table><tr><th>{}</th><th>{}</th></tr>'.format(t['classificatie'], t['aantal']))
-        for sev in ('critical', 'high', 'medium', 'low', 'none'):
-            color = severity_colors[sev]
-            label = sev_labels.get(sev, sev)
-            parts.append('<tr><td><span class="severity-bar" style="background:{}"></span>{}</td><td>{}</td></tr>'.format(
-                color, html_escape(label), counts[sev]))
-        parts.append('<tr><td><strong>{}</strong></td><td><strong>{}</strong></td></tr></table>'.format(t['totaal'], len(findings)))
-        # Top 3 findings
-        top3 = findings[:3]
-        if top3:
-            parts.append('<h2>Top Findings</h2>' if taal == 'en' else '<h2>Top Bevindingen</h2>')
-            for f in top3:
-                color = severity_colors.get(f['severity'], '#ccc')
-                parts.append('<div class="finding" style="border-left-color:{}">'.format(color))
-                parts.append('<h4>[{}] {}</h4>'.format(str(f['id']).zfill(3), html_escape(f['titel'])))
-                parts.append('<p><strong>CVSS:</strong> {} ({})</p>'.format(
-                    html_escape(str(f['basescore'])), html_escape(f['severity'])))
-                if f['aanbeveling']:
-                    parts.append('<p><strong>{}:</strong> {}</p>'.format(t['aanbeveling'], html_escape(f['aanbeveling'])))
-                parts.append('</div>')
-        parts.append('</body></html>')
-        return ''.join(parts)
 
     # Inleiding
     parts.append('<h2>{}</h2>'.format(t['inleiding']))
@@ -1218,32 +1469,36 @@ def _generate_html_preview(findings, grouped, counts, titel, auteur, subtitel, d
         parts.append('</table>')
 
     # Managementsamenvatting
-    if management_samenvatting:
+    if _sec('managementsamenvatting') and management_samenvatting:
+        parts.append('<!--SEC:managementsamenvatting-->')
         parts.append('<h2>{}</h2>'.format(t['management_samenvatting']))
         parts.append('<p>{}</p>'.format(html_escape(management_samenvatting)))
 
     # Methodologie
-    parts.append('<h2>{}</h2>'.format(t['methodologie']))
-    methode_key = 'redteam_methode' if testtype == 'redteam' else 'pentest_methode'
-    fasen_key = 'redteam_fasen' if testtype == 'redteam' else 'pentest_fasen'
-    parts.append('<p>{}</p>'.format(t[methode_key]))
-    parts.append('<ol>')
-    for fase_naam, fase_beschrijving in t[fasen_key]:
-        parts.append('<li><strong>{}</strong> &mdash; {}</li>'.format(fase_naam, fase_beschrijving))
-    parts.append('</ol>')
+    if _sec('methodologie'):
+        parts.append('<!--SEC:methodologie-->')
+        parts.append('<h2>{}</h2>'.format(t['methodologie']))
+        methode_key = 'redteam_methode' if testtype == 'redteam' else 'pentest_methode'
+        fasen_key = 'redteam_fasen' if testtype == 'redteam' else 'pentest_fasen'
+        parts.append('<p>{}</p>'.format(t[methode_key]))
+        parts.append('<ol>')
+        for fase_naam, fase_beschrijving in t[fasen_key]:
+            parts.append('<li><strong>{}</strong> &mdash; {}</li>'.format(fase_naam, fase_beschrijving))
+        parts.append('</ol>')
 
-    # Scope type (multi-select)
-    scopes = testscopes if testscopes else [testscope or 'blackbox']
-    for scope in scopes:
-        if scope == 'whitebox':
-            parts.append('<p>{}</p>'.format(t['scope_whitebox']))
-        elif scope == 'greybox':
-            parts.append('<p>{}</p>'.format(t['scope_greybox']))
-        else:
-            parts.append('<p>{}</p>'.format(t['scope_blackbox']))
+        # Scope type (multi-select)
+        scopes = testscopes if testscopes else [testscope or 'blackbox']
+        for scope in scopes:
+            if scope == 'whitebox':
+                parts.append('<p>{}</p>'.format(t['scope_whitebox']))
+            elif scope == 'greybox':
+                parts.append('<p>{}</p>'.format(t['scope_greybox']))
+            else:
+                parts.append('<p>{}</p>'.format(t['scope_blackbox']))
 
     # Legs up (alleen bij redteam)
-    if testtype == 'redteam' and (legsup_startpunt or legsup_privileges or legsup_informatie):
+    if _sec('legsup') and testtype == 'redteam' and (legsup_startpunt or legsup_privileges or legsup_informatie):
+        parts.append('<!--SEC:legsup-->')
         parts.append('<h2>{}</h2>'.format(t['legs_up']))
         if legsup_startpunt:
             parts.append('<h3>{}</h3>'.format(t['startpunten']))
@@ -1256,7 +1511,8 @@ def _generate_html_preview(findings, grouped, counts, titel, auteur, subtitel, d
             parts.append('<p>{}</p>'.format(html_escape(legsup_informatie)))
 
     # Scenario's (alleen bij redteam)
-    if testtype == 'redteam' and scenarios:
+    if _sec('scenarios') and testtype == 'redteam' and scenarios:
+        parts.append('<!--SEC:scenarios-->')
         parts.append('<h2>{}</h2>'.format(t['scenarios']))
         for sc in scenarios:
             naam = sc.get('naam', '') if isinstance(sc, dict) else ''
@@ -1266,60 +1522,43 @@ def _generate_html_preview(findings, grouped, counts, titel, auteur, subtitel, d
                 parts.append('<p>{}</p>'.format(html_escape(beschrijving)))
 
     # Samenvatting
-    parts.append('<h2>{}</h2>'.format(t['samenvatting']))
-    parts.append('<table><tr><th>{}</th><th>{}</th></tr>'.format(t['classificatie'], t['aantal']))
-    for sev in ('critical', 'high', 'medium', 'low', 'none'):
-        color = severity_colors[sev]
-        label = sev_labels.get(sev, sev)
-        parts.append('<tr><td><span class="severity-bar" style="background:{}"></span>{}</td><td>{}</td></tr>'.format(
-            color, html_escape(label), counts[sev]))
-    parts.append('<tr><td><strong>{}</strong></td><td><strong>{}</strong></td></tr></table>'.format(t['totaal'], len(findings)))
+    if _sec('samenvatting_bevindingen'):
+        parts.append('<!--SEC:samenvatting_bevindingen-->')
+        parts.append('<h2>{}</h2>'.format(t['samenvatting']))
+        parts.append(_severity_donut_svg(counts, taal, sev_labels, severity_colors))
+        parts.append('<table><tr><th>{}</th><th>{}</th></tr>'.format(t['classificatie'], t['aantal']))
+        for sev in ('critical', 'high', 'medium', 'low', 'none'):
+            color = severity_colors[sev]
+            label = sev_labels.get(sev, sev)
+            parts.append('<tr><td><span class="severity-bar" style="background:{}"></span>{}</td><td>{}</td></tr>'.format(
+                color, html_escape(label), counts[sev]))
+        parts.append('<tr><td><strong>{}</strong></td><td><strong>{}</strong></td></tr></table>'.format(t['totaal'], len(findings)))
 
-    # Executive variant: KPI + critical/high + recommendations only
-    if variant == 'executive':
-        exec_findings = [f for f in findings if f['severity'] in ('critical', 'high')]
-        if exec_findings:
-            parts.append('<h2>{}</h2>'.format(t['bevindingen']))
-            for f in exec_findings:
-                color = severity_colors.get(f['severity'], '#ccc')
-                parts.append('<div class="finding" style="border-left-color:{}">'.format(color))
-                parts.append('<h4>[{}] {}</h4>'.format(str(f['id']).zfill(3), html_escape(f['titel'])))
-                parts.append('<p><strong>CVSS:</strong> {} ({})</p>'.format(
-                    html_escape(str(f['basescore'])), html_escape(f['severity'])))
-                if f['aanbeveling']:
-                    parts.append('<p><strong>{}:</strong> {}</p>'.format(t['aanbeveling'], html_escape(f['aanbeveling'])))
-                parts.append('</div>')
-        # Aanbevelingen
-        parts.append('<h2>{}</h2>'.format(t['aanbevelingen']))
-        parts.append('<table><tr><th>ID</th><th>{}</th><th>CVSS</th><th>{}</th></tr>'.format(t['bevindingen'], t['aanbeveling']))
-        for f in findings:
-            parts.append('<tr><td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>'.format(
-                str(f['id']).zfill(3), html_escape(f['titel']),
-                html_escape(str(f['basescore'])), html_escape(f['aanbeveling'])))
-        parts.append('</table>')
-        # Sign-off
-        _append_signoff_html(parts, taal)
-        parts.append('</body></html>')
-        return ''.join(parts)
-
-    # Risicomatrix (heatmap) + oplostijden (SLA) + detecteerbaarheid + exploit chains
-    _append_heatmap_html(parts, findings, taal)
-    _append_sla_html(parts, findings, taal)
-    _append_detection_html(parts, findings, taal)
-    _append_chains_html(parts, taal)
-    _append_coverage_html(parts, taal)
+    # Risicomatrix (heatmap) + oplostijden (SLA) + detecteerbaarheid
+    if _sec('risicomatrix'):
+        parts.append('<!--SEC:risicomatrix-->')
+        _append_heatmap_html(parts, findings, taal)
+    if _sec('sla'):
+        parts.append('<!--SEC:sla-->')
+        _append_sla_html(parts, findings, taal)
+    if _sec('detecteerbaarheid'):
+        parts.append('<!--SEC:detecteerbaarheid-->')
+        _append_detection_html(parts, findings, taal)
 
     # Notities (verkenning & ontdekking)
-    if notes:
+    if _sec('verkenning') and notes:
+        parts.append('<!--SEC:verkenning-->')
         parts.append('<h2>{}</h2>'.format(t['verkenning']))
         for n in notes:
             parts.append('<h3>{}</h3>'.format(html_escape(n['naam'])))
             parts.append('<p>{}</p>'.format(html_escape(n['uitwerken'])))
 
-    # Bevindingen (detailed variant — full content)
+    # Bevindingen (volledige inhoud)
     _REM_LABELS = {'open': 'Open', 'in_progress': 'In Progress', 'fixed': 'Fixed', 'verified': 'Verified', 'accepted': 'Accepted'}
-    parts.append('<h2>{}</h2>'.format(t['bevindingen']))
-    for label, group in grouped:
+    if _sec('bevindingen'):
+        parts.append('<!--SEC:bevindingen-->')
+        parts.append('<h2>{}</h2>'.format(t['bevindingen']))
+    for label, group in (grouped if _sec('bevindingen') else []):
         if not group:
             continue
         parts.append('<h3>{} {}</h3>'.format(html_escape(label), t['bevindingen_label']))
@@ -1373,6 +1612,14 @@ def _generate_html_preview(findings, grouped, counts, titel, auteur, subtitel, d
                     else:
                         parts.append('<li>{}</li>'.format(html_escape(r)))
                 parts.append('</ul>')
+            # Gekoppelde assets / doelen
+            assets = f.get('assets', [])
+            if assets:
+                _al = 'Affected assets' if taal == 'en' else 'Getroffen assets'
+                _parts_a = ['{}{}'.format(
+                    html_escape(a['waarde']),
+                    ' ({})'.format(html_escape(a['type'])) if a['type'] else '') for a in assets]
+                parts.append('<p><strong>{}:</strong> {}</p>'.format(_al, ', '.join(_parts_a)))
             # Finding relaties
             related = f.get('related', [])
             if related:
@@ -1385,26 +1632,40 @@ def _generate_html_preview(findings, grouped, counts, titel, auteur, subtitel, d
             parts.append('</div>')
 
     # Aanbevelingen tabel
-    parts.append('<h2>{}</h2>'.format(t['aanbevelingen']))
-    parts.append('<table><tr><th>ID</th><th>{}</th><th>CVSS</th><th>{}</th></tr>'.format(t['bevindingen'], t['aanbeveling']))
-    for f in findings:
-        parts.append('<tr><td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>'.format(
-            str(f['id']).zfill(3), html_escape(f['titel']),
-            html_escape(str(f['basescore'])), html_escape(f['aanbeveling'])))
-    parts.append('</table>')
+    if _sec('aanbevelingen'):
+        parts.append('<!--SEC:aanbevelingen-->')
+        parts.append('<h2>{}</h2>'.format(t['aanbevelingen']))
+        parts.append('<table><tr><th>ID</th><th>{}</th><th>CVSS</th><th>{}</th></tr>'.format(t['bevindingen'], t['aanbeveling']))
+        for f in findings:
+            parts.append('<tr><td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>'.format(
+                str(f['id']).zfill(3), html_escape(f['titel']),
+                html_escape(str(f['basescore'])), html_escape(f['aanbeveling'])))
+        parts.append('</table>')
+
+    # Einde herordenbaar gebied; appendix-groep blijft vast achteraan
+    parts.append('<!--SEC-END-->')
+
+    # Kill chain + asset-dekking (appendix-groep)
+    if _sec('killchain'):
+        _append_chains_html(parts, taal)
+    if _sec('asset_dekking'):
+        _append_coverage_html(parts, taal)
 
     # Mapping-bijlagen (OWASP Top 10 + NCSC-richtlijnen)
-    _append_owasp_mapping_html(parts, findings, taal)
-    _append_ncsc_mapping_html(parts, findings, taal)
+    if _sec('appendices'):
+        _append_owasp_mapping_html(parts, findings, taal)
+        _append_ncsc_mapping_html(parts, findings, taal)
 
     # Checklist appendix
-    _append_checklist_html(parts, checklists, taal)
+    if _sec('checklists'):
+        _append_checklist_html(parts, checklists, taal)
 
     # Sign-off
     _append_signoff_html(parts, taal)
 
     parts.append('</body></html>')
-    return ''.join(parts)
+    html = ''.join(parts)
+    return _reorder_marked(html, section_order or [], '<!--SEC:{k}-->', '<!--SEC-END-->')
 
 
 def _heatmap_md_lines(findings, taal='nl'):
@@ -1517,7 +1778,9 @@ def _generate_docx_markdown(findings, grouped, counts, titel, auteur, subtitel,
                             rapport_roe='', test_start='', test_end='',
                             variant='detailed', rapport_versie='',
                             rapport_versie_status='concept',
-                            scope_targets=None, checklists=None):
+                            scope_targets=None, checklists=None,
+                            sections=None, findings_scope=None, rapport_omgeving='',
+                            section_order=None):
     """Genereer pandoc-Markdown dat de LaTeX template 1:1 spiegelt."""
     t = _T.get(taal, _T['nl'])
     sev_labels = _SEVERITY_LABELS_EN if taal == 'en' else _SEVERITY_LABELS
@@ -1526,6 +1789,18 @@ def _generate_docx_markdown(findings, grouped, counts, titel, auteur, subtitel,
         """Unescape HTML entities voor Markdown output."""
         return html_mod.unescape(text)
 
+    if sections is None:
+        _base = _BUILTIN_VARIANTS.get(variant, _BUILTIN_VARIANTS['detailed'])
+        sections = _base['sections']
+        if findings_scope is None:
+            findings_scope = _base['findings_scope']
+    if findings_scope is None:
+        findings_scope = 'all'
+
+    def _sec(k):
+        return sections.get(k, True)
+
+    findings, grouped = _scope_findings(findings, grouped, findings_scope)
     lines = []
 
     # YAML metadata block
@@ -1545,6 +1820,10 @@ def _generate_docx_markdown(findings, grouped, counts, titel, auteur, subtitel,
 
     if is_draft:
         lines.append('**{}**'.format(u(t['concept'])))
+        lines.append('')
+
+    if rapport_omgeving:
+        lines.append('**{}:** {}'.format('Environment' if taal == 'en' else 'Omgeving', rapport_omgeving))
         lines.append('')
 
     # Inleiding
@@ -1598,36 +1877,40 @@ def _generate_docx_markdown(findings, grouped, counts, titel, auteur, subtitel,
     lines.append('')
 
     # Managementsamenvatting
-    if management_samenvatting:
+    if _sec('managementsamenvatting') and management_samenvatting:
+        lines.append('%%SEC:managementsamenvatting%%')
         lines.append('# {}'.format(u(t['management_samenvatting'])))
         lines.append('')
         lines.append(management_samenvatting)
         lines.append('')
 
     # Methodologie
-    lines.append('# {}'.format(u(t['methodologie'])))
-    lines.append('')
-    methode_key = 'redteam_methode' if testtype == 'redteam' else 'pentest_methode'
-    fasen_key = 'redteam_fasen' if testtype == 'redteam' else 'pentest_fasen'
-    lines.append(u(t[methode_key]))
-    lines.append('')
-    for i, (fase_naam, fase_beschrijving) in enumerate(t[fasen_key], 1):
-        lines.append('{}. **{}** — {}'.format(i, u(fase_naam), u(fase_beschrijving)))
-    lines.append('')
-
-    # Scope type paragrafen
-    scopes = testscopes if testscopes else [testscope or 'blackbox']
-    for scope in scopes:
-        if scope == 'whitebox':
-            lines.append(u(t['scope_whitebox']))
-        elif scope == 'greybox':
-            lines.append(u(t['scope_greybox']))
-        else:
-            lines.append(u(t['scope_blackbox']))
+    if _sec('methodologie'):
+        lines.append('%%SEC:methodologie%%')
+        lines.append('# {}'.format(u(t['methodologie'])))
+        lines.append('')
+        methode_key = 'redteam_methode' if testtype == 'redteam' else 'pentest_methode'
+        fasen_key = 'redteam_fasen' if testtype == 'redteam' else 'pentest_fasen'
+        lines.append(u(t[methode_key]))
+        lines.append('')
+        for i, (fase_naam, fase_beschrijving) in enumerate(t[fasen_key], 1):
+            lines.append('{}. **{}** — {}'.format(i, u(fase_naam), u(fase_beschrijving)))
         lines.append('')
 
+        # Scope type paragrafen
+        scopes = testscopes if testscopes else [testscope or 'blackbox']
+        for scope in scopes:
+            if scope == 'whitebox':
+                lines.append(u(t['scope_whitebox']))
+            elif scope == 'greybox':
+                lines.append(u(t['scope_greybox']))
+            else:
+                lines.append(u(t['scope_blackbox']))
+            lines.append('')
+
     # Legs up (alleen redteam)
-    if testtype == 'redteam' and (legsup_startpunt or legsup_privileges or legsup_informatie):
+    if _sec('legsup') and testtype == 'redteam' and (legsup_startpunt or legsup_privileges or legsup_informatie):
+        lines.append('%%SEC:legsup%%')
         lines.append('# {}'.format(u(t['legs_up'])))
         lines.append('')
         if legsup_startpunt:
@@ -1647,7 +1930,8 @@ def _generate_docx_markdown(findings, grouped, counts, titel, auteur, subtitel,
             lines.append('')
 
     # Scenario's (alleen redteam)
-    if testtype == 'redteam' and scenarios:
+    if _sec('scenarios') and testtype == 'redteam' and scenarios:
+        lines.append('%%SEC:scenarios%%')
         lines.append('# {}'.format(u(t['scenarios'])))
         lines.append('')
         for sc in scenarios:
@@ -1660,6 +1944,7 @@ def _generate_docx_markdown(findings, grouped, counts, titel, auteur, subtitel,
                 lines.append('')
 
     # Risicoinschatting
+    lines.append('%%SEC:samenvatting_bevindingen%%')
     if taal == 'en':
         lines.append('# Risk Assessment')
         lines.append('')
@@ -1704,15 +1989,20 @@ def _generate_docx_markdown(findings, grouped, counts, titel, auteur, subtitel,
     lines.append('| **{}** | **{}** |'.format(u(t['totaal']), len(findings)))
     lines.append('')
 
-    # Risicomatrix (heatmap) + oplostijden (SLA) + detecteerbaarheid — alleen detailed/executive zinvol
-    if variant not in ('board',):
+    # Risicomatrix (heatmap) + oplostijden (SLA) + detecteerbaarheid + kill chain
+    if _sec('risicomatrix'):
+        lines.append('%%SEC:risicomatrix%%')
         lines.extend(_heatmap_md_lines(findings, taal))
+    if _sec('sla'):
+        lines.append('%%SEC:sla%%')
         lines.extend(_sla_md_lines(findings, taal))
+    if _sec('detecteerbaarheid'):
+        lines.append('%%SEC:detecteerbaarheid%%')
         lines.extend(_detection_md_lines(findings, taal))
-        lines.extend(_chains_md_lines(taal))
 
     # Verkenning & ontdekking (notes)
-    if notes:
+    if _sec('verkenning') and notes:
+        lines.append('%%SEC:verkenning%%')
         lines.append('# {}'.format(u(t['verkenning'])))
         lines.append('')
         for n in notes:
@@ -1723,33 +2013,11 @@ def _generate_docx_markdown(findings, grouped, counts, titel, auteur, subtitel,
 
     # Bevindingen
     _REM_LABELS = {'open': 'Open', 'in_progress': 'In Progress', 'fixed': 'Fixed', 'verified': 'Verified', 'accepted': 'Accepted'}
-    lines.append('# {}'.format(u(t['bevindingen'])))
-    lines.append('')
-
-    # Board variant: top 3 only
-    if variant == 'board':
-        top3 = findings[:3]
-        for f in top3:
-            lines.append('### [{}] {} (CVSS: {})'.format(
-                str(f['id']).zfill(3), f['titel'], f['basescore']))
-            lines.append('')
-            if f['aanbeveling']:
-                lines.append('**{}:** {}'.format(u(t['aanbeveling']), f['aanbeveling']))
-                lines.append('')
-        return '\n'.join(lines)
-
-    # Executive variant: critical/high only
-    if variant == 'executive':
-        exec_findings = [f for f in findings if f['severity'] in ('critical', 'high')]
-        for f in exec_findings:
-            lines.append('### [{}] {} (CVSS: {})'.format(
-                str(f['id']).zfill(3), f['titel'], f['basescore']))
-            lines.append('')
-            if f['aanbeveling']:
-                lines.append('**{}:** {}'.format(u(t['aanbeveling']), f['aanbeveling']))
-                lines.append('')
-    else:
-        # Detailed variant: alle findings met volledige info
+    if _sec('bevindingen'):
+        lines.append('%%SEC:bevindingen%%')
+        lines.append('# {}'.format(u(t['bevindingen'])))
+        lines.append('')
+        # alle (gescopede) findings met volledige info
         for label, group in grouped:
             if not group:
                 continue
@@ -1812,6 +2080,14 @@ def _generate_docx_markdown(findings, grouped, counts, titel, auteur, subtitel,
                     for r in _refs:
                         lines.append('- {}'.format(r))
                     lines.append('')
+                # Gekoppelde assets / doelen
+                assets = f.get('assets', [])
+                if assets:
+                    _al = 'Affected assets' if taal == 'en' else 'Getroffen assets'
+                    _pa = ['{}{}'.format(a['waarde'], ' ({})'.format(a['type']) if a['type'] else '')
+                           for a in assets]
+                    lines.append('**{}:** {}'.format(_al, ', '.join(_pa)))
+                    lines.append('')
                 # Finding relaties
                 related = f.get('related', [])
                 if related:
@@ -1826,21 +2102,31 @@ def _generate_docx_markdown(findings, grouped, counts, titel, auteur, subtitel,
                     lines.append('')
 
     # Overzicht aanbevelingen
-    lines.append('# {}'.format(u(t['aanbevelingen'])))
-    lines.append('')
-    lines.append('| ID | {} | CVSS | {} |'.format(u(t['bevindingen']), u(t['aanbeveling'])))
-    lines.append('|---|---|---|---|')
-    for f in findings:
-        lines.append('| {} | {} | {} | {} |'.format(
-            str(f['id']).zfill(3), f['titel'], f['basescore'], f['aanbeveling']))
-    lines.append('')
+    if _sec('aanbevelingen'):
+        lines.append('%%SEC:aanbevelingen%%')
+        lines.append('# {}'.format(u(t['aanbevelingen'])))
+        lines.append('')
+        lines.append('| ID | {} | CVSS | {} |'.format(u(t['bevindingen']), u(t['aanbeveling'])))
+        lines.append('|---|---|---|---|')
+        for f in findings:
+            lines.append('| {} | {} | {} | {} |'.format(
+                str(f['id']).zfill(3), f['titel'], f['basescore'], f['aanbeveling']))
+        lines.append('')
+
+    # Einde herordenbaar gebied; appendix-groep blijft vast achteraan
+    lines.append('%%SEC-END%%')
+
+    # Kill chain (appendix-groep)
+    if _sec('killchain'):
+        lines.extend(_chains_md_lines(taal))
 
     # Mapping-bijlagen (OWASP Top 10 + NCSC-richtlijnen)
-    lines.extend(_owasp_mapping_md_lines(findings, taal))
-    lines.extend(_ncsc_mapping_md_lines(findings, taal))
+    if _sec('appendices'):
+        lines.extend(_owasp_mapping_md_lines(findings, taal))
+        lines.extend(_ncsc_mapping_md_lines(findings, taal))
 
     # Checklist appendix
-    if checklists:
+    if _sec('checklists') and checklists:
         heading = 'Checklist Results' if taal == 'en' else 'Checklist resultaten'
         lines.append('# {}'.format(heading))
         lines.append('')
@@ -1874,7 +2160,7 @@ def _generate_docx_markdown(findings, grouped, counts, titel, auteur, subtitel,
         lines.append('| {} | | | |'.format(role))
     lines.append('')
 
-    return '\n'.join(lines)
+    return _reorder_marked('\n'.join(lines), section_order or [], '%%SEC:{k}%%', '%%SEC-END%%')
 
 
 # ---------------------------------------------------------------------------
@@ -2374,6 +2660,43 @@ def rapport_versions():
     return jsonify({'versions': items})
 
 
+def _version_md(ts):
+    """Lees de Markdown-snapshot van een versie (timestamp gevalideerd)."""
+    if not ts or not _re.fullmatch(r'\d{8}_\d{6}', ts):
+        return None
+    p = os.path.join(_RAPPORT_DIR, 'versions', ts, 'rapport_docx.md')
+    return lezen(p) if os.path.exists(p) else None
+
+
+def _version_findings(md):
+    """Map {finding-id: titel} uit een Markdown-snapshot."""
+    return dict(_re.findall(r'^### \[(\d+)\] (.+?) \(CVSS', md or '', _re.M))
+
+
+@rapport_bp.route('/api/report/versions/diff', methods=['GET'])
+def rapport_versions_diff():
+    """Vergelijk twee rapportversies: toegevoegde/verwijderde/gewijzigde
+    bevindingen + een unified tekst-diff."""
+    a = request.args.get('a')
+    b = request.args.get('b')
+    ma, mb = _version_md(a), _version_md(b)
+    if ma is None or mb is None:
+        return jsonify({'ok': False, 'error': 'versie niet gevonden'}), 404
+    fa, fb = _version_findings(ma), _version_findings(mb)
+    added = [{'id': k, 'titel': fb[k]} for k in fb if k not in fa]
+    removed = [{'id': k, 'titel': fa[k]} for k in fa if k not in fb]
+    changed = [{'id': k, 'van': fa[k], 'naar': fb[k]}
+               for k in fa if k in fb and fa[k] != fb[k]]
+    diff = list(difflib.unified_diff(ma.splitlines(), mb.splitlines(),
+                                     fromfile=a, tofile=b, lineterm=''))
+    return jsonify({
+        'ok': True, 'a': a, 'b': b,
+        'added': added, 'removed': removed, 'changed': changed,
+        'count': {'added': len(added), 'removed': len(removed), 'changed': len(changed)},
+        'diff': '\n'.join(diff[:600]),
+    })
+
+
 # ---------------------------------------------------------------------------
 # Report validation: GET /api/report/validate
 # ---------------------------------------------------------------------------
@@ -2523,3 +2846,343 @@ def rapport_generate_status(run_id):
     if not run:
         return jsonify({'error': 'run not found'}), 404
     return jsonify(run)
+
+
+# ===========================================================================
+# Rapport-template-beheer: eigen templates + selectie + eigen .tex
+# ===========================================================================
+
+_REPORT_TPL_DIR = os.path.join(os.path.dirname(__file__), 'db', 'report_templates')
+_VALID_SCOPES = ('all', 'critical_high', 'top3')
+
+
+def _rtpl_dict(row):
+    try:
+        secs = json.loads(row.sections or '{}')
+    except (json.JSONDecodeError, TypeError):
+        secs = {}
+    sections = _all_sections(True)
+    sections.update({k: bool(v) for k, v in secs.items() if k in _SECTION_KEYS})
+    try:
+        order = json.loads(row.section_order or '[]')
+    except (json.JSONDecodeError, TypeError):
+        order = []
+    return {
+        'id': row.id, 'naam': row.naam, 'builtin': False,
+        'findings_scope': row.findings_scope or 'all',
+        'sections': sections,
+        'section_order': _normalize_order(order),
+        'has_custom_tex': bool(row.custom_tex_path),
+        'taal': row.taal or '',
+    }
+
+
+def _clean_sections(raw):
+    if not isinstance(raw, dict):
+        return _all_sections(True)
+    return {k: bool(raw.get(k, True)) for k in _SECTION_KEYS}
+
+
+@rapport_bp.route('/api/report/templates', methods=['GET'])
+def report_templates_list():
+    builtin = [{
+        'id': None, 'variant': key, 'naam': key, 'builtin': True,
+        'findings_scope': v['findings_scope'], 'sections': v['sections'],
+        'section_order': _normalize_order([]),
+        'has_custom_tex': False,
+    } for key, v in _BUILTIN_VARIANTS.items()]
+    custom = [_rtpl_dict(r) for r in db_rapport_template.query.order_by(db_rapport_template.naam).all()]
+    # Huidige selectie van het actieve project
+    from meuk.flask import project as _project
+    cfg = _project.current_config()
+    sel = {'template_id': getattr(cfg, 'rapport_template_id', None),
+           'variant': (getattr(cfg, 'rapport_template_variant', '') or 'detailed')}
+    return jsonify({'ok': True, 'section_keys': list(_SECTION_KEYS),
+                    'reorderable_keys': list(_REORDERABLE_SECTIONS),
+                    'builtin': builtin, 'custom': custom, 'selected': sel})
+
+
+@rapport_bp.route('/api/report/templates', methods=['POST'])
+def report_templates_create():
+    body = request.get_json(silent=True) or {}
+    naam = (body.get('naam') or '').strip()
+    if not naam:
+        return jsonify({'ok': False, 'error': 'naam is verplicht'}), 400
+    if db_rapport_template.query.filter_by(naam=naam[:200]).first():
+        return jsonify({'ok': False, 'error': 'naam bestaat al'}), 409
+    scope = body.get('findings_scope', 'all')
+    row = db_rapport_template(
+        naam=naam[:200],
+        findings_scope=scope if scope in _VALID_SCOPES else 'all',
+        sections=json.dumps(_clean_sections(body.get('sections'))),
+        section_order=json.dumps(_normalize_order(body.get('section_order') or [])),
+        taal=(body.get('taal') or '')[:5],
+    )
+    db.session.add(row)
+    db.session.commit()
+    return jsonify({'ok': True, 'id': row.id, 'naam': row.naam})
+
+
+@rapport_bp.route('/api/report/templates/<int:tid>', methods=['POST'])
+def report_templates_update(tid):
+    row = db.session.get(db_rapport_template, tid)
+    if not row:
+        return jsonify({'ok': False, 'error': 'niet gevonden'}), 404
+    body = request.get_json(silent=True) or {}
+    if 'naam' in body:
+        naam = (body.get('naam') or '').strip()
+        if not naam:
+            return jsonify({'ok': False, 'error': 'naam mag niet leeg zijn'}), 400
+        row.naam = naam[:200]
+    if 'findings_scope' in body and body['findings_scope'] in _VALID_SCOPES:
+        row.findings_scope = body['findings_scope']
+    if 'sections' in body:
+        row.sections = json.dumps(_clean_sections(body.get('sections')))
+    if 'section_order' in body:
+        row.section_order = json.dumps(_normalize_order(body.get('section_order') or []))
+    if 'taal' in body:
+        row.taal = (body.get('taal') or '')[:5]
+    db.session.commit()
+    return jsonify({'ok': True, 'id': row.id})
+
+
+@rapport_bp.route('/api/report/templates/<int:tid>', methods=['DELETE'])
+def report_templates_delete(tid):
+    row = db.session.get(db_rapport_template, tid)
+    if not row:
+        return jsonify({'ok': False, 'error': 'niet gevonden'}), 404
+    # Verwijs-koppelingen op projecten opheffen + eigen .tex opruimen
+    for cfg in db_opdracht_config.query.filter_by(rapport_template_id=tid).all():
+        cfg.rapport_template_id = None
+    if row.custom_tex_path and os.path.exists(row.custom_tex_path):
+        try:
+            os.remove(row.custom_tex_path)
+        except OSError:
+            pass
+    db.session.delete(row)
+    db.session.commit()
+    return jsonify({'ok': True})
+
+
+# ---------------------------------------------------------------------------
+# Eigen .tex: variabelen-referentie + dry-run-validatie
+# ---------------------------------------------------------------------------
+
+# De variabelen die gen_rapport aan de LaTeX-template doorgeeft. Dit is de
+# naslag die in de UI wordt getoond zodat een eigen .tex geldige verwijzingen
+# gebruikt (delimiters: [% ... %] voor logica, [[ ... ]] voor waarden).
+_TEX_CONTEXT_VARS = [
+    {'naam': 'titel', 'type': 'tekst', 'omschrijving': 'Rapporttitel'},
+    {'naam': 'subtitel', 'type': 'tekst', 'omschrijving': 'Ondertitel'},
+    {'naam': 'auteur', 'type': 'tekst', 'omschrijving': 'Auteur'},
+    {'naam': 'project', 'type': 'tekst', 'omschrijving': 'Projectnaam'},
+    {'naam': 'classificatie', 'type': 'tekst', 'omschrijving': 'TLP-classificatie'},
+    {'naam': 'tlp_color', 'type': 'tekst', 'omschrijving': 'LaTeX-kleurnaam voor de TLP-band'},
+    {'naam': 'datum', 'type': 'tekst', 'omschrijving': 'Rapportdatum'},
+    {'naam': 'is_draft', 'type': 'bool', 'omschrijving': 'True bij een conceptrapport'},
+    {'naam': 'taal', 'type': 'tekst', 'omschrijving': "'nl' of 'en'"},
+    {'naam': 'sections', 'type': 'dict', 'omschrijving': 'Per sectiesleutel of die aan staat, bv. [% if sections.bevindingen %]'},
+    {'naam': 'findings', 'type': 'lijst', 'omschrijving': 'Bevindingen; velden o.a. id, titel, beschrijving, impact, aanbeveling, basescore, severity, locatie, assets, evidence, related'},
+    {'naam': 'grouped_findings', 'type': 'lijst', 'omschrijving': 'Lijst van (groepsnaam, [bevindingen]) gegroepeerd op severity'},
+    {'naam': 'counts', 'type': 'dict', 'omschrijving': 'Aantallen per severity: critical/high/medium/low/none'},
+    {'naam': 'scoped_hosts', 'type': 'lijst', 'omschrijving': 'Hosts binnen scope'},
+    {'naam': 'scope_targets', 'type': 'lijst', 'omschrijving': 'Scope-doelen (target, type, beschrijving)'},
+    {'naam': 'notes', 'type': 'lijst', 'omschrijving': 'Verkenningsnotities'},
+    {'naam': 'testtype', 'type': 'tekst', 'omschrijving': "'pentest' of 'redteam'"},
+    {'naam': 'testscope', 'type': 'tekst', 'omschrijving': 'blackbox/greybox/whitebox'},
+    {'naam': 'testscopes', 'type': 'lijst', 'omschrijving': 'Alle gekozen scope-typen'},
+    {'naam': 'management_samenvatting', 'type': 'tekst', 'omschrijving': 'Managementsamenvatting'},
+    {'naam': 'legsup_startpunt', 'type': 'tekst', 'omschrijving': 'Red team: assumed-breach startpunt'},
+    {'naam': 'legsup_privileges', 'type': 'tekst', 'omschrijving': 'Red team: privilege-niveaus'},
+    {'naam': 'legsup_informatie', 'type': 'tekst', 'omschrijving': 'Red team: verstrekte informatie'},
+    {'naam': 'scenarios', 'type': 'lijst', 'omschrijving': "Red team: scenario's (naam, beschrijving)"},
+    {'naam': 'checklists', 'type': 'lijst', 'omschrijving': 'Gekoppelde checklists'},
+    {'naam': 'faalmodus_labels', 'type': 'dict', 'omschrijving': 'Labels voor faalmodus'},
+    {'naam': 'detect_labels', 'type': 'dict', 'omschrijving': 'Labels voor detecteerbaarheid'},
+    {'naam': 'heatmap_rows', 'type': 'lijst', 'omschrijving': 'Rijen van de risicomatrix (kans, cells)'},
+    {'naam': 'sla_rows', 'type': 'lijst', 'omschrijving': 'Oplostijden per bevinding (id, titel, severity, sla, date)'},
+    {'naam': 'owasp_rows', 'type': 'lijst', 'omschrijving': 'OWASP-mapping per bevinding'},
+    {'naam': 'ncsc_rows', 'type': 'lijst', 'omschrijving': 'NCSC-mapping per bevinding'},
+    {'naam': 'detection_tally', 'type': 'dict', 'omschrijving': 'Telling detecteerbaarheid (ja/deels/nee)'},
+    {'naam': 'detection_label', 'type': 'dict', 'omschrijving': 'Labels bij detection_tally'},
+    {'naam': 'detection_gaps', 'type': 'lijst', 'omschrijving': 'Bevindingen met detectie-hiaten'},
+    {'naam': 'detection_rated', 'type': 'bool', 'omschrijving': 'True als er detecteerbaarheid is beoordeeld'},
+    {'naam': 'chain_paths', 'type': 'lijst', 'omschrijving': 'Kill-chain-paden (num, steps)'},
+]
+
+
+def _sample_tex_context():
+    """Representatieve voorbeeldcontext voor de dry-run-validatie: bevat alle
+    variabelen die gen_rapport aan de template doorgeeft, met voorbeeldwaarden."""
+    f = {
+        'id': 1, 'titel': 'Voorbeeldbevinding', 'beschrijving': 'Beschrijving',
+        'impact': 'Impact', 'aanbeveling': 'Aanbeveling', 'basescore': '9.0',
+        'cvss_vector': '', 'locatie': 'host.example', 'owasp': '', 'owasp_2025': '',
+        'cwe': '', 'ncsc': '', 'control_ref': '', 'mitre': '', 'severity': 'critical',
+        'referenties': '', 'related': [], 'assets': [], 'evidence': [],
+        'faalmodus': '', 'detecteerbaarheid': '', 'detectie_notitie': '',
+        'remediation_status': 'open',
+    }
+    ctx = dict(
+        titel='Titel', subtitel='Subtitel', auteur='Auteur', project='Project',
+        classificatie='TLP:RED', tlp_color='ored', datum='01-01-2026',
+        is_draft=False, sections=_all_sections(True), findings=[f],
+        grouped_findings=[('Kritiek', [f])],
+        counts=dict(critical=1, high=0, medium=0, low=0, none=0),
+        scoped_hosts=['host.example'], scope_targets=[], notes=[],
+        testtype='pentest', testscope='blackbox', testscopes=['blackbox'],
+        management_samenvatting='Samenvatting', legsup_startpunt='',
+        legsup_privileges='', legsup_informatie='', scenarios=[], taal='nl',
+        checklists=[], faalmodus_labels=_FAALMODUS_LABELS,
+        detect_labels=_DETECT_LABELS,
+    )
+    ctx.update(_build_rapport_appendices([f], taal='nl'))
+    return ctx
+
+
+def _xelatex_dryrun(rendered):
+    """Best-effort xelatex-compilatie van een gerenderde .tex in een temp-dir.
+    Geeft een waarschuwingstekst terug bij problemen, anders een lege string."""
+    import tempfile
+    try:
+        with tempfile.TemporaryDirectory() as td:
+            texf = os.path.join(td, 'dryrun.tex')
+            with open(texf, 'w', encoding='utf-8') as fh:
+                fh.write(rendered)
+            run_env = os.environ.copy()
+            handboek_abs = os.path.abspath(_HANDBOEK_DIR)
+            run_env['TEXINPUTS'] = '.:{h}:{h}//:'.format(h=handboek_abs)
+            p = subprocess.run(
+                ['xelatex', '-interaction=nonstopmode', '-halt-on-error',
+                 '-no-shell-escape', '-output-directory', td, texf],
+                cwd=td, env=run_env, capture_output=True, timeout=60)
+            if p.returncode != 0:
+                out = (p.stdout or b'').decode('utf-8', 'replace')
+                err = [ln for ln in out.splitlines() if ln.startswith('!')]
+                detail = err[0] if err else 'xelatex gaf een foutcode terug'
+                return 'xelatex-waarschuwing: %s' % detail[:200]
+    except subprocess.TimeoutExpired:
+        return 'xelatex-dry-run duurde te lang en is overgeslagen'
+    except Exception as e:
+        return 'xelatex-dry-run niet uitgevoerd: %s' % str(e)[:120]
+    return ''
+
+
+def _valideer_tex_template(src, met_xelatex=True):
+    """Dry-run-validatie van een eigen .tex: rendert met StrictUndefined (vangt
+    syntaxfouten en verwijzingen naar onbekende variabelen) en probeert optioneel
+    een xelatex-compilatie. Geeft {ok, error, warning}."""
+    env = Environment(
+        block_start_string='[%', block_end_string='%]',
+        variable_start_string='[[', variable_end_string=']]',
+        comment_start_string='[#', comment_end_string='#]',
+        autoescape=False, undefined=StrictUndefined)
+    env.filters['latex_escape'] = _latex_escape
+    try:
+        rendered = env.from_string(src).render(**_sample_tex_context())
+    except TemplateSyntaxError as e:
+        return {'ok': False, 'error': 'Syntaxfout (regel %s): %s' % (
+            getattr(e, 'lineno', '?'), e.message), 'warning': ''}
+    except UndefinedError as e:
+        return {'ok': False, 'error': 'Verwijzing naar onbekende variabele: %s'
+                % str(e), 'warning': ''}
+    except TemplateError as e:
+        return {'ok': False, 'error': 'Templatefout: %s' % str(e), 'warning': ''}
+    except Exception as e:
+        return {'ok': False, 'error': 'Renderfout: %s' % str(e), 'warning': ''}
+    warning = ''
+    if met_xelatex and shutil.which('xelatex'):
+        warning = _xelatex_dryrun(rendered)
+    return {'ok': True, 'error': '', 'warning': warning}
+
+
+@rapport_bp.route('/api/report/templates/tex-variables', methods=['GET'])
+def report_templates_tex_variables():
+    return jsonify({'ok': True, 'variables': _TEX_CONTEXT_VARS,
+                    'delimiters': {'logica': '[% ... %]', 'waarde': '[[ ... ]]',
+                                   'commentaar': '[# ... #]'}})
+
+
+@rapport_bp.route('/api/report/templates/<int:tid>/tex', methods=['POST'])
+def report_templates_upload_tex(tid):
+    row = db.session.get(db_rapport_template, tid)
+    if not row:
+        return jsonify({'ok': False, 'error': 'niet gevonden'}), 404
+    f = request.files.get('file')
+    if not f or not f.filename:
+        return jsonify({'ok': False, 'error': 'geen bestand'}), 400
+    if not f.filename.lower().endswith('.tex'):
+        return jsonify({'ok': False, 'error': 'alleen .tex toegestaan'}), 400
+    data = f.read()
+    if len(data) > 1_000_000:
+        return jsonify({'ok': False, 'error': 'bestand te groot (max 1 MB)'}), 400
+    try:
+        src = data.decode('utf-8')
+    except UnicodeDecodeError:
+        return jsonify({'ok': False, 'error': 'bestand is geen geldige UTF-8 tekst'}), 400
+    # Dry-run: weiger een template dat niet rendert (geen stille terugval meer)
+    res = _valideer_tex_template(src)
+    if not res['ok']:
+        return jsonify({'ok': False, 'error': res['error']}), 400
+    os.makedirs(_REPORT_TPL_DIR, exist_ok=True)
+    dest = os.path.join(_REPORT_TPL_DIR, '%d.tex' % tid)
+    with open(dest, 'w', encoding='utf-8') as fh:
+        fh.write(src)
+    row.custom_tex_path = dest
+    db.session.commit()
+    return jsonify({'ok': True, 'warning': res.get('warning', '')})
+
+
+@rapport_bp.route('/api/report/templates/<int:tid>/tex/validate', methods=['POST'])
+def report_templates_validate_tex(tid):
+    """Valideer de opgeslagen eigen .tex zonder opnieuw te uploaden."""
+    row = db.session.get(db_rapport_template, tid)
+    if not row:
+        return jsonify({'ok': False, 'error': 'niet gevonden'}), 404
+    if not row.custom_tex_path or not os.path.exists(row.custom_tex_path):
+        return jsonify({'ok': False, 'error': 'geen eigen .tex ingesteld'}), 400
+    try:
+        with open(row.custom_tex_path, 'r', encoding='utf-8') as fh:
+            src = fh.read()
+    except OSError as e:
+        return jsonify({'ok': False, 'error': 'kon bestand niet lezen: %s' % e}), 500
+    return jsonify(_valideer_tex_template(src))
+
+
+@rapport_bp.route('/api/report/templates/<int:tid>/tex', methods=['DELETE'])
+def report_templates_remove_tex(tid):
+    row = db.session.get(db_rapport_template, tid)
+    if not row:
+        return jsonify({'ok': False, 'error': 'niet gevonden'}), 404
+    if row.custom_tex_path and os.path.exists(row.custom_tex_path):
+        try:
+            os.remove(row.custom_tex_path)
+        except OSError:
+            pass
+    row.custom_tex_path = ''
+    db.session.commit()
+    return jsonify({'ok': True})
+
+
+@rapport_bp.route('/api/report/templates/select', methods=['POST'])
+def report_templates_select():
+    """Kies het actieve rapport-template per project: {template_id} of {variant}."""
+    from meuk.flask import project as _project
+    cfg = _project.current_config()
+    if cfg is None:
+        return jsonify({'ok': False, 'error': 'geen actief project'}), 400
+    body = request.get_json(silent=True) or {}
+    tid = body.get('template_id')
+    variant = body.get('variant')
+    if tid:
+        if not db.session.get(db_rapport_template, int(tid)):
+            return jsonify({'ok': False, 'error': 'onbekend template'}), 404
+        cfg.rapport_template_id = int(tid)
+    else:
+        cfg.rapport_template_id = None
+        if variant in _BUILTIN_VARIANTS:
+            cfg.rapport_template_variant = variant
+    db.session.commit()
+    return jsonify({'ok': True,
+                    'template_id': cfg.rapport_template_id,
+                    'variant': cfg.rapport_template_variant})

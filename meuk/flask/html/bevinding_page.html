@@ -27,7 +27,7 @@
 
 {% if form.id.data %}
 {# Evidence gallery #}
-<section class="card mt-14">
+<section class="card mt-14" id="evidence-card" tabindex="0">
   <div class="card-head"><h2>Bewijs</h2></div>
   <div class="card-body">
     <div class="evidence-gallery" id="evidence-gallery"></div>
@@ -44,8 +44,9 @@
           <option value="other">Overig</option>
         </select>
       </div>
-      <input type="file" id="evidence-file" accept="image/*,.pdf,.txt,.csv,.json,.xml,.zip" />
+      <input type="file" id="evidence-file" accept="image/*,.pdf,.txt,.csv,.json,.xml,.zip" multiple />
       <button class="btn" id="btn-upload-evidence" type="button">Uploaden</button>
+      <p class="help mt-6" id="evidence-hint">📎 Plak (Ctrl/Cmd+V), sleep bestanden hierheen, of kies een bestand — uploadt direct als bewijs.</p>
     </div>
   </div>
 </section>
@@ -110,6 +111,8 @@
 {% block scripts %}
 <script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='js/cvss4-calculator.js') }}"></script>
 <script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='js/latexeditor.js') }}"></script>
+<script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='js/finding-template.js') }}"></script>
+<script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='js/finding-tabs.js') }}"></script>
 <script nonce="{{ csp_nonce }}">
 (function() {
   "use strict";
@@ -137,6 +140,7 @@
     _showStatus('Opslaan\u2026', 'saving');
     fetch('/dashboard/findings/save', {
       method: 'POST',
+      headers: {'X-Requested-With': 'XMLHttpRequest'},
       body: fd
     })
     .then(function(r) { return r.json(); })
@@ -152,47 +156,6 @@
     .catch(function() { _showStatus('', ''); });
   }
   {% endif %}
-
-  // ── Evaluatieprofiel-assistent ──────────────────
-  (function() {
-    var sel = document.getElementById("eval-profiel");
-    var btn = document.getElementById("btn-apply-profiel");
-    if (!sel || !btn) return;
-    var profielen = {};
-    fetch("/api/findings/eval-profiles")
-      .then(function(r) { return r.json(); })
-      .then(function(d) {
-        (d.profiles || []).forEach(function(p) {
-          profielen[p.key] = p;
-          var opt = document.createElement("option");
-          opt.value = p.key;
-          opt.textContent = p.label;
-          sel.appendChild(opt);
-        });
-      });
-    function setVal(id, val) {
-      var el = document.getElementById(id);
-      if (el && val != null && val !== "") {
-        el.value = val;
-        el.dispatchEvent(new Event("change", {bubbles: true}));
-      }
-    }
-    btn.addEventListener("click", function() {
-      var p = profielen[sel.value];
-      if (!p) return;
-      setVal("cvss", p.cvss);
-      setVal("basescore", p.basescore);
-      setVal("kans", p.kans);
-      setVal("impact_niveau", p.impact_niveau);
-      setVal("faalmodus", p.faalmodus);
-      var uit = document.getElementById("uitwerken");
-      if (uit && !uit.value.trim()) {
-        uit.value = "## Impact\n\n" + (p.impact_zin || "") +
-                    "\n\n## Aanbeveling\n\n" + (p.aanbeveling_zin || "") + "\n";
-        uit.dispatchEvent(new Event("input", {bubbles: true}));
-      }
-    });
-  })();
 
   if (form) {
     form.addEventListener("input", function() {
@@ -237,6 +200,26 @@
       method: "DELETE",
       headers: {"X-CSRFToken": csrfToken}
     }).then(function() { loadEvidence(); });
+  }
+
+  function verifyEvidence(evId, hashEl) {
+    if (hashEl) hashEl.textContent = "Verifiëren…";
+    fetch("/api/findings/evidence/" + evId + "/verify")
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        if (!hashEl) return;
+        var msg = {
+          match: "✔ integriteit OK",
+          mismatch: "✖ GEWIJZIGD (hash wijkt af)",
+          no_hash: "geen hash vastgelegd",
+          missing_file: "✖ bestand ontbreekt"
+        }[d.status] || "onbekend";
+        hashEl.textContent = msg;
+        hashEl.classList.remove("evidence-hash-ok", "evidence-hash-bad");
+        hashEl.classList.add(d.status === "match" ? "evidence-hash-ok" : "evidence-hash-bad");
+        hashEl.title = "Opgeslagen: " + (d.sha256_stored || "—") + "\nHerberekend: " + (d.sha256_actual || "—");
+      })
+      .catch(function() { if (hashEl) hashEl.textContent = "verificatie mislukt"; });
   }
 
   function loadEvidence() {
@@ -288,6 +271,22 @@
             label.textContent = meta.join(" · ");
             wrap.appendChild(label);
           }
+          // Integriteit: SHA-256 (chain of custody) — afgekort, volledig in title
+          if (ev.sha256) {
+            var hash = document.createElement("span");
+            hash.className = "evidence-hash";
+            hash.title = "SHA-256: " + ev.sha256;
+            hash.textContent = "SHA-256 " + ev.sha256.slice(0, 12) + "…";
+            wrap.appendChild(hash);
+            var vbtn = document.createElement("button");
+            vbtn.type = "button";
+            vbtn.className = "btn btn-sm evidence-verify";
+            vbtn.textContent = "Verifieer";
+            (function(id, el) {
+              vbtn.addEventListener("click", function() { verifyEvidence(id, el); });
+            })(ev.id, hash);
+            wrap.appendChild(vbtn);
+          }
           wrap.appendChild(del);
           gallery.appendChild(wrap);
         });
@@ -299,38 +298,110 @@
   loadEvidence();
 
   var btnUpload = document.getElementById("btn-upload-evidence");
-  if (btnUpload) btnUpload.addEventListener("click", function() {
-    var fileInput = document.getElementById("evidence-file");
-    if (!fileInput || !fileInput.files.length) return;
-    btnUpload.disabled = true;
+  var fileInput = document.getElementById("evidence-file");
+  var evHint = document.getElementById("evidence-hint");
+  var evHintDefault = evHint ? evHint.textContent : "";
+
+  function evStatus(msg, transient) {
+    if (!evHint) return;
+    evHint.textContent = msg;
+    if (transient) setTimeout(function() { if (evHint) evHint.textContent = evHintDefault; }, 3000);
+  }
+
+  // Upload één bestand als bewijs; past de ingevulde beschrijving/tool/categorie
+  // toe. clearFields=true leegt die velden na de laatste upload.
+  function uploadEvidence(file, clearFields) {
+    if (!file) return Promise.resolve();
     var fd = new FormData();
-    fd.append("file", fileInput.files[0]);
+    fd.append("file", file, file.name || "screenshot.png");
     var desc = (document.getElementById("evidence-description") || {}).value || "";
     var tool = (document.getElementById("evidence-tool") || {}).value || "";
     var cat  = (document.getElementById("evidence-category") || {}).value || "";
     if (desc) fd.append("description", desc);
     if (tool) fd.append("tool_name", tool);
     if (cat)  fd.append("evidence_category", cat);
-    fetch("/api/findings/" + findingId + "/evidence", {
+    evStatus("⏳ Uploaden…");
+    return fetch("/api/findings/" + findingId + "/evidence", {
       method: "POST",
       headers: {"X-CSRFToken": csrfToken},
       body: fd
     })
       .then(function(r) { return r.json(); })
       .then(function(d) {
-        if (d.ok) {
-          fileInput.value = "";
-          var descEl = document.getElementById("evidence-description");
-          var toolEl = document.getElementById("evidence-tool");
-          var catEl  = document.getElementById("evidence-category");
-          if (descEl) descEl.value = "";
-          if (toolEl) toolEl.value = "";
-          if (catEl)  catEl.value  = "";
+        if (d && d.ok) {
+          if (clearFields) {
+            ["evidence-description", "evidence-tool", "evidence-category"].forEach(function(id) {
+              var el = document.getElementById(id); if (el) el.value = "";
+            });
+          }
+          evStatus("✔ Toegevoegd: " + (d.original_filename || d.filename || ""), true);
           loadEvidence();
+        } else {
+          evStatus("✖ " + ((d && d.error) || "upload mislukt"), true);
         }
       })
-      .finally(function() { btnUpload.disabled = false; });
+      .catch(function() { evStatus("✖ upload mislukt", true); });
+  }
+
+  // Meerdere bestanden achter elkaar uploaden (velden pas aan het eind leegmaken).
+  function uploadFiles(files) {
+    var list = Array.prototype.slice.call(files || []);
+    if (!list.length) return;
+    var i = 0;
+    (function next() {
+      if (i >= list.length) return;
+      var last = (i === list.length - 1);
+      uploadEvidence(list[i], last).then(function() { i++; next(); });
+    })();
+  }
+
+  if (btnUpload) btnUpload.addEventListener("click", function() {
+    if (!fileInput || !fileInput.files.length) return;
+    btnUpload.disabled = true;
+    Promise.resolve(uploadFiles(fileInput.files)).then(function() { fileInput.value = ""; });
+    setTimeout(function() { btnUpload.disabled = false; }, 400);
   });
+
+  // Auto-upload zodra een bestand gekozen wordt (geen aparte klik meer nodig).
+  if (fileInput) fileInput.addEventListener("change", function() {
+    if (fileInput.files && fileInput.files.length) {
+      uploadFiles(fileInput.files);
+      fileInput.value = "";
+    }
+  });
+
+  // Slepen & neerzetten op de bewijs-kaart.
+  var evCard = document.getElementById("evidence-card");
+  if (evCard) {
+    evCard.addEventListener("dragover", function(e) {
+      var types = (e.dataTransfer && e.dataTransfer.types) || [];
+      if (Array.prototype.indexOf.call(types, "Files") !== -1) {
+        e.preventDefault();
+        evCard.classList.add("evidence-dropping");
+      }
+    });
+    evCard.addEventListener("dragleave", function(e) {
+      if (!evCard.contains(e.relatedTarget)) evCard.classList.remove("evidence-dropping");
+    });
+    evCard.addEventListener("drop", function(e) {
+      if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length) {
+        e.preventDefault();
+        evCard.classList.remove("evidence-dropping");
+        uploadFiles(e.dataTransfer.files);
+      }
+    });
+    // Plakken (screenshot) wanneer de bewijs-kaart focus/hover heeft.
+    evCard.addEventListener("paste", function(e) {
+      var items = (e.clipboardData && e.clipboardData.items) || [];
+      var imgs = [];
+      for (var i = 0; i < items.length; i++) {
+        if (items[i].kind === "file" && (items[i].type || "").indexOf("image") === 0) {
+          var f = items[i].getAsFile(); if (f) imgs.push(f);
+        }
+      }
+      if (imgs.length) { e.preventDefault(); uploadFiles(imgs); }
+    });
+  }
 
   // ── Relaties ──────────────────────────────────
   var relList = document.getElementById("relations-list");

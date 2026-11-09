@@ -266,3 +266,144 @@ body.latex-editor-fullscreen-active{
     font-size:16px;
   }
 }
+
+/* Afbeelding plakken/slepen: hint-balk + drop-highlight */
+.latex-img-hint{
+  font-size:12px;
+  color:var(--muted,#6b7280);
+  padding:4px 2px 0;
+  user-select:none;
+}
+.latex-dropping{
+  outline:2px dashed var(--accent,#3b82f6);
+  outline-offset:-2px;
+  background:var(--surface-2,#f3f4f6);
+}
+
+/* Dropdown-item met thumbnail (project-afbeeldingen) */
+.latex-dropdown-item.has-thumb{
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+.latex-item-thumb{
+  width:40px;
+  height:40px;
+  object-fit:cover;
+  border:1px solid var(--border);
+  border-radius:4px;
+  flex:0 0 auto;
+  background:var(--surface-2,#f3f4f6);
+}
+.latex-item-text{
+  display:flex;
+  flex-direction:column;
+  min-width:0;
+}
+
+/* Statusbalk (lint) + conceptherstel onder de editor */
+.latex-status{
+  font-size:12px;
+  padding:4px 2px 0;
+  color:var(--muted,#6b7280);
+}
+.latex-lint.has-warn{
+  color:var(--warning,#b45309);
+  font-weight:600;
+}
+.latex-draft-restore{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  flex-wrap:wrap;
+  font-size:13px;
+  padding:6px 8px;
+  margin-top:6px;
+  border:1px solid var(--border);
+  border-radius:6px;
+  background:var(--surface-2,#f3f4f6);
+}
+
+/* Fragment-preview-paneel */
+.latex-preview-panel{ display:none; }
+.latex-preview-panel.is-open{
+  display:block;
+  margin-top:8px;
+  border:1px solid var(--border);
+  border-radius:6px;
+  overflow:hidden;
+  background:var(--surface-2,#f3f4f6);
+}
+.latex-preview-bar{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:8px;
+  padding:6px 10px;
+  font-size:12px;
+  font-weight:600;
+  border-bottom:1px solid var(--border);
+  background:var(--surface);
+}
+.latex-preview-img{
+  max-height:70vh;
+  overflow:auto;
+  padding:10px;
+  text-align:center;
+}
+.latex-preview-img img{
+  max-width:100%;
+  height:auto;
+  box-shadow:0 1px 6px rgba(0,0,0,.15);
+  background:#fff;
+}
+.latex-preview-status{ padding:14px; font-size:13px; color:var(--muted,#6b7280); }
+.latex-preview-status.is-error{ color:var(--danger,#b91c1c); font-family:monospace; white-space:pre-wrap; }
+
+/* Fullscreen split-view: toolbar boven, editor links, preview rechts.
+   Named grid-areas plaatsen elk element ongeacht de DOM-volgorde, zodat de
+   tussenliggende hint-/status-/conceptbalkjes de 2-koloms indeling niet breken. */
+.latex-editor-wrapper.is-fullscreen.has-preview{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  grid-template-rows:auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    "toolbar toolbar"
+    "editor  preview"
+    "foot    foot";
+  gap:0;
+}
+.latex-editor-wrapper.is-fullscreen.has-preview .latex-toolbar{ grid-area:toolbar; }
+.latex-editor-wrapper.is-fullscreen.has-preview textarea{
+  grid-area:editor;
+  min-height:0;
+  height:100%;
+  border:none;
+  border-right:1px solid var(--border);
+  border-top:1px solid var(--border);
+}
+.latex-editor-wrapper.is-fullscreen.has-preview .latex-preview-panel.is-open{
+  grid-area:preview;
+  margin-top:0;
+  min-height:0;
+  height:100%;
+  display:flex;
+  flex-direction:column;
+  border:none;
+  border-top:1px solid var(--border);
+  border-radius:0;
+}
+.latex-editor-wrapper.is-fullscreen.has-preview .latex-preview-img{
+  max-height:none;
+  flex:1 1 auto;
+}
+.latex-editor-wrapper.is-fullscreen.has-preview .latex-status{
+  grid-area:foot;
+  padding:6px 12px;
+  border-top:1px solid var(--border);
+}
+/* De tip-/conceptbalkjes hebben geen plek in de split-view. */
+.latex-editor-wrapper.is-fullscreen.has-preview .latex-img-hint,
+.latex-editor-wrapper.is-fullscreen.has-preview .latex-draft-restore{
+  display:none;
+}

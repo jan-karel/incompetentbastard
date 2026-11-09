@@ -31,7 +31,7 @@
 .tmpl-owasp-2025{opacity:.7;background:var(--accent-blue,#3b82f6);color:#fff;padding:0 4px;border-radius:2px}
 
 .tmpl-cvss{font-size:11px;font-weight:700;padding:1px 5px;border-radius:3px;white-space:nowrap}
-.tmpl-cvss-critical{background:#7f1d1d;color:#fecaca}
+.tmpl-cvss-critical{background:#581c87;color:#e9d5ff}
 .tmpl-cvss-high{background:#dc2626;color:#fff}
 .tmpl-cvss-medium{background:#f59e0b;color:#fff}
 .tmpl-cvss-low{background:#22c55e;color:#fff}

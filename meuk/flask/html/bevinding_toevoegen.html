@@ -1,162 +1,226 @@
 <form action="/dashboard/findings/save" method="post" class="finding-form">
   {{ form.hidden_tag() }}
 
-  <div class="form-grid">
-    <div>
-      <label for="naam">Naam</label>
-      {{ form.naam(id='naam', class='form-control') }}
+  <div class="finding-tabs" data-finding-tabs>
+    <div class="ftab-nav" role="tablist">
+      <button type="button" class="ftab-btn is-active" data-ftab="algemeen">Naam, host &amp; CVSS</button>
+      <button type="button" class="ftab-btn" data-ftab="uitwerking">Uitwerking</button>
+      <button type="button" class="ftab-btn" data-ftab="standaard">Standaardbevinding</button>
     </div>
-    <div>
-      <label for="locatie">Host</label>
-      {{ form.locatie(id='locatie', class='form-control', list='locatie-scope-targets') }}
-      <datalist id="locatie-scope-targets">
-        {% for st in scope_targets|default([], true) %}
-        <option value="{{ st.target }}">{{ st.beschrijving }} ({{ st.type }})</option>
-        {% endfor %}
-      </datalist>
-    </div>
-  </div>
 
-  {# Evaluatieprofiel-assistent: startpunt op basis van techniekcluster #}
-  <div class="mt-4">
-    <label for="eval-profiel">Evaluatieprofiel (startpunt)</label>
-    <div class="d-flex gap-8 items-center">
-      <select id="eval-profiel" class="form-control mw360">
-        <option value="">-- Kies een techniekcluster --</option>
-      </select>
-      <button type="button" id="btn-apply-profiel" class="btn">Toepassen</button>
-    </div>
-    <span class="help">Vult typische CVSS, kans/impact en faalmodus in; impact- en aanbevelingszinnen worden aan de uitwerking toegevoegd als die nog leeg is.</span>
-  </div>
-
-  {# CVSS 4.0 Calculator #}
-  <div data-cvss4-calculator>
-    <div class="cvss4-result">
-      <button type="button" data-cvss-toggle class="btn">CVSS 4.0 Calculator</button>
-      <span data-cvss-score>-</span>
-      <span data-cvss-severity class="badge">-</span>
-    </div>
-    {{ form.cvss(id='cvss', class='form-control', data_cvss_vector='') }}
-    {{ form.basescore(id='basescore', class='form-control') }}
-  </div>
-
-  <div class="form-grid three">
-    <div>
-      <label for="gebruikersvlag">Gebruikersvlag</label>
-      {{ form.gebruikersvlag(id='gebruikersvlag', class='form-control') }}
-    </div>
-    <div>
-      <label for="rootvlag">Rootvlag</label>
-      {{ form.rootvlag(id='rootvlag', class='form-control') }}
-    </div>
-    <div>
-      <label for="status">Status</label>
-      {{ form.status(id='status', class='form-control') }}
-    </div>
-  </div>
-
-  <label class="label-check mt-4" data-advanced-toggle>
-    <input type="checkbox" id="advanced-mode-toggle" />
-    Geavanceerd
-  </label>
-
-  <div data-advanced-fields>
-    <div class="form-grid three">
-      <div>
-        <label for="remediation_status">Herstelstatus</label>
-        {{ form.remediation_status(id='remediation_status', class='form-control') }}
+    {# Tab 1: Naam, host, CVSS, status + geavanceerde metadata #}
+    <div class="ftab-panel is-active" data-ftab-panel="algemeen">
+      <div class="form-grid">
+        <div>
+          <label for="naam">Naam</label>
+          {{ form.naam(id='naam', class='form-control') }}
+        </div>
+        <div>
+          <label for="locatie">Host</label>
+          {{ form.locatie(id='locatie', class='form-control', list='locatie-scope-targets') }}
+          <datalist id="locatie-scope-targets">
+            {% for st in scope_targets|default([], true) %}
+            <option value="{{ st.target }}">{{ st.beschrijving }} ({{ st.type }})</option>
+            {% endfor %}
+          </datalist>
+        </div>
       </div>
-      <div>
-        <label for="remediation_target_date">Doeldatum</label>
-        {{ form.remediation_target_date(id='remediation_target_date', class='form-control') }}
-      </div>
-      <div>
-        <label for="remediation_owner">Herstelverantwoordelijke</label>
-        {{ form.remediation_owner(id='remediation_owner', class='form-control') }}
-      </div>
-    </div>
 
-    <div class="form-grid three">
-      <div>
-        <label for="data_classification">Gegevensclassificatie</label>
-        {{ form.data_classification(id='data_classification', class='form-control') }}
+      {# CVSS 4.0 Calculator #}
+      <div data-cvss4-calculator>
+        <div class="cvss4-result">
+          <button type="button" data-cvss-toggle class="btn">CVSS 4.0 Calculator</button>
+          <span data-cvss-score>-</span>
+          <span data-cvss-severity class="badge">-</span>
+        </div>
+        {{ form.cvss(id='cvss', class='form-control', data_cvss_vector='') }}
+        {{ form.basescore(id='basescore', class='form-control') }}
       </div>
-      <div>
-        <label for="remediation_effort">Herstelinspanning</label>
-        {{ form.remediation_effort(id='remediation_effort', class='form-control') }}
-      </div>
-      <div>
-        <label for="affected_assets">Betrokken assets</label>
-        {{ form.affected_assets(id='affected_assets', rows='2', class='form-control') }}
-      </div>
-    </div>
 
-    <div>
-      <label for="business_impact">Bedrijfsimpact</label>
-      {{ form.business_impact(id='business_impact', rows='3', class='form-control') }}
-    </div>
-
-    <hr class="hr-sep">
-
-    <div class="form-grid three">
-      <div>
-        <label for="faalmodus">Faalmodus (WOEF)</label>
-        {{ form.faalmodus(id='faalmodus', class='form-control') }}
+      <div class="form-group">
+        <label for="status">Status</label>
+        {{ form.status(id='status', class='form-control') }}
       </div>
-      <div>
-        <label for="control_ref">Controle-referentie</label>
-        {{ form.control_ref(id='control_ref', class='form-control', placeholder='bijv. BIO 12.4, NCSC U/WA.03') }}
-      </div>
-      <div>
-        <label for="detecteerbaarheid">Detecteerbaarheid</label>
-        {{ form.detecteerbaarheid(id='detecteerbaarheid', class='form-control') }}
-      </div>
-    </div>
-    <div>
-      <label for="detectie_notitie">Detectie toelichting</label>
-      {{ form.detectie_notitie(id='detectie_notitie', rows='2', class='form-control', placeholder='Kon de SOC/SIEM dit detecteren? Welke logs zouden het hebben laten zien?') }}
-    </div>
 
-    <hr class="hr-sep">
+      <label class="label-check mt-4" data-advanced-toggle>
+        <input type="checkbox" id="advanced-mode-toggle" />
+        Geavanceerd
+      </label>
 
-    <div class="form-grid three">
-      <div>
-        <label for="kans">Kans (risicomatrix)</label>
-        {{ form.kans(id='kans', class='form-control') }}
-      </div>
-      <div>
-        <label for="impact_niveau">Impact niveau (risicomatrix)</label>
-        {{ form.impact_niveau(id='impact_niveau', class='form-control') }}
-      </div>
-    </div>
+      <div data-advanced-fields>
+        <div class="form-grid three">
+          <div>
+            <label for="remediation_status">Herstelstatus</label>
+            {{ form.remediation_status(id='remediation_status', class='form-control') }}
+          </div>
+          <div>
+            <label for="remediation_target_date">Doeldatum</label>
+            {{ form.remediation_target_date(id='remediation_target_date', class='form-control') }}
+          </div>
+          <div>
+            <label for="remediation_owner">Herstelverantwoordelijke</label>
+            {{ form.remediation_owner(id='remediation_owner', class='form-control') }}
+          </div>
+          <div>
+            <label for="tester">Vastgesteld door (tester)</label>
+            {{ form.tester(id='tester', class='form-control', placeholder='Naam/initialen tester voor traceerbaarheid') }}
+          </div>
+        </div>
 
-    <hr class="hr-sep">
+        <div class="form-grid three">
+          <div>
+            <label for="data_classification">Gegevensclassificatie</label>
+            {{ form.data_classification(id='data_classification', class='form-control') }}
+          </div>
+          <div>
+            <label for="remediation_effort">Herstelinspanning</label>
+            {{ form.remediation_effort(id='remediation_effort', class='form-control') }}
+          </div>
+          <div>
+            <label for="affected_assets">Betrokken assets</label>
+            {{ form.affected_assets(id='affected_assets', rows='2', class='form-control') }}
+          </div>
+        </div>
 
-    <div class="form-grid three">
-      <div>
-        <label for="retest_status">Retest status</label>
-        {{ form.retest_status(id='retest_status', class='form-control') }}
-      </div>
-      <div>
-        <label for="retest_date">Retest datum</label>
-        {{ form.retest_date(id='retest_date', class='form-control') }}
+        <div>
+          <label for="business_impact">Bedrijfsimpact</label>
+          {{ form.business_impact(id='business_impact', rows='3', class='form-control') }}
+        </div>
+
+        <hr class="hr-sep">
+
+        <div class="form-grid three">
+          <div>
+            <label for="faalmodus">Faalmodus (WOEF)</label>
+            {{ form.faalmodus(id='faalmodus', class='form-control') }}
+          </div>
+          <div>
+            <label for="control_ref">Controle-referentie</label>
+            {{ form.control_ref(id='control_ref', class='form-control', placeholder='bijv. BIO 12.4, NCSC U/WA.03') }}
+          </div>
+          <div>
+            <label for="detecteerbaarheid">Detecteerbaarheid</label>
+            {{ form.detecteerbaarheid(id='detecteerbaarheid', class='form-control') }}
+          </div>
+        </div>
+        <div>
+          <label for="detectie_notitie">Detectie toelichting</label>
+          {{ form.detectie_notitie(id='detectie_notitie', rows='2', class='form-control', placeholder='Kon de SOC/SIEM dit detecteren? Welke logs zouden het hebben laten zien?') }}
+        </div>
+
+        <hr class="hr-sep">
+
+        <div class="form-grid three">
+          <div>
+            <label for="kans">Kans (risicomatrix)</label>
+            {{ form.kans(id='kans', class='form-control') }}
+          </div>
+          <div>
+            <label for="impact_niveau">Impact niveau (risicomatrix)</label>
+            {{ form.impact_niveau(id='impact_niveau', class='form-control') }}
+          </div>
+        </div>
+
+        <hr class="hr-sep">
+
+        <div class="form-grid three">
+          <div>
+            <label for="retest_status">Retest status</label>
+            {{ form.retest_status(id='retest_status', class='form-control') }}
+          </div>
+          <div>
+            <label for="retest_date">Retest datum</label>
+            {{ form.retest_date(id='retest_date', class='form-control') }}
+          </div>
+        </div>
+        <div>
+          <label for="retest_notes">Retest notities</label>
+          {{ form.retest_notes(id='retest_notes', rows='3', class='form-control', placeholder='Bevindingen uit de retest, wie heeft getest, welke versie...') }}
+        </div>
       </div>
     </div>
-    <div>
-      <label for="retest_notes">Retest notities</label>
-      {{ form.retest_notes(id='retest_notes', rows='3', class='form-control', placeholder='Bevindingen uit de retest, wie heeft getest, welke versie...') }}
+
+    {# Tab 2: Uitwerking van de bevinding #}
+    <div class="ftab-panel" data-ftab-panel="uitwerking">
+      <div>
+        <label for="uitwerken">Werk de bevinding uit</label>
+        <div data-latex-toolbar="uitwerken" data-mode="finding" data-project-images-url="/api/screenshots"></div>
+        {{ form.uitwerken(id='uitwerken', rows='14', class='form-control') }}
+      </div>
     </div>
-  </div>
 
-  <div>
-    <label for="invoegen">Hoe kwam de bevinding tot stand?</label>
-    {{ form.invoegen(id='invoegen', rows='5', class='form-control') }}
-  </div>
+    {# Tab 3: Gekoppelde standaardbevinding (template) + per-bevinding overrides #}
+    <div class="ftab-panel" data-ftab-panel="standaard">
+      <div class="template-link" data-template-link>
+        <label>Gekoppelde standaardbevinding</label>
+        <div class="d-flex gap-8 items-center flex-wrap">
+          <span class="template-current" data-tpl-current>Geen standaardbevinding gekoppeld</span>
+          <button type="button" class="btn btn-sm" data-tpl-unlink hidden>Ontkoppelen</button>
+        </div>
+        <input type="text" class="form-control mt-4" data-tpl-search autocomplete="off"
+               placeholder="Zoek standaardbevinding (titel, CWE, OWASP, NCSC)..." />
+        <div class="tpl-results" data-tpl-results hidden></div>
+        <span class="help" data-tpl-help hidden>Standaardtekst uit de template wordt hieronder grijs getoond; typ om af te wijken. Gebruik "Bewerk vanaf template" om de tekst over te nemen en aan te passen.</span>
+      </div>
 
-  <div>
-    <label for="uitwerken">Werk de bevinding uit</label>
-    <div data-latex-toolbar="uitwerken" data-mode="finding" data-project-images-url="/api/screenshots"></div>
-    {{ form.uitwerken(id='uitwerken', rows='10', class='form-control') }}
+      <div class="form-grid override-grid">
+        <div class="ov-field" data-ov="beschrijving_override" data-ov-key="beschrijving">
+          <div class="ov-head">
+            <label for="beschrijving_override">Beschrijving aanpassen (override)</label>
+            <span class="ov-badge" data-ov-badge>Standaard</span>
+            <span class="ov-actions">
+              <button type="button" class="btn btn-sm" data-ov-fill hidden>Bewerk vanaf template</button>
+              <button type="button" class="btn btn-sm" data-ov-reset hidden>Reset</button>
+            </span>
+          </div>
+          {{ form.beschrijving_override(id='beschrijving_override', rows='3', class='form-control', placeholder='Leeg = standaardtekst van de template') }}
+        </div>
+        <div class="ov-field" data-ov="impact_override" data-ov-key="impact">
+          <div class="ov-head">
+            <label for="impact_override">Impact aanpassen (override)</label>
+            <span class="ov-badge" data-ov-badge>Standaard</span>
+            <span class="ov-actions">
+              <button type="button" class="btn btn-sm" data-ov-fill hidden>Bewerk vanaf template</button>
+              <button type="button" class="btn btn-sm" data-ov-reset hidden>Reset</button>
+            </span>
+          </div>
+          {{ form.impact_override(id='impact_override', rows='3', class='form-control', placeholder='Leeg = standaardtekst van de template') }}
+        </div>
+        <div class="ov-field" data-ov="aanbeveling_override" data-ov-key="aanbeveling">
+          <div class="ov-head">
+            <label for="aanbeveling_override">Aanbeveling aanpassen (override)</label>
+            <span class="ov-badge" data-ov-badge>Standaard</span>
+            <span class="ov-actions">
+              <button type="button" class="btn btn-sm" data-ov-fill hidden>Bewerk vanaf template</button>
+              <button type="button" class="btn btn-sm" data-ov-reset hidden>Reset</button>
+            </span>
+          </div>
+          {{ form.aanbeveling_override(id='aanbeveling_override', rows='3', class='form-control', placeholder='Leeg = standaardtekst van de template') }}
+        </div>
+        <div class="ov-field" data-ov="impact_kort_override" data-ov-key="impact_kort">
+          <div class="ov-head">
+            <label for="impact_kort_override">Korte impact — managementsamenvatting (override)</label>
+            <span class="ov-badge" data-ov-badge>Standaard</span>
+            <span class="ov-actions">
+              <button type="button" class="btn btn-sm" data-ov-fill hidden>Bewerk vanaf template</button>
+              <button type="button" class="btn btn-sm" data-ov-reset hidden>Reset</button>
+            </span>
+          </div>
+          {{ form.impact_kort_override(id='impact_kort_override', rows='2', class='form-control', placeholder='Leeg = korte standaardtekst van de template') }}
+        </div>
+        <div class="ov-field" data-ov="aanbeveling_kort_override" data-ov-key="aanbeveling_kort">
+          <div class="ov-head">
+            <label for="aanbeveling_kort_override">Korte aanbeveling — managementsamenvatting (override)</label>
+            <span class="ov-badge" data-ov-badge>Standaard</span>
+            <span class="ov-actions">
+              <button type="button" class="btn btn-sm" data-ov-fill hidden>Bewerk vanaf template</button>
+              <button type="button" class="btn btn-sm" data-ov-reset hidden>Reset</button>
+            </span>
+          </div>
+          {{ form.aanbeveling_kort_override(id='aanbeveling_kort_override', rows='2', class='form-control', placeholder='Leeg = korte standaardtekst van de template') }}
+        </div>
+      </div>
+    </div>
   </div>
 
   <div class="form-actions">

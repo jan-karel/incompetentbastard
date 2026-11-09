@@ -267,7 +267,7 @@
       g.appendChild(tag);
       // Severity-stip rechtsboven
       if (n.max_severity) {
-        var SEV = {critical:"#820000", high:"#e60000", medium:"#f09600", low:"#ffdc00", none:"#00be00"};
+        var SEV = {critical:"#800080", high:"#e60000", medium:"#f09600", low:"#ffdc00", none:"#5bc0de"};
         g.appendChild(svgEl("circle", {cx: c.x + NODE_W - 10, cy: c.y + 10, r: 5,
           fill: SEV[n.max_severity] || "#999", stroke: "#fff", "stroke-width": 1}));
       }

@@ -13,3 +13,15 @@
 .relation-delete{margin-left:6px;border:none;background:none;cursor:pointer;color:#ef4444;font-size:14px;padding:0;line-height:1}
 .relation-delete:hover{color:#dc2626}
 .evidence-meta{font-size:11px;color:var(--text-muted,#888);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:center}
+.evidence-hash{font-size:10px;color:var(--text-muted,#888);font-family:monospace;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:center;cursor:help}
+.evidence-hash-ok{color:#16a34a}
+.evidence-hash-bad{color:#dc2626;font-weight:600}
+.evidence-verify{font-size:10px;padding:1px 6px;margin-top:2px}
+
+/* Slepen & neerzetten: highlight de bewijs-kaart tijdens drag-over */
+#evidence-card.evidence-dropping{
+  outline:2px dashed var(--accent,#3b82f6);
+  outline-offset:-4px;
+  background:var(--surface-2,#f3f4f6);
+}
+#evidence-card{ outline:none; }

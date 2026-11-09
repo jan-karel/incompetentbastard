@@ -18,8 +18,66 @@
 \usepackage{fancyhdr}
 \usepackage{array}
 \usepackage{longtable}
+\usepackage{tabularx}
+\usepackage{xltabular}% longtable met X-kolommen: volle breedte + nette paginavervolg
+\usepackage{tikz}% CIA-triade radar/driehoek, grafieken
+\usetikzlibrary{positioning,arrows.meta}
+% Grafiekkleuren (HTML-hex, consistent met de preview).
+\definecolor{cgreen}{HTML}{22C55E}
+\definecolor{camber}{HTML}{F59E0B}
+\definecolor{cred}{HTML}{EF4444}
+\definecolor{cblue}{HTML}{3B82F6}
+\definecolor{cgray}{HTML}{94A3B8}
 \usepackage{booktabs}
+% Vervolg-voet voor tabellen die over meerdere pagina's lopen.
+[% if taal == 'en' %]\newcommand{\ibcontinued}{Continued on next page}[% else %]\newcommand{\ibcontinued}{Vervolg op de volgende pagina}[% endif %]
+\newcommand{\ibvervolg}[1]{\hline\multicolumn{#1}{r}{\footnotesize\itshape\ibcontinued}\\}
+% Halfronde risicometer (gauge): #1=naaldhoek(graden), #2=centrale tekst, #3=label, #4=bijschrift
+\newcommand{\ibgauge}[4]{%
+  \begin{center}
+  \begin{tikzpicture}[scale=0.95]
+    \draw[line width=6pt,green!60!black] (180:2) arc (180:135:2);
+    \draw[line width=6pt,yellow!85!black] (135:2) arc (135:90:2);
+    \draw[line width=6pt,orange] (90:2) arc (90:45:2);
+    \draw[line width=6pt,red!80!black] (45:2) arc (45:0:2);
+    \draw[line width=1.3pt] (0,0) -- (#1:1.65);
+    \fill (0,0) circle (2.3pt);
+    \node[below=4pt] at (0,0) {\textbf{#2} --- #3};
+    \node[font=\footnotesize,below=1.2em] at (0,0) {#4};
+  \end{tikzpicture}
+  \end{center}%
+}
 \usepackage{ifthen}
+\usepackage{soul}
+\usepackage{listings}
+% Courier-lettertype voor code/commando's (met fallback als het niet bestaat)
+\IfFontExistsTF{Courier New}%
+  {\newfontfamily\couriermono{Courier New}}%
+  {\IfFontExistsTF{Courier}%
+    {\newfontfamily\couriermono{Courier}}%
+    {\providecommand{\couriermono}{\ttfamily}}}
+\definecolor{codebg}{gray}{0.95}
+\lstset{
+  basicstyle=\footnotesize\couriermono,
+  backgroundcolor=\color{codebg},
+  frame=none,
+  framexleftmargin=6pt,
+  framexrightmargin=6pt,
+  xleftmargin=6pt,
+  xrightmargin=6pt,
+  breaklines=true,
+  breakatwhitespace=false,
+  columns=fullflexible,
+  keepspaces=true,
+  tabsize=2,
+  escapechar=§,
+  captionpos=b,
+  abovecaptionskip=2pt,
+  aboveskip=8pt,
+  belowskip=10pt,
+  showstringspaces=false,
+}
+\providecommand{\opdracht}[1]{`{\couriermono\textcolor{darkgray}{#1}}'}
 
 % Rapport package (bevindingen met CVSS-kleuren)
 \usepackage{opmaak/packages/rapport}
@@ -38,6 +96,11 @@
 \hypersetup{
   pdftitle={\rapporttitel},
   pdfauthor={\rapportauteur},
+  pdfsubject={[% if taal == 'en' %]Security assessment report[% else %]Beveiligingsonderzoek-rapportage[% endif %] --- \rapportclassificatie},
+  pdfkeywords={[% if taal == 'en' %]penetration test, security assessment, CVSS, findings[% else %]penetratietest, beveiligingsonderzoek, CVSS, bevindingen[% endif %], \rapportclassificatie},
+  pdfcreator={Incompetent Bastard rapportgenerator},
+  pdflang={[% if taal == 'en' %]en[% else %]nl[% endif %]},
+  pdfdisplaydoctitle=true,
 }
 
 % -------------------------------------------------- %
@@ -59,6 +122,76 @@
 % Document                                           %
 % -------------------------------------------------- %
 \begin{document}
+[# --- Herbruikbare TikZ-grafiekmacro's (Jinja) --- #]
+[% macro hbarchart(items, unit) %]
+\begin{center}
+\begin{tikzpicture}[y=-0.72cm]
+[% set vmax = (items|map(attribute='value')|max) or 1 %]
+[% for it in items %]
+  \node[left,font=\small] at (0,[[ loop.index0 ]]) {[[ it.label | latex_escape ]]};
+  \fill[{[[ it.color ]]}] (0.15,[[ loop.index0 ]]-0.26) rectangle ({0.15+[[ it.value ]]/[[ vmax ]]*6},[[ loop.index0 ]]+0.26);
+  \node[right,font=\small] at ({0.2+[[ it.value ]]/[[ vmax ]]*6},[[ loop.index0 ]]) {[[ it.value ]][% if unit %] [[ unit ]][% endif %]};
+[% endfor %]
+\end{tikzpicture}
+\end{center}
+[% endmacro %]
+[% macro stackbar(items) %]
+[% set tot = (items|sum(attribute='value')) or 1 %]
+[% set ns = namespace(acc=0.0) %]
+\resizebox{\linewidth}{!}{%
+\begin{tikzpicture}[x=1cm,y=1cm]
+[% for it in items %]
+[% if it.value > 0 %]
+  \fill[{[[ it.color ]]}] ([[ ns.acc/tot*12 ]],0) rectangle ([[ (ns.acc+it.value)/tot*12 ]],0.7);
+  \node[white,font=\scriptsize] at ([[ (ns.acc+it.value*0.5)/tot*12 ]],0.35) {[[ it.value ]]};
+[% set ns.acc = ns.acc + it.value %]
+[% endif %]
+[% endfor %]
+  \draw (0,0) rectangle (12,0.7);
+\end{tikzpicture}}
+\par\vspace{2pt}
+{\scriptsize [% for it in items %][% if it.value > 0 %]\textcolor{[[ it.color ]]}{\rule{1.4ex}{1.4ex}}~[[ it.label | latex_escape ]] ([[ it.value ]])\quad[% endif %][% endfor %]}
+[% endmacro %]
+[% macro piechart(slices) %]
+\resizebox{\linewidth}{!}{%
+\begin{tikzpicture}
+[% for s in slices %]
+  \fill[{[[ s.color ]]}] (0,0) -- ([[ s.a0 ]]:2) arc ([[ s.a0 ]]:[[ s.a1 ]]:2) -- cycle;
+[% endfor %]
+  \fill[white] (0,0) circle (1);
+[% for s in slices %]
+  \draw[white,line width=1.2pt] (0,0) -- ([[ s.a0 ]]:2);
+[% endfor %]
+\end{tikzpicture}}
+\par\vspace{2pt}
+{\scriptsize [% for s in slices %]\textcolor{[[ s.color ]]}{\rule{1.4ex}{1.4ex}}~[[ s.label | latex_escape ]] ([[ s.count ]])\quad[% endfor %]}
+[% endmacro %]
+[% macro histchart(hist, label) %]
+\resizebox{\linewidth}{!}{%
+\begin{tikzpicture}[x=0.9cm,y=1cm]
+[% set hmax = hist.max or 1 %]
+[% for b in hist.bins %]
+[% if b.count > 0 %]
+  \fill[cblue] ([[ b.x + 0.12 ]],0) rectangle ([[ b.x + 0.88 ]],{[[ b.count ]]/[[ hmax ]]*3.0});
+  \node[above,font=\tiny] at ([[ b.x + 0.5 ]],{[[ b.count ]]/[[ hmax ]]*3.0}) {[[ b.count ]]};
+[% endif %]
+  \node[below,font=\tiny] at ([[ b.x + 0.5 ]],0) {[[ b.x ]]};
+[% endfor %]
+  \draw[gray] (0,0) -- (10,0);
+  \node[below=1.2em,font=\small] at (5,0) {[[ label | latex_escape ]]};
+\end{tikzpicture}}
+[% endmacro %]
+[% macro slagantt(rows) %]
+\begin{center}
+\begin{tikzpicture}[y=-0.52cm,x=1cm]
+[% for r in rows %]
+  \node[left,font=\scriptsize] at (0,[[ loop.index0 ]]) {[[ r.id ]]};
+  \fill[{[[ r.color ]]}] (0.1,[[ loop.index0 ]]-0.2) rectangle ({0.1+ln([[ r.days ]]+1)/ln(366)*10},[[ loop.index0 ]]+0.2);
+  \node[right,font=\scriptsize] at ({0.2+ln([[ r.days ]]+1)/ln(366)*10},[[ loop.index0 ]]) {[[ r.sla | latex_escape ]]};
+[% endfor %]
+\end{tikzpicture}
+\end{center}
+[% endmacro %]
 
 % --- Voorblad ---
 \begin{titlepage}
@@ -88,6 +221,76 @@
   {\small Classificatie: \textcolor{\rapporttlpkleur}{\rapportclassificatie} \par}
   [% endif %]
 \end{titlepage}
+
+% --- Colofon ---
+\clearpage
+[% if taal == 'en' %]
+\section*{Colophon}
+[% else %]
+\section*{Colofon}
+[% endif %]
+\renewcommand{\arraystretch}{1.35}
+\begin{tabular}{@{}p{4.2cm}p{10cm}@{}}
+  [% if taal == 'en' %]\textbf{Title}[% else %]\textbf{Titel}[% endif %] & \rapporttitel \\
+  [% if subtitel %][% if taal == 'en' %]\textbf{Subtitle}[% else %]\textbf{Subtitel}[% endif %] & \rapportsubtitel \\[% endif %]
+  [% if rapport_versie %][% if taal == 'en' %]\textbf{Version}[% else %]\textbf{Versie}[% endif %] & [[ rapport_versie ]] \\[% endif %]
+  [% if taal == 'en' %]\textbf{Status}[% else %]\textbf{Status}[% endif %] & [% if rapport_versie_status == 'definitief' or rapport_versie_status == 'final' %][% if taal == 'en' %]Final[% else %]Definitief[% endif %][% elif rapport_versie_status == 'review' %][% if taal == 'en' %]Under review[% else %]Ter review[% endif %][% else %][% if taal == 'en' %]Draft[% else %]Concept[% endif %][% endif %] \\
+  [% if taal == 'en' %]\textbf{Date}[% else %]\textbf{Datum}[% endif %] & \rapportdatum \\
+  [% if taal == 'en' %]\textbf{Classification}[% else %]\textbf{Classificatie}[% endif %] & \textcolor{\rapporttlpkleur}{\rapportclassificatie} \\
+  [% if project %][% if taal == 'en' %]\textbf{Client}[% else %]\textbf{Opdrachtgever}[% endif %] & \rapportproject \\[% endif %]
+  [% if taal == 'en' %]\textbf{Author}[% else %]\textbf{Opsteller}[% endif %] & \rapportauteur \\
+  [% if taal == 'en' %]\textbf{Assessment type}[% else %]\textbf{Type onderzoek}[% endif %] & [% if testtype == 'redteam' %]Red team assessment[% else %][% if taal == 'en' %]Penetration test[% else %]Penetratietest[% endif %][% endif %][% if testscope %] ([[ testscope | latex_escape ]])[% endif %] \\
+  [% if rapport_omgeving %][% if taal == 'en' %]\textbf{Environment}[% else %]\textbf{Omgeving}[% endif %] & [[ rapport_omgeving ]] \\[% endif %]
+  [% if test_start or test_end %][% if taal == 'en' %]\textbf{Test period}[% else %]\textbf{Testperiode}[% endif %] & [[ test_start or '?' ]] -- [[ test_end or '?' ]] \\[% endif %]
+  [% if rapport_contact %]\textbf{Contact} & [[ rapport_contact ]] \\[% endif %]
+\end{tabular}
+\renewcommand{\arraystretch}{1.0}
+
+\vspace{1.2cm}
+\noindent{\itshape\small
+[% if taal == 'en' %]
+This document is classified \rapportclassificatie{} and is intended solely for the client named above. Distribution to third parties is only permitted with prior written consent.
+[% else %]
+Dit document is geclassificeerd als \rapportclassificatie{} en is uitsluitend bedoeld voor de hierboven genoemde opdrachtgever. Verspreiding aan derden is alleen toegestaan na voorafgaande schriftelijke toestemming.
+[% endif %]
+}
+
+[% if rapport_revisies %]
+\vspace{1cm}
+[% if taal == 'en' %]
+\subsection*{Revision history}
+[% else %]
+\subsection*{Revisiehistorie}
+[% endif %]
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{@{}p{1.8cm}p{2.6cm}p{3.2cm}p{5.6cm}@{}}
+  [% if taal == 'en' %]\textbf{Version} & \textbf{Date} & \textbf{Author} & \textbf{Change}[% else %]\textbf{Versie} & \textbf{Datum} & \textbf{Auteur} & \textbf{Wijziging}[% endif %] \\
+  \hline
+[% for rv in rapport_revisies %]
+  [[ rv.versie | latex_escape ]] & [[ rv.datum | latex_escape ]] & [[ rv.auteur | latex_escape ]] & [[ rv.wijziging | latex_escape ]] \\
+[% endfor %]
+\end{tabular}
+\renewcommand{\arraystretch}{1.0}
+[% endif %]
+
+[% if rapport_distributie %]
+\vspace{1cm}
+[% if taal == 'en' %]
+\subsection*{Distribution}
+[% else %]
+\subsection*{Distributie}
+[% endif %]
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{@{}p{3.6cm}p{3.6cm}p{3.6cm}p{2.4cm}@{}}
+  [% if taal == 'en' %]\textbf{Name} & \textbf{Organisation} & \textbf{Role} & \textbf{Version}[% else %]\textbf{Naam} & \textbf{Organisatie} & \textbf{Rol} & \textbf{Versie}[% endif %] \\
+  \hline
+[% for d in rapport_distributie %]
+  [[ d.naam | latex_escape ]] & [[ d.organisatie | latex_escape ]] & [[ d.rol | latex_escape ]] & [[ d.versie | latex_escape ]] \\
+[% endfor %]
+\end{tabular}
+\renewcommand{\arraystretch}{1.0}
+[% endif %]
+\clearpage
 
 % --- Inhoudsopgave ---
 \tableofcontents
@@ -159,6 +362,24 @@ De volgende systemen zijn onderdeel van de test:
 [% endif %]
 
 [[ management_samenvatting ]]
+
+[% if algeheel_beeld %]
+[% if taal == 'en' %]
+\subsection*{Overall assessment}
+[% else %]
+\subsection*{Algeheel beeld}
+[% endif %]
+[[ algeheel_beeld ]]
+[% endif %]
+
+[% if sections.top_risk_gauge and top_risk_gauge %]
+[% if taal == 'en' %]\subsection*{Highest risk}[% else %]\subsection*{Hoogste risico}[% endif %]
+\ibgauge{[[ top_risk_gauge['gauge_angle'] ]]}{[[ top_risk_gauge['score'] ]]}{[[ top_risk_gauge['label'] | latex_escape ]]}{[% if taal == 'en' %]Highest CVSS base score[% else %]Hoogste CVSS-basescore[% endif %][% if top_risk_gauge['nr'] %] --- [[ top_risk_gauge['nr'] ]] [[ top_risk_gauge['titel'] | latex_escape ]][% endif %]}
+[% endif %]
+
+[[ key_findings_tex ]]
+
+[[ digid_knockout_tex ]]
 
 [% endif %]
 [% if sections.methodologie %]
@@ -364,11 +585,11 @@ The severity of findings is determined using the CVSS 4.0 framework
   \hline
   \textbf{Classification} & \textbf{CVSS Score} & \textbf{Colour} \\
   \hline
-  Critical & 9.0 -- 10.0 & \textcolor{odarkred}{Dark red} \\
+  Critical & 9.0 -- 10.0 & \textcolor{opaars}{Purple} \\
   High & 7.0 -- 8.9 & \textcolor{ored}{Red} \\
   Medium & 4.0 -- 6.9 & \textcolor{oorange}{Orange} \\
   Low & 0.1 -- 3.9 & \textcolor{oyellow}{Yellow} \\
-  Informational & 0.0 & \textcolor{ogreen}{Green} \\
+  Informational & 0.0 & \textcolor{olichtblauw}{Light blue} \\
   \hline
 \end{tabular}
 \end{center}
@@ -383,11 +604,11 @@ De ernst van bevindingen wordt bepaald aan de hand van het CVSS 4.0 framework
   \hline
   \textbf{Classificatie} & \textbf{CVSS Score} & \textbf{Kleur} \\
   \hline
-  Kritiek & 9.0 -- 10.0 & \textcolor{odarkred}{Donkerrood} \\
+  Kritiek & 9.0 -- 10.0 & \textcolor{opaars}{Paars} \\
   Hoog & 7.0 -- 8.9 & \textcolor{ored}{Rood} \\
   Midden & 4.0 -- 6.9 & \textcolor{oorange}{Oranje} \\
   Laag & 0.1 -- 3.9 & \textcolor{oyellow}{Geel} \\
-  Nihil & 0.0 & \textcolor{ogreen}{Groen} \\
+  Nihil & 0.0 & \textcolor{olichtblauw}{Lichtblauw} \\
   \hline
 \end{tabular}
 \end{center}
@@ -401,17 +622,19 @@ De ernst van bevindingen wordt bepaald aan de hand van het CVSS 4.0 framework
 [% endif %]
 
 \begin{center}
-\renewcommand{\arraystretch}{1.6}
-\begin{tabular}{|c|c|c|c|c|c|}
-  \hline
-  [% if taal == 'en' %]\textbf{Lik.\textbackslash Imp.}[% else %]\textbf{Kans\textbackslash Imp.}[% endif %] & \textbf{1} & \textbf{2} & \textbf{3} & \textbf{4} & \textbf{5} \\
-  \hline
+\begin{tikzpicture}[x=1.25cm,y=1.25cm]
 [% for row in heatmap_rows %]
-  \textbf{[[ row.kans ]]} [% for cell in row.cells %]& \cellcolor{[[ cell.color ]]}\textcolor{white}{\small [[ cell.ids ]]} [% endfor %]\\
-  \hline
+[% for cell in row.cells %]
+  \fill[{[[ cell.color ]]}] ([[ loop.index - 0.5 ]],[[ (row.kans|int) - 0.5 ]]) rectangle ([[ loop.index + 0.5 ]],[[ (row.kans|int) + 0.5 ]]);
+  \draw[white,line width=1.2pt] ([[ loop.index - 0.5 ]],[[ (row.kans|int) - 0.5 ]]) rectangle ([[ loop.index + 0.5 ]],[[ (row.kans|int) + 0.5 ]]);
+[% if cell.id_list %]  \node[font=\tiny,align=center,text width=1.15cm] at ([[ loop.index ]],[[ row.kans|int ]]) {[% for bid in cell.id_list %][% if not loop.first %], [% endif %]\hyperref[bev:[[ bid ]]]{\textcolor{white}{[[ bid ]]}}[% endfor %]};
+[% endif %]
 [% endfor %]
-\end{tabular}
-\renewcommand{\arraystretch}{1.0}
+[% endfor %]
+  \foreach \i in {1,...,5} { \node[below,font=\small] at (\i,0.4) {\i}; \node[left,font=\small] at (0.4,\i) {\i}; }
+  \node[below=1.5em,font=\small] at (3,0.4) {Impact};
+  \node[rotate=90,anchor=south,font=\small] at (-0.15,3) {[% if taal == 'en' %]Likelihood[% else %]Kans[% endif %]};
+\end{tikzpicture}
 \end{center}
 [% endif %]
 [% endif %]
@@ -428,11 +651,11 @@ A total of \textbf{[[ findings|length ]]} findings were identified:
   \hline
   \textbf{Classification} & \textbf{Count} \\
   \hline
-  \textcolor{odarkred}{Critical} & [[ counts.critical ]] \\
+  \textcolor{opaars}{Critical} & [[ counts.critical ]] \\
   \textcolor{ored}{High} & [[ counts.high ]] \\
   \textcolor{oorange}{Medium} & [[ counts.medium ]] \\
   \textcolor{oyellow}{Low} & [[ counts.low ]] \\
-  \textcolor{ogreen}{Informational} & [[ counts.none ]] \\
+  \textcolor{olichtblauw}{Informational} & [[ counts.none ]] \\
   \hline
   \textbf{Total} & \textbf{[[ findings|length ]]} \\
   \hline
@@ -448,17 +671,74 @@ In totaal zijn \textbf{[[ findings|length ]]} bevindingen geidentificeerd:
   \hline
   \textbf{Classificatie} & \textbf{Aantal} \\
   \hline
-  \textcolor{odarkred}{Kritiek} & [[ counts.critical ]] \\
+  \textcolor{opaars}{Kritiek} & [[ counts.critical ]] \\
   \textcolor{ored}{Hoog} & [[ counts.high ]] \\
   \textcolor{oorange}{Midden} & [[ counts.medium ]] \\
   \textcolor{oyellow}{Laag} & [[ counts.low ]] \\
-  \textcolor{ogreen}{Nihil} & [[ counts.none ]] \\
+  \textcolor{olichtblauw}{Nihil} & [[ counts.none ]] \\
   \hline
   \textbf{Totaal} & \textbf{[[ findings|length ]]} \\
   \hline
 \end{tabular}
 \end{center}
 [% endif %]
+
+[% set _hp = sev_pie %]
+[% set _hh = cvss_hist and cvss_hist.max > 0 %]
+[% set _hr = remediation_bar and (remediation_bar|sum(attribute='value')) > 0 %]
+[% if _hp or _hh or _hr %]
+\begin{center}
+% Koprij: titels op een gelijke lijn boven hun kolom
+\noindent
+[% if _hp -%]
+\makebox[0.31\textwidth][c]{[% if taal == 'en' %]\textbf{Severity Distribution}[% else %]\textbf{Verdeling naar ernst}[% endif %]}[% if _hh or _hr %]\hfill[% endif %]
+[%- endif %]
+[% if _hh -%]
+\makebox[0.31\textwidth][c]{[% if taal == 'en' %]\textbf{CVSS Score Distribution}[% else %]\textbf{CVSS-scoreverdeling}[% endif %]}[% if _hr %]\hfill[% endif %]
+[%- endif %]
+[% if _hr -%]
+\makebox[0.31\textwidth][c]{[% if taal == 'en' %]\textbf{Remediation Status}[% else %]\textbf{Remediation-status}[% endif %]}
+[%- endif %]
+\par\vspace{6pt}
+% Chartrij: afbeeldingen verticaal gecentreerd t.o.v. elkaar
+\noindent
+[% if _hp -%]
+\begin{minipage}[c]{0.31\textwidth}\centering [[ piechart(sev_pie) ]]\end{minipage}[% if _hh or _hr %]\hfill[% endif %]
+[%- endif %]
+[% if _hh -%]
+\begin{minipage}[c]{0.31\textwidth}\centering [[ histchart(cvss_hist, 'CVSS') ]]\end{minipage}[% if _hr %]\hfill[% endif %]
+[%- endif %]
+[% if _hr -%]
+\begin{minipage}[c]{0.31\textwidth}\centering [[ stackbar(remediation_bar) ]]\end{minipage}
+[%- endif %]
+\end{center}
+[% endif %]
+
+[% endif %]
+% --- Bevindingenlijst ---
+[% if sections.bevindingenlijst and bevindingenlijst_rows %]
+%SEC:bevindingenlijst%
+[% if taal == 'en' %]
+\section{Findings List}
+
+The table below lists the findings identified during this assessment.
+[% else %]
+\section{Bevindingenlijst}
+
+In de onderstaande tabel staan de bevindingen die tijdens deze test zijn aangetroffen.
+[% endif %]
+\begin{xltabular}{\textwidth}{|c|X|c|}
+  \hline
+  [% if taal == 'en' %]\textbf{ID} & \textbf{Finding} & \textbf{Risk}[% else %]\textbf{ID} & \textbf{Bevinding} & \textbf{Risico}[% endif %] \\
+  \hline
+  \endhead
+\ibvervolg{3}\endfoot
+\endlastfoot
+[% for r in bevindingenlijst_rows %]
+  \hyperref[bev:[[ r.id ]]]{[[ r.id ]]} & \hyperref[bev:[[ r.id ]]]{[[ r.titel | latex_escape ]]} & \cellcolor{[[ r.color ]]}\textbf{\textcolor{[[ r.fg ]]}{[[ r.risk ]]}} \\
+  \hline
+[% endfor %]
+\end{xltabular}
 
 [% endif %]
 % --- Oplostijden (SLA) ---
@@ -469,9 +749,9 @@ In totaal zijn \textbf{[[ findings|length ]]} bevindingen geidentificeerd:
 
 The recommended maximum remediation time is based on the risk classification of each finding.
 
-\begin{longtable}{|c|p{6cm}|c|p{3.5cm}|c|}
+\begin{xltabular}{\textwidth}{|c|X|c|p{3.5cm}|}
   \hline
-  \textbf{ID} & \textbf{Finding} & \textbf{Severity} & \textbf{Target} & \textbf{Date} \\
+  \textbf{ID} & \textbf{Finding} & \textbf{Severity} & \textbf{Target} \\
   \hline
   \endhead
 [% else %]
@@ -479,17 +759,22 @@ The recommended maximum remediation time is based on the risk classification of 
 
 De aanbevolen maximale hersteltermijn is gebaseerd op de risicoclassificatie van elke bevinding.
 
-\begin{longtable}{|c|p{6cm}|c|p{3.5cm}|c|}
+\begin{xltabular}{\textwidth}{|c|X|c|p{3.5cm}|}
   \hline
-  \textbf{ID} & \textbf{Bevinding} & \textbf{Ernst} & \textbf{Streeftermijn} & \textbf{Datum} \\
+  \textbf{ID} & \textbf{Bevinding} & \textbf{Ernst} & \textbf{Streeftermijn} \\
   \hline
   \endhead
 [% endif %]
+\ibvervolg{4}\endfoot
+\endlastfoot
 [% for r in sla_rows %]
-  [[ r.id ]] & [[ r.titel | latex_escape ]] & [[ r.severity | latex_escape ]] & [[ r.sla | latex_escape ]] & [[ r.date ]] \\
+  \hyperref[bev:[[ r.id ]]]{[[ r.id ]]} & [[ r.titel | latex_escape ]] & [[ r.severity | latex_escape ]] & [[ r.sla | latex_escape ]] \\
   \hline
 [% endfor %]
-\end{longtable}
+\end{xltabular}
+
+\subsection*{[% if taal == 'en' %]Remediation Timeline[% else %]Hersteltijdlijn[% endif %]}
+[[ slagantt(sla_rows) ]]
 [% endif %]
 
 % --- Detecteerbaarheid & SOC/CDC-aanbevelingen ---
@@ -497,18 +782,7 @@ De aanbevolen maximale hersteltermijn is gebaseerd op de risicoclassificatie van
 %SEC:detecteerbaarheid%
 [% if taal == 'en' %]
 \subsection*{Detectability \& SOC/CDC Recommendations}
-
-\begin{center}
-\begin{tabular}{|l|c|}
-  \hline
-  \textbf{Detectable} & \textbf{Count} \\
-  \hline
-  [[ detection_label['ja'] | latex_escape ]] & [[ detection_tally['ja'] ]] \\
-  [[ detection_label['deels'] | latex_escape ]] & [[ detection_tally['deels'] ]] \\
-  [[ detection_label['nee'] | latex_escape ]] & [[ detection_tally['nee'] ]] \\
-  \hline
-\end{tabular}
-\end{center}
+[[ hbarchart(detection_bar, '') ]]
 [% if detection_gaps %]
 
 The following findings were not (fully) detectable. Strengthening monitoring and detection for these is recommended:
@@ -521,18 +795,7 @@ The following findings were not (fully) detectable. Strengthening monitoring and
 [% endif %]
 [% else %]
 \subsection*{Detecteerbaarheid \& SOC/CDC-aanbevelingen}
-
-\begin{center}
-\begin{tabular}{|l|c|}
-  \hline
-  \textbf{Detecteerbaar} & \textbf{Aantal} \\
-  \hline
-  [[ detection_label['ja'] | latex_escape ]] & [[ detection_tally['ja'] ]] \\
-  [[ detection_label['deels'] | latex_escape ]] & [[ detection_tally['deels'] ]] \\
-  [[ detection_label['nee'] | latex_escape ]] & [[ detection_tally['nee'] ]] \\
-  \hline
-\end{tabular}
-\end{center}
+[[ hbarchart(detection_bar, '') ]]
 [% if detection_gaps %]
 
 De volgende bevindingen waren niet (volledig) detecteerbaar. Versterking van monitoring en detectie hiervoor wordt aanbevolen:
@@ -560,7 +823,7 @@ De volgende bevindingen waren niet (volledig) detecteerbaar. Versterking van mon
 [% for note in notes %]
 \subsection{[[ note.naam | latex_escape ]]}
 
-[[ note.uitwerken | latex_escape ]]
+[% if note.latex_raw %][[ note.uitwerken ]][% else %][[ note.uitwerken | latex_escape ]][% endif %]
 
 [% endfor %]
 \newpage
@@ -584,12 +847,30 @@ De volgende bevindingen waren niet (volledig) detecteerbaar. Versterking van mon
 [% endif %]
 
 [% for item in group %]
-\ibfinding{[[ item.id ]]}%
+\ibfindinghead{[[ '%03d' | format(item.nr) ]]}%
   {[[ item.titel | latex_escape ]]}%
   {[[ item.basescore ]]}%
-  {[[ item.beschrijving | latex_escape ]]}%
-  {[[ item.impact | latex_escape ]]}%
-  {[[ item.aanbeveling | latex_escape ]]}
+  {[[ (item.owasp or '—') | latex_escape ]]}%
+  {[[ (('CWE-' ~ item.cwe) if item.cwe else '—') | latex_escape ]]}
+
+\noindent [[ item.beschrijving | latex_markup ]]
+[% if item.evidence_tex %]
+[[ item.evidence_tex ]]
+[% endif %]
+[% if item.uitwerking_detail %]
+
+\noindent [[ item.uitwerking_detail | latex_markup ]]
+[% endif %]
+
+\ibfindingsection{Impact}
+\noindent [[ item.impact | latex_markup ]]
+
+[% if taal == 'en' %]
+\ibfindingsection{Recommendation}
+[% else %]
+\ibfindingsection{Aanbeveling}
+[% endif %]
+\noindent [[ item.aanbeveling | latex_markup ]]
 
 [% if item.locatie %]
 [% if taal == 'en' %]
@@ -599,20 +880,22 @@ De volgende bevindingen waren niet (volledig) detecteerbaar. Versterking van mon
 [% endif %]
 \vspace{0.3em}
 [% endif %]
+[% if item.tester %]
+[% if taal == 'en' %]
+\noindent\textbf{Tested by:} [[ item.tester | latex_escape ]]
+[% else %]
+\noindent\textbf{Vastgesteld door:} [[ item.tester | latex_escape ]]
+[% endif %]
+\vspace{0.3em}
+[% endif %]
 
 [% if item.assets %]
 \noindent\textbf{[% if taal == 'en' %]Affected assets:[% else %]Getroffen assets:[% endif %]} [[ item.assets | map(attribute='waarde') | join(', ') | latex_escape ]]
 \vspace{0.3em}
 [% endif %]
 
-[% if item.owasp %]
-\noindent\textbf{OWASP:} [[ item.owasp | latex_escape ]] \quad
-[% endif %]
-[% if item.cwe %]
-\textbf{CWE:} [[ item.cwe | latex_escape ]] \quad
-[% endif %]
 [% if item.cvss_vector %]
-\textbf{CVSS Vector:} \texttt{\small [[ item.cvss_vector | latex_escape ]]}
+\noindent\textbf{CVSS Vector:} \texttt{\small [[ item.cvss_vector | latex_escape ]]}
 [% endif %]
 
 [% if item.faalmodus or item.control_ref or item.detecteerbaarheid %]
@@ -633,13 +916,23 @@ De volgende bevindingen waren niet (volledig) detecteerbaar. Versterking van mon
 \noindent\textbf{[% if taal == 'en' %]References:[% else %]Referenties:[% endif %]}
 \begin{itemize}
 [% for ref in item.referenties_list %]
-  \item \texttt{\small [[ ref | latex_escape ]]}
+  \item \texttt{\small [[ ref | latex_markup ]]}
+[% endfor %]
+\end{itemize}
+[% endif %]
+
+[% if item.related %]
+\vspace{0.3em}
+\noindent\textbf{[% if taal == 'en' %]Related findings:[% else %]Gerelateerde bevindingen:[% endif %]}
+\begin{itemize}
+[% for rel in item.related %]
+  \item [% if rel.type_label %][[ rel.type_label | latex_escape ]]: [% endif %][[ rel.naam | latex_escape ]][% if rel.nr %] (\hyperref[bev:[[ '%03d' | format(rel.nr) ]]]{[% if taal == 'en' %]finding [% else %]bevinding [% endif %][[ '%03d' | format(rel.nr) ]]})[% endif %]
 [% endfor %]
 \end{itemize}
 [% endif %]
 
 [% for ev in item.evidence %]
-\ibevidence{[[ ev.path ]]}{[[ ev.caption | latex_escape ]]}
+\ibevidence{[[ ev.path ]]}{[[ ev.caption | latex_escape ]][% if ev.sha256 %] {\footnotesize (SHA-256: \texttt{[[ ev.sha256 ]]})}[% endif %]}
 [% endfor %]
 
 \newpage
@@ -654,7 +947,7 @@ De volgende bevindingen waren niet (volledig) detecteerbaar. Versterking van mon
 [% if taal == 'en' %]
 \section{Recommendations Overview}
 
-\begin{longtable}{|c|p{5cm}|c|p{7cm}|}
+\begin{xltabular}{\textwidth}{|c|X|c|X|}
   \hline
   \textbf{ID} & \textbf{Finding} & \textbf{CVSS} & \textbf{Recommendation} \\
   \hline
@@ -662,17 +955,19 @@ De volgende bevindingen waren niet (volledig) detecteerbaar. Versterking van mon
 [% else %]
 \section{Overzicht aanbevelingen}
 
-\begin{longtable}{|c|p{5cm}|c|p{7cm}|}
+\begin{xltabular}{\textwidth}{|c|X|c|X|}
   \hline
   \textbf{ID} & \textbf{Bevinding} & \textbf{CVSS} & \textbf{Aanbeveling} \\
   \hline
   \endhead
 [% endif %]
+\ibvervolg{4}\endfoot
+\endlastfoot
 [% for item in findings %]
-  [[ '%03d' | format(item.id) ]] & [[ item.titel | latex_escape ]] & [[ item.basescore ]] & [[ item.aanbeveling | latex_escape ]] \\
+  \hyperref[bev:[[ '%03d' | format(item.nr) ]]]{[[ '%03d' | format(item.nr) ]]} & [[ item.titel | latex_escape ]] & [[ item.basescore ]] & [[ (item.aanbeveling_overzicht if item.aanbeveling_overzicht else item.aanbeveling) | latex_escape ]] \\
   \hline
 [% endfor %]
-\end{longtable}
+\end{xltabular}
 
 [% endif %]
 %SEC-END%
@@ -694,22 +989,24 @@ De volgende bevindingen waren niet (volledig) detecteerbaar. Versterking van mon
 [% for phase in cl['phases'] %]
 \subsubsection{[[ phase['title'] | latex_escape ]]}
 
-\begin{longtable}{|p{2.5cm}|p{9cm}|p{3cm}|}
+\begin{xltabular}{\textwidth}{|p{2.5cm}|X|p{3cm}|}
   \hline
   \textbf{Ref} & \textbf{Item} & \textbf{Status} \\
   \hline
   \endhead
+\ibvervolg{3}\endfoot
+\endlastfoot
 [% for item in phase['items'] %]
   \texttt{\small [[ item['ref'] | latex_escape ]]} & [[ item['title'] | latex_escape ]] & [% if item['status'] == 'pass' %]\textcolor{ogreen}{PASS}[% elif item['status'] == 'fail' %]\textcolor{ored}{FAIL}[% elif item['status'] == 'warn' %]\textcolor{oorange}{WARN}[% elif item['status'] == 'skip' %]SKIP[% elif item['status'] == 'na' %]N/A[% else %]OPEN[% endif %] \\
   \hline
 [% endfor %]
-\end{longtable}
+\end{xltabular}
 
 [% endfor %]
 [% endfor %]
 [% endif %]
 
-[% if (owasp_rows or ncsc_rows or chain_paths) and not checklists %]
+[% if (owasp_rows or ncsc_rows or controls_rows or chain_paths) and not checklists %]
 \appendix
 [% endif %]
 
@@ -719,57 +1016,270 @@ De volgende bevindingen waren niet (volledig) detecteerbaar. Versterking van mon
 [% else %]
 \section{Exploit chains / kill chain}
 [% endif %]
-\begin{itemize}
 [% for cp in chain_paths %]
-  \item \textbf{[% if taal == 'en' %]Chain[% else %]Keten[% endif %] [[ cp.num ]]:} [[ cp.steps ]]
+\noindent\textbf{[% if taal == 'en' %]Chain[% else %]Keten[% endif %] [[ cp.num ]]}\par\nopagebreak
+\begin{center}
+\begin{tikzpicture}[node distance=5mm and 0mm]
+[% for n in cp.nodes %]
+  \node[draw,rounded corners,fill=cblue!12,inner sep=5pt,text width=0.72\textwidth,align=left,font=\small[% if not loop.first %],below=of n[[ loop.index0 ]][% endif %]] (n[[ loop.index ]]) {\textbf{[[ n.id ]]}~[[ n.naam | latex_escape ]]};
 [% endfor %]
-\end{itemize}
+[% for n in cp.nodes %][% if not loop.first %]
+  \draw[-{Stealth[length=2mm]},thick] (n[[ loop.index0 ]]) -- (n[[ loop.index ]]);
+[% endif %][% endfor %]
+\end{tikzpicture}
+\end{center}
+[% endfor %]
 [% endif %]
 
-[% if sections.appendices and owasp_rows %]
+[% if sections.owasp_mapping and owasp_rows %]
 [% if taal == 'en' %]
 \section{OWASP Top 10 Mapping}
-\begin{longtable}{|c|p{7cm}|p{3cm}|p{2.5cm}|}
+\begin{xltabular}{\textwidth}{|c|X|X|}
   \hline
-  \textbf{ID} & \textbf{Finding} & \textbf{OWASP 2021} & \textbf{OWASP 2025} \\
+  \textbf{ID} & \textbf{Finding} & \textbf{OWASP 2025} \\
   \hline
   \endhead
 [% else %]
 \section{OWASP Top 10 mapping}
-\begin{longtable}{|c|p{7cm}|p{3cm}|p{2.5cm}|}
+\begin{xltabular}{\textwidth}{|c|X|X|}
   \hline
-  \textbf{ID} & \textbf{Bevinding} & \textbf{OWASP 2021} & \textbf{OWASP 2025} \\
+  \textbf{ID} & \textbf{Bevinding} & \textbf{OWASP 2025} \\
   \hline
   \endhead
 [% endif %]
+\ibvervolg{3}\endfoot
+\endlastfoot
 [% for r in owasp_rows %]
-  [[ r.id ]] & [[ r.titel | latex_escape ]] & [[ r.owasp | latex_escape ]] & [[ r.owasp_2025 | latex_escape ]] \\
+  \hyperref[bev:[[ r.id ]]]{[[ r.id ]]} & [[ r.titel | latex_escape ]] & [% if r.owasp_2025_url %]\href{[[ r.owasp_2025_url ]]}{[[ r.owasp_2025 | latex_escape ]]}[% else %][[ r.owasp_2025 | latex_escape ]][% endif %] \\
   \hline
 [% endfor %]
-\end{longtable}
+\end{xltabular}
 [% endif %]
 
-[% if sections.appendices and ncsc_rows %]
+[% if sections.ncsc_mapping and ncsc_rows %]
 [% if taal == 'en' %]
 \section{NCSC Guidelines Mapping}
-\begin{longtable}{|c|p{6cm}|p{4cm}|p{3cm}|}
+\begin{xltabular}{\textwidth}{|c|X|X|}
   \hline
-  \textbf{ID} & \textbf{Finding} & \textbf{NCSC} & \textbf{Control reference} \\
+  \textbf{ID} & \textbf{Finding} & \textbf{NCSC} \\
   \hline
   \endhead
 [% else %]
 \section{NCSC-richtlijnen mapping}
-\begin{longtable}{|c|p{6cm}|p{4cm}|p{3cm}|}
+\begin{xltabular}{\textwidth}{|c|X|X|}
   \hline
-  \textbf{ID} & \textbf{Bevinding} & \textbf{NCSC} & \textbf{Controle-referentie} \\
+  \textbf{ID} & \textbf{Bevinding} & \textbf{NCSC} \\
   \hline
   \endhead
 [% endif %]
+\ibvervolg{3}\endfoot
+\endlastfoot
 [% for r in ncsc_rows %]
-  [[ r.id ]] & [[ r.titel | latex_escape ]] & [[ r.ncsc | latex_escape ]] & [[ r.control_ref | latex_escape ]] \\
+  \hyperref[bev:[[ r.id ]]]{[[ r.id ]]} & [[ r.titel | latex_escape ]] & [[ r.ncsc | latex_escape ]] \\
   \hline
 [% endfor %]
-\end{longtable}
+\end{xltabular}
+[% endif %]
+
+[% if sections.controls_mapping and controls_rows %]
+[% if taal == 'en' %]
+\section{ISO 27001 / BIO / NIS2 Mapping}
+\footnotesize\emph{Indicative mapping derived from the finding CWE via OWASP Top 10:2025 category; not a formal certification or complete coverage.}\normalsize
+\begin{xltabular}{\textwidth}{|c|X|X|X|X|}
+  \hline
+  \textbf{ID} & \textbf{Finding} & \textbf{ISO 27001:2022} & \textbf{BIO2} & \textbf{NIS2 art. 21} \\
+  \hline
+  \endhead
+[% else %]
+\section{ISO 27001 / BIO / NIS2 mapping}
+\footnotesize\emph{Indicatieve koppeling, afgeleid van de CWE via de OWASP Top 10:2025-categorie; geen formele certificering of volledige dekking.}\normalsize
+\begin{xltabular}{\textwidth}{|c|X|X|X|X|}
+  \hline
+  \textbf{ID} & \textbf{Bevinding} & \textbf{ISO 27001:2022} & \textbf{BIO2} & \textbf{NIS2 art. 21} \\
+  \hline
+  \endhead
+[% endif %]
+\ibvervolg{5}\endfoot
+\endlastfoot
+[% for r in controls_rows %]
+  \hyperref[bev:[[ r.id ]]]{[[ r.id ]]} & [[ r.titel | latex_escape ]] & [[ r.iso27001 | latex_escape ]] & [[ r.bio | latex_escape ]] & [[ r.nis2 | latex_escape ]] \\
+  \hline
+[% endfor %]
+\end{xltabular}
+[% endif %]
+
+[% if sections.cia_triad and cia_triad %]
+[% if taal == 'en' %]\section{CIA Triad}[% else %]\section{CIA-triade}[% endif %]
+\footnotesize\emph{[[ cia_triad.intro | latex_escape ]]}\normalsize
+\begin{center}
+\begin{tikzpicture}[scale=1]
+  \coordinate (C) at (90:3);
+  \coordinate (I) at (330:3);
+  \coordinate (A) at (210:3);
+  \draw[gray!45] (C) -- (I) -- (A) -- cycle;
+  \draw[gray!25] (90:2) -- (330:2) -- (210:2) -- cycle;
+  \draw[gray!25] (90:1) -- (330:1) -- (210:1) -- cycle;
+  \draw[gray!45] (0,0) -- (C) (0,0) -- (I) (0,0) -- (A);
+  \fill[blue!35,opacity=0.55] (90:[[ cia_triad.c_r ]]) -- (330:[[ cia_triad.i_r ]]) -- (210:[[ cia_triad.a_r ]]) -- cycle;
+  \draw[blue!70,thick] (90:[[ cia_triad.c_r ]]) -- (330:[[ cia_triad.i_r ]]) -- (210:[[ cia_triad.a_r ]]) -- cycle;
+  \node[above] at (C) {[% if taal == 'en' %]Confidentiality[% else %]Vertrouwelijkheid[% endif %] ([[ cia_triad.c ]]\%)};
+  \node[below right] at (I) {[% if taal == 'en' %]Integrity[% else %]Integriteit[% endif %] ([[ cia_triad.i ]]\%)};
+  \node[below left] at (A) {[% if taal == 'en' %]Availability[% else %]Beschikbaarheid[% endif %] ([[ cia_triad.a ]]\%)};
+\end{tikzpicture}
+\end{center}
+[% endif %]
+
+[% if sections.subsequent_triad and subsequent_triad %]
+[% if taal == 'en' %]\section{Subsequent System Impact}[% else %]\section{Vervolgsysteem-impact}[% endif %]
+\footnotesize\emph{[[ subsequent_triad.intro | latex_escape ]]}\normalsize
+\begin{center}
+\begin{tikzpicture}[scale=1]
+  \coordinate (C) at (90:3);
+  \coordinate (I) at (330:3);
+  \coordinate (A) at (210:3);
+  \draw[gray!45] (C) -- (I) -- (A) -- cycle;
+  \draw[gray!25] (90:2) -- (330:2) -- (210:2) -- cycle;
+  \draw[gray!25] (90:1) -- (330:1) -- (210:1) -- cycle;
+  \draw[gray!45] (0,0) -- (C) (0,0) -- (I) (0,0) -- (A);
+  \fill[orange!35,opacity=0.55] (90:[[ subsequent_triad.c_r ]]) -- (330:[[ subsequent_triad.i_r ]]) -- (210:[[ subsequent_triad.a_r ]]) -- cycle;
+  \draw[orange!80,thick] (90:[[ subsequent_triad.c_r ]]) -- (330:[[ subsequent_triad.i_r ]]) -- (210:[[ subsequent_triad.a_r ]]) -- cycle;
+  \node[above] at (C) {[% if taal == 'en' %]Confidentiality[% else %]Vertrouwelijkheid[% endif %] ([[ subsequent_triad.c ]]\%)};
+  \node[below right] at (I) {[% if taal == 'en' %]Integrity[% else %]Integriteit[% endif %] ([[ subsequent_triad.i ]]\%)};
+  \node[below left] at (A) {[% if taal == 'en' %]Availability[% else %]Beschikbaarheid[% endif %] ([[ subsequent_triad.a ]]\%)};
+\end{tikzpicture}
+\end{center}
+[% endif %]
+
+[% if sections.exploit_profile and exploit_profile %]
+[% if taal == 'en' %]\section{Exploitability Profile}[% else %]\section{Exploiteerbaarheids-profiel}[% endif %]
+\footnotesize\emph{[% if taal == 'en' %]Distribution of CVSS exploitability metrics across [[ exploit_profile.n ]] findings.[% else %]Verdeling van de CVSS-exploiteerbaarheidsmetrieken over [[ exploit_profile.n ]] bevindingen.[% endif %]}\normalsize
+[% macro exptable(metrics, taal) %]
+\begin{tabularx}{\linewidth}{|l|X|c|}
+  \hline
+  [% if taal == 'en' %]\textbf{Metric} & \textbf{Value} & \textbf{Count}[% else %]\textbf{Metriek} & \textbf{Waarde} & \textbf{Aantal}[% endif %] \\
+  \hline
+[% for met in metrics %]
+[% for it in met['items'] %]
+  [% if loop.first %][[ met['name'] | latex_escape ]][% endif %] & [[ it['label'] | latex_escape ]] & [[ it['count'] ]] \\
+  \hline
+[% endfor %]
+[% endfor %]
+\end{tabularx}
+[% endmacro %]
+[% if exploit_profile['gauge_angle'] %]
+\noindent
+\begin{minipage}[c]{0.44\textwidth}
+\ibgauge{[[ exploit_profile['gauge_angle'] ]]}{[[ exploit_profile['index'] ]]\%}{[[ exploit_profile['index_label'] | latex_escape ]]}{[% if taal == 'en' %]Exploitability index (indicative)[% else %]Exploiteerbaarheidsindex (indicatief)[% endif %]}
+\end{minipage}\hfill
+\begin{minipage}[c]{0.53\textwidth}
+[[ exptable(exploit_profile['metrics'], taal) ]]
+\end{minipage}
+[% else %]
+[[ exptable(exploit_profile['metrics'], taal) ]]
+[% endif %]
+[% endif %]
+
+[% if sections.direct_exploitable and direct_rows %]
+[% if taal == 'en' %]\section{Directly Exploitable Findings}[% else %]\section{Direct exploiteerbare bevindingen}[% endif %]
+\footnotesize\emph{[[ direct_intro | latex_escape ]]}\normalsize
+\begin{xltabular}{\textwidth}{|c|X|c|}
+  \hline
+  [% if taal == 'en' %]\textbf{ID} & \textbf{Finding} & \textbf{Risk}[% else %]\textbf{ID} & \textbf{Bevinding} & \textbf{Risico}[% endif %] \\
+  \hline
+  \endhead
+\ibvervolg{3}\endfoot
+\endlastfoot
+[% for r in direct_rows %]
+  \hyperref[bev:[[ r.id ]]]{[[ r.id ]]} & \hyperref[bev:[[ r.id ]]]{[[ r.titel | latex_escape ]]} & \cellcolor{[[ r.color ]]}\textbf{\textcolor{[[ r.fg ]]}{[[ r.risk ]]}} \\
+  \hline
+[% endfor %]
+\end{xltabular}
+[% endif %]
+
+[% if sections.impact_gauge and impact_gauge %]
+[% if taal == 'en' %]\section{Impact Meter}[% else %]\section{Impact-meter}[% endif %]
+\footnotesize\emph{[% if taal == 'en' %]Aggregate impact index across [[ impact_gauge['n'] ]] findings, from the CVSS C/I/A impact metrics (indicative).[% else %]Geaggregeerde impact-index over [[ impact_gauge['n'] ]] bevindingen, afgeleid van de CVSS C/I/A-impactmetrieken (indicatief).[% endif %]}\normalsize
+\ibgauge{[[ impact_gauge['gauge_angle'] ]]}{[[ impact_gauge['index'] ]]\%}{[[ impact_gauge['index_label'] | latex_escape ]]}{[% if taal == 'en' %]Impact index (indicative)[% else %]Impact-index (indicatief)[% endif %]}
+[% endif %]
+
+[% if sections.retest_voortgang and retest_progress %]
+[% if taal == 'en' %]\section{Retest Progress}[% else %]\section{Retest-voortgang}[% endif %]
+\footnotesize\emph{[[ retest_intro ]]}\normalsize
+\par\vspace{4pt}
+[[ stackbar(retest_progress) ]]
+\par\vspace{4pt}
+\begin{tabular}{@{}ll@{}}
+[% for r in retest_progress %]
+\textcolor{[[ r.color ]]}{\rule{1.4ex}{1.4ex}}~[[ r.label ]] & [[ r.value ]] \\
+[% endfor %]
+\end{tabular}
+[% if retest_open %]
+\par\vspace{4pt}\noindent\textbf{[% if taal == 'en' %]Still open after retest:[% else %]Nog open na retest:[% endif %]}
+\begin{itemize}
+[% for o in retest_open %]
+  \item \hyperref[bev:[[ o.id ]]]{[[ o.id ]]} --- [[ o.titel ]]
+[% endfor %]
+\end{itemize}
+[% endif %]
+[% endif %]
+
+[% if sections.beperkingen %]
+[% if taal == 'en' %]\section{Scope Limitations \& Assumptions}[% else %]\section{Beperkingen en aannames}[% endif %]
+\begin{itemize}
+[% for ln in beperkingen_lines %]
+  \item [[ ln ]]
+[% endfor %]
+\end{itemize}
+[% endif %]
+
+[% if sections.cvss_detail and cvss_detail_rows %]
+[% if taal == 'en' %]\section{CVSS Vector Breakdown}[% else %]\section{CVSS-vectordetail}[% endif %]
+\footnotesize\emph{[% if taal == 'en' %]Decoding of the CVSS base vector per finding, so the assigned score is transparent and auditable.[% else %]Ontleding van de CVSS-base-vector per bevinding, zodat de toegekende score transparant en auditbaar is.[% endif %]}\normalsize
+\begin{xltabular}{\textwidth}{|c|l|c|>{\raggedright\arraybackslash}X|}
+  \hline
+  [% if taal == 'en' %]\textbf{ID} & \textbf{Finding} & \textbf{CVSS} & \textbf{Metrics}[% else %]\textbf{ID} & \textbf{Bevinding} & \textbf{CVSS} & \textbf{Metrieken}[% endif %] \\
+  \hline
+  \endhead
+\ibvervolg{4}\endfoot
+\endlastfoot
+[% for r in cvss_detail_rows %]
+  \hyperref[bev:[[ r.id ]]]{[[ r.id ]]} & \hyperref[bev:[[ r.id ]]]{[[ r.titel ]]} & [[ r.score ]] & {\footnotesize [[ r.summary ]]} \\
+  \hline
+[% endfor %]
+\end{xltabular}
+[% endif %]
+
+[% if sections.bewijsregister and evidence_register %]
+[% if taal == 'en' %]\section{Evidence Register}[% else %]\section{Bewijsregister}[% endif %]
+\footnotesize\emph{[% if taal == 'en' %]Each evidence file is listed with its SHA-256 hash so that its integrity can be independently verified.[% else %]Elk bewijsbestand is opgenomen met zijn SHA-256-hash, zodat de integriteit onafhankelijk geverifieerd kan worden.[% endif %]}\normalsize
+\begin{xltabular}{\textwidth}{|c|>{\raggedright\arraybackslash}X|l|}
+  \hline
+  [% if taal == 'en' %]\textbf{ID} & \textbf{Evidence} & \textbf{SHA-256}[% else %]\textbf{ID} & \textbf{Bewijs} & \textbf{SHA-256}[% endif %] \\
+  \hline
+  \endhead
+\ibvervolg{3}\endfoot
+\endlastfoot
+[% for r in evidence_register %]
+  \hyperref[bev:[[ r.id ]]]{[[ r.id ]]} & [[ r.caption ]][% if r.file %] {\footnotesize\itshape([[ r.file ]])}[% endif %] & {\ttfamily\scriptsize [[ r.sha_fmt ]]} \\
+  \hline
+[% endfor %]
+\end{xltabular}
+[% endif %]
+
+[% if sections.begrippenlijst %]
+[% if taal == 'en' %]\section{Glossary \& Abbreviations}[% else %]\section{Begrippen- en afkortingenlijst}[% endif %]
+\begin{xltabular}{\textwidth}{|l|>{\raggedright\arraybackslash}X|}
+  \hline
+  [% if taal == 'en' %]\textbf{Term} & \textbf{Description}[% else %]\textbf{Begrip} & \textbf{Omschrijving}[% endif %] \\
+  \hline
+  \endhead
+\ibvervolg{2}\endfoot
+\endlastfoot
+[% for r in begrippen_rows %]
+  \textbf{[[ r.term ]]} & [[ r.definitie ]] \\
+  \hline
+[% endfor %]
+\end{xltabular}
 [% endif %]
 
 \end{document}

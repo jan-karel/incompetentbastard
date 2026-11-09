@@ -3,6 +3,36 @@
   gap: 12px;
 }
 
+/* Tabbladen in het bevinding-formulier */
+.finding-tabs { display: grid; gap: 12px; }
+.ftab-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  border-bottom: 1px solid var(--border, #e5e7eb);
+}
+.ftab-btn {
+  padding: 8px 14px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--muted, #6b7280);
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+}
+.ftab-btn:hover { color: var(--text, #111827); }
+.ftab-btn.is-active {
+  color: var(--text, #111827);
+  border-bottom-color: var(--primary, #2563eb);
+}
+.ftab-panel { display: none; }
+.ftab-panel.is-active {
+  display: grid;
+  gap: 12px;
+}
+
 .finding-form label {
   display: inline-block;
   margin-bottom: 6px;
@@ -44,4 +74,83 @@
   .form-grid.three {
     grid-template-columns: 1fr;
   }
+}
+
+/* ── Koppelen van standaardbevindingen (templates) + overrides ── */
+.template-link{
+  border:1px solid var(--border,#d1d5db);
+  border-radius:8px;
+  padding:10px 12px;
+  background:var(--surface-2,#f9fafb);
+}
+.template-current{
+  font-weight:600;
+}
+.tpl-results{
+  margin-top:6px;
+  border:1px solid var(--border,#d1d5db);
+  border-radius:6px;
+  background:var(--surface,#fff);
+  max-height:260px;
+  overflow:auto;
+}
+.tpl-results-head{
+  font-size:12px;
+  color:var(--muted,#6b7280);
+  padding:6px 10px;
+  border-bottom:1px solid var(--border,#d1d5db);
+}
+.tpl-result{
+  display:flex;
+  flex-direction:column;
+  align-items:flex-start;
+  width:100%;
+  text-align:left;
+  gap:2px;
+  padding:7px 10px;
+  background:none;
+  border:none;
+  border-bottom:1px solid var(--border,#eee);
+  cursor:pointer;
+}
+.tpl-result:last-child{ border-bottom:none; }
+.tpl-result:hover{ background:var(--surface-2,#f3f4f6); }
+.tpl-result-main{ font-weight:600; }
+.tpl-result-meta{ font-size:12px; color:var(--muted,#6b7280); }
+/* Override-velden: kop met badge + acties */
+.override-grid .ov-field{ min-width:0; }
+.ov-head{
+  display:flex;
+  align-items:center;
+  flex-wrap:wrap;
+  gap:8px;
+  margin-bottom:4px;
+}
+.ov-head label{ margin:0; }
+.ov-actions{
+  margin-left:auto;
+  display:flex;
+  gap:6px;
+}
+.ov-badge{
+  font-size:11px;
+  font-weight:600;
+  line-height:1;
+  padding:3px 8px;
+  border-radius:999px;
+  border:1px solid var(--border,#e5e7eb);
+  color:var(--muted,#6b7280);
+  background:var(--surface-2,#f3f4f6);
+}
+.ov-badge.is-aangepast{
+  color:#92400e;
+  border-color:#fcd34d;
+  background:#fef3c7;
+}
+/* Template-tekst als placeholder: duidelijk grijs/cursief zodat het als
+   standaardtekst leest (en niet als ingevulde waarde). */
+.override-grid textarea::placeholder{
+  color:var(--muted,#9ca3af);
+  font-style:italic;
+  opacity:1;
 }

@@ -9,9 +9,16 @@
   --heading: #111827;
   --fg: #1f2937;
   --muted: #6b7280;
-  --border: rgba(15,23,42,.12);
-  --shadow: 0 12px 30px rgba(16,24,40,.10);
-  --shadow-sm: 0 10px 22px rgba(16,24,40,.08);
+  --border: rgba(15,23,42,.10);
+  /* Gelaagde, diffuse schaduwen (Apple-stijl depth) */
+  --shadow: 0 1px 2px rgba(16,24,40,.04), 0 8px 28px rgba(16,24,40,.10);
+  --shadow-sm: 0 1px 2px rgba(16,24,40,.04), 0 4px 14px rgba(16,24,40,.07);
+
+  /* Motion tokens — natuurlijke easing, korte duur */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);   /* zachte deceleratie (entree) */
+  --ease: cubic-bezier(0.4, 0, 0.2, 1);          /* standaard in/uit */
+  --dur-fast: .18s;
+  --dur: .28s;
 
   --primary: #4154f1;
   --primary-2: #2f3eea;
@@ -35,6 +42,14 @@
   --radius: 14px;
   --radius-sm: 12px;
 
+  /* Spacing-schaal — consistent ritme i.p.v. losse px-waarden */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+
   --sidebar-w: 268px;
   --header-h: 64px;
   --container-pad: 22px;
@@ -50,9 +65,9 @@ body.theme-dark{
   --heading: #f1f5f9;
   --fg: rgba(255,255,255,.92);
   --muted: rgba(255,255,255,.68);
-  --border: rgba(255,255,255,.12);
-  --shadow: 0 18px 45px rgba(0,0,0,.35);
-  --shadow-sm: 0 14px 30px rgba(0,0,0,.30);
+  --border: rgba(255,255,255,.10);
+  --shadow: 0 1px 2px rgba(0,0,0,.30), 0 12px 40px rgba(0,0,0,.45);
+  --shadow-sm: 0 1px 2px rgba(0,0,0,.25), 0 6px 20px rgba(0,0,0,.35);
 
   --primary: #7aa2ff;
   --primary-2: #5a86ff;
@@ -124,7 +139,7 @@ button, input, select, textarea{ font: inherit; }
   box-shadow: 0 14px 28px rgba(65,84,241,.22);
 }
 .brand-name{
-  font-weight: 900;
+  font-weight: 600;
   letter-spacing: -0.02em;
 }
 .brand-name span{ color: var(--primary); }
@@ -140,7 +155,7 @@ button, input, select, textarea{ font: inherit; }
   letter-spacing: .12em;
   text-transform: uppercase;
   color: var(--muted);
-  font-weight: 800;
+  font-weight: 600;
   padding: 10px 12px 6px;
 }
 
@@ -161,8 +176,9 @@ button, input, select, textarea{ font: inherit; }
   border: 1px solid transparent;
   background: transparent;
   cursor: pointer;
-  font-weight: 700;
+  font-weight: 600;
   font-size: 14px;
+  transition: background var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
 }
 .nav a:hover, .nav button:hover{
   background: var(--surface-2);
@@ -244,10 +260,10 @@ button, input, select, textarea{ font: inherit; }
   cursor: pointer;
   display: grid;
   place-items: center;
-  transition: transform .12s ease, box-shadow .12s ease, background .12s ease;
+  transition: transform var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease);
 }
 .iconbtn:hover{ transform: translateY(-1px); box-shadow: var(--shadow-sm); background: var(--surface-2); }
-.iconbtn:active{ transform: translateY(0); }
+.iconbtn:active{ transform: scale(.94); box-shadow: none; }
 .iconbtn:focus-visible{ outline: 3px solid rgba(65,84,241,.25); outline-offset: 2px; }
 
 .search{
@@ -318,7 +334,7 @@ button, input, select, textarea{ font: inherit; }
   font-size: 13px;
   cursor: pointer;
   border-left: 3px solid transparent;
-  transition: background .1s;
+  transition: background var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease);
 }
 .search-item:hover,
 .search-item.active{
@@ -360,7 +376,7 @@ button, input, select, textarea{ font: inherit; }
 .dd[data-open="true"] .dd-panel{ display: block; }
 .dd-head{
   padding: 12px 14px;
-  font-weight: 900;
+  font-weight: 600;
   border-bottom: 1px solid var(--border);
   display: flex;
   justify-content: space-between;
@@ -388,7 +404,7 @@ button, input, select, textarea{ font: inherit; }
   min-width: 18px;
   padding: 0 6px;
   font-size: 11px;
-  font-weight: 900;
+  font-weight: 600;
   border-radius: 999px;
   background: rgba(65,84,241,.12);
   color: var(--primary);
@@ -429,7 +445,7 @@ button, input, select, textarea{ font: inherit; }
   align-items: center;
   padding: 11px 14px;
   border-bottom: 1px solid var(--border);
-  font-weight: 750;
+  font-weight: 600;
 }
 .profile-menu a:last-child{ border-bottom: none; }
 .profile-menu a:hover{ background: var(--surface-2); }
@@ -472,8 +488,9 @@ button, input, select, textarea{ font: inherit; }
   border-radius: var(--radius);
   box-shadow: 0 0 0 rgba(0,0,0,0);
   overflow: hidden;
+  transition: box-shadow var(--dur) var(--ease-out), transform var(--dur) var(--ease-out), border-color var(--dur) var(--ease);
 }
-.card:hover{ box-shadow: var(--shadow-sm); }
+.card:hover{ box-shadow: var(--shadow-sm); transform: translateY(-1px); }
 .card-head{
   padding: 14px 16px;
   display: flex;
@@ -506,7 +523,7 @@ button, input, select, textarea{ font: inherit; }
 }
 .kpi .val{
   font-size: 22px;
-  font-weight: 950;
+  font-weight: 700;
   letter-spacing: -0.02em;
 }
 .kpi .sub{
@@ -522,7 +539,7 @@ button, input, select, textarea{ font: inherit; }
   border-radius: 999px;
   border: 1px solid var(--border);
   background: var(--surface-2);
-  font-weight: 800;
+  font-weight: 600;
   font-size: 12px;
   color: var(--muted);
 }
@@ -544,7 +561,7 @@ button, input, select, textarea{ font: inherit; }
   font-size: 12px;
   letter-spacing: .08em;
   text-transform: uppercase;
-  font-weight: 900;
+  font-weight: 600;
   user-select: none;
 }
 .table th.sortable{
@@ -560,7 +577,7 @@ button, input, select, textarea{ font: inherit; }
   padding: 6px 10px;
   border-radius: 999px;
   border: 1px solid var(--border);
-  font-weight: 900;
+  font-weight: 600;
   font-size: 12px;
 }
 .tag.ok{ background: rgba(46,202,106,.10); border-color: rgba(46,202,106,.25); color: color-mix(in oklab, var(--success) 80%, var(--text)); }
@@ -576,7 +593,7 @@ button, input, select, textarea{ font: inherit; }
   gap: 6px;
 }
 .field label{
-  font-weight: 900;
+  font-weight: 600;
   font-size: 13px;
   color: var(--muted);
 }
@@ -590,7 +607,7 @@ button, input, select, textarea{ font: inherit; }
 }
 textarea{ min-height: 120px; resize: vertical; }
 .help{ font-size: 13px; color: var(--muted); }
-.err{ color: var(--danger); font-weight: 800; font-size: 12px; min-height: 14px; }
+.err{ color: var(--danger); font-weight: 600; font-size: 12px; min-height: 14px; }
 
 .btn{
   display: inline-flex;
@@ -601,12 +618,12 @@ textarea{ min-height: 120px; resize: vertical; }
   border-radius: 12px;
   border: 1px solid var(--border);
   background: var(--surface);
-  font-weight: 900;
+  font-weight: 600;
   cursor: pointer;
-  transition: transform .12s ease, box-shadow .12s ease, background .12s ease;
+  transition: transform var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease);
 }
 .btn:hover{ transform: translateY(-1px); box-shadow: var(--shadow-sm); background: var(--surface-2); }
-.btn:active{ transform: translateY(0); }
+.btn:active{ transform: scale(.97); box-shadow: none; }
 .btn-primary{
   background: linear-gradient(180deg, var(--primary), var(--primary-2));
   border-color: transparent;
@@ -711,7 +728,7 @@ body.sidebar-collapsed .app{ grid-template-columns: 1fr; }
     left: 0; top: 0;
     width: var(--sidebar-w);
     transform: translateX(-105%);
-    transition: transform .18s ease;
+    transition: transform var(--dur) var(--ease-out);
     z-index: 60;
     box-shadow: var(--shadow);
   }
@@ -721,4 +738,38 @@ body.sidebar-collapsed .app{ grid-template-columns: 1fr; }
 @media (max-width: 540px){
   .search{ display:none; }
   .grid.cols-4, .grid.cols-3, .grid.cols-2{ grid-template-columns: 1fr; }
+}
+
+/* ---------- Apple-verfijning: font-smoothing, focus, reduced motion ---------- */
+body{
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* Consistente, duidelijke focus-ring op alle interactieve elementen */
+a:focus-visible,
+button:focus-visible,
+.btn:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible{
+  outline: 3px solid color-mix(in oklab, var(--primary) 45%, transparent);
+  outline-offset: 2px;
+}
+
+/* Respecteer systeemvoorkeur: geen beweging */
+@media (prefers-reduced-motion: reduce){
+  html{ scroll-behavior: auto; }
+  *,
+  *::before,
+  *::after{
+    animation-duration: .001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .001ms !important;
+    scroll-behavior: auto !important;
+  }
+  .card:hover,
+  .btn:hover,
+  .iconbtn:hover{ transform: none; }
 }

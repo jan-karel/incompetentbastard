@@ -120,6 +120,7 @@ class db_instellingen(db.Model):
     rapport_testtype = db.Column(db.String(20), default='pentest')
     rapport_testscope = db.Column(db.String(60), default='blackbox')
     rapport_management_samenvatting = db.Column(db.Text(), default='')
+    rapport_algeheel_beeld = db.Column(db.Text(), default='')
     rapport_legsup_startpunt = db.Column(db.Text(), default='')
     rapport_legsup_privileges = db.Column(db.Text(), default='')
     rapport_legsup_informatie = db.Column(db.Text(), default='')
@@ -132,7 +133,11 @@ class db_instellingen(db.Model):
     rapport_test_end_date = db.Column(db.Date)
     rapport_versie = db.Column(db.String(20), default='')
     rapport_versie_status = db.Column(db.String(20), default='concept')
-    rapport_pdf_password = db.Column(db.String(200), default='')
+    rapport_pdf_password = db.Column(db.String(200), default='')         # lezer/user-wachtwoord
+    rapport_pdf_owner_password = db.Column(db.String(200), default='')   # eigenaar/owner-wachtwoord
+    rapport_contact = db.Column(db.Text(), default='')          # contactgegevens (colofon)
+    rapport_revisies = db.Column(db.Text(), default='[]')        # revisiehistorie (JSON-lijst)
+    rapport_distributie = db.Column(db.Text(), default='[]')      # distributielijst (JSON-lijst)
     # Debrief (lessons learned) — hoofdstuk 6
     debrief_context = db.Column(db.Text(), default='')
     debrief_werkte = db.Column(db.Text(), default='')
@@ -216,6 +221,17 @@ class db_bevindingen(db.Model):
     # Risicomatrix assen (handmatig of afgeleid van CVSS)
     kans = db.Column(db.String(5), default='')
     impact_niveau = db.Column(db.String(5), default='')
+    # Traceerbaarheid: wie stelde de bevinding vast (audit/chain of custody)
+    tester = db.Column(db.String(200), default='')
+    # Per-bevinding overrides van de gekoppelde standaardbevinding (template).
+    # Leeg = gebruik de template-tekst; ingevuld = vervangt die tekst in het
+    # rapport, zonder de gedeelde template te wijzigen.
+    beschrijving_override = db.Column(db.Text(), default='')
+    impact_override = db.Column(db.Text(), default='')
+    aanbeveling_override = db.Column(db.Text(), default='')
+    # Korte varianten voor de managementsamenvatting (idem: leeg = template).
+    impact_kort_override = db.Column(db.Text(), default='')
+    aanbeveling_kort_override = db.Column(db.Text(), default='')
     # Soft-delete
     deleted_at = db.Column(db.DateTime, nullable=True)
     # Koppeling aan opdracht/engagement
@@ -244,11 +260,14 @@ _PROJECT_CONFIG_FIELDS = (
     'rapport_titel', 'rapport_auteur', 'rapport_subtitel', 'rapport_project',
     'rapport_omgeving', 'rapport_classificatie', 'rapport_taal', 'rapport_isdraft',
     'rapport_testtype', 'rapport_testscope', 'rapport_management_samenvatting',
+    'rapport_algeheel_beeld',
     'rapport_legsup_startpunt', 'rapport_legsup_privileges', 'rapport_legsup_informatie',
     'rapport_scenarios', 'rapport_scope_targets', 'rapport_logo_path',
     'rapport_template_variant', 'rapport_roe', 'rapport_test_start_date',
     'rapport_test_end_date', 'rapport_versie', 'rapport_versie_status',
-    'rapport_pdf_password', 'debrief_context', 'debrief_werkte', 'debrief_faalde',
+    'rapport_pdf_password', 'rapport_pdf_owner_password',
+    'rapport_contact', 'rapport_revisies', 'rapport_distributie',
+    'debrief_context', 'debrief_werkte', 'debrief_faalde',
     'debrief_detectie', 'debrief_vervolg', 'dd_url', 'dd_api_key', 'dd_product_id',
     'dd_engagement_id', 'dd_verify_ssl', 'dd_auto_push',
 )
@@ -271,6 +290,7 @@ class db_opdracht_config(db.Model):
     rapport_testtype = db.Column(db.String(20), default='pentest')
     rapport_testscope = db.Column(db.String(60), default='blackbox')
     rapport_management_samenvatting = db.Column(db.Text(), default='')
+    rapport_algeheel_beeld = db.Column(db.Text(), default='')
     rapport_legsup_startpunt = db.Column(db.Text(), default='')
     rapport_legsup_privileges = db.Column(db.Text(), default='')
     rapport_legsup_informatie = db.Column(db.Text(), default='')
@@ -283,7 +303,11 @@ class db_opdracht_config(db.Model):
     rapport_test_end_date = db.Column(db.Date)
     rapport_versie = db.Column(db.String(20), default='')
     rapport_versie_status = db.Column(db.String(20), default='concept')
-    rapport_pdf_password = db.Column(db.String(200), default='')
+    rapport_pdf_password = db.Column(db.String(200), default='')         # lezer/user-wachtwoord
+    rapport_pdf_owner_password = db.Column(db.String(200), default='')   # eigenaar/owner-wachtwoord
+    rapport_contact = db.Column(db.Text(), default='')          # contactgegevens (colofon)
+    rapport_revisies = db.Column(db.Text(), default='[]')        # revisiehistorie (JSON-lijst)
+    rapport_distributie = db.Column(db.Text(), default='[]')      # distributielijst (JSON-lijst)
     debrief_context = db.Column(db.Text(), default='')
     debrief_werkte = db.Column(db.Text(), default='')
     debrief_faalde = db.Column(db.Text(), default='')
@@ -326,6 +350,8 @@ class db_evidence(db.Model):
     timestamp_captured = db.Column(db.DateTime)
     evidence_category = db.Column(db.String(50))
     description = db.Column(db.Text())
+    # Integriteit (chain of custody): hex-SHA-256 van het bestand bij vastlegging.
+    sha256 = db.Column(db.String(64))
 
     finding = db.relationship('db_bevindingen', backref=db.backref('evidence_files', lazy='selectin', cascade='all, delete-orphan'))
 
@@ -337,6 +363,7 @@ class db_notes(db.Model):
     naam = db.Column(db.String(255))
     uitwerken = db.Column(db.Text())
     rapport = db.Column(db.Boolean, default=False)
+    latex_raw = db.Column(db.Boolean, default=False)   # inhoud is rauwe LaTeX (niet escapen)
     volgorde = db.Column(db.Integer, default=0)
     opdracht_id = db.Column(db.Integer, db.ForeignKey('db_opdracht.id'), nullable=True, index=True)
 

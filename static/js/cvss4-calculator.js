@@ -163,10 +163,16 @@
     var form = container.closest('form');
     var searchContext = form || container.parentElement || document;
 
+    // Zoek de velden eerst binnen de eigen container, zodat meerdere calculators
+    // op één pagina (bv. bewerk-formulier + "Nieuwe bevinding"-modal, beide met
+    // name="basescore") elkaars velden niet overschrijven.
     var vectorInput = container.querySelector('[data-cvss-vector]') ||
+                      container.querySelector('input[name="cvss_vector"]') ||
                       searchContext.querySelector('[data-cvss-vector]') ||
                       searchContext.querySelector('input[name="cvss_vector"]');
-    var scoreInput = searchContext.querySelector('input[name="cvss_score"]') ||
+    var scoreInput = container.querySelector('input[name="cvss_score"]') ||
+                     container.querySelector('input[name="basescore"]') ||
+                     searchContext.querySelector('input[name="cvss_score"]') ||
                      searchContext.querySelector('input[name="basescore"]');
     var scoreDisplay = container.querySelector('[data-cvss-score]');
     var severityDisplay = container.querySelector('[data-cvss-severity]');
@@ -240,6 +246,19 @@
     // Initial calculation if we have existing values
     if (vectorInput && vectorInput.value) {
       update();
+    } else if (scoreInput && scoreInput.value) {
+      // Geen (volledige) vector, maar wel een opgeslagen basescore (bv. handmatig
+      // of via import gezet). Toon die score + severity in de badge, zonder de
+      // waarde te herberekenen of te overschrijven, zodat de weergave klopt.
+      var stored = parseFloat(scoreInput.value);
+      if (!isNaN(stored)) {
+        if (scoreDisplay) scoreDisplay.textContent = stored.toFixed(1);
+        if (severityDisplay) {
+          var sev = getSeverity(stored);
+          severityDisplay.textContent = sev.charAt(0).toUpperCase() + sev.slice(1);
+          severityDisplay.className = 'badge sev-' + sev;
+        }
+      }
     }
 
     // Toggle visibility
@@ -330,22 +349,29 @@
     return html;
   }
 
-  // Expose API
+  // Initialiseer alle nog niet-opgebouwde calculators (bv. na AJAX-injectie van
+  // het bevinding-formulier in een modal).
+  function initAll(root) {
+    var scope = root || document;
+    scope.querySelectorAll('[data-cvss4-calculator]').forEach(function(el) {
+      if (el.querySelector('.cvss4-calculator')) return; // al geïnitialiseerd
+      initCalculator(el);
+    });
+  }
+
+  // Expose API. init() zonder container scant het hele document (zodat aanroepers
+  // als rapport-editor/global-tools die init() zonder argument aanroepen ook een
+  // dynamisch ingeladen formulier initialiseren); init(el) doet één container.
   window.CVSS4 = {
     generateVector: generateVector,
     parseVector: parseVector,
     getSeverity: getSeverity,
-    init: initCalculator,
+    init: function(container) { if (container) initCalculator(container); else initAll(); },
+    initAll: initAll,
     METRICS: METRICS
   };
 
   // Auto-init on DOM ready
-  document.addEventListener('DOMContentLoaded', function() {
-    var calculators = document.querySelectorAll('[data-cvss4-calculator]');
-    calculators.forEach(function(el) {
-      if (el.querySelector('.cvss4-calculator')) return; // already initialized
-      initCalculator(el);
-    });
-  });
+  document.addEventListener('DOMContentLoaded', function() { initAll(); });
 
 })();

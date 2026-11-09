@@ -4300,6 +4300,779 @@
           ]
         }
       ]
+    },
+    "digid": {
+      "title": "DigiD-pentest (NOREA 2026)",
+      "phases": [
+        {
+          "id": "digid_org",
+          "title": "Organisatorische ingangscriteria",
+          "items": [
+            {
+              "id": "digid_org_001",
+              "title": "Onafhankelijkheid pentester",
+              "en_title": "Pentester independence",
+              "description": "De pentester is onafhankelijk ten opzichte van het te onderzoeken object (geen betrokkenheid bij bouw/beheer).",
+              "en_description": "The pentester is independent from the object under assessment (no involvement in its build or operation)."
+            },
+            {
+              "id": "digid_org_002",
+              "title": "Aantoonbare ervaring en certificering",
+              "en_title": "Demonstrable experience and certification",
+              "description": "Pentester heeft aantoonbare ervaring, bij voorkeur met DigiD-pentesten; certificeringen (bijv. OSCP/OSWE) ter onderbouwing.",
+              "en_description": "The pentester has demonstrable experience, preferably with DigiD pentests; certifications (e.g. OSCP/OSWE) as substantiation."
+            },
+            {
+              "id": "digid_org_003",
+              "title": "Instemmings- en vrijwaringsverklaring",
+              "en_title": "Consent and indemnification statement",
+              "description": "Opdrachtgever ondertekent een instemmings- en vrijwaringsverklaring, inclusief eventueel betrokken derden zoals de hostingpartij.",
+              "en_description": "The client signs a consent and indemnification statement, including any involved third parties such as the hosting provider."
+            },
+            {
+              "id": "digid_org_004",
+              "title": "Beschikbaarheid pentesters en beheerders",
+              "en_title": "Availability of pentesters and administrators",
+              "description": "Beschikbaarheid van pentesters en beheerders bij de onderzochte organisatie is overeengekomen.",
+              "en_description": "Availability of pentesters and administrators at the assessed organisation has been agreed."
+            },
+            {
+              "id": "digid_org_005",
+              "title": "Communicatieafspraken",
+              "en_title": "Communication arrangements",
+              "description": "Afspraken over communicatie tussen pentesters en contactpersonen bij de opdrachtgever zijn gemaakt.",
+              "en_description": "Arrangements for communication between pentesters and the client's contacts have been made."
+            },
+            {
+              "id": "digid_org_006",
+              "title": "Doorlooptijd en budget",
+              "en_title": "Lead time and budget",
+              "description": "Doorlooptijd en budget voor het onderzoek zijn overeengekomen.",
+              "en_description": "Lead time and budget for the assessment have been agreed."
+            },
+            {
+              "id": "digid_org_007",
+              "title": "Periodiciteit afgesproken",
+              "en_title": "Periodicity agreed",
+              "description": "Pentest minimaal ten tijde van de DigiD-audit (ondergrens); voorkeur twee- of meermaal per jaar en bij een nieuwe release of grote platform-upgrade.",
+              "en_description": "Pentest at least at the time of the DigiD audit (minimum); preferably twice or more per year and on a new release or major platform upgrade."
+            }
+          ]
+        },
+        {
+          "id": "digid_scope",
+          "title": "Scope en normstelling",
+          "items": [
+            {
+              "id": "digid_scope_001",
+              "title": "Object van onderzoek vastgesteld",
+              "en_title": "Object of assessment established",
+              "description": "Het voor DigiD relevante object van onderzoek is vastgesteld: webfacing infrastructuur, servers en verbindingen.",
+              "en_description": "The DigiD-relevant object of assessment is established: web-facing infrastructure, servers and connections."
+            },
+            {
+              "id": "digid_scope_002",
+              "title": "Normenkader vastgesteld",
+              "en_title": "Assessment framework established",
+              "description": "Normenkader vastgesteld: de DigiD-subset uit de NCSC-normen, eventueel aangevuld met OWASP Top 10, WASC-criteria, GHDB en leveranciersspecifieke baselines.",
+              "en_description": "Assessment framework established: the DigiD subset of the NCSC norms, optionally supplemented with OWASP Top 10, WASC criteria, GHDB and vendor-specific baselines."
+            },
+            {
+              "id": "digid_scope_003",
+              "title": "Greybox-benadering",
+              "en_title": "Grey-box approach",
+              "description": "Voor de DigiD-audit volstaat een greybox-benadering.",
+              "en_description": "For the DigiD audit a grey-box approach is sufficient."
+            },
+            {
+              "id": "digid_scope_004",
+              "title": "Functionele scope dekt de technische oplossing",
+              "en_title": "Functional scope covers the technical solution",
+              "description": "Vastgesteld met welke functionele scope de volledige technische oplossing wordt afgedekt (bijv. een selectie formulieren waarmee alle componenten worden geraakt).",
+              "en_description": "Established which functional scope covers the full technical solution (e.g. a selection of forms that exercises all components)."
+            },
+            {
+              "id": "digid_scope_005",
+              "title": "Maatwerk- versus standaardformulieren",
+              "en_title": "Custom versus standard forms",
+              "description": "Maatwerkformulieren worden altijd getest. Bij standaardformulieren met alleen functionele aanpassingen kan worden volstaan met de betrouwbare werking van de formulierengenerator (o.b.v. het assurance-rapport van de serviceorganisatie).",
+              "en_description": "Custom forms are always tested. For standard forms with only functional changes, reliance on the reliable operation of the form generator (based on the service organisation's assurance report) suffices."
+            },
+            {
+              "id": "digid_scope_006",
+              "title": "Scopebepaling conform beslismodel (Bijlage 7)",
+              "en_title": "Scoping per decision model (Appendix 7)",
+              "description": "Scope bepaald vanuit burgerperspectief met het beslismodel: gebruikersreis, gebruikersomgeving, invloedssfeer, koppelingen/koppelvlakken en bronsystemen. Onderbouwde afwijkingen worden in de rapportage opgenomen.",
+              "en_description": "Scope determined from the citizen's perspective using the decision model: user journey, user environment, sphere of influence, interfaces and source systems. Substantiated deviations are recorded in the report."
+            }
+          ]
+        },
+        {
+          "id": "digid_verkenning",
+          "title": "Verkenningsfase (ingangscriteria)",
+          "items": [
+            {
+              "id": "digid_verk_001",
+              "title": "Inventarisatie webfacing infrastructuur",
+              "en_title": "Inventory of web-facing infrastructure",
+              "description": "Inventarisatie van gebruikte webfacing infrastructuur, applicaties en componenten.",
+              "en_description": "Inventory of the web-facing infrastructure, applications and components in use.",
+              "command_refs": [
+                "get_nmap",
+                "recon_dns"
+              ],
+              "finding_refs": [
+                "Subdomain Takeover",
+                "Insecure DNS Configuration"
+              ]
+            },
+            {
+              "id": "digid_verk_002",
+              "title": "Testomgeving gelijk aan productie",
+              "en_title": "Test environment equal to production",
+              "description": "Opdrachtgever toont aan dat de technische inrichting van de testomgeving gelijk is aan de productieomgeving.",
+              "en_description": "The client demonstrates that the test environment's technical configuration equals production."
+            },
+            {
+              "id": "digid_verk_003",
+              "title": "Representatieve testgegevens",
+              "en_title": "Representative test data",
+              "description": "Testomgevingen met representatieve testgegevens zijn beschikbaar.",
+              "en_description": "Test environments with representative test data are available."
+            },
+            {
+              "id": "digid_verk_004",
+              "title": "DigiD-testaccounts beschikbaar",
+              "en_title": "DigiD test accounts available",
+              "description": "DigiD-testaccounts zijn beschikbaar en gekoppeld aan testgegevens, eventueel gekoppeld aan mobiele nummers van de pentesters.",
+              "en_description": "DigiD test accounts are available and linked to test data, optionally linked to the pentesters' mobile numbers."
+            },
+            {
+              "id": "digid_verk_005",
+              "title": "Pentester bekend met applicatie",
+              "en_title": "Pentester familiar with the application",
+              "description": "Pentester(s) zijn bekend met de werking van de applicatie.",
+              "en_description": "The pentester(s) are familiar with how the application works."
+            },
+            {
+              "id": "digid_verk_006",
+              "title": "Contactpersoon bekend met applicatie",
+              "en_title": "Client contact familiar with the application",
+              "description": "Contactpersonen bij de opdrachtgever zijn bekend met de werking van de applicatie.",
+              "en_description": "The client's contacts are familiar with how the application works."
+            }
+          ]
+        },
+        {
+          "id": "digid_analyse",
+          "title": "Initiële kwetsbaarhedenanalyse",
+          "items": [
+            {
+              "id": "digid_ana_001",
+              "title": "Fingerprinting (merk en versie)",
+              "en_title": "Fingerprinting (product and version)",
+              "description": "Fingerprinting van het object: vaststellen van gebruikte merken en versies.",
+              "en_description": "Fingerprint the object: determine the products and versions in use.",
+              "tools": [
+                "whatweb",
+                "nmap",
+                "wappalyzer",
+                "nikto"
+              ],
+              "command_refs": [
+                "get_nmap",
+                "recon_dns",
+                "recon_osint"
+              ],
+              "finding_refs": [
+                "Information Disclosure in HTTP Headers",
+                "Vulnerable and Outdated Components"
+              ]
+            },
+            {
+              "id": "digid_ana_002",
+              "title": "Bekende kwetsbaarheden inventariseren",
+              "en_title": "Inventory known vulnerabilities",
+              "description": "Inventariseren van bekende kwetsbaarheden op basis van publicaties van leveranciers en openbare cybersecurity-bronnen (CVE, GHDB).",
+              "en_description": "Inventory known vulnerabilities from vendor publications and public cyber security sources (CVE, GHDB).",
+              "tools": [
+                "searchsploit",
+                "nmap --script vuln"
+              ],
+              "command_refs": [
+                "man_nmap"
+              ],
+              "finding_refs": [
+                "Vulnerable and Outdated Components",
+                "Missing Security Patches"
+              ]
+            },
+            {
+              "id": "digid_ana_003",
+              "title": "Testselectie",
+              "en_title": "Test selection",
+              "description": "Selectie van tests voor het aantonen van de mogelijke kwetsbaarheden.",
+              "en_description": "Select the tests needed to demonstrate the possible vulnerabilities."
+            }
+          ]
+        },
+        {
+          "id": "digid_auto",
+          "title": "Geautomatiseerde tests (dynamisch)",
+          "items": [
+            {
+              "id": "digid_auto_001",
+              "title": "Toolkeuze en dekkingsgraad",
+              "en_title": "Tool selection and coverage",
+              "description": "Keuze van geschikte pentest-tools en hun dekkingsgraad van het te testen object (niet iedere tool ondersteunt alle technologieën, denk aan AJAX, Java e.d.).",
+              "en_description": "Choice of suitable pentest tools and their coverage of the object (not every tool supports all technologies, e.g. AJAX, Java).",
+              "tools": [
+                "Burp Suite",
+                "OWASP ZAP"
+              ],
+              "command_refs": [
+                "web_recon_fuzz"
+              ],
+              "finding_refs": [
+                "Directory Listing Enabled",
+                "Verbose Error Messages"
+              ]
+            },
+            {
+              "id": "digid_auto_002",
+              "title": "Norm-dekking tool versus handmatig",
+              "en_title": "Norm coverage: tool versus manual",
+              "description": "Inzicht in welk deel van de norm door de tool(s) wordt afgedekt en welk deel afzonderlijk handmatig getest moet worden.",
+              "en_description": "Insight into which part of the norm the tool(s) cover and which part must be tested manually."
+            },
+            {
+              "id": "digid_auto_003",
+              "title": "Bewaking tijdens uitvoering",
+              "en_title": "Monitoring during execution",
+              "description": "Doorlopende bewaking door de pentester om schade te voorkomen, bij voorkeur automatisch afbreken van geautomatiseerde testen bij foutmeldingen die op een kritiek probleem wijzen.",
+              "en_description": "Continuous monitoring by the pentester to prevent damage, preferably auto-aborting automated tests on errors indicating a critical problem."
+            }
+          ]
+        },
+        {
+          "id": "digid_manual",
+          "title": "Handmatige tests",
+          "items": [
+            {
+              "id": "digid_man_001",
+              "title": "Expertise pentester",
+              "en_title": "Pentester expertise",
+              "description": "Adequate expertise van de pentester(s), onderbouwd met certificeringen en aantoonbare kennis/ervaring met de gebruikte technologieën.",
+              "en_description": "Adequate expertise of the pentester(s), substantiated with certifications and demonstrable knowledge of the technologies used."
+            },
+            {
+              "id": "digid_man_002",
+              "title": "SSL-/TLS-certificaten en verbindingen",
+              "en_title": "SSL/TLS certificates and connections",
+              "description": "Technische details van gecontroleerde SSL-certificaten en SSL-versleutelde verbindingen vastgelegd (protocolversies, ciphers, certificaatketen).",
+              "en_description": "Technical details of checked SSL certificates and SSL-encrypted connections recorded (protocol versions, ciphers, certificate chain).",
+              "tools": [
+                "testssl.sh",
+                "sslyze"
+              ],
+              "finding_refs": [
+                "Insecure TLS Configuration",
+                "Self-Signed or Weak Certificates",
+                "Unencrypted Protocols"
+              ],
+              "command_refs": [
+                "web_tls_headers"
+              ]
+            },
+            {
+              "id": "digid_man_003",
+              "title": "Cookies en sessiebeheer",
+              "en_title": "Cookies and session handling",
+              "description": "Details van gecontroleerde cookies met volledige dekking tijdens de testen (Secure, HttpOnly, SameSite, sessielevensduur).",
+              "en_description": "Details of checked cookies with full coverage during testing (Secure, HttpOnly, SameSite, session lifetime).",
+              "finding_refs": [
+                "Cookie Security Misconfiguration",
+                "Session Management Issues"
+              ],
+              "command_refs": [
+                "web_cookie_audit"
+              ]
+            },
+            {
+              "id": "digid_man_004",
+              "title": "Handmatige verificatie auto-bevindingen",
+              "en_title": "Manual verification of automated findings",
+              "description": "Alle bevindingen uit de geautomatiseerde testen zijn handmatig geverifieerd (false positives uitgesloten).",
+              "en_description": "All findings from automated testing have been manually verified (false positives ruled out)."
+            },
+            {
+              "id": "digid_man_005",
+              "title": "Handmatige vervolgtesten",
+              "en_title": "Manual follow-up testing",
+              "description": "Op basis van bevindingen uit de geautomatiseerde testen zijn handmatige vervolgtesten uitgevoerd.",
+              "en_description": "Manual follow-up tests performed based on the findings from automated testing."
+            },
+            {
+              "id": "digid_man_006",
+              "title": "Functionele flows en meerstapsformulieren",
+              "en_title": "Functional flows and multi-step forms",
+              "description": "Kwetsbaarheden in functionele flows handmatig onderzocht, bijvoorbeeld manipulatie van velden bij meerstapsformulieren.",
+              "en_description": "Vulnerabilities in functional flows investigated manually, e.g. field manipulation in multi-step forms.",
+              "finding_refs": [
+                "Broken Access Control",
+                "Business Logic Flaws",
+                "Race Condition",
+                "Mass Assignment"
+              ],
+              "command_refs": [
+                "web_idor",
+                "web_upload_bypass"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "digid_norm",
+          "title": "Normdekking DigiD (technische normen)",
+          "items": [
+            {
+              "id": "digid_norm_uwa03",
+              "title": "U/WA.03 — Invoervalidatie",
+              "en_title": "U/WA.03 — Input validation",
+              "description": "De webapplicatie beperkt de mogelijkheid tot manipulatie door invoer te normaliseren en te valideren vóór verwerking. Test op injectie (SQLi, command injection, XXE, path traversal).",
+              "en_description": "The web application limits manipulation by normalising and validating input before processing. Test for injection (SQLi, command injection, XXE, path traversal).",
+              "finding_refs": [
+                "SQL Injection",
+                "XML External Entity (XXE)",
+                "Command Injection",
+                "Path Traversal",
+                "Server-Side Template Injection",
+                "Server-side Request Forgery",
+                "CRLF Injection",
+                "Improper Input Validation",
+                "Deserialization of Untrusted Data"
+              ],
+              "command_refs": [
+                "web_sqli_sqlmap",
+                "web_sqli_union",
+                "web_sqli_blind",
+                "web_cmdi_operators",
+                "web_xxe_payloads",
+                "web_lfi_traversal",
+                "web_ssti_detect",
+                "web_ssrf_scan"
+              ]
+            },
+            {
+              "id": "digid_norm_uwa04",
+              "title": "U/WA.04 — Uitvoernormalisatie",
+              "en_title": "U/WA.04 — Output normalisation",
+              "description": "De webapplicatie beperkt de uitvoer tot waarden die veilig verwerkt kunnen worden door deze te normaliseren. Test op XSS en ontbrekende output-encoding.",
+              "en_description": "The web application limits output to safely processable values by normalising it. Test for XSS and missing output encoding.",
+              "finding_refs": [
+                "Cross-Site Scripting",
+                "Insufficient Input/Output Encoding",
+                "Open Redirect"
+              ],
+              "command_refs": [
+                "web_xss_payloads",
+                "web_xss_steal"
+              ]
+            },
+            {
+              "id": "digid_norm_uwa05",
+              "title": "U/WA.05 — Privacy en cryptografie",
+              "en_title": "U/WA.05 — Privacy and cryptography",
+              "description": "De webapplicatie garandeert de betrouwbaarheid van informatie door privacybevorderende en cryptografische technieken. Test op zwakke crypto, gegevenslekkage en transportbeveiliging.",
+              "en_description": "The web application guarantees information reliability through privacy-enhancing and cryptographic techniques. Test for weak crypto, data leakage and transport security.",
+              "finding_refs": [
+                "Cryptographic Failures",
+                "Insecure TLS Configuration",
+                "Exposure of Sensitive Information",
+                "Client-Side Storage of Sensitive Data",
+                "Unencrypted Protocols"
+              ],
+              "command_refs": [
+                "web_tls_headers"
+              ]
+            },
+            {
+              "id": "digid_norm_utv01",
+              "title": "U/TV.01 — Identiteit- en toegangsbeheer",
+              "en_title": "U/TV.01 — Identity and access management",
+              "description": "De inzet van identiteit- en toegangsbeheer. Test authenticatie, sessiebeheer, autorisatie en CSRF (incl. de DigiD-inlogflow).",
+              "en_description": "Deployment of identity and access management. Test authentication, session management, authorisation and CSRF (including the DigiD login flow).",
+              "finding_refs": [
+                "Broken Access Control",
+                "IDOR",
+                "Cross-Site Request Forgery",
+                "Weak Authentication Mechanism",
+                "Missing Multi-Factor Authentication",
+                "Session Management Issues",
+                "JWT Vulnerabilities",
+                "Insecure Password Reset",
+                "Account Lockout Policy",
+                "Credential Stuffing / Brute Force"
+              ],
+              "command_refs": [
+                "web_idor",
+                "passwd_spray",
+                "passwd_brute",
+                "web_cookie_audit"
+              ]
+            },
+            {
+              "id": "digid_norm_upw02",
+              "title": "U/PW.02 — Protocolinhoud webserver",
+              "en_title": "U/PW.02 — Web server protocol content",
+              "description": "De webserver garandeert specifieke kenmerken van de inhoud van de protocollen. Test security-headers, toegestane HTTP-methoden en protocolgedrag.",
+              "en_description": "The web server guarantees specific characteristics of protocol content. Test security headers, allowed HTTP methods and protocol behaviour.",
+              "finding_refs": [
+                "Security Headers",
+                "Information Disclosure in HTTP Headers",
+                "Insecure HTTP Method Handling",
+                "Host Header Injection",
+                "HTTP Request Smuggling",
+                "Clickjacking",
+                "CORS"
+              ],
+              "command_refs": [
+                "web_cors_exploit",
+                "web_tls_headers"
+              ]
+            },
+            {
+              "id": "digid_norm_upw03",
+              "title": "U/PW.03 — Configuratie-baseline webserver",
+              "en_title": "U/PW.03 — Web server configuration baseline",
+              "description": "De webserver is ingericht volgens een configuratie-baseline. Test op afwijkingen t.o.v. de baseline en onveilige defaults.",
+              "en_description": "The web server is configured per a configuration baseline. Test for deviations from the baseline and insecure defaults.",
+              "command_refs": [
+                "web_tls_headers",
+                "infra_platform_hardening"
+              ],
+              "finding_refs": [
+                "Directory Listing Enabled",
+                "Verbose Error Messages",
+                "Default Credentials",
+                "Backup and Configuration Files Exposed"
+              ]
+            },
+            {
+              "id": "digid_norm_upw05",
+              "title": "U/PW.05 — Veilige beheerprotocollen",
+              "en_title": "U/PW.05 — Secure management protocols",
+              "description": "Beheer verloopt via veilige protocollen. Controleer op blootgestelde of onversleutelde beheerinterfaces.",
+              "en_description": "Management uses secure protocols. Check for exposed or unencrypted management interfaces.",
+              "command_refs": [
+                "infra_network_zoning"
+              ],
+              "finding_refs": [
+                "Exposed Management Interfaces",
+                "Insecure Remote Access",
+                "Weak SSH Configuration",
+                "RDP Security Misconfiguration",
+                "Unencrypted Protocols"
+              ]
+            },
+            {
+              "id": "digid_norm_upw07",
+              "title": "U/PW.07 — Hardeningsrichtlijn platformen",
+              "en_title": "U/PW.07 — Platform hardening guideline",
+              "description": "Voor het configureren van platformen is een hardeningsrichtlijn beschikbaar. Verifieer platform-hardening.",
+              "en_description": "A hardening guideline for configuring platforms is available. Verify platform hardening.",
+              "command_refs": [
+                "infra_platform_hardening"
+              ],
+              "finding_refs": [
+                "Unnecessary Services",
+                "Missing Security Patches",
+                "Vulnerable and Outdated Components",
+                "Default Credentials"
+              ]
+            },
+            {
+              "id": "digid_norm_unw03",
+              "title": "U/NW.03 — Netwerkzonering en DMZ",
+              "en_title": "U/NW.03 — Network zoning and DMZ",
+              "description": "Netwerkzonering met DMZ. Controleer segmentatie en blootstelling van de webfacing zone.",
+              "en_description": "Network zoning with DMZ. Check segmentation and exposure of the web-facing zone.",
+              "command_refs": [
+                "infra_network_zoning"
+              ],
+              "finding_refs": [
+                "Network Segmentation Issues",
+                "Exposed Management Interfaces",
+                "VLAN Hopping"
+              ]
+            },
+            {
+              "id": "digid_norm_unw04",
+              "title": "U/NW.04 — Detectie en protectie",
+              "en_title": "U/NW.04 — Detection and protection",
+              "description": "Detectie- en protectiemechanismen (IDS/IPS/WAF). Controleer aanwezigheid en effectiviteit.",
+              "en_description": "Detection and protection mechanisms (IDS/IPS/WAF). Check presence and effectiveness.",
+              "command_refs": [
+                "infra_waf_detect"
+              ],
+              "finding_refs": [
+                "Insufficient Logging and Monitoring",
+                "Missing API Rate Limiting",
+                "Account Lockout Policy"
+              ]
+            },
+            {
+              "id": "digid_norm_unw05",
+              "title": "U/NW.05 — Scheiding beheer- en productieverkeer",
+              "en_title": "U/NW.05 — Separation of management and production traffic",
+              "description": "Scheiding tussen beheer- en productieverkeer. Controleer of beheerverkeer gescheiden is van productie.",
+              "en_description": "Separation of management and production traffic. Check that management traffic is separated from production.",
+              "command_refs": [
+                "infra_network_zoning"
+              ],
+              "finding_refs": [
+                "Exposed Management Interfaces",
+                "Unencrypted Network Management Protocols",
+                "Insecure Remote Access"
+              ]
+            },
+            {
+              "id": "digid_norm_unw06",
+              "title": "U/NW.06 — Hardeningsrichtlijn netwerken",
+              "en_title": "U/NW.06 — Network hardening guideline",
+              "description": "Voor het configureren van netwerken is een hardeningsrichtlijn beschikbaar. Verifieer netwerk-hardening.",
+              "en_description": "A hardening guideline for configuring networks is available. Verify network hardening.",
+              "command_refs": [
+                "infra_network_zoning"
+              ],
+              "finding_refs": [
+                "Unencrypted Protocols",
+                "Default Credentials",
+                "SNMP Default Community Strings"
+              ]
+            },
+            {
+              "id": "digid_norm_c03",
+              "title": "C.03 — Vulnerability assessments",
+              "en_title": "C.03 — Vulnerability assessments",
+              "description": "Vulnerability assessments (security scans) worden procesmatig en procedureel uitgevoerd op de ICT-componenten van de webapplicatie (scope). In deze pentest aanvullend getest met nuclei: netwerk-/infrastructuurgerichte scan op de resultaten van hardening en patching, met classificatie (NCSC/CVSS) en opvolging binnen de DigiD-reactietijden.",
+              "en_description": "Vulnerability assessments (security scans) are performed in a process-driven, procedural manner on the web application's ICT components (scope). In this pentest additionally tested with nuclei: a network/infrastructure scan against the results of hardening and patching, with classification (NCSC/CVSS) and follow-up within the DigiD response times.",
+              "command_refs": [
+                "web_nuclei_scan",
+                "infra_patch_audit"
+              ],
+              "finding_refs": [
+                "Vulnerable and Outdated Components",
+                "Missing Security Patches",
+                "Unnecessary Services"
+              ]
+            },
+            {
+              "id": "digid_norm_c04",
+              "title": "C.04 — Penetratietests",
+              "en_title": "C.04 — Penetration testing",
+              "description": "Penetratietests worden procesmatig en procedureel, ondersteund door richtlijnen, uitgevoerd op de infrastructuur van de webapplicatie (scope). Dit is de verplichtende norm voor de pentest.",
+              "en_description": "Penetration tests are carried out in a process-driven, procedural manner, supported by guidelines, on the web application's infrastructure (scope). This is the mandating norm for the pentest."
+            },
+            {
+              "id": "digid_norm_c09",
+              "title": "C.09 — Patchmanagement",
+              "en_title": "C.09 — Patch management",
+              "description": "Patchmanagement is zodanig uitgevoerd dat de laatste (beveiligings)patches tijdig zijn geïnstalleerd. Verifieer ontbrekende patches op platform en webserver.",
+              "en_description": "Patch management ensures the latest (security) patches are installed in time. Verify missing patches on platform and web server.",
+              "finding_refs": [
+                "Missing Security Patches",
+                "Vulnerable and Outdated Components"
+              ],
+              "command_refs": [
+                "infra_patch_audit"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "digid_code",
+          "title": "Optioneel: code review (statisch)",
+          "items": [
+            {
+              "id": "digid_code_001",
+              "title": "Code review bij twijfel over gedrag",
+              "en_title": "Code review when behaviour is unclear",
+              "description": "In principe worden normen getest op basis van het gedrag van de applicatie; bij twijfel over het gedrag wordt alsnog een code review uitgevoerd.",
+              "en_description": "In principle norms are tested based on application behaviour; when behaviour is unclear a code review is performed."
+            },
+            {
+              "id": "digid_code_002",
+              "title": "Dekkingsgraad review bepaald",
+              "en_title": "Review coverage determined",
+              "description": "De dekkingsgraad van de code review is bepaald.",
+              "en_description": "The coverage of the code review has been determined."
+            },
+            {
+              "id": "digid_code_003",
+              "title": "Ervaring met taal en omgeving",
+              "en_title": "Experience with language and environment",
+              "description": "Aantoonbare ervaring van de pentester(s) met de programmeertaal en omgeving, eventueel onderbouwd met certificeringen.",
+              "en_description": "Demonstrable experience of the pentester(s) with the programming language and environment, optionally substantiated with certifications."
+            },
+            {
+              "id": "digid_code_004",
+              "title": "SAST-tooldekking t.o.v. norm",
+              "en_title": "SAST tool coverage versus norm",
+              "description": "Bij gebruik van tools voor statisch testen is de dekkingsgraad ten opzichte van de norm vastgesteld.",
+              "en_description": "When using static testing tools, coverage relative to the norm has been established."
+            }
+          ]
+        },
+        {
+          "id": "digid_prod",
+          "title": "Productieverificatie",
+          "items": [
+            {
+              "id": "digid_prod_001",
+              "title": "Softwareversie test versus productie",
+              "en_title": "Software version test versus production",
+              "description": "Versienummers van de software zijn tussen de geteste omgeving en productie vergeleken.",
+              "en_description": "Software version numbers compared between the tested environment and production."
+            },
+            {
+              "id": "digid_prod_002",
+              "title": "SSL-configuratie productie",
+              "en_title": "SSL configuration on production",
+              "description": "De SSL-configuratie van de webserver is geverifieerd op de productieomgeving.",
+              "en_description": "The web server's SSL configuration verified on the production environment.",
+              "tools": [
+                "testssl.sh"
+              ],
+              "command_refs": [
+                "web_tls_headers"
+              ],
+              "finding_refs": [
+                "Insecure TLS Configuration",
+                "Self-Signed or Weak Certificates"
+              ]
+            },
+            {
+              "id": "digid_prod_003",
+              "title": "Security-headers DigiD-inlogpagina",
+              "en_title": "Security headers of the DigiD login page",
+              "description": "De security-headers van de hoofdpagina (voor DigiD-inlog) zijn geverifieerd op productie.",
+              "en_description": "The security headers of the main page (before DigiD login) verified on production.",
+              "finding_refs": [
+                "Security Headers",
+                "Information Disclosure in HTTP Headers"
+              ],
+              "command_refs": [
+                "web_tls_headers"
+              ]
+            },
+            {
+              "id": "digid_prod_004",
+              "title": "Container-versies (indien Docker)",
+              "en_title": "Container versions (if Docker)",
+              "description": "Bij containerization (Docker): evidence van de versienummers van de containers verzameld.",
+              "en_description": "With containerisation (Docker): evidence of the container version numbers collected."
+            },
+            {
+              "id": "digid_prod_005",
+              "title": "Deployment-evidence (indien deploymentstraat)",
+              "en_title": "Deployment evidence (if deployment pipeline)",
+              "description": "Bij een deployment-straat: evidence van de deployments naar acceptatie en productie verzameld.",
+              "en_description": "With a deployment pipeline: evidence of deployments to acceptance and production collected."
+            }
+          ]
+        },
+        {
+          "id": "digid_rapport",
+          "title": "Rapportage en afstemming",
+          "items": [
+            {
+              "id": "digid_rap_001",
+              "title": "Classificatie rapportage",
+              "en_title": "Report classification",
+              "description": "Classificatie van de rapportage conform DigiD-norm, beleid opdrachtgever/IT-auditor en eventueel publieke standaarden.",
+              "en_description": "Report classification per DigiD norm, client/IT-auditor policy and optionally public standards."
+            },
+            {
+              "id": "digid_rap_002",
+              "title": "Beschrijving object van onderzoek",
+              "en_title": "Description of the object of assessment",
+              "description": "Beschrijving van het object van onderzoek: webfacing infrastructuur, servers en verbindingen.",
+              "en_description": "Description of the object of assessment: web-facing infrastructure, servers and connections."
+            },
+            {
+              "id": "digid_rap_003",
+              "title": "Niet of onvoldoende geteste onderdelen",
+              "en_title": "Untested or insufficiently tested parts",
+              "description": "Indien van toepassing: overzicht van onderdelen die niet of onvoldoende getest konden worden.",
+              "en_description": "If applicable: overview of parts that could not be tested or were insufficiently tested."
+            },
+            {
+              "id": "digid_rap_004",
+              "title": "Afwijkingen en risico per norm",
+              "en_title": "Deviations and risk per norm",
+              "description": "Overzicht van afwijkingen ten opzichte van de norm met bijbehorende mate van risico op basis van de norm en na risicoanalyse.",
+              "en_description": "Overview of deviations from the norm with the associated level of risk based on the norm and after risk analysis."
+            },
+            {
+              "id": "digid_rap_005",
+              "title": "Resultaten per normonderdeel",
+              "en_title": "Results per norm element",
+              "description": "Overzicht en details van resultaten en afwijkingen per onderdeel uit de norm.",
+              "en_description": "Overview and details of results and deviations per element of the norm."
+            },
+            {
+              "id": "digid_rap_006",
+              "title": "Proof of Concept / reproduceerbaarheid",
+              "en_title": "Proof of Concept / reproducibility",
+              "description": "Proof of Concepts of details in de rapportage waarmee de bevinding kan worden gereproduceerd.",
+              "en_description": "Proofs of Concept or details in the report allowing the finding to be reproduced."
+            },
+            {
+              "id": "digid_rap_007",
+              "title": "Concrete aanbevelingen",
+              "en_title": "Concrete recommendations",
+              "description": "Concrete aanbevelingen per bevinding.",
+              "en_description": "Concrete recommendations per finding."
+            },
+            {
+              "id": "digid_rap_008",
+              "title": "Overzicht gebruikte tools",
+              "en_title": "Overview of tools used",
+              "description": "Overzicht van de gebruikte pentest-tools.",
+              "en_description": "Overview of the pentest tools used."
+            },
+            {
+              "id": "digid_rap_009",
+              "title": "Afstemming met IT-auditor",
+              "en_title": "Alignment with the IT auditor",
+              "description": "Versleutelde, beveiligde uitwisseling met de IT-auditor; controle op volledigheid, consistentie en of met de bereikte diepgang de norm is afgedekt.",
+              "en_description": "Encrypted, secured exchange with the IT auditor; checks on completeness, consistency and whether the achieved depth covers the norm."
+            },
+            {
+              "id": "digid_rap_010",
+              "title": "Melden kritieke bevindingen",
+              "en_title": "Reporting critical findings",
+              "description": "Kritieke bevindingen die naar verwachting in productie aanwezig zijn, worden in overleg met de IT-auditor aan de opdrachtgever gemeld met PoC/reproductiestappen, via versleutelde uitwisseling.",
+              "en_description": "Critical findings expected to be present in production are reported to the client in consultation with the IT auditor, with PoC/repro steps, via encrypted exchange."
+            },
+            {
+              "id": "digid_rap_011",
+              "title": "Hertest traceerbaar opgenomen",
+              "en_title": "Retest recorded traceably",
+              "description": "Bevindingen waarvoor een hertest is uitgevoerd zijn als zodanig in het rapport opgenomen met de uitkomst van de hertest (traceerbaarheid).",
+              "en_description": "Findings for which a retest was performed are recorded as such in the report with the retest outcome (traceability)."
+            },
+            {
+              "id": "digid_rap_012",
+              "title": "Definitieve rapportage en archivering",
+              "en_title": "Final report and archiving",
+              "description": "Definitieve rapportage via versleutelde, beveiligde uitwisseling met de opdrachtgever; indien van toepassing archivering in een afgeschermde omgeving met passende beveiligingsmaatregelen.",
+              "en_description": "Final report via encrypted, secured exchange with the client; if applicable, archiving in a shielded environment with appropriate security measures."
+            }
+          ]
+        }
+      ]
     }
   }
 }

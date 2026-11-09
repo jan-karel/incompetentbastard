@@ -5,6 +5,7 @@ from meuk.flask.forms import *
 from meuk.flask.security import require_dashboard_access
 from werkzeug.utils import secure_filename
 import datetime
+import hashlib
 import json
 import os
 import re as _re
@@ -121,9 +122,493 @@ def _latex_escape(text):
     return text
 
 
+# ---------------------------------------------------------------------------
+# Markup-model: één parser, drie renderers (LaTeX / HTML / Markdown)
+# ---------------------------------------------------------------------------
+# Template-velden (beschrijving/impact/aanbeveling/referenties) bevatten een MIX
+# van bewuste LaTeX-markup (\begin{description}, \item, \textbf{...}) en
+# letterlijke tekst met backslashes (Windows-registerpaden als \SOFTWARE\Microsoft),
+# underscores en losse specials. Om PDF (LaTeX), HTML-preview en DOCX (Markdown)
+# IDENTIEK te laten renderen, parsen we de markup één keer naar een node-boom en
+# renderen die naar elk doelformaat. Bij structureel onbalans (ongesloten
+# omgeving, eenzame \item, haakjes-mismatch) valt elke renderer terug op de
+# platte escape van zijn eigen formaat, zodat geen enkele build kapotgaat op
+# slechte data.
+#
+# Node-vormen:
+#   ('text', str)
+#   ('cmd', name, [children])        inline: textbf/textit/emph/texttt/underline/...
+#   ('zero', name)                   losse commando's: textbackslash/ldots/...
+#   ('env', envname, [items])        description/itemize/enumerate/quote/center
+#   item := ('item', label_nodes|None, [body_nodes])
+_MK_ENVS = {'description', 'itemize', 'enumerate', 'quote', 'center'}
+_MK_INLINE = {'textbf', 'textit', 'emph', 'texttt', 'textrm', 'textsc', 'underline', 'textsf'}
+_MK_ZERO = {'textbackslash', 'textrightarrow', 'textleftarrow', 'ldots', 'dots',
+            'newline', 'par', 'noindent', 'textasciitilde', 'textasciicircum'}
+_MK_CMD_RE = _re.compile(r'\\([a-zA-Z]+)')
+_MK_ENV_RE = _re.compile(r'\{([a-zA-Z*]+)\}')
+
+
+class _MkFail(Exception):
+    """Markup is structureel onbetrouwbaar; val terug op platte escape."""
+
+
+# --- Parser --------------------------------------------------------------- #
+
+def _mk_parse(text):
+    s = str(text).replace('\r\n', '\n').replace('\r', '\n')
+    nodes, i, stop = _mk_parse_nodes(s, 0, 'top')
+    return nodes
+
+
+def _mk_parse_nodes(s, i, mode, envname=None):
+    """Parse een reeks nodes.
+
+    mode:
+      'top'   -> tot EOF (stop='eof')
+      'group' -> tot bijbehorende '}' (stop='brace', geconsumeerd)
+      'item'  -> tot '\\item' (stop='item', NIET geconsumeerd behalve de \\item zelf)
+                 of '\\end{envname}' (stop='end', geconsumeerd)
+    Geeft (nodes, index, stop) terug.
+    """
+    n = len(s)
+    nodes = []
+    buf = []
+
+    def flush():
+        if buf:
+            nodes.append(('text', ''.join(buf)))
+            buf.clear()
+
+    while i < n:
+        ch = s[i]
+        if ch == '}':
+            if mode == 'group':
+                flush()
+                return nodes, i + 1, 'brace'
+            buf.append('}')
+            i += 1
+            continue
+        if ch == '{':
+            # Kale groep zonder commando -> letterlijke accolades
+            buf.append('{')
+            i += 1
+            continue
+        if ch == '\\':
+            m = _MK_CMD_RE.match(s, i)
+            if not m:
+                nxt = s[i + 1] if i + 1 < n else ''
+                if nxt in '&%$#_{}':
+                    buf.append(nxt)
+                    i += 2
+                else:
+                    buf.append('\\')
+                    i += 1
+                continue
+            cmd = m.group(1)
+            j = m.end()
+            if cmd == 'begin':
+                em = _MK_ENV_RE.match(s, j)
+                if not em or em.group(1) not in _MK_ENVS:
+                    raise _MkFail()
+                flush()
+                items, i = _mk_parse_env(s, em.end(), em.group(1))
+                nodes.append(('env', em.group(1), items))
+                continue
+            if cmd == 'end':
+                em = _MK_ENV_RE.match(s, j)
+                if not em:
+                    raise _MkFail()
+                if mode == 'item' and em.group(1) == envname:
+                    flush()
+                    return nodes, em.end(), 'end'
+                raise _MkFail()
+            if cmd == 'item':
+                if mode == 'item':
+                    flush()
+                    return nodes, j, 'item'
+                raise _MkFail()
+            if cmd in _MK_INLINE:
+                if j < n and s[j] == '{':
+                    flush()
+                    children, i, _ = _mk_parse_nodes(s, j + 1, 'group')
+                    nodes.append(('cmd', cmd, children))
+                    continue
+                raise _MkFail()
+            if cmd in _MK_ZERO:
+                flush()
+                nodes.append(('zero', cmd))
+                i = j
+                continue
+            # Onbekend commando -> letterlijke backslash + letters als tekst
+            flush()
+            nodes.append(('zero', 'textbackslash'))
+            buf.append(cmd)
+            i = j
+            continue
+        buf.append(ch)
+        i += 1
+    if mode != 'top':
+        raise _MkFail()
+    flush()
+    return nodes, i, 'eof'
+
+
+def _mk_parse_env(s, i, envname):
+    """Parse items van een omgeving; i staat net na \\begin{env}. Geeft (items, idx)."""
+    items = []
+    n = len(s)
+    # Inhoud vóór de eerste \item (meestal witruimte) overslaan.
+    _pre, i, stop = _mk_parse_nodes(s, i, 'item', envname)
+    if stop == 'end':
+        return items, i
+    if stop != 'item':
+        raise _MkFail()
+    while True:
+        label = None
+        if i < n and s[i] == '[':
+            k = i + 1
+            while k < n and s[k] != ']':
+                k += 1
+            if k >= n:
+                raise _MkFail()
+            label, _, _ = _mk_parse_nodes(s[i + 1:k], 0, 'top')
+            i = k + 1
+        body, i, stop = _mk_parse_nodes(s, i, 'item', envname)
+        items.append(('item', label, body))
+        if stop == 'end':
+            return items, i
+        if stop == 'item':
+            continue
+        raise _MkFail()
+
+
+# --- Hulp: blokken splitsen (inline-runs vs. omgevingen) ------------------- #
+
+def _mk_blocks(nodes):
+    blocks = []
+    buf = []
+
+    def flush():
+        if any(not (nd[0] == 'text' and not nd[1].strip()) for nd in buf):
+            blocks.append(('p', list(buf)))
+        buf.clear()
+
+    for nd in nodes:
+        if nd[0] == 'env':
+            flush()
+            blocks.append(('env', nd))
+        else:
+            buf.append(nd)
+    flush()
+    return blocks
+
+
+# --- LaTeX-renderer ------------------------------------------------------- #
+
+_TEX_SPECIAL = {'&': r'\&', '%': r'\%', '$': r'\$', '#': r'\#', '_': r'\_',
+                '~': r'\textasciitilde{}', '^': r'\textasciicircum{}',
+                '\\': r'\textbackslash{}', '{': r'\{', '}': r'\}'}
+_TEX_ZERO = {'textbackslash': r'\textbackslash{}', 'textrightarrow': r'\textrightarrow{}',
+             'textleftarrow': r'\textleftarrow{}', 'ldots': r'\ldots{}', 'dots': r'\dots{}',
+             'newline': r'\newline ', 'par': '\n\n', 'noindent': r'\noindent ',
+             'textasciitilde': r'\textasciitilde{}', 'textasciicircum': r'\textasciicircum{}'}
+
+
+def _tex_text(seg):
+    return ''.join(_TEX_SPECIAL.get(ch, ch) for ch in seg)
+
+
+def _mk_to_latex(nodes):
+    out = []
+    for nd in nodes:
+        t = nd[0]
+        if t == 'text':
+            out.append(_tex_text(nd[1]))
+        elif t == 'zero':
+            out.append(_TEX_ZERO.get(nd[1], ''))
+        elif t == 'cmd':
+            out.append('\\%s{%s}' % (nd[1], _mk_to_latex(nd[2])))
+        elif t == 'env':
+            out.append('\\begin{%s}' % nd[1])
+            for _it, label, body in nd[2]:
+                out.append('\n\\item')
+                if label is not None:
+                    out.append('[' + _mk_to_latex(label) + ']')
+                out.append(' ' + _mk_to_latex(body))
+            out.append('\n\\end{%s}\n' % nd[1])
+    return ''.join(out)
+
+
+def _latex_markup(text):
+    if not text:
+        return ''
+    try:
+        return _mk_to_latex(_mk_parse(text))
+    except (_MkFail, RecursionError):
+        return _latex_escape(text)
+
+
+# --- HTML-renderer (blok-niveau, CSP-veilig: geen inline styles) ----------- #
+
+_HTML_INLINE = {'textbf': ('<strong>', '</strong>'), 'textit': ('<em>', '</em>'),
+                'emph': ('<em>', '</em>'), 'texttt': ('<code>', '</code>'),
+                'underline': ('<u>', '</u>'), 'textrm': ('', ''),
+                'textsc': ('', ''), 'textsf': ('', '')}
+_HTML_ZERO = {'textbackslash': '\\', 'textrightarrow': '&rarr;', 'textleftarrow': '&larr;',
+              'ldots': '&hellip;', 'dots': '&hellip;', 'newline': '<br>', 'par': '<br>',
+              'noindent': '', 'textasciitilde': '~', 'textasciicircum': '^'}
+
+
+def _html_esc(seg):
+    return seg.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+
+
+def _mk_inline_html(nodes):
+    out = []
+    for nd in nodes:
+        t = nd[0]
+        if t == 'text':
+            out.append(_html_esc(nd[1]))
+        elif t == 'zero':
+            out.append(_HTML_ZERO.get(nd[1], ''))
+        elif t == 'cmd':
+            w = _HTML_INLINE.get(nd[1], ('', ''))
+            out.append(w[0] + _mk_inline_html(nd[2]) + w[1])
+        elif t == 'env':
+            out.append(_mk_env_html(nd))
+    return ''.join(out)
+
+
+def _mk_item_body_html(nodes):
+    if any(nd[0] == 'env' for nd in nodes):
+        return _mk_blocks_html(nodes)
+    return _mk_inline_html(nodes).strip()
+
+
+def _mk_env_html(envnode):
+    envname = envnode[1]
+    items = envnode[2]
+    if envname == 'description':
+        out = ['<dl>']
+        for _it, label, body in items:
+            if label is not None:
+                out.append('<dt>%s</dt>' % _mk_inline_html(label).strip())
+            out.append('<dd>%s</dd>' % _mk_item_body_html(body))
+        out.append('</dl>')
+        return ''.join(out)
+    if envname in ('itemize', 'enumerate'):
+        tag = 'ol' if envname == 'enumerate' else 'ul'
+        out = ['<%s>' % tag]
+        for _it, label, body in items:
+            pre = ('<strong>%s</strong> ' % _mk_inline_html(label).strip()) if label is not None else ''
+            out.append('<li>%s%s</li>' % (pre, _mk_item_body_html(body)))
+        out.append('</%s>' % tag)
+        return ''.join(out)
+    if envname == 'quote':
+        inner = ''.join('<p>%s</p>' % _mk_inline_html(b).strip() for _i, _l, b in items) \
+            if items else ''
+        return '<blockquote>%s</blockquote>' % inner
+    # center en overig: items/tekst gewoon als paragrafen
+    return ''.join('<p>%s</p>' % _mk_item_body_html(b) for _i, _l, b in items)
+
+
+def _mk_blocks_html(nodes):
+    out = []
+    for kind, payload in _mk_blocks(nodes):
+        if kind == 'p':
+            inner = _mk_inline_html(payload).strip()
+            if inner:
+                out.append('<p>%s</p>' % inner)
+        else:
+            out.append(_mk_env_html(payload))
+    return ''.join(out)
+
+
+def _html_markup(text):
+    """Blok-HTML van template-markup; val bij twijfel terug op platte escape."""
+    if not text:
+        return ''
+    try:
+        return _mk_blocks_html(_mk_parse(text))
+    except (_MkFail, RecursionError):
+        return '<p>%s</p>' % _html_esc(str(text)).replace('\n', '<br>')
+
+
+# --- Markdown-renderer (voor DOCX via pandoc) ------------------------------ #
+
+_MD_INLINE = {'textbf': ('**', '**'), 'textit': ('*', '*'), 'emph': ('*', '*'),
+              'texttt': ('`', '`'), 'underline': ('', ''), 'textrm': ('', ''),
+              'textsc': ('', ''), 'textsf': ('', '')}
+_MD_ZERO = {'textbackslash': '\\\\', 'textrightarrow': '→', 'textleftarrow': '←',
+            'ldots': '…', 'dots': '…', 'newline': '  \n', 'par': '\n\n', 'noindent': '',
+            'textasciitilde': '~', 'textasciicircum': '^'}
+_MD_ESC_RE = _re.compile(r'([\\`*_\[\]<>#|])')
+
+
+def _md_esc(seg):
+    return _MD_ESC_RE.sub(r'\\\1', seg)
+
+
+def _mk_inline_md(nodes):
+    out = []
+    for nd in nodes:
+        t = nd[0]
+        if t == 'text':
+            out.append(_md_esc(nd[1]))
+        elif t == 'zero':
+            out.append(_MD_ZERO.get(nd[1], ''))
+        elif t == 'cmd':
+            w = _MD_INLINE.get(nd[1], ('', ''))
+            inner = _mk_inline_md(nd[2]).strip()
+            out.append((w[0] + inner + w[1]) if inner else '')
+        elif t == 'env':
+            out.append('\n\n' + _mk_env_md(nd) + '\n\n')
+    return ''.join(out)
+
+
+def _mk_env_md(envnode):
+    envname = envnode[1]
+    items = envnode[2]
+    lines = []
+    for idx, (_it, label, body) in enumerate(items, 1):
+        bullet = '%d.' % idx if envname == 'enumerate' else '-'
+        lab = ''
+        if label is not None:
+            lab = '**%s** ' % _mk_inline_md(label).strip()
+        body_md = _mk_blocks_md(body).strip()
+        if envname == 'quote':
+            lines.append('> ' + (lab + body_md).replace('\n', ' ').strip())
+            continue
+        parts = (lab + body_md).split('\n')
+        lines.append(('%s %s' % (bullet, parts[0])).rstrip())
+        # vervolgregels (bv. geneste lijst) inspringen onder de bullet
+        for p in parts[1:]:
+            lines.append(('  ' + p) if p.strip() else '')
+    return '\n'.join(lines)
+
+
+def _mk_blocks_md(nodes):
+    out = []
+    for kind, payload in _mk_blocks(nodes):
+        if kind == 'p':
+            inner = _mk_inline_md(payload).strip()
+            if inner:
+                out.append(inner)
+        else:
+            out.append(_mk_env_md(payload))
+    return '\n\n'.join(out)
+
+
+def _md_markup(text):
+    """Markdown van template-markup; val bij twijfel terug op platte tekst."""
+    if not text:
+        return ''
+    try:
+        return _mk_blocks_md(_mk_parse(text))
+    except (_MkFail, RecursionError):
+        return _md_esc(str(text))
+
+
+# --- Plain-text-renderer (overzichtstabellen, SARIF, pptx) ----------------- #
+
+_PLAIN_ZERO = {'textbackslash': '\\', 'textrightarrow': '→', 'textleftarrow': '←',
+               'ldots': '…', 'dots': '…', 'newline': ' ', 'par': ' ', 'noindent': '',
+               'textasciitilde': '~', 'textasciicircum': '^'}
+
+
+def _mk_inline_plain(nodes):
+    out = []
+    for nd in nodes:
+        t = nd[0]
+        if t == 'text':
+            out.append(nd[1])
+        elif t == 'zero':
+            out.append(_PLAIN_ZERO.get(nd[1], ''))
+        elif t == 'cmd':
+            out.append(_mk_inline_plain(nd[2]))
+        elif t == 'env':
+            parts = []
+            for _it, label, body in nd[2]:
+                lab = ''
+                if label is not None:
+                    lt = _mk_inline_plain(label).strip()
+                    lab = lt + (' ' if lt.endswith(':') else ': ')
+                parts.append((lab + _mk_inline_plain(body).strip()).strip())
+            out.append(' ' + '; '.join(p for p in parts if p) + ' ')
+    return ''.join(out)
+
+
+def _plain_markup(text):
+    """Platte tekst van template-markup (geen opmaak), voor tabellen/SARIF/pptx."""
+    if not text:
+        return ''
+    try:
+        s = _mk_inline_plain(_mk_parse(text))
+    except (_MkFail, RecursionError):
+        s = str(text)
+    return _re.sub(r'\s+', ' ', s).strip()
+
+
+# --- Template-gezondheidscheck ------------------------------------------- #
+# Scant alle bevinding-templates op markup die niet veilig rendert (en dus in
+# de rapportage stil terugvalt op platte tekst). Zo kan de operator de BRON
+# opschonen i.p.v. de symptomen.
+_HEALTH_FIELDS = ('nlbeschrijving', 'nlimpact', 'nlaanbeveling',
+                  'enbeschrijving', 'enimpact', 'enaanbeveling',
+                  'nlimpactkort', 'nlaanbevelingkort', 'enimpactkort',
+                  'enaanbevelingkort', 'referenties')
+
+
+def _markup_health_reason(v):
+    begins = _re.findall(r'\\begin\{([a-zA-Z*]+)\}', v)
+    ends = _re.findall(r'\\end\{([a-zA-Z*]+)\}', v)
+    for env in set(begins) | set(ends):
+        nb, ne = begins.count(env), ends.count(env)
+        if nb != ne:
+            return 'omgeving "%s" niet in balans (%d×\\begin, %d×\\end)' % (env, nb, ne)
+    if r'\item' in v and not begins:
+        return 'los \\item zonder omgeving'
+    if v.count('{') != v.count('}'):
+        return 'accolades niet in balans'
+    return 'ongeldige of niet-ondersteunde markup'
+
+
+def _template_health():
+    """Lijst van templates waarvan een veld niet veilig als markup rendert."""
+    from meuk.flask.models import db_bevindingen_templates
+    issues = []
+    for t in db_bevindingen_templates.query.all():
+        for fld in _HEALTH_FIELDS:
+            v = getattr(t, fld, '') or ''
+            if not v.strip():
+                continue
+            try:
+                _mk_parse(v)
+            except (_MkFail, RecursionError):
+                issues.append({
+                    'id': t.id,
+                    'titel': getattr(t, 'titel', '') or '',
+                    'veld': fld,
+                    'reden': _markup_health_reason(v),
+                })
+    return issues
+
+
+@findings_bp.route('/api/findings/templates/health', methods=['GET'])
+def templates_health():
+    issues = _template_health()
+    return jsonify({'ok': True, 'count': len(issues), 'issues': issues})
+
+
 @findings_bp.app_template_filter('latex_escape')
 def latex_escape_filter(text):
     return _latex_escape(text)
+
+
+@findings_bp.app_template_filter('latex_markup')
+def latex_markup_filter(text):
+    return _latex_markup(text)
 
 
 @findings_bp.before_request
@@ -594,16 +1079,39 @@ def api_findings_templates():
     templates = db_bevindingen_templates.query.all()
     return jsonify({'templates': [
         {'id': t.id, 'titel': t.titel, 'bevtype': t.bevtype or '',
+         'cwe': getattr(t, 'cwe', '') or '',
          'ncsc': getattr(t, 'ncsc', '') or '',
          'owasp_2025': getattr(t, 'owasp_2025', '') or ''}
         for t in templates
     ]})
 
 
+@findings_bp.route('/api/findings/templates/<int:template_id>/detail')
+def api_findings_template_detail(template_id):
+    """Volledige tekst van één standaardbevinding (template), voor read-only
+    weergave in de bevinding-editor en als placeholder voor de overrides."""
+    t = db.session.get(db_bevindingen_templates, template_id)
+    if not t:
+        return jsonify({'error': 'template niet gevonden'}), 404
+    return jsonify({
+        'id': t.id, 'titel': t.titel, 'bevtype': t.bevtype or '',
+        'cwe': getattr(t, 'cwe', '') or '', 'ncsc': getattr(t, 'ncsc', '') or '',
+        'owasp_2025': getattr(t, 'owasp_2025', '') or '',
+        'cvss': getattr(t, 'cvss', '') or '', 'basescore': getattr(t, 'basescore', '') or '',
+        'beschrijving': getattr(t, 'nlbeschrijving', '') or '',
+        'impact': getattr(t, 'nlimpact', '') or '',
+        'aanbeveling': getattr(t, 'nlaanbeveling', '') or '',
+        'impact_kort': getattr(t, 'nlimpactkort', '') or '',
+        'aanbeveling_kort': getattr(t, 'nlaanbevelingkort', '') or '',
+    })
+
+
 @findings_bp.route('/dashboard/findings/add/<bevinding_id>', methods=['GET', 'POST'])
 def bevinding_toevoegen(bevinding_id):
 
-    form = BevindingForm(ref=bevinding_id)
+    # '0' (of leeg) betekent: nieuwe bevinding zonder voorgekoppelde template.
+    _ref = bevinding_id if (bevinding_id and bevinding_id != '0') else ''
+    form = BevindingForm(ref=_ref)
     scope_targets = _get_scope_targets()
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
         pagina = render_template('bevinding_toevoegen.html', form=form, scope_targets=scope_targets)
@@ -642,6 +1150,13 @@ def bevinding_bewerken(bevinding_id):
     form = BevindingForm(
         id=item.id, naam=item.naam, invoegen=item.invoegen, ref=item.ref,
         uitwerken=item.uitwerken, locatie=item.locatie,
+        beschrijving_override=getattr(item, 'beschrijving_override', '') or '',
+        impact_override=getattr(item, 'impact_override', '') or '',
+        aanbeveling_override=getattr(item, 'aanbeveling_override', '') or '',
+        impact_kort_override=getattr(item, 'impact_kort_override', '') or '',
+        aanbeveling_kort_override=getattr(item, 'aanbeveling_kort_override', '') or '',
+        cvss=getattr(item, 'cvss', '') or '',
+        basescore=getattr(item, 'basescore', '') or '',
         gebruikersvlag=item.gebruikersvlag, rootvlag=item.rootvlag,
         status=item.status or 'draft',
         remediation_status=getattr(item, 'remediation_status', '') or 'open',
@@ -660,6 +1175,7 @@ def bevinding_bewerken(bevinding_id):
         detectie_notitie=getattr(item, 'detectie_notitie', '') or '',
         kans=getattr(item, 'kans', '') or '',
         impact_niveau=getattr(item, 'impact_niveau', '') or '',
+        tester=getattr(item, 'tester', '') or '',
     )
     scope_targets = _get_scope_targets()
     huidige_opdracht = getattr(item, 'opdracht_id', None)
@@ -716,19 +1232,22 @@ def bevinding_opslaan():
                 ('retest_status', bev.retest_status, form.retest_status.data),
                 ('retest_date', getattr(bev, 'retest_date', None), form.retest_date.data),
                 ('retest_notes', getattr(bev, 'retest_notes', None), form.retest_notes.data),
+                ('tester', getattr(bev, 'tester', None), form.tester.data),
             ]
             for field, old, new in _tracked:
                 if str(old or '') != str(new or ''):
                     _log_change('db_bevinding', bev.id, field, old, new)
             bev.naam = form.naam.data
-            bev.invoegen = form.invoegen.data
             bev.ref = form.ref.data
             bev.uitwerken = form.uitwerken.data
+            bev.beschrijving_override = form.beschrijving_override.data or ''
+            bev.impact_override = form.impact_override.data or ''
+            bev.aanbeveling_override = form.aanbeveling_override.data or ''
+            bev.impact_kort_override = form.impact_kort_override.data or ''
+            bev.aanbeveling_kort_override = form.aanbeveling_kort_override.data or ''
             bev.locatie = form.locatie.data
             bev.basescore =  form.basescore.data
             bev.cvss =  form.cvss.data
-            bev.gebruikersvlag =  form.gebruikersvlag.data
-            bev.rootvlag = form.rootvlag.data
             bev.status = form.status.data
             bev.remediation_status = form.remediation_status.data
             bev.remediation_target_date = form.remediation_target_date.data
@@ -746,6 +1265,7 @@ def bevinding_opslaan():
             bev.detectie_notitie  = form.detectie_notitie.data
             bev.kans              = form.kans.data
             bev.impact_niveau     = form.impact_niveau.data
+            bev.tester            = form.tester.data
             _zet_sla_doeldatum_indien_leeg(bev)
             db.session.commit()
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
@@ -753,10 +1273,14 @@ def bevinding_opslaan():
 
         else:
             bevdb = db_bevindingen(
-                naam=form.naam.data, invoegen=form.invoegen.data,
+                naam=form.naam.data,
                 ref=form.ref.data, uitwerken=form.uitwerken.data,
-                locatie=form.locatie.data, gebruikersvlag=form.gebruikersvlag.data,
-                rootvlag=form.rootvlag.data, basescore=form.basescore.data,
+                beschrijving_override=form.beschrijving_override.data or '',
+                impact_override=form.impact_override.data or '',
+                aanbeveling_override=form.aanbeveling_override.data or '',
+                impact_kort_override=form.impact_kort_override.data or '',
+                aanbeveling_kort_override=form.aanbeveling_kort_override.data or '',
+                locatie=form.locatie.data, basescore=form.basescore.data,
                 cvss=form.cvss.data, status=form.status.data,
                 remediation_status=form.remediation_status.data,
                 remediation_target_date=form.remediation_target_date.data,
@@ -774,6 +1298,7 @@ def bevinding_opslaan():
                 detectie_notitie=form.detectie_notitie.data,
                 kans=form.kans.data,
                 impact_niveau=form.impact_niveau.data,
+                tester=form.tester.data,
             )
             _zet_sla_doeldatum_indien_leeg(bevdb)
             db.session.add(bevdb)
@@ -788,79 +1313,6 @@ def bevinding_opslaan():
 
 _VALID_STATUSES = {'draft', 'final', 'closed'}
 _VALID_RETEST_STATUSES = {'not_applicable', 'pending_retest', 'retested_fixed', 'retested_open'}
-
-
-# ---------------------------------------------------------------------------
-# Evaluatieprofielen per techniekcluster (hoofdstuk 5)
-# Startpunt voor het invullen van een bevinding: typische CVSS-vector,
-# kans/impact, faalmodus en herbruikbare rapportagezinnen.
-# ---------------------------------------------------------------------------
-
-_EVAL_PROFIELEN = [
-    {
-        'key': 'web_injectie', 'label': 'Web — Injectie (SQLi/command)',
-        'cvss': 'CVSS:4.0/AV:N/AC:L/AT:N/PR:N/UI:N/VC:H/VI:H/VA:H/SC:N/SI:N/SA:N',
-        'basescore': '9.3', 'kans': '4', 'impact_niveau': '5', 'faalmodus': 'werking',
-        'impact_zin': 'Een aanvaller kan via injectie willekeurige queries of commando’s uitvoeren, wat leidt tot volledige compromittering van de gegevens en mogelijk het onderliggende systeem.',
-        'aanbeveling_zin': 'Gebruik geparametriseerde queries (prepared statements) en voer strikte invoervalidatie en -encoding uit. Pas least privilege toe op de database-account.',
-    },
-    {
-        'key': 'web_xss', 'label': 'Web — Cross-Site Scripting (XSS)',
-        'cvss': 'CVSS:4.0/AV:N/AC:L/AT:N/PR:N/UI:P/VC:L/VI:L/VA:N/SC:N/SI:N/SA:N',
-        'basescore': '5.1', 'kans': '4', 'impact_niveau': '3', 'faalmodus': 'werking',
-        'impact_zin': 'Een aanvaller kan scripts injecteren die in de browser van het slachtoffer draaien, waardoor sessies gekaapt of gegevens afgevangen kunnen worden.',
-        'aanbeveling_zin': 'Pas contextafhankelijke output-encoding toe en implementeer een restrictieve Content-Security-Policy. Valideer en saneer invoer.',
-    },
-    {
-        'key': 'web_authz', 'label': 'Web — Autorisatie / toegangscontrole',
-        'cvss': 'CVSS:4.0/AV:N/AC:L/AT:N/PR:L/UI:N/VC:H/VI:L/VA:N/SC:N/SI:N/SA:N',
-        'basescore': '7.1', 'kans': '3', 'impact_niveau': '4', 'faalmodus': 'bestaan',
-        'impact_zin': 'Door ontbrekende of onjuiste autorisatiecontroles kan een gebruiker gegevens of functies benaderen buiten de eigen bevoegdheid.',
-        'aanbeveling_zin': 'Implementeer server-side autorisatiecontroles op elk object en elke functie (deny-by-default) en toets deze centraal.',
-    },
-    {
-        'key': 'auth_zwak', 'label': 'Authenticatie — zwakke mechanismen',
-        'cvss': 'CVSS:4.0/AV:N/AC:L/AT:N/PR:N/UI:N/VC:H/VI:H/VA:N/SC:N/SI:N/SA:N',
-        'basescore': '8.3', 'kans': '3', 'impact_niveau': '5', 'faalmodus': 'opzet',
-        'impact_zin': 'Zwakke authenticatie (geen MFA, zwak wachtwoordbeleid, brute-force mogelijk) stelt aanvallers in staat accounts over te nemen.',
-        'aanbeveling_zin': 'Verplicht multifactorauthenticatie, hanteer een sterk wachtwoordbeleid en implementeer accountlockout/rate-limiting.',
-    },
-    {
-        'key': 'crypto', 'label': 'Cryptografie / transport',
-        'cvss': 'CVSS:4.0/AV:N/AC:H/AT:P/PR:N/UI:N/VC:H/VI:L/VA:N/SC:N/SI:N/SA:N',
-        'basescore': '5.9', 'kans': '2', 'impact_niveau': '4', 'faalmodus': 'opzet',
-        'impact_zin': 'Verouderde of zwakke cryptografie maakt het mogelijk vertrouwelijk verkeer af te luisteren of te manipuleren.',
-        'aanbeveling_zin': 'Schakel verouderde protocollen en cijfers uit, dwing TLS 1.2+ af en gebruik actuele, sterke algoritmen en sleutellengtes.',
-    },
-    {
-        'key': 'misconfig', 'label': 'Misconfiguratie / hardening',
-        'cvss': 'CVSS:4.0/AV:N/AC:L/AT:N/PR:N/UI:N/VC:L/VI:L/VA:L/SC:N/SI:N/SA:N',
-        'basescore': '6.9', 'kans': '3', 'impact_niveau': '3', 'faalmodus': 'bestaan',
-        'impact_zin': 'Een onveilige configuratie vergroot het aanvalsoppervlak en kan directe toegang of informatielekkage tot gevolg hebben.',
-        'aanbeveling_zin': 'Hanteer een hardening-baseline (bijv. CIS Benchmarks), verwijder standaardaccounts/-diensten en beperk blootgestelde functionaliteit.',
-    },
-    {
-        'key': 'infoleak', 'label': 'Informatielekkage',
-        'cvss': 'CVSS:4.0/AV:N/AC:L/AT:N/PR:N/UI:N/VC:L/VI:N/VA:N/SC:N/SI:N/SA:N',
-        'basescore': '5.3', 'kans': '3', 'impact_niveau': '2', 'faalmodus': 'werking',
-        'impact_zin': 'Het systeem lekt technische of gevoelige informatie die een aanvaller helpt bij vervolgaanvallen.',
-        'aanbeveling_zin': 'Beperk foutmeldingen en metadata, verwijder debug-informatie uit productie en classificeer welke gegevens getoond mogen worden.',
-    },
-    {
-        'key': 'netwerk', 'label': 'Netwerk / dienst-exposure',
-        'cvss': 'CVSS:4.0/AV:N/AC:L/AT:N/PR:N/UI:N/VC:H/VI:H/VA:H/SC:N/SI:N/SA:N',
-        'basescore': '9.3', 'kans': '3', 'impact_niveau': '5', 'faalmodus': 'bestaan',
-        'impact_zin': 'Een kwetsbare of onnodig blootgestelde netwerkdienst kan leiden tot ongeautoriseerde toegang of code-uitvoering.',
-        'aanbeveling_zin': 'Beperk netwerkexposure via segmentatie en firewalling, patch diensten tijdig en schakel ongebruikte diensten uit.',
-    },
-]
-_EVAL_PROFIEL_MAP = {p['key']: p for p in _EVAL_PROFIELEN}
-
-
-@findings_bp.route('/api/findings/eval-profiles', methods=['GET'])
-def api_eval_profiles():
-    """Geef de beschikbare evaluatieprofielen als startpunt voor een bevinding."""
-    return jsonify({'profiles': _EVAL_PROFIELEN})
 
 
 # ---------------------------------------------------------------------------
@@ -986,6 +1438,15 @@ def _evidence_path(finding_id):
     path = os.path.join(_EVIDENCE_DIR, str(finding_id))
     os.makedirs(path, exist_ok=True)
     return path
+
+
+def _sha256_file(path):
+    """Hex-SHA-256 van een bestand, streaming (geschikt voor grote bestanden)."""
+    digest = hashlib.sha256()
+    with open(path, 'rb') as fh:
+        for chunk in iter(lambda: fh.read(1024 * 1024), b''):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 # ---------------------------------------------------------------------------
@@ -1252,6 +1713,7 @@ def list_evidence(finding_id):
             'description': e.description or '',
             'tool_name': e.tool_name or '',
             'evidence_category': e.evidence_category or '',
+            'sha256': e.sha256 or '',
         } for e in items
     ]})
 
@@ -1276,7 +1738,12 @@ def upload_evidence(finding_id):
     stored_name = uuid.uuid4().hex + ext
 
     dest_dir = _evidence_path(finding_id)
-    f.save(os.path.join(dest_dir, stored_name))
+    stored_path = os.path.join(dest_dir, stored_name)
+    f.save(stored_path)
+
+    # Integriteit (chain of custody): SHA-256 over het opgeslagen bestand, zodat
+    # een auditor kan verifiëren dat het bewijs in het rapport niet is gewijzigd.
+    sha256 = _sha256_file(stored_path)
 
     ev = db_evidence(
         finding_id=finding_id,
@@ -1286,6 +1753,7 @@ def upload_evidence(finding_id):
         description=request.form.get('description', '')[:500] or None,
         tool_name=request.form.get('tool_name', '')[:100] or None,
         evidence_category=request.form.get('evidence_category', '')[:50] or None,
+        sha256=sha256,
     )
     db.session.add(ev)
     db.session.commit()
@@ -1295,6 +1763,7 @@ def upload_evidence(finding_id):
         'id': ev.id,
         'filename': stored_name,
         'original_filename': original,
+        'sha256': sha256,
     })
 
 
@@ -1306,6 +1775,33 @@ def download_evidence(evidence_id):
     path = _evidence_path(ev.finding_id)
     return send_from_directory(path, ev.filename, as_attachment=True,
                                download_name=ev.original_filename or ev.filename)
+
+
+@findings_bp.route('/api/findings/evidence/<int:evidence_id>/verify', methods=['GET'])
+def verify_evidence(evidence_id):
+    """Herbereken de SHA-256 van het opgeslagen bewijsbestand en vergelijk met de
+    bij vastlegging bewaarde hash (chain of custody). status: match | mismatch |
+    no_hash (geen hash vastgelegd) | missing_file (bestand weg)."""
+    ev = db.session.get(db_evidence, evidence_id)
+    if not ev:
+        return jsonify({'error': 'evidence niet gevonden'}), 404
+    filepath = os.path.join(_evidence_path(ev.finding_id), ev.filename)
+    if not os.path.exists(filepath):
+        return jsonify({'ok': False, 'status': 'missing_file',
+                        'sha256_stored': ev.sha256 or '', 'sha256_actual': ''}), 200
+    actual = _sha256_file(filepath)
+    if not ev.sha256:
+        status = 'no_hash'
+    elif actual == ev.sha256:
+        status = 'match'
+    else:
+        status = 'mismatch'
+    return jsonify({
+        'ok': status == 'match',
+        'status': status,
+        'sha256_stored': ev.sha256 or '',
+        'sha256_actual': actual,
+    })
 
 
 @findings_bp.route('/api/findings/evidence/<int:evidence_id>', methods=['DELETE'])

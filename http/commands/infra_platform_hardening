@@ -1,0 +1,30 @@
+# Platform- en webserver-hardening verifieren
+# DigiD-norm: U/PW.07 (hardeningsrichtlijn platformen), U/PW.03 (baseline)
+#
+# === Baseline / benchmark ===
+# Lynis — Linux system audit tegen hardening-baseline
+lynis audit system --quick
+# CIS-CAT / OpenSCAP tegen CIS- of STIG-profiel
+oscap xccdf eval --profile cis --results scan.xml /usr/share/xml/scap/ssg/content/ssg-TARGET-ds.xml
+# Windows: lokale hardening-check (meegeleverd auditscript)
+# get_check-aanbevelingen (zie bibliotheek) — privesc/LOLBin/misconfig
+#
+# === Webserver-configuratie ===
+# Draaiende services en open poorten minimaliseren
+ss -tlnp
+# Onnodige HTTP-methoden
+curl -s -X OPTIONS -i https://TARGET/ | grep -i "allow:"
+# Directory listing / default-pagina's / server-signature
+curl -s -I https://TARGET/ | grep -iE "server:|x-powered-by:"
+# Verbergen van versie-informatie controleren (Server-header, error-pagina's)
+curl -s https://TARGET/pagina-bestaat-niet-404 | grep -iE "apache|nginx|iis|version"
+#
+# === Controlepunten ===
+# - Onnodige services/modules uitgeschakeld
+# - Geen default credentials / default content / sample-apps
+# - Minimale rechten voor het webserver-procesaccount
+# - Versie-/stacktrace-informatie niet gelekt in headers of errors
+# - Bestandsrechten op config- en webroot conform baseline
+# - Afwijkingen t.o.v. de gedocumenteerde configuratie-baseline vastgelegd
+#
+# Tip: vraag de gedocumenteerde hardening-/configuratie-baseline op en toets daartegen

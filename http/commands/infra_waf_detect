@@ -1,0 +1,25 @@
+# Detectie- en protectiemechanismen (WAF/IDS/IPS)
+# DigiD-norm: U/NW.04 (detectie- en protectiemechanismen)
+#
+# === WAF-detectie ===
+# wafw00f — identificeer WAF-product
+wafw00f https://TARGET
+# nmap WAF-fingerprint
+nmap -p 80,443 --script http-waf-detect,http-waf-fingerprint TARGET
+#
+# === Protectie testen (gecontroleerd!) ===
+# Trigger een duidelijke aanvalssignatuur en kijk of die geblokkeerd wordt
+curl -s -o /dev/null -w "%{http_code}\n" "https://TARGET/?q=<script>alert(1)</script>"
+curl -s -o /dev/null -w "%{http_code}\n" "https://TARGET/?id=1' OR '1'='1"
+# Rate-limiting / lockout op de inlog (brute-force-protectie)
+for i in $(seq 1 10); do curl -s -o /dev/null -w "%{http_code} " -d "user=x&pass=y$i" https://TARGET/login; done; echo
+#
+# === Controlepunten ===
+# - WAF of equivalent aanwezig voor de DigiD-webapplicatie
+# - Bekende aanvalspatronen worden geblokkeerd/gelogd (niet alleen doorgelaten)
+# - Rate-limiting / account-lockout op authenticatie-endpoints
+# - Detectie (IDS/logging) genereert alerts op verdacht verkeer
+# - Geen trivial WAF-bypass (encoding, casing, alternatieve content-types)
+#
+# Let op: stem destructieve/volumineuze tests vooraf af; voorkom DoS en
+#         vervuiling van productie-detectie (meld testvenster aan SOC/beheer)

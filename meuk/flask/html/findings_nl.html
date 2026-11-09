@@ -54,7 +54,7 @@ Risico inschatting
 \subsubsection'[{'Bewijs ({{ x.naam }})'}]'
 \begin'[{'itemize'}]'
 {% for e in evidence[x.id] %}
-\item '[{'{{ e.original_filename }}'}]'
+\item '[{'{{ e.original_filename }}{% if e.sha256 %} (SHA-256: {{ e.sha256 }}){% endif %}'}]'
 {% endfor %}
 \end'[{'itemize'}]'
 {% endif %}

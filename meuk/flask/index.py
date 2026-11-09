@@ -118,6 +118,50 @@ def api_screenshots():
     return jsonify(items)
 
 
+_MAX_SCREENSHOT_SIZE = 15 * 1024 * 1024  # 15 MB
+
+
+@index_bp.route('/api/screenshots', methods=['POST'])
+def api_screenshots_upload():
+    """Upload een project-afbeelding (screenshot) rechtstreeks naar
+    raw/screenshots/, zodat die direct als \\plaatje{..} in notities/bevindingen
+    kan worden ingevoegd. Voedt de plak-/sleep-flow van de LaTeX-editor."""
+    import os
+    import uuid
+    from werkzeug.utils import secure_filename
+    require_dashboard_access()
+
+    f = request.files.get('file')
+    if f is None:
+        return jsonify({'error': 'geen bestand meegegeven'}), 400
+
+    original = secure_filename(f.filename or '') or 'screenshot.png'
+    stem, ext = os.path.splitext(original)
+    ext = (ext or '.png').lower()
+    if ext not in _IMAGE_SUFFIXES:
+        return jsonify({'error': 'bestandstype niet toegestaan'}), 415
+    stem = (stem or 'screenshot').lower()[:40].strip('._-') or 'screenshot'
+
+    # Grootte begrenzen (stream naar geheugen is prima voor screenshots).
+    blob = f.read()
+    if len(blob) == 0:
+        return jsonify({'error': 'leeg bestand'}), 400
+    if len(blob) > _MAX_SCREENSHOT_SIZE:
+        return jsonify({'error': 'bestand te groot (max 15 MB)'}), 413
+
+    _SCREENSHOT_DIR.mkdir(parents=True, exist_ok=True)
+    name = '{}_{}{}'.format(stem, uuid.uuid4().hex[:8], ext)
+    dest = _SCREENSHOT_DIR / name
+    with open(dest, 'wb') as out:
+        out.write(blob)
+
+    return jsonify({
+        'ok': True,
+        'name': name,
+        'url': '/dashboard/raw/screenshots/' + name,
+    })
+
+
 #basic website
 @index_bp.route('/', defaults={'cms_pag': 'index'}, methods=['GET', 'POST'])
 @index_bp.route('/<cms_pag>')
@@ -195,11 +239,15 @@ def api_settings():
         'rapport_testtype': getattr(p, 'rapport_testtype', '') or 'pentest',
         'rapport_testscope': getattr(p, 'rapport_testscope', '') or 'blackbox',
         'rapport_management_samenvatting': getattr(p, 'rapport_management_samenvatting', '') or '',
+        'rapport_algeheel_beeld': getattr(p, 'rapport_algeheel_beeld', '') or '',
         'rapport_legsup_startpunt': getattr(p, 'rapport_legsup_startpunt', '') or '',
         'rapport_legsup_privileges': getattr(p, 'rapport_legsup_privileges', '') or '',
         'rapport_legsup_informatie': getattr(p, 'rapport_legsup_informatie', '') or '',
         'rapport_scenarios': json.loads(getattr(p, 'rapport_scenarios', '[]') or '[]'),
         'rapport_scope_targets': json.loads(getattr(p, 'rapport_scope_targets', '[]') or '[]'),
+        'rapport_contact': getattr(p, 'rapport_contact', '') or '',
+        'rapport_revisies': json.loads(getattr(p, 'rapport_revisies', '[]') or '[]'),
+        'rapport_distributie': json.loads(getattr(p, 'rapport_distributie', '[]') or '[]'),
         'rapport_logo_path': getattr(p, 'rapport_logo_path', '') or '',
         'rapport_template_variant': getattr(p, 'rapport_template_variant', '') or 'detailed',
         'rapport_roe': getattr(p, 'rapport_roe', '') or '',
@@ -213,8 +261,12 @@ def api_settings():
         'debrief_faalde': getattr(p, 'debrief_faalde', '') or '',
         'debrief_detectie': getattr(p, 'debrief_detectie', '') or '',
         'debrief_vervolg': getattr(p, 'debrief_vervolg', '') or '',
-        # PDF-beveiliging: nooit het wachtwoord zelf teruggeven, alleen of het gezet is
+        # PDF-beveiliging: wachtwoorden blijven zichtbaar in de UI (localhost-tool),
+        # zodat de operator het ingestelde wachtwoord kan verifiëren.
         'rapport_pdf_protected': bool(getattr(p, 'rapport_pdf_password', '') or ''),
+        'rapport_pdf_owner_protected': bool(getattr(p, 'rapport_pdf_owner_password', '') or ''),
+        'rapport_pdf_password': getattr(p, 'rapport_pdf_password', '') or '',
+        'rapport_pdf_owner_password': getattr(p, 'rapport_pdf_owner_password', '') or '',
         # DefectDojo: API-sleutel gemaskeerd
         'dd_url': getattr(p, 'dd_url', '') or '',
         'dd_api_key_set': bool(getattr(p, 'dd_api_key', '') or ''),
@@ -258,6 +310,8 @@ def api_settings_update():
             setattr(p, key, data[key].strip()[:200])
     if 'rapport_management_samenvatting' in data and isinstance(data['rapport_management_samenvatting'], str):
         p.rapport_management_samenvatting = data['rapport_management_samenvatting'].strip()[:10000]
+    if 'rapport_algeheel_beeld' in data and isinstance(data['rapport_algeheel_beeld'], str):
+        p.rapport_algeheel_beeld = data['rapport_algeheel_beeld'].strip()[:10000]
     for key in ('rapport_legsup_startpunt', 'rapport_legsup_privileges', 'rapport_legsup_informatie'):
         if key in data and isinstance(data[key], str):
             setattr(p, key, data[key].strip()[:10000])
@@ -283,6 +337,30 @@ def api_settings_update():
                     'beschrijving': str(st.get('beschrijving', ''))[:500],
                 })
         p.rapport_scope_targets = json.dumps(clean_targets)
+    if 'rapport_contact' in data and isinstance(data['rapport_contact'], str):
+        p.rapport_contact = data['rapport_contact'].strip()[:5000]
+    if 'rapport_revisies' in data and isinstance(data['rapport_revisies'], list):
+        clean_rev = []
+        for rv in data['rapport_revisies'][:50]:
+            if isinstance(rv, dict):
+                clean_rev.append({
+                    'versie': str(rv.get('versie', ''))[:30],
+                    'datum': str(rv.get('datum', ''))[:30],
+                    'auteur': str(rv.get('auteur', ''))[:200],
+                    'wijziging': str(rv.get('wijziging', ''))[:1000],
+                })
+        p.rapport_revisies = json.dumps(clean_rev)
+    if 'rapport_distributie' in data and isinstance(data['rapport_distributie'], list):
+        clean_dist = []
+        for d in data['rapport_distributie'][:50]:
+            if isinstance(d, dict):
+                clean_dist.append({
+                    'naam': str(d.get('naam', ''))[:200],
+                    'organisatie': str(d.get('organisatie', ''))[:200],
+                    'rol': str(d.get('rol', ''))[:200],
+                    'versie': str(d.get('versie', ''))[:30],
+                })
+        p.rapport_distributie = json.dumps(clean_dist)
     if 'rapport_isdraft' in data:
         p.rapport_isdraft = bool(data['rapport_isdraft'])
     if 'rapport_template_variant' in data and isinstance(data['rapport_template_variant'], str):
@@ -323,6 +401,8 @@ def api_settings_update():
     # PDF-beveiliging: leeg -> uit; None/weglaten -> ongewijzigd
     if 'rapport_pdf_password' in data and isinstance(data['rapport_pdf_password'], str):
         p.rapport_pdf_password = data['rapport_pdf_password'][:200]
+    if 'rapport_pdf_owner_password' in data and isinstance(data['rapport_pdf_owner_password'], str):
+        p.rapport_pdf_owner_password = data['rapport_pdf_owner_password'][:200]
     # DefectDojo-configuratie
     if 'dd_url' in data and isinstance(data['dd_url'], str):
         p.dd_url = data['dd_url'].strip().rstrip('/')[:300]

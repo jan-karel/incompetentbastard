@@ -1,0 +1,37 @@
+# Vulnerability assessment met nuclei
+# DigiD-norm: C.03 (vulnerability assessments / security scans)
+#
+# === Basis-scan ===
+# Volledige scan met alle templates tegen het doel
+nuclei -u https://TARGET
+# Meerdere doelen uit een lijst
+nuclei -list targets.txt -o nuclei-report.txt
+#
+# === Gericht op de DigiD-scope ===
+# Alleen hoge/kritieke bevindingen (sluit aan op de reactietijden-classificatie)
+nuclei -u https://TARGET -severity critical,high
+# Specifieke template-categorieen: CVE's, misconfiguraties, exposures, tech-detect
+nuclei -u https://TARGET -tags cve,misconfiguration,exposure,tech
+# Netwerk-/infrastructuurgerichte scan (aansluiting op hardening + patching)
+nuclei -u TARGET -tags network,ssl,default-login
+#
+# === Gecontroleerd uitvoeren (productie) ===
+# Rate-limiting en concurrency begrenzen om schade te voorkomen
+nuclei -u https://TARGET -rate-limit 50 -c 25 -timeout 10
+# Templates eerst bijwerken; versie/template-versie vastleggen voor navolgbaarheid
+nuclei -update-templates && nuclei -version -templates-version
+# Gestructureerde output voor rapportage (JSONL)
+nuclei -u https://TARGET -severity critical,high,medium -jsonl -o nuclei.jsonl
+#
+# === Controlepunten (C.03) ===
+# - Scan gericht op resultaten van hardening en patching van de infrastructuur
+# - Scope omvat ten minste het netwerksegment met de DigiD-webapplicatie
+# - Bevindingen geclassificeerd via gangbare methodiek (NCSC-inschaling of CVSS)
+# - Opvolging binnen de DigiD-reactietijden:
+#     kritiek internetfacing: 5 werkdagen
+#     kritiek niet-internetfacing / hoog: 10 werkdagen
+#     medium / low: 1 maand
+# - Bij CI/CD: scan op dependencies, container images en IaC-configuraties
+#
+# Tip: handmatig verifieren; nuclei-bevindingen kennen false positives
+# Tip: alle bevindingen (voldoet en voldoet niet) documenteren voor navolgbaarheid

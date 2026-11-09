@@ -1,0 +1,25 @@
+# Cookie-attributen en sessiebeheer
+# DigiD-norm: U/TV.01 (identiteit- en toegangsbeheer)
+#
+# === Cookies inventariseren ===
+# Toon alle Set-Cookie-headers van de inlogflow
+curl -s -D - -o /dev/null https://TARGET/ | grep -i "set-cookie"
+# Volg de volledige DigiD-inlogflow en verzamel cookies
+curl -s -c cookies.txt -L https://TARGET/login && cat cookies.txt
+#
+# === Controlepunten per cookie ===
+# - Secure      : cookie alleen over HTTPS
+# - HttpOnly    : niet toegankelijk vanuit JavaScript (XSS-mitigatie)
+# - SameSite    : Lax of Strict (CSRF-mitigatie); None vereist Secure
+# - Path/Domain : zo beperkt mogelijk, geen onnodige subdomein-scope
+# - Levensduur  : korte sessieduur; geen persistente sessiecookies
+# - __Host- / __Secure- prefix voor sessiecookies waar mogelijk
+#
+# === Sessiebeheer-tests ===
+# - Nieuw sessie-ID na authenticatie (geen session fixation)
+# - Sessie ongeldig na logout (server-side invalidatie, niet alleen cookie wissen)
+# - Sessie-timeout bij inactiviteit
+# - Sessie-ID voldoende entropie / onvoorspelbaar
+#
+# Tip: test fixation door pre-auth cookie te zetten en te kijken of die na login blijft
+# Tip: hergebruik oude sessie-ID na logout om server-side invalidatie te verifieren

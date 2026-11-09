@@ -368,11 +368,11 @@
   font-size: .68rem; font-weight: 700; padding: 1px 6px;
   border-radius: 3px; white-space: nowrap; flex-shrink: 0;
 }
-.cvss-critical { background: #7f1d1d; color: #fecaca; }
+.cvss-critical { background: #581c87; color: #e9d5ff; }
 .cvss-high { background: #dc2626; color: #fff; }
 .cvss-medium { background: #f59e0b; color: #fff; }
 .cvss-low { background: #22c55e; color: #fff; }
-.cvss-info { background: #3b82f6; color: #fff; }
+.cvss-info { background: #5bc0de; color: #000; }
 
 .cl-finding-tpl-card .btn { font-size: .65rem; padding: 2px 8px; flex-shrink: 0; }
 .cl-finding-no-match { font-size: .72rem; opacity: .5; padding: 4px 0; }

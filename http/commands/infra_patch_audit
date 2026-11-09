@@ -1,0 +1,32 @@
+# Patchmanagement verifieren (ontbrekende (beveiligings)patches)
+# DigiD-norm: C.09 (patchmanagement)
+#
+# === Versies vaststellen ===
+# Service-/versiedetectie van de webfacing host
+nmap -sV -Pn TARGET
+# Webstack-componenten en versies
+whatweb -a 3 https://TARGET
+# TLS-stack / OpenSSL-versie (via certificaat/handshake)
+nmap --script ssl-enum-ciphers -p 443 TARGET
+#
+# === Bekende kwetsbaarheden koppelen ===
+# nmap vuln-scripts (CVE-correlatie)
+nmap -sV --script vuln -Pn TARGET
+# Zoek exploits bij gevonden product+versie
+searchsploit PRODUCT VERSIE
+# Handmatig: CVE's opzoeken voor elke component+versie (NVD / leverancier-advisories)
+#
+# === OS-/platform-patchniveau ===
+# Linux: geinstalleerde updates / beschikbare security-updates
+apt list --upgradable 2>/dev/null | grep -i security   # Debian/Ubuntu
+yum updateinfo list security all                        # RHEL/CentOS
+# Windows: ontbrekende hotfixes
+# wmic qfe list brief  (of Get-HotFix)
+#
+# === Controlepunten ===
+# - Geen end-of-life/ongesupporte componenten in gebruik
+# - Laatste (beveiligings)patches tijdig geinstalleerd (binnen afgesproken termijn)
+# - Patchproces is procesmatig/procedureel ondersteund door richtlijnen
+# - Testomgeving en productie op gelijk patchniveau (zie productieverificatie)
+#
+# Tip: vergelijk gevonden versies tegen de meest recente leveranciersrelease

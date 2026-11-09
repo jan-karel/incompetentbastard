@@ -347,108 +347,59 @@
   if (btnNoteSave) btnNoteSave.addEventListener("click", saveNote);
 
   // ═══════════════════════════════════════════════════════
-  // Finding quick-add modal
+  // Finding quick-add modal — laadt dezelfde rijke partial als
+  // "Bevinding bewerken" (tabs, slimme standaardbevinding-kiezer, overrides).
   // ═══════════════════════════════════════════════════════
   const findingModal = document.getElementById("finding-modal");
   const btnNewFinding = document.getElementById("btn-new-finding");
   const btnFindingClose = document.getElementById("btn-finding-close");
-  const btnFindingSave = document.getElementById("btn-finding-save");
-  const findingCsrf = document.getElementById("finding-csrf");
-  const findingTemplate = document.getElementById("finding-template");
-  const findingNaam = document.getElementById("finding-naam");
-  const findingLocatie = document.getElementById("finding-locatie");
-  const findingCvss = document.getElementById("finding-cvss");
-  const findingBasescore = document.getElementById("finding-basescore");
-  const findingUitwerken = document.getElementById("finding-uitwerken");
-  const findingStatus = document.getElementById("finding-status");
-  let findingTemplatesLoaded = false;
-  let findingScopeTargetsLoaded = false;
-
-  function openFindingModal() {
-    if (!findingModal) return;
-    findingModal.style.display = "flex";
-    if (findingNaam) findingNaam.focus();
-    if (!findingScopeTargetsLoaded) {
-      const datalist = document.getElementById("finding-scope-targets");
-      if (datalist) {
-        fetch("/api/settings").then(r => r.json()).then(d => {
-          findingScopeTargetsLoaded = true;
-          for (const st of (d.rapport_scope_targets || [])) {
-            const opt = document.createElement("option");
-            opt.value = st.target || "";
-            opt.textContent = (st.beschrijving || "") + " (" + (st.type || "host") + ")";
-            datalist.appendChild(opt);
-          }
-        }).catch(() => {});
-      }
-    }
-    if (!findingTemplatesLoaded && findingTemplate) {
-      fetch("/api/findings/templates")
-        .then(r => r.json())
-        .then(d => {
-          findingTemplatesLoaded = true;
-          const templates = d.templates || [];
-          for (const t of templates) {
-            const opt = document.createElement("option");
-            opt.value = t.id;
-            opt.textContent = t.titel + (t.bevtype ? " (" + t.bevtype + ")" : "");
-            findingTemplate.appendChild(opt);
-          }
-        })
-        .catch(() => {});
-    }
-  }
+  const findingModalBody = document.getElementById("finding-modal-body");
 
   function closeFindingModal() {
     if (!findingModal) return;
     findingModal.style.display = "none";
-    if (findingTemplate) findingTemplate.value = "";
-    if (findingNaam) findingNaam.value = "";
-    if (findingLocatie) findingLocatie.value = "";
-    if (findingCvss) findingCvss.value = "";
-    if (findingBasescore) findingBasescore.value = "";
-    if (findingUitwerken) findingUitwerken.value = "";
-    if (findingStatus) { findingStatus.textContent = ""; findingStatus.style.color = ""; }
+    if (findingModalBody) findingModalBody.innerHTML = "";
   }
 
-  function saveFinding() {
-    const naam = findingNaam ? findingNaam.value.trim() : "";
-    if (!naam) { if (findingStatus) { findingStatus.textContent = "Naam is verplicht"; findingStatus.style.color = "var(--danger, #ef4444)"; } return; }
-    const fd = new FormData();
-    if (findingCsrf) fd.append("csrf_token", findingCsrf.value);
-    fd.append("naam", naam);
-    fd.append("locatie", findingLocatie ? findingLocatie.value : "");
-    fd.append("uitwerken", findingUitwerken ? findingUitwerken.value : "");
-    fd.append("ref", findingTemplate ? findingTemplate.value : "");
-    fd.append("cvss", findingCvss ? findingCvss.value : "");
-    fd.append("basescore", findingBasescore ? findingBasescore.value : "");
-    fetch("/dashboard/findings/save", {
-      method: "POST",
-      headers: { "X-Requested-With": "XMLHttpRequest" },
-      body: fd,
-    })
-      .then(r => r.json())
-      .then(d => {
-        if (d.ok) {
-          if (findingStatus) { findingStatus.textContent = "Opgeslagen!"; findingStatus.style.color = "var(--success, #22c55e)"; }
-          setTimeout(closeFindingModal, 800);
-        } else {
-          if (findingStatus) { findingStatus.textContent = d.error || "Fout"; findingStatus.style.color = "var(--danger, #ef4444)"; }
+  function openFindingModal() {
+    if (!findingModal || !findingModalBody) return;
+    findingModalBody.innerHTML = '<p class="help">Laden...</p>';
+    findingModal.style.display = "flex";
+    fetch("/dashboard/findings/add/0", { headers: { "X-Requested-With": "XMLHttpRequest" } })
+      .then(r => r.text())
+      .then(html => {
+        findingModalBody.innerHTML = html;
+        // Zelfde init-pijplijn als de bewerk-modal.
+        if (window.CVSS4 && typeof window.CVSS4.init === "function") window.CVSS4.init();
+        if (typeof window.initLatexToolbar === "function") window.initLatexToolbar();
+        if (typeof window.initFindingTemplate === "function") window.initFindingTemplate();
+        if (typeof window.initFindingTabs === "function") window.initFindingTabs();
+
+        const form = findingModalBody.querySelector("form");
+        if (form) {
+          form.addEventListener("submit", (e) => {
+            e.preventDefault();
+            const naam = form.querySelector('[name="naam"]');
+            if (naam && !naam.value.trim()) { naam.focus(); return; }
+            fetch("/dashboard/findings/save", {
+              method: "POST",
+              headers: { "X-Requested-With": "XMLHttpRequest" },
+              body: new FormData(form),
+            })
+              .then(r => r.json())
+              .then(d => { if (d.ok) { closeFindingModal(); location.reload(); } })
+              .catch(() => {});
+          });
         }
+        const naam = findingModalBody.querySelector('[name="naam"]');
+        if (naam) naam.focus();
       })
-      .catch(() => { if (findingStatus) { findingStatus.textContent = "Fout"; findingStatus.style.color = "var(--danger, #ef4444)"; } });
+      .catch(() => { findingModalBody.innerHTML = '<p class="help">Kon het formulier niet laden.</p>'; });
   }
 
   if (btnNewFinding) btnNewFinding.addEventListener("click", openFindingModal);
   if (btnFindingClose) btnFindingClose.addEventListener("click", closeFindingModal);
   if (findingModal) findingModal.addEventListener("click", (e) => { if (e.target === findingModal) closeFindingModal(); });
-  if (btnFindingSave) btnFindingSave.addEventListener("click", saveFinding);
-  if (findingTemplate) findingTemplate.addEventListener("change", () => {
-    const sel = findingTemplate.options[findingTemplate.selectedIndex];
-    if (sel && sel.value && findingNaam && !findingNaam.value.trim()) {
-      findingNaam.value = sel.textContent.replace(/\s*\(.*\)\s*$/, "");
-    }
-  });
 
   // ═══════════════════════════════════════════════════════
   // Advanced mode toggle (localStorage)

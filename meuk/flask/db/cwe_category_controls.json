@@ -1,0 +1,74 @@
+{
+  "metadata": {
+    "beschrijving": "Indicatieve mapping van OWASP Top 10:2025-categorie naar ISO/IEC 27001:2022 Annex A, BIO2 en NIS2 art. 21 lid 2. Een bevinding wordt via zijn CWE aan een OWASP-categorie gekoppeld (owasp_top10_2025_cwes.json) en daarmee aan deze controls.",
+    "disclaimer": "Deze koppeling is INDICATIEF en geen formele certificering of volledige dekking. CWE's en normcontrols kennen geen officiele 1-op-1-relatie; gebruik dit als startpunt, verifieer per situatie.",
+    "versies": {
+      "iso27001": "ISO/IEC 27001:2022 (Annex A, gebaseerd op ISO/IEC 27002:2022)",
+      "bio": "BIO2 (Thema-uitwerkingen, ISO/IEC 27002:2022-nummering)",
+      "nis2": "NIS2-richtlijn (EU) 2022/2555, art. 21 lid 2"
+    },
+    "bron_cwe_categorie": "owasp_top10_2025_cwes.json"
+  },
+  "categories": {
+    "A01:2025": {
+      "titel": "Broken Access Control",
+      "iso27001": ["A.5.15 Toegangsbeveiliging", "A.5.18 Toegangsrechten", "A.8.2 Speciale toegangsrechten", "A.8.3 Beperking toegang tot informatie"],
+      "bio": ["5.15 Toegangsbeveiliging", "5.18 Toegangsrechten", "8.2 Speciale toegangsrechten", "8.3 Beperking toegang tot informatie"],
+      "nis2": ["21(2)(i) Toegangsbeheer en assetmanagement", "21(2)(j) Multifactorauthenticatie"]
+    },
+    "A02:2025": {
+      "titel": "Security Misconfiguration",
+      "iso27001": ["A.8.9 Configuratiebeheer", "A.8.8 Beheer van technische kwetsbaarheden", "A.5.37 Gedocumenteerde bedieningsprocedures"],
+      "bio": ["8.9 Configuratiebeheer", "8.8 Beheer van technische kwetsbaarheden", "5.37 Gedocumenteerde bedieningsprocedures"],
+      "nis2": ["21(2)(e) Beveiliging bij ontwikkeling, onderhoud en kwetsbaarhedenbeheer", "21(2)(g) Basiscyberhygiene"]
+    },
+    "A03:2025": {
+      "titel": "Software Supply Chain Failures",
+      "iso27001": ["A.5.19 Informatiebeveiliging in leveranciersrelaties", "A.5.20 Beveiliging in leveranciersovereenkomsten", "A.5.21 Beheer ICT-toeleveringsketen", "A.5.23 Informatiebeveiliging bij clouddiensten", "A.8.30 Uitbestede ontwikkeling"],
+      "bio": ["5.19 Informatiebeveiliging in leveranciersrelaties", "5.20 Beveiliging in leveranciersovereenkomsten", "5.21 Beheer ICT-toeleveringsketen", "8.30 Uitbestede ontwikkeling"],
+      "nis2": ["21(2)(d) Beveiliging van de toeleveringsketen"]
+    },
+    "A04:2025": {
+      "titel": "Cryptographic Failures",
+      "iso27001": ["A.8.24 Gebruik van cryptografie", "A.5.14 Informatieoverdracht", "A.8.5 Veilige authenticatie"],
+      "bio": ["8.24 Gebruik van cryptografie", "5.14 Informatieoverdracht", "8.5 Veilige authenticatie"],
+      "nis2": ["21(2)(h) Cryptografie en encryptie", "21(2)(j) Beveiligde communicatie"]
+    },
+    "A05:2025": {
+      "titel": "Injection",
+      "iso27001": ["A.8.28 Veilig programmeren", "A.8.26 Beveiligingseisen voor applicaties", "A.8.29 Beveiligingstests bij ontwikkeling en acceptatie"],
+      "bio": ["8.28 Veilig programmeren", "8.26 Beveiligingseisen voor applicaties", "8.29 Beveiligingstests bij ontwikkeling en acceptatie"],
+      "nis2": ["21(2)(e) Beveiliging bij ontwikkeling, onderhoud en kwetsbaarhedenbeheer"]
+    },
+    "A06:2025": {
+      "titel": "Insecure Design",
+      "iso27001": ["A.8.25 Levenscyclus van veilige ontwikkeling", "A.8.26 Beveiligingseisen voor applicaties", "A.8.27 Principes voor veilige systeemarchitectuur"],
+      "bio": ["8.25 Levenscyclus van veilige ontwikkeling", "8.26 Beveiligingseisen voor applicaties", "8.27 Principes voor veilige systeemarchitectuur"],
+      "nis2": ["21(2)(a) Risicoanalyse en beveiligingsbeleid", "21(2)(e) Beveiliging bij ontwikkeling"]
+    },
+    "A07:2025": {
+      "titel": "Authentication Failures",
+      "iso27001": ["A.8.5 Veilige authenticatie", "A.5.16 Identiteitsbeheer", "A.5.17 Authenticatie-informatie"],
+      "bio": ["8.5 Veilige authenticatie", "5.16 Identiteitsbeheer", "5.17 Authenticatie-informatie"],
+      "nis2": ["21(2)(i) Toegangsbeheer", "21(2)(j) Multifactorauthenticatie"]
+    },
+    "A08:2025": {
+      "titel": "Software or Data Integrity Failures",
+      "iso27001": ["A.8.25 Levenscyclus van veilige ontwikkeling", "A.8.31 Scheiding ontwikkel-, test- en productieomgeving", "A.8.4 Toegang tot broncode"],
+      "bio": ["8.25 Levenscyclus van veilige ontwikkeling", "8.31 Scheiding ontwikkel-, test- en productieomgeving", "8.4 Toegang tot broncode"],
+      "nis2": ["21(2)(e) Beveiliging bij ontwikkeling en onderhoud", "21(2)(d) Beveiliging van de toeleveringsketen"]
+    },
+    "A09:2025": {
+      "titel": "Security Logging and Alerting Failures",
+      "iso27001": ["A.8.15 Logging", "A.8.16 Monitoringactiviteiten", "A.5.25 Beoordeling van en besluitvorming over beveiligingsgebeurtenissen"],
+      "bio": ["8.15 Logging", "8.16 Monitoringactiviteiten", "5.25 Beoordeling van beveiligingsgebeurtenissen"],
+      "nis2": ["21(2)(b) Behandeling van incidenten"]
+    },
+    "A10:2025": {
+      "titel": "Mishandling of Exceptional Conditions",
+      "iso27001": ["A.8.28 Veilig programmeren", "A.8.29 Beveiligingstests bij ontwikkeling en acceptatie", "A.8.16 Monitoringactiviteiten"],
+      "bio": ["8.28 Veilig programmeren", "8.29 Beveiligingstests bij ontwikkeling en acceptatie", "8.16 Monitoringactiviteiten"],
+      "nis2": ["21(2)(e) Beveiliging bij ontwikkeling, onderhoud en kwetsbaarhedenbeheer"]
+    }
+  }
+}

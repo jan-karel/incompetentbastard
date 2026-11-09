@@ -6,6 +6,7 @@
 <link rel="stylesheet" href="{{ url_for('static', filename='css/notes-overview.css') }}" />
 <link rel="stylesheet" href="{{ url_for('static', filename='css/finding-form.css') }}" />
 <link rel="stylesheet" href="{{ url_for('static', filename='css/rapport-editor.css') }}" />
+<link rel="stylesheet" href="{{ url_for('static', filename='css/latexeditor.css') }}" />
 {% endblock %}
 
 {% block content %}
@@ -49,11 +50,28 @@
   </div>
 </section>
 
+{# Colofon: contactgegevens + revisiehistorie #}
+<section class="card mb-14">
+  <div class="card-head"><h2>Colofon</h2></div>
+  <div class="card-body">
+    <label class="form-label" for="rap-contact">Contactgegevens</label>
+    <textarea id="rap-contact" class="form-control" data-rap="rapport_contact" rows="4" placeholder="Naam, organisatie, e-mail, telefoon, website..."></textarea>
+    <p class="form-label mt12 mb-8">Revisiehistorie</p>
+    <div id="revisies-list"></div>
+    <button type="button" class="btn btn-sm mt-8" id="btn-add-revisie">Revisie toevoegen</button>
+    <p class="form-label mt12 mb-8">Distributie</p>
+    <div id="distributie-list"></div>
+    <button type="button" class="btn btn-sm mt-8" id="btn-add-distributie">Distributie toevoegen</button>
+  </div>
+</section>
+
 {# Managementsamenvatting — prominent #}
 <section class="card mb-14">
   <div class="card-head"><h2>Managementsamenvatting</h2></div>
   <div class="card-body">
     <textarea id="rap-samenvatting" class="form-control" data-rap="rapport_management_samenvatting" rows="8" placeholder="Vrije tekst voor de managementsamenvatting in het rapport..."></textarea>
+    <label class="form-label mt12" for="rap-algeheel-beeld">Algeheel beeld</label>
+    <textarea id="rap-algeheel-beeld" class="form-control" data-rap="rapport_algeheel_beeld" rows="4" placeholder="Algeheel beeld — korte duiding vóór de belangrijkste bevindingen en aanbevelingen..."></textarea>
   </div>
 </section>
 
@@ -240,15 +258,27 @@
       <button type="button" id="btn-add-scenario" class="btn mt-8">+ Scenario toevoegen</button>
     </div>
   </section>
+</div>{# /redteam-fields — PDF/DefectDojo/Debrief vallen hier bewust buiten #}
 
   <section class="card mb-14">
     <div class="card-head"><h2>PDF-beveiliging</h2></div>
     <div class="card-body">
-      <p class="help">Stel een wachtwoord in om het PDF-rapport met AES-256 te versleutelen. Na het genereren is de beveiligde versie beschikbaar als download "PDF (beveiligd)".</p>
-      <label class="form-label" for="rap-pdf-pw">Rapport-wachtwoord</label>
-      <input id="rap-pdf-pw" type="password" class="form-control"
-             data-rap-secret="rapport_pdf_password" data-rap-flag="rapport_pdf_protected"
-             placeholder="Leeg = geen versleuteling" autocomplete="new-password" />
+      <p class="help">Versleutel het PDF-rapport met AES-256. Het <strong>lezer-wachtwoord</strong> is nodig om het document te openen; het <strong>eigenaar-wachtwoord</strong> geeft volledige rechten (en valt terug op het lezer-wachtwoord indien leeg). Na het genereren is de beveiligde versie beschikbaar als download "PDF (beveiligd)".</p>
+      <label class="form-label" for="rap-pdf-pw">Lezer-wachtwoord (openen)</label>
+      <div class="pdf-pw-field mb-8">
+        <input id="rap-pdf-pw" type="text" class="form-control"
+               data-rap="rapport_pdf_password"
+               placeholder="Leeg = geen lezer-wachtwoord" autocomplete="off" spellcheck="false" />
+        <button type="button" class="btn btn-sm" data-genpw="rap-pdf-pw">Genereer sterk</button>
+      </div>
+      <label class="form-label" for="rap-pdf-owner-pw">Eigenaar-wachtwoord (volledige rechten)</label>
+      <div class="pdf-pw-field">
+        <input id="rap-pdf-owner-pw" type="text" class="form-control"
+               data-rap="rapport_pdf_owner_password"
+               placeholder="Leeg = gelijk aan lezer-wachtwoord" autocomplete="off" spellcheck="false" />
+        <button type="button" class="btn btn-sm" data-genpw="rap-pdf-owner-pw">Genereer sterk</button>
+      </div>
+      <span id="pdf-pw-msg" class="help"></span>
     </div>
   </section>
 
@@ -315,7 +345,6 @@
       </div>
     </div>
   </section>
-</div>
 
 {# Opslaan knop #}
 <div class="mb-14">
@@ -407,6 +436,24 @@
   </div>
 </section>
 
+{# ── Scan-run importeren als notitie ── #}
+<section class="card mb-14">
+  <div class="card-head"><h2>Scan-run importeren</h2></div>
+  <div class="card-body">
+    <p class="help">Genereer uit een scan-run-map (bijv. <code>apm2/raw/&lt;run&gt;</code>) een LaTeX-samenvatting (stappen + DigiD-normkoppeling + bevindingen) en voeg die toe als rauwe-LaTeX notitie in het rapport.</p>
+    <div class="d-flex gap-8 flex-wrap align-center">
+      <input type="text" id="scan-run-dir" class="form-control grow240" placeholder="/pad/naar/raw/&lt;run&gt;" autocomplete="off" spellcheck="false" />
+      <button type="button" class="btn btn-primary" id="btn-scan-import">Importeer map als notitie</button>
+    </div>
+    <div class="d-flex gap-8 flex-wrap align-center mt-8">
+      <input type="file" id="scan-zip-file" accept=".zip" class="fs13" />
+      <button type="button" class="btn btn-primary" id="btn-scan-import-zip">Upload zip en importeer</button>
+    </div>
+    <span id="scan-import-status" class="help d-block mt-6"></span>
+    <div id="scan-candidates" class="mt-8"></div>
+  </div>
+</section>
+
 {# ── Finding edit modal ── #}
 <div id="rap-finding-modal" class="modal-overlay d-none">
   <div class="modal-box modal-md">
@@ -435,6 +482,7 @@
       </div>
       <div class="form-group">
         <label for="rap-note-uitwerken">Inhoud</label>
+        <div data-latex-toolbar="rap-note-uitwerken" data-mode="note" data-project-images-url="/api/screenshots" data-draft-scope="#rap-note-id"></div>
         <textarea id="rap-note-uitwerken" class="form-control" rows="6" placeholder="Inhoud..."></textarea>
       </div>
       <div class="btn-row">
@@ -505,20 +553,30 @@
       <p class="help">Geen checklists beschikbaar. <a href="/dashboard/checklists">Maak een checklist aan</a>.</p>
       {% endif %}
     </div>
-    <div class="d-flex gap-6 flex-wrap mt-8">
-      <a class="btn" href="/api/report/download/html">HTML</a>
-      <a class="btn" href="/api/report/download/pdf">PDF</a>
-      <a class="btn" href="/api/report/download/docx">DOCX</a>
-      <a class="btn" href="/api/report/download/odt">ODT</a>
-      <a class="btn" href="/api/report/download/md">MD</a>
-      <a class="btn" href="/api/report/download/tex">TEX</a>
-      <a class="btn" href="/api/report/download/stix">STIX</a>
-      <a class="btn" href="/api/report/download/sarif">SARIF</a>
-      <a class="btn" href="/api/report/download/pptx">PPTX</a>
-      <a class="btn" href="/api/report/download/epub">EPUB</a>
-      <a class="btn" href="/api/report/download/pdf-secure">PDF (beveiligd)</a>
-      <a class="btn" href="/api/findings/export/csv">CSV</a>
-      <a class="btn" href="/taxii2/collections/findings/objects/" target="_blank">TAXII</a>
+    <div id="download-area" class="downloads-locked mt-12">
+      <div class="dl-hint help" id="download-hint">Genereer eerst een rapport; daarna worden de downloads beschikbaar.</div>
+      <div class="dl-group">
+        <span class="dl-label">Primair</span>
+        <a class="btn btn-primary dl-link" href="/api/report/download/pdf">PDF</a>
+        <a class="btn dl-link" href="/api/report/download/pdf-secure">PDF (beveiligd)</a>
+        <a class="btn dl-link" href="/api/report/download/docx">DOCX</a>
+        <a class="btn dl-link" href="/api/report/download/html">HTML</a>
+      </div>
+      <div class="dl-group">
+        <span class="dl-label">Overige formaten</span>
+        <a class="btn btn-sm dl-link" href="/api/report/download/md">MD</a>
+        <a class="btn btn-sm dl-link" href="/api/report/download/tex">TEX</a>
+        <a class="btn btn-sm dl-link" href="/api/report/download/odt">ODT</a>
+        <a class="btn btn-sm dl-link" href="/api/report/download/epub">EPUB</a>
+        <a class="btn btn-sm dl-link" href="/api/report/download/pptx">PPTX</a>
+      </div>
+      <div class="dl-group">
+        <span class="dl-label">Data-uitwisseling</span>
+        <a class="btn btn-sm dl-link" href="/api/report/download/stix">STIX</a>
+        <a class="btn btn-sm dl-link" href="/api/report/download/sarif">SARIF</a>
+        <a class="btn btn-sm dl-link" href="/api/findings/export/csv">CSV</a>
+        <a class="btn btn-sm dl-link" href="/taxii2/collections/findings/objects/" target="_blank">TAXII</a>
+      </div>
     </div>
   </div>
 </section>
@@ -558,6 +616,11 @@
   <div class="card-head"><h2>Rapportversies</h2></div>
   <div class="card-body">
     <div id="versions-list" class="help">Laden...</div>
+    <div class="d-flex gap-8 items-center flex-wrap mb-8">
+      <button type="button" class="btn btn-sm" id="btn-manifest">Integriteit (SHA-256) nieuwste versie</button>
+      <span id="manifest-msg" class="help"></span>
+    </div>
+    <pre id="manifest-output" class="diff-pre is-hidden"></pre>
     <hr class="hr-sep" />
     <h3 class="fs-14 m-0 mb-8">Versies vergelijken</h3>
     <div class="d-flex gap-8 items-center flex-wrap mb-8">
@@ -577,6 +640,9 @@
 {% endblock %}
 
 {% block scripts %}
+<script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='js/latexeditor.js') }}"></script>
+<script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='js/finding-template.js') }}"></script>
+<script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='js/finding-tabs.js') }}"></script>
 <script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='js/rapport-editor.js') }}"></script>
 <script nonce="{{ csp_nonce }}">
 (function() {
@@ -728,6 +794,123 @@
     renderScopeTargets(_scopeTargets);
   });
 
+  // ── Revisiehistorie (colofon) ─────────────────
+  var _revisies = [];
+  function _attr(v) { return String(v || "").replace(/"/g, "&quot;"); }
+  function renderRevisies(list) {
+    _revisies = list || [];
+    var container = document.getElementById("revisies-list");
+    if (!container) return;
+    container.innerHTML = "";
+    _revisies.forEach(function(rv, i) {
+      var row = document.createElement("div");
+      row.className = "revisie-row";
+      row.innerHTML =
+        '<input type="text" class="form-control revisie-versie" data-rev-versie="' + i + '" placeholder="Versie" value="' + _attr(rv.versie) + '" />' +
+        '<input type="text" class="form-control revisie-datum" data-rev-datum="' + i + '" placeholder="Datum" value="' + _attr(rv.datum) + '" />' +
+        '<input type="text" class="form-control revisie-auteur" data-rev-auteur="' + i + '" placeholder="Auteur" value="' + _attr(rv.auteur) + '" />' +
+        '<input type="text" class="form-control revisie-wijziging" data-rev-wijziging="' + i + '" placeholder="Wijziging" value="' + _attr(rv.wijziging) + '" />' +
+        '<button type="button" class="btn revisie-del-btn" data-rev-del="' + i + '">&#x2715;</button>';
+      container.appendChild(row);
+    });
+    container.querySelectorAll("[data-rev-del]").forEach(function(btn) {
+      btn.addEventListener("click", function() {
+        _revisies = collectRevisies();
+        _revisies.splice(parseInt(btn.getAttribute("data-rev-del")), 1);
+        renderRevisies(_revisies);
+      });
+    });
+  }
+  function collectRevisies() {
+    var result = [];
+    var container = document.getElementById("revisies-list");
+    if (!container) return result;
+    _revisies.forEach(function(rv, i) {
+      var v = container.querySelector('[data-rev-versie="' + i + '"]');
+      var d = container.querySelector('[data-rev-datum="' + i + '"]');
+      var a = container.querySelector('[data-rev-auteur="' + i + '"]');
+      var w = container.querySelector('[data-rev-wijziging="' + i + '"]');
+      if (v) {
+        result.push({
+          versie: v.value || "", datum: d ? d.value || "" : "",
+          auteur: a ? a.value || "" : "", wijziging: w ? w.value || "" : ""
+        });
+      }
+    });
+    return result;
+  }
+  var btnAddRevisie = document.getElementById("btn-add-revisie");
+  if (btnAddRevisie) btnAddRevisie.addEventListener("click", function() {
+    _revisies = collectRevisies();
+    _revisies.push({versie: "", datum: "", auteur: "", wijziging: ""});
+    renderRevisies(_revisies);
+  });
+
+  // ── Distributielijst ────────────────────────────
+  var _distributie = [];
+  function renderDistributie(list) {
+    _distributie = list || [];
+    var container = document.getElementById("distributie-list");
+    if (!container) return;
+    container.innerHTML = "";
+    _distributie.forEach(function(d, i) {
+      var row = document.createElement("div");
+      row.className = "revisie-row";
+      row.innerHTML =
+        '<input type="text" class="form-control" data-dist-naam="' + i + '" placeholder="Naam" value="' + _attr(d.naam) + '" />' +
+        '<input type="text" class="form-control" data-dist-organisatie="' + i + '" placeholder="Organisatie" value="' + _attr(d.organisatie) + '" />' +
+        '<input type="text" class="form-control" data-dist-rol="' + i + '" placeholder="Rol" value="' + _attr(d.rol) + '" />' +
+        '<input type="text" class="form-control" data-dist-versie="' + i + '" placeholder="Versie" value="' + _attr(d.versie) + '" />' +
+        '<button type="button" class="btn revisie-del-btn" data-dist-del="' + i + '">&#x2715;</button>';
+      container.appendChild(row);
+    });
+    container.querySelectorAll("[data-dist-del]").forEach(function(btn) {
+      btn.addEventListener("click", function() {
+        _distributie = collectDistributie();
+        _distributie.splice(parseInt(btn.getAttribute("data-dist-del")), 1);
+        renderDistributie(_distributie);
+      });
+    });
+  }
+  function collectDistributie() {
+    var result = [];
+    var container = document.getElementById("distributie-list");
+    if (!container) return result;
+    _distributie.forEach(function(d, i) {
+      var n = container.querySelector('[data-dist-naam="' + i + '"]');
+      var o = container.querySelector('[data-dist-organisatie="' + i + '"]');
+      var r = container.querySelector('[data-dist-rol="' + i + '"]');
+      var v = container.querySelector('[data-dist-versie="' + i + '"]');
+      if (n) {
+        result.push({
+          naam: n.value || "", organisatie: o ? o.value || "" : "",
+          rol: r ? r.value || "" : "", versie: v ? v.value || "" : ""
+        });
+      }
+    });
+    return result;
+  }
+  var btnAddDistributie = document.getElementById("btn-add-distributie");
+  if (btnAddDistributie) btnAddDistributie.addEventListener("click", function() {
+    _distributie = collectDistributie();
+    _distributie.push({naam: "", organisatie: "", rol: "", versie: ""});
+    renderDistributie(_distributie);
+  });
+
+  // ── PDF-beveiliging: sterk wachtwoord genereren ─
+  document.querySelectorAll("[data-genpw]").forEach(function(btn) {
+    btn.addEventListener("click", function() {
+      var target = document.getElementById(btn.getAttribute("data-genpw"));
+      var msg = document.getElementById("pdf-pw-msg");
+      fetch("/api/report/pdf/genpw").then(function(r) { return r.json(); }).then(function(d) {
+        if (d.ok && target) {
+          target.value = d.password;
+          if (msg) { msg.textContent = "Sterk wachtwoord gegenereerd — noteer het en klik op Opslaan om het toe te passen."; }
+        }
+      });
+    });
+  });
+
   // ── Conditionele redteam velden ───────────────
   var testtypeSel = document.getElementById("rap-testtype");
   var redteamFields = document.getElementById("redteam-fields");
@@ -783,6 +966,8 @@
         loadScopeCheckboxes(d.rapport_testscope || "blackbox");
         renderScenarios(d.rapport_scenarios || []);
         renderScopeTargets(d.rapport_scope_targets || []);
+        renderRevisies(d.rapport_revisies || []);
+        renderDistributie(d.rapport_distributie || []);
         toggleRedteamFields();
         updateVersieKpi(d.rapport_versie || "", d.rapport_versie_status || "concept");
       });
@@ -806,6 +991,8 @@
     payload.rapport_testscope = collectScope();
     payload.rapport_scenarios = collectScenarios();
     payload.rapport_scope_targets = collectScopeTargets();
+    payload.rapport_revisies = collectRevisies();
+    payload.rapport_distributie = collectDistributie();
     var statusEl = document.getElementById("rap-status");
     fetch("/api/settings", {
       method: "POST",
@@ -885,7 +1072,7 @@
         if (totalEl) totalEl.textContent = d.total || 0;
         var sevEl = document.getElementById("metric-severity");
         if (sevEl) {
-          var sevColors = {critical:"#820000",high:"#e60000",medium:"#f09600",low:"#ffdc00",none:"#00be00"};
+          var sevColors = {critical:"#800080",high:"#e60000",medium:"#f09600",low:"#ffdc00",none:"#00be00"};
           var html = "";
           Object.keys(d.severity || {}).forEach(function(k) {
             html += '<span class="rv-badge rv-badge-sev" data-bg="' + (sevColors[k]||"#eee") + '">' + k + ": " + d.severity[k] + "</span> ";
@@ -908,14 +1095,24 @@
 
   // ── Rapport-templates (selectie + beheer + preview) ─────────────
   var SEC_LABELS = {
-    managementsamenvatting: "Managementsamenvatting", methodologie: "Methodologie",
+    managementsamenvatting: "Managementsamenvatting",
+    top_risk_gauge: "Mgmt-samenvatting: risicometer (hoogste bevinding)",
+    methodologie: "Methodologie",
     legsup: "Legs Up", scenarios: "Scenario's",
-    samenvatting_bevindingen: "Samenvatting bevindingen", risicomatrix: "Risicomatrix",
+    samenvatting_bevindingen: "Samenvatting bevindingen", bevindingenlijst: "Bevindingenlijst",
+    risicomatrix: "Risicomatrix",
     sla: "Oplostijden (SLA)", detecteerbaarheid: "Detecteerbaarheid",
     verkenning: "Verkenning (notities)", bevindingen: "Bevindingen (detail)",
     aanbevelingen: "Aanbevelingen", killchain: "Kill chain",
     asset_dekking: "Asset-dekking", checklists: "Checklists",
-    appendices: "Bijlagen (OWASP/NCSC)"
+    owasp_mapping: "Bijlage: OWASP Top 10 mapping",
+    ncsc_mapping: "Bijlage: NCSC-richtlijnen mapping",
+    controls_mapping: "Bijlage: ISO 27001 / BIO / NIS2 mapping",
+    cia_triad: "Bijlage: CIA-triade (radar)",
+    subsequent_triad: "Bijlage: Vervolgsysteem-impact (SC/SI/SA)",
+    exploit_profile: "Bijlage: Exploiteerbaarheids-profiel",
+    direct_exploitable: "Bijlage: Direct exploiteerbare bevindingen",
+    impact_gauge: "Bijlage: Impact-meter (CIA)"
   };
   var tplSelect = document.getElementById("rap-template-select");
   var tplManager = document.getElementById("tpl-manager");
@@ -1156,10 +1353,12 @@
   var diffOut = document.getElementById("diff-output");
   var diffSum = document.getElementById("diff-summary");
   var versionsList = document.getElementById("versions-list");
+  var _newestVersion = null;
 
   function loadVersions() {
     fetch("/api/report/versions").then(function(r){return r.json();}).then(function(d){
       var vs = (d && d.versions) || [];
+      _newestVersion = vs.length ? vs[0] : null;
       if (versionsList) {
         versionsList.textContent = vs.length
           ? (vs.length + " versie(s) — nieuwste: " + vs[0].timestamp)
@@ -1172,6 +1371,25 @@
       if (vs.length >= 2) { diffA.value = vs[1].timestamp; diffB.value = vs[0].timestamp; }
     }).catch(function(){ if (versionsList) versionsList.textContent = "Kon versies niet laden."; });
   }
+
+  var btnManifest = document.getElementById("btn-manifest");
+  var manifestMsg = document.getElementById("manifest-msg");
+  var manifestOut = document.getElementById("manifest-output");
+  if (btnManifest) btnManifest.addEventListener("click", function(){
+    if (!_newestVersion) { if (manifestMsg) manifestMsg.textContent = "Nog geen versie."; return; }
+    if (!_newestVersion.has_manifest) { if (manifestMsg) manifestMsg.textContent = "Geen manifest voor deze versie."; return; }
+    if (manifestMsg) manifestMsg.textContent = "Laden…";
+    fetch("/api/report/versions/" + encodeURIComponent(_newestVersion.timestamp) + "/manifest")
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        if (manifestMsg) manifestMsg.textContent = d.ok ? ("versie " + d.timestamp) : (d.error || "Fout");
+        if (manifestOut) {
+          manifestOut.textContent = d.ok ? d.manifest : "";
+          manifestOut.classList.toggle("is-hidden", !d.ok);
+        }
+      })
+      .catch(function(){ if (manifestMsg) manifestMsg.textContent = "Kon manifest niet laden."; });
+  });
 
   document.getElementById("btn-diff").addEventListener("click", function(){
     if (!diffA.value || !diffB.value) { diffMsg.textContent = "Kies twee versies."; return; }
@@ -1297,6 +1515,40 @@
       .catch(function() { _ddMsg("Push mislukt", false); })
       .finally(function() { btnDdPush.disabled = false; });
   });
+
+  // ── Autosave: instellingen automatisch opslaan bij wijziging ────────
+  (function(){
+    var statusEl = document.getElementById("rap-status");
+    var timer = null;
+    function scheduleSave() {
+      if (statusEl) { statusEl.textContent = "Opslaan…"; statusEl.style.color = "var(--warning, #f59e0b)"; }
+      clearTimeout(timer);
+      timer = setTimeout(saveRapportSettings, 800);
+    }
+    document.querySelectorAll("#tab-instellingen [data-rap], #tab-instellingen [data-rap-secret]").forEach(function(el){
+      var ev = (el.tagName === "SELECT" || el.type === "checkbox" || el.type === "date") ? "change" : "input";
+      el.addEventListener(ev, scheduleSave);
+    });
+  })();
+
+  // ── Inklapbare instellingen-kaarten (status onthouden) ──────────────
+  (function(){
+    var CKEY = "rapCollapsedCards";
+    var collapsed = {};
+    try { collapsed = JSON.parse(localStorage.getItem(CKEY) || "{}") || {}; } catch(e) {}
+    document.querySelectorAll("#tab-instellingen .card > .card-head").forEach(function(head){
+      var h = head.querySelector("h2");
+      if (!h) return;
+      var key = h.textContent.trim();
+      head.classList.add("collapsible");
+      if (collapsed[key]) head.classList.add("collapsed");
+      head.addEventListener("click", function(){
+        head.classList.toggle("collapsed");
+        collapsed[key] = head.classList.contains("collapsed");
+        try { localStorage.setItem(CKEY, JSON.stringify(collapsed)); } catch(e) {}
+      });
+    });
+  })();
 })();
 </script>
 {% endblock %}

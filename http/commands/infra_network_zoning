@@ -1,0 +1,31 @@
+# Netwerkzonering, segmentatie en scheiding beheer-/productieverkeer
+# DigiD-normen: U/NW.03 (zonering/DMZ), U/NW.05 (scheiding beheer/productie),
+#               U/NW.06 (hardeningsrichtlijn netwerken)
+#
+# === Blootgestelde poorten en diensten ===
+# Volledige TCP-scan van de webfacing host (alleen poorten die open horen te zijn)
+nmap -p- -sV -Pn TARGET
+# Snelle top-poorten + service/versie
+nmap --top-ports 1000 -sV TARGET
+# UDP-steekproef (SNMP, DNS, NTP)
+nmap -sU --top-ports 50 TARGET
+#
+# === Segmentatie / zonering testen ===
+# Bereikbaarheid vanuit de DMZ naar interne/beheersegmenten (hoort geblokkeerd)
+nmap -Pn -p 22,445,3389,1433,5432,6379 INTERN_SUBNET/24
+# Egress-filtering vanaf de webfacing host (uitgaand verkeer beperkt?)
+for p in 53 80 443 4444; do timeout 3 bash -c "echo > /dev/tcp/8.8.8.8/$p" 2>/dev/null && echo "egress $p OPEN"; done
+#
+# === Scheiding beheer- en productieverkeer (U/NW.05) ===
+# Beheerinterfaces (SSH, RDP, WinRM, DB, admin-panels) mogen NIET op de
+# productie-/webfacing-zone blootgesteld zijn
+nmap -p 22,3389,5985,5986,1433,3306,5432,6379,9200,27017 -sV TARGET
+#
+# === Controlepunten ===
+# - Alleen noodzakelijke poorten (80/443) op de webfacing zone
+# - DMZ gescheiden van interne en beheersegmenten (geen directe routing)
+# - Beheerverkeer via apart segment/VPN, niet vanaf internet bereikbaar
+# - Egress-filtering aanwezig (host kan niet willekeurig uitbellen)
+# - Netwerkapparatuur gehard conform richtlijn (geen default/legacy mgmt)
+#
+# Tip: toets tegen de gedocumenteerde netwerk-/zoneringsarchitectuur

@@ -60,11 +60,11 @@ tr.rapport-included td:first-child { border-left: 3px solid var(--success, #22c5
   line-height: 1.4;
   white-space: nowrap;
 }
-.severity-badge.critical { background: #820000; color: #fff; }
+.severity-badge.critical { background: #800080; color: #fff; }
 .severity-badge.high     { background: #e60000; color: #fff; }
 .severity-badge.medium   { background: #f09600; color: #000; }
 .severity-badge.low      { background: #ffdc00; color: #000; }
-.severity-badge.info     { background: #00be00; color: #000; }
+.severity-badge.info     { background: #5bc0de; color: #000; }
 
 /* ── Compact buttons ──────────────────────────── */
 .btn-sm {
@@ -165,3 +165,94 @@ tr.rapport-included td:first-child { border-left: 3px solid var(--success, #22c5
 .tpl-vars-table { width: 100%; font-size: 12px; }
 .tpl-vars-table td, .tpl-vars-table th { padding: 3px 6px; vertical-align: top; }
 .tpl-vars-table code { white-space: nowrap; }
+
+/* Revisiehistorie-editor (colofon) */
+.revisie-row {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 6px;
+  align-items: center;
+}
+.revisie-versie { width: 90px; flex: none; }
+.revisie-datum  { width: 120px; flex: none; }
+.revisie-auteur { width: 160px; flex: none; }
+.revisie-wijziging { flex: 1; }
+.revisie-del-btn { padding: 2px 8px; flex: none; }
+
+/* PDF-beveiliging: wachtwoordveld + genereer-knop */
+.pdf-pw-field {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.pdf-pw-field .form-control { flex: 1; font-family: monospace; }
+.pdf-pw-field .btn { flex: none; white-space: nowrap; }
+
+/* ── Downloads: groepen + vergrendeld tot er een rapport is ─────────── */
+.dl-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin: 6px 0;
+}
+.dl-label {
+  flex: 0 0 140px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--muted);
+}
+.downloads-locked .dl-link {
+  pointer-events: none;
+  opacity: .45;
+  filter: grayscale(.5);
+}
+#download-hint { margin-bottom: 8px; }
+.downloads-ready #download-hint { color: var(--success, #22c55e); }
+@media (max-width: 640px) {
+  .dl-label { flex-basis: 100%; }
+}
+
+/* ── Inklapbare instellingen-kaarten ────────────────────────────────── */
+.rapport-tab-content .card .card-head.collapsible {
+  cursor: pointer;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.card-head.collapsible::after {
+  content: "▾";
+  font-size: 12px;
+  color: var(--muted);
+  transition: transform .18s ease;
+}
+.card-head.collapsible.collapsed::after { transform: rotate(-90deg); }
+.card-head.collapsible.collapsed + .card-body { display: none; }
+
+/* ── Autosave-indicator ─────────────────────────────────────────────── */
+.autosave-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.autosave-pill.saving { color: var(--warning, #f59e0b); }
+.autosave-pill.saved  { color: var(--success, #22c55e); }
+
+/* ── Scan-kandidaten (CSP-strikt: klassen i.p.v. inline styles) ───────── */
+.scan-cand-title { margin-top: 6px; }
+.scan-cand-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.scan-cand-table th {
+  text-align: left;
+  border-bottom: 2px solid var(--border, #333);
+  padding: 4px;
+}
+.scan-cand-table td {
+  padding: 4px;
+  border-bottom: 1px solid var(--border, #ddd);
+  vertical-align: top;
+}

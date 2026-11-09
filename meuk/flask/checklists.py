@@ -57,6 +57,17 @@ PHASE_DESCRIPTIONS = {
     "int_persist": "Zet persistence-mechanismen op en documenteer de impact van volledige compromittering.",
     "int_linux": "Test Linux-systemen en cloud-omgevingen: sudo, SUID, cron, containers en cloud metadata.",
     "int_report": "Documenteer alle bevindingen, maak screenshots van bewijs en schrijf het rapport.",
+    # DigiD (NOREA Handreiking ICT-beveiligingsassessment DigiD 2026, Bijlage 6)
+    "digid_org": "Organisatorische ingangscriteria: onafhankelijkheid, ervaring, instemmings- en vrijwaringsverklaring, beschikbaarheid, communicatie en planning.",
+    "digid_scope": "Scope en normstelling: object van onderzoek, DigiD-subset van de NCSC-normen (aangevuld met OWASP/WASC/GHDB), greybox-benadering en formulierselectie.",
+    "digid_verkenning": "Ingangscriteria verkenningsfase: inventarisatie webfacing infra, test gelijk aan productie, representatieve testdata, DigiD-testaccounts en applicatiekennis.",
+    "digid_analyse": "Initiële kwetsbaarhedenanalyse: fingerprinting van merken/versies, inventarisatie van bekende kwetsbaarheden en selectie van tests.",
+    "digid_auto": "Geautomatiseerde (dynamische) tests: toolkeuze en dekkingsgraad, afbakening tool versus handmatig, en bewaking tijdens uitvoering.",
+    "digid_manual": "Handmatige tests: expertise, SSL/TLS en cookies, handmatige verificatie van auto-bevindingen, vervolgtesten en functionele flows.",
+    "digid_norm": "Normdekking: de technische DigiD-normen (U/WA, U/PW, U/NW, U/TV, C.04, C.09) die met de pentest worden getoetst.",
+    "digid_code": "Optionele code review (statisch testen), afhankelijk van de norm en bij twijfel over het gedrag van de applicatie.",
+    "digid_prod": "Productieverificatie: vergelijk versie, SSL-configuratie, security-headers, container-versies en deployment-evidence tussen test en productie.",
+    "digid_rapport": "Rapportage en afstemming: classificatie, afwijkingen en risico per norm, PoC's, aanbevelingen, versleutelde uitwisseling, hertest en archivering.",
 }
 
 # Info over checklist-types voor de overview kaarten.
@@ -72,6 +83,13 @@ CHECKLIST_TYPE_INFO = {
         "scope": "AD, laterale beweging, domein-dominantie",
         "description": "Pentest vanuit het interne netwerk. "
         "Test Active Directory, laterale beweging, privilege escalation en domein-dominantie.",
+    },
+    "digid": {
+        "icon": "shield",
+        "scope": "DigiD-webapplicatie, NOREA 2026 / Norm v3.0",
+        "description": "Pentest-checklist voor het DigiD ICT-beveiligingsassessment, "
+        "gebaseerd op de NOREA Handreiking 2026 (Bijlage 6) en de DigiD-normen "
+        "(U/WA, U/PW, U/NW, U/TV, C.04, C.09).",
     },
 }
 
@@ -340,7 +358,13 @@ def update_item_status(checklist_id, item_ref):
         checklist_id=checklist_id, item_ref=item_ref
     ).first()
     if not item:
-        return jsonify({"ok": False, "error": "item niet gevonden"}), 404
+        # Template-item dat na het aanmaken van deze checklist is toegevoegd
+        # (bijv. een nieuwe norm): maak de rij alsnog aan mits de ref in het
+        # sjabloon bestaat. Zo blijven bestaande checklists meebewegen.
+        if not _find_item_in_template(_load_templates(), cl.checklist_type, item_ref):
+            return jsonify({"ok": False, "error": "item niet gevonden"}), 404
+        item = db_checklist_item(checklist_id=checklist_id, item_ref=item_ref)
+        db.session.add(item)
 
     item.status = new_status
     cl.updated_at = nu_utc()

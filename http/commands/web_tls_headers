@@ -1,0 +1,40 @@
+# TLS/SSL-configuratie en HTTP-security-headers
+# DigiD-normen: U/WA.05 (cryptografie), U/PW.02 (protocolinhoud),
+#               U/PW.03 (configuratie-baseline webserver)
+#
+# === TLS/SSL-analyse ===
+# testssl.sh — volledige TLS-scan (protocollen, ciphers, certificaat, kwetsbaarheden)
+testssl.sh --severity LOW https://TARGET
+# Alleen protocollen en ciphers
+testssl.sh -p -s https://TARGET
+# sslyze — snelle, gestructureerde scan
+sslyze --regular TARGET:443
+# nmap — ciphers en zwakke configuratie
+nmap --script ssl-enum-ciphers -p 443 TARGET
+# Certificaatketen en geldigheid handmatig
+echo | openssl s_client -connect TARGET:443 -servername TARGET 2>/dev/null | openssl x509 -noout -issuer -subject -dates
+#
+# === Controlepunten (TLS) ===
+# - Alleen TLS 1.2 en TLS 1.3 toegestaan (geen SSLv3/TLS 1.0/1.1)
+# - Geen zwakke ciphers (RC4, 3DES, NULL, EXPORT, anon)
+# - Forward secrecy (ECDHE) aanwezig
+# - Certificaat geldig, volledige keten, sterke sleutel (>= 2048-bit RSA / ECC)
+# - HSTS-header aanwezig met voldoende max-age
+#
+# === HTTP-security-headers ===
+# Snelle inventarisatie van response-headers
+curl -s -D - -o /dev/null https://TARGET
+# Specifiek de hoofdpagina vóór DigiD-inlog
+curl -s -I https://TARGET/ | grep -iE "strict-transport|content-security|x-frame|x-content-type|referrer-policy|permissions-policy|cache-control"
+#
+# === Verwachte headers (baseline) ===
+# Strict-Transport-Security: max-age=31536000; includeSubDomains
+# Content-Security-Policy: <restrictief beleid>
+# X-Frame-Options: DENY (of CSP frame-ancestors)
+# X-Content-Type-Options: nosniff
+# Referrer-Policy: no-referrer / strict-origin-when-cross-origin
+# Permissions-Policy: <minimaal benodigde features>
+# Cache-Control: no-store op pagina's met persoonsgegevens
+#
+# Tip: vergelijk test- en productieconfiguratie (DigiD-productieverificatie)
+# Tip: controleer dat HTTP automatisch naar HTTPS redirect (301/308)

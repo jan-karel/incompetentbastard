@@ -10,6 +10,7 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='css/global-tools.css') }}" />
   <link rel="stylesheet" href="{{ url_for('static', filename='css/latexeditor.css') }}" />
   <link rel="stylesheet" href="{{ url_for('static', filename='css/cvss4-calculator.css') }}" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/finding-form.css') }}" />
   <link rel="stylesheet" href="{{ url_for('static', filename='css/utility.css') }}" />
   <link rel="stylesheet" href="{{ url_for('static', filename='css/inject-modal.css') }}" />
   <link rel="stylesheet" href="{{ url_for('static', filename='css/csp-utils.css') }}" />
@@ -43,7 +44,6 @@
       <a href="/dashboard/tasks"><span class="left">Tasks</span></a>
       <a href="/dashboard/outputs"><span class="left">Outputs</span></a>
       <a href="/dashboard/files"><span class="left">Files</span></a>
-      <a href="/dashboard/amsi"><span class="left">AMSI Generator</span></a>
       <a href="/dashboard/admin"><span class="left">Admin</span></a>
     </div>
   </aside>
@@ -179,33 +179,8 @@
       <h3>Nieuwe bevinding</h3>
       <button id="btn-finding-close" class="modal-close-btn">&times;</button>
     </div>
-    <div class="modal-body">
-      <input type="hidden" id="finding-csrf" name="csrf_token" value="{{ csrf_token() }}" />
-      <label for="finding-template" class="form-label">Template</label>
-      <select id="finding-template" class="form-control">
-        <option value="">-- geen template --</option>
-      </select>
-      <label for="finding-naam" class="form-label mt-12">Naam</label>
-      <input id="finding-naam" type="text" class="form-control" placeholder="Bevinding naam" />
-      <label for="finding-locatie" class="form-label mt-12">Host</label>
-      <input id="finding-locatie" type="text" class="form-control" placeholder="IP / hostname" list="finding-scope-targets" />
-      <datalist id="finding-scope-targets"></datalist>
-      <div class="mt-12" data-cvss4-calculator>
-        <div class="cvss4-result">
-          <button type="button" data-cvss-toggle class="btn">CVSS 4.0 Calculator</button>
-          <span data-cvss-score>-</span>
-          <span data-cvss-severity class="badge">-</span>
-        </div>
-        <input type="hidden" id="finding-cvss" data-cvss-vector />
-        <input type="hidden" id="finding-basescore" name="basescore" />
-      </div>
-      <label for="finding-uitwerken" class="form-label mt-12">Beschrijving</label>
-      <div data-latex-toolbar="finding-uitwerken" data-mode="finding" data-project-images-url="/api/screenshots"></div>
-      <textarea id="finding-uitwerken" rows="10" class="form-control" placeholder="Uitwerking..."></textarea>
-      <div class="mt-12 d-flex gap-8 justify-end align-center">
-        <span id="finding-status" class="status"></span>
-        <button id="btn-finding-save" class="btn btn-primary" type="button">Opslaan</button>
-      </div>
+    <div class="modal-body" id="finding-modal-body">
+      {# Rijke partial (tabs, standaardbevinding-kiezer, overrides) via AJAX geladen #}
     </div>
   </div>
 </div>
@@ -238,6 +213,8 @@
 <script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='js/global-search.js') }}"></script>
 <script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='js/cvss4-calculator.js') }}"></script>
 <script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='js/latexeditor.js') }}"></script>
+<script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='js/finding-template.js') }}"></script>
+<script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='js/finding-tabs.js') }}"></script>
 <script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='js/inject-modal.js') }}"></script>
 <script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='js/global-tools.js') }}"></script>
 {% block scripts %}{% endblock %}

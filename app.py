@@ -81,6 +81,14 @@ def create_app():
                 except Exception:
                     pass
 
+            # Auto-migrate: notitie als rauwe LaTeX
+            try:
+                conn.execute(db.text(
+                    "ALTER TABLE db_notes ADD COLUMN latex_raw BOOLEAN DEFAULT 0"))
+                conn.commit()
+            except Exception:
+                pass
+
             # Auto-migrate: finding status
             try:
                 conn.execute(db.text(
@@ -228,10 +236,22 @@ def create_app():
                 ("detectie_notitie", "TEXT DEFAULT ''"),
                 ("kans",             "VARCHAR(5) DEFAULT ''"),
                 ("impact_niveau",    "VARCHAR(5) DEFAULT ''"),
+                ("tester",           "VARCHAR(200) DEFAULT ''"),
             ]:
                 try:
                     conn.execute(db.text(
                         f"ALTER TABLE db_bevinding ADD COLUMN {col} {coltype}"))
+                    conn.commit()
+                except Exception:
+                    pass
+
+            # Auto-migrate: per-bevinding overrides van de template-tekst
+            for col in ("beschrijving_override", "impact_override",
+                        "aanbeveling_override", "impact_kort_override",
+                        "aanbeveling_kort_override"):
+                try:
+                    conn.execute(db.text(
+                        f"ALTER TABLE db_bevinding ADD COLUMN {col} TEXT DEFAULT ''"))
                     conn.commit()
                 except Exception:
                     pass
@@ -268,6 +288,22 @@ def create_app():
                 conn.commit()
             except Exception:
                 pass
+
+            # Auto-migrate: colofon contact + revisiehistorie + PDF-owner-wachtwoord
+            for tabel in ("db_instellingen", "db_opdracht_config"):
+                for col, coltype in [
+                    ("rapport_contact",            "TEXT DEFAULT ''"),
+                    ("rapport_revisies",           "TEXT DEFAULT '[]'"),
+                    ("rapport_distributie",        "TEXT DEFAULT '[]'"),
+                    ("rapport_algeheel_beeld",     "TEXT DEFAULT ''"),
+                    ("rapport_pdf_owner_password", "VARCHAR(200) DEFAULT ''"),
+                ]:
+                    try:
+                        conn.execute(db.text(
+                            f"ALTER TABLE {tabel} ADD COLUMN {col} {coltype}"))
+                        conn.commit()
+                    except Exception:
+                        pass
 
             # Auto-migrate: debrief (lessons learned)
             for col, coltype in [
@@ -307,6 +343,7 @@ def create_app():
                 ("timestamp_captured", "DATETIME"),
                 ("evidence_category", "VARCHAR(50)"),
                 ("description", "TEXT"),
+                ("sha256", "VARCHAR(64)"),
             ]:
                 try:
                     conn.execute(db.text(

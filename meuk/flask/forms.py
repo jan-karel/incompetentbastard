@@ -18,7 +18,7 @@
 
 from flask_wtf import FlaskForm
 from wtforms import StringField, PasswordField, SubmitField, BooleanField, TextAreaField, SelectField, MultipleFileField, DateField, DateTimeField, HiddenField
-from wtforms.validators import DataRequired, EqualTo, Length
+from wtforms.validators import DataRequired, EqualTo, Length, Optional
 
 
 
@@ -29,6 +29,12 @@ class BevindingForm(FlaskForm):
     invoegen = TextAreaField('Hoe kwam de bevinding tot stand?')
     ref = HiddenField('ref')
     uitwerken = TextAreaField('Werk de bevinding uit...')
+    # Per-bevinding overrides van de gekoppelde template (leeg = template-tekst)
+    beschrijving_override = TextAreaField('Beschrijving (override)')
+    impact_override = TextAreaField('Impact (override)')
+    aanbeveling_override = TextAreaField('Aanbeveling (override)')
+    impact_kort_override = TextAreaField('Korte impact (override)')
+    aanbeveling_kort_override = TextAreaField('Korte aanbeveling (override)')
     locatie = StringField('Host')
     basescore = StringField('CVSS basescore')
     cvss = StringField('CVSS string')
@@ -41,7 +47,7 @@ class BevindingForm(FlaskForm):
         ('open', 'Open'), ('in_progress', 'In progress'), ('fixed', 'Fixed'),
         ('verified', 'Verified'), ('accepted', 'Accepted')
     ], default='open')
-    remediation_target_date = DateField('Remediation target date', format='%Y-%m-%d', validators=[])
+    remediation_target_date = DateField('Remediation target date', format='%Y-%m-%d', validators=[Optional()])
     remediation_owner = StringField('Remediation owner')
     affected_assets = TextAreaField('Affected assets')
     data_classification = SelectField('Data classification', choices=[
@@ -59,7 +65,7 @@ class BevindingForm(FlaskForm):
         ('retested_fixed', 'Getest — Opgelost'),
         ('retested_open',  'Getest — Nog open'),
     ], default='not_applicable')
-    retest_date  = DateField('Retest datum', format='%Y-%m-%d', validators=[])
+    retest_date  = DateField('Retest datum', format='%Y-%m-%d', validators=[Optional()])
     retest_notes = TextAreaField('Retest notities')
     # WOEF faalmodus + controle-referentie
     faalmodus = SelectField('Faalmodus', choices=[
@@ -86,6 +92,7 @@ class BevindingForm(FlaskForm):
         ('', '--'), ('1', '1 - Verwaarloosbaar'), ('2', '2 - Beperkt'),
         ('3', '3 - Aanzienlijk'), ('4', '4 - Ernstig'), ('5', '5 - Kritiek'),
     ], default='')
+    tester = StringField('Vastgesteld door (tester)')
     submit = SubmitField('Opslaan')
 
 class BevindingTemplateForm(FlaskForm):

@@ -100,13 +100,28 @@
   // ═══════════════════════════════════════════════════
   // 0b. Report versions laden
   // ═══════════════════════════════════════════════════
+  // Downloads vrijgeven zodra er een gegenereerd rapport is
+  function setDownloadsReady(ready, timestamp) {
+    var area = document.getElementById("download-area");
+    if (!area) return;
+    area.classList.toggle("downloads-ready", !!ready);
+    area.classList.toggle("downloads-locked", !ready);
+    var hint = document.getElementById("download-hint");
+    if (hint) {
+      hint.textContent = ready
+        ? (timestamp ? "Laatst gegenereerd: " + timestamp : "Rapport beschikbaar.")
+        : "Genereer eerst een rapport; daarna worden de downloads beschikbaar.";
+    }
+  }
+
   function loadVersions() {
     var el = document.getElementById("versions-list");
-    if (!el) return;
     fetch("/api/report/versions")
       .then(function (r) { return r.json(); })
       .then(function (d) {
         var items = d.versions || [];
+        setDownloadsReady(items.length > 0, items.length ? items[0].timestamp : "");
+        if (!el) return;
         if (!items.length) {
           el.innerHTML = "Nog geen versies. Genereer eerst een rapport.";
           return;
@@ -201,6 +216,14 @@
           // Init LaTeX toolbar if available
           if (typeof window.initLatexToolbar === "function") {
             window.initLatexToolbar();
+          }
+          // Init standaardbevinding-koppeling/overrides if available
+          if (typeof window.initFindingTemplate === "function") {
+            window.initFindingTemplate();
+          }
+          // Init tabbladen in het bevinding-formulier if available
+          if (typeof window.initFindingTabs === "function") {
+            window.initFindingTabs();
           }
 
           // Intercept form submit for AJAX
@@ -461,4 +484,152 @@
       }
     }
   });
+
+  // ═══════════════════════════════════════════════════
+  // Scan-run importeren als rauwe-LaTeX notitie
+  // ═══════════════════════════════════════════════════
+  function _escHtml(s) {
+    return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c];
+    });
+  }
+
+  function renderScanCandidates(cands) {
+    var box = document.getElementById("scan-candidates");
+    if (!box) return;
+    if (!cands || !cands.length) { box.innerHTML = ""; return; }
+    window._scanCands = cands;
+    var html = '<h3 class="scan-cand-title">Kandidaat-bevindingen &mdash; kies welke je overneemt</h3>';
+    html += '<table class="scan-cand-table">';
+    html += '<tr><th>Scan-issue</th><th>Ernst</th><th>Standaard-bevinding</th></tr>';
+    cands.forEach(function (c, i) {
+      var sel;
+      if (c.candidates && c.candidates.length) {
+        sel = '<select data-cand-idx="' + i + '" class="form-control">';
+        sel += '<option value="">&mdash; niet overnemen &mdash;</option>';
+        c.candidates.forEach(function (t, j) {
+          sel += '<option value="' + t.id + '"' + (j === 0 ? ' selected' : '') + '>'
+               + _escHtml(t.titel) + ' [' + _escHtml(t.match) + ']</option>';
+        });
+        sel += '</select>';
+      } else {
+        sel = '<span class="help">(geen match)</span>';
+      }
+      var ncsc = (c.ncsc && c.ncsc.length) ? ' &middot; ' + _escHtml(c.ncsc.join(", ")) : '';
+      html += '<tr><td>' + _escHtml(c.title)
+            + ' <span class="help">(' + c.count + '&times;' + ncsc + ')</span></td>'
+            + '<td>' + _escHtml(c.severity || "") + '</td>'
+            + '<td>' + sel + '</td></tr>';
+    });
+    html += '</table>';
+    html += '<button type="button" class="btn btn-primary mt-8" id="btn-scan-create-findings">Maak geselecteerde bevindingen</button>'
+          + ' <span id="scan-create-status" class="help ml-8"></span>';
+    box.innerHTML = html;
+    var btn = document.getElementById("btn-scan-create-findings");
+    if (btn) btn.addEventListener("click", createScanFindings);
+  }
+
+  function createScanFindings() {
+    var cands = window._scanCands || [];
+    var items = [];
+    document.querySelectorAll("#scan-candidates [data-cand-idx]").forEach(function (sel) {
+      if (!sel.value) return;
+      var c = cands[parseInt(sel.getAttribute("data-cand-idx"))];
+      if (c) items.push({ template_id: sel.value, titel: c.title, severity: c.severity, locatie: c.endpoint || "", evidence_cmd: c.evidence_cmd || "", evidence_resp: c.evidence_resp || "" });
+    });
+    var st = document.getElementById("scan-create-status");
+    if (!items.length) { if (st) { st.textContent = "Niets geselecteerd."; st.style.color = "var(--danger, #ef4444)"; } return; }
+    var btn = document.getElementById("btn-scan-create-findings");
+    if (btn) btn.disabled = true;
+    if (st) { st.textContent = "Bezig..."; st.style.color = ""; }
+    fetch("/api/report/scan-create-findings", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ items: items })
+    }).then(function (r) { return r.json(); }).then(function (d) {
+      if (d.ok) {
+        if (st) { st.textContent = d.created + " bevinding(en) aangemaakt (concept) — pagina wordt herladen."; st.style.color = "var(--success, #22c55e)"; }
+        setTimeout(function () { location.reload(); }, 1400);
+      } else {
+        if (st) { st.textContent = "Fout: " + (d.error || "onbekend"); st.style.color = "var(--danger, #ef4444)"; }
+        if (btn) btn.disabled = false;
+      }
+    }).catch(function () {
+      if (st) { st.textContent = "Aanmaken mislukt"; st.style.color = "var(--danger, #ef4444)"; }
+      if (btn) btn.disabled = false;
+    });
+  }
+
+  var btnScanImport = document.getElementById("btn-scan-import");
+  if (btnScanImport) {
+    btnScanImport.addEventListener("click", function () {
+      var inp = document.getElementById("scan-run-dir");
+      var statusEl = document.getElementById("scan-import-status");
+      var runDir = inp ? inp.value.trim() : "";
+      if (!runDir) {
+        if (statusEl) { statusEl.textContent = "Geef een pad naar de scan-run-map."; statusEl.style.color = "var(--danger, #ef4444)"; }
+        return;
+      }
+      btnScanImport.disabled = true;
+      if (statusEl) { statusEl.textContent = "Bezig met importeren..."; statusEl.style.color = ""; }
+      fetch("/api/report/scan-import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ run_dir: runDir })
+      })
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+          if (d.ok) {
+            if (statusEl) {
+              statusEl.textContent = "Notitie toegevoegd: " + d.naam + ". Kies hieronder welke bevindingen je overneemt.";
+              statusEl.style.color = "var(--success, #22c55e)";
+            }
+            renderScanCandidates(d.candidates || []);
+            btnScanImport.disabled = false;
+          } else {
+            if (statusEl) { statusEl.textContent = "Fout: " + (d.error || "onbekend"); statusEl.style.color = "var(--danger, #ef4444)"; }
+            btnScanImport.disabled = false;
+          }
+        })
+        .catch(function () {
+          if (statusEl) { statusEl.textContent = "Importeren mislukt"; statusEl.style.color = "var(--danger, #ef4444)"; }
+          btnScanImport.disabled = false;
+        });
+    });
+  }
+
+  var btnScanImportZip = document.getElementById("btn-scan-import-zip");
+  if (btnScanImportZip) {
+    btnScanImportZip.addEventListener("click", function () {
+      var fileInp = document.getElementById("scan-zip-file");
+      var statusEl = document.getElementById("scan-import-status");
+      var file = fileInp && fileInp.files && fileInp.files[0];
+      if (!file) {
+        if (statusEl) { statusEl.textContent = "Kies eerst een zip-bestand."; statusEl.style.color = "var(--danger, #ef4444)"; }
+        return;
+      }
+      var fd = new FormData();
+      fd.append("zip", file);
+      btnScanImportZip.disabled = true;
+      if (statusEl) { statusEl.textContent = "Uploaden en verwerken..."; statusEl.style.color = ""; }
+      fetch("/api/report/scan-import-zip", { method: "POST", body: fd })
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+          if (d.ok) {
+            if (statusEl) {
+              statusEl.textContent = "Notitie toegevoegd: " + d.naam + ". Kies hieronder welke bevindingen je overneemt.";
+              statusEl.style.color = "var(--success, #22c55e)";
+            }
+            renderScanCandidates(d.candidates || []);
+            btnScanImportZip.disabled = false;
+          } else {
+            if (statusEl) { statusEl.textContent = "Fout: " + (d.error || "onbekend"); statusEl.style.color = "var(--danger, #ef4444)"; }
+            btnScanImportZip.disabled = false;
+          }
+        })
+        .catch(function () {
+          if (statusEl) { statusEl.textContent = "Upload mislukt"; statusEl.style.color = "var(--danger, #ef4444)"; }
+          btnScanImportZip.disabled = false;
+        });
+    });
+  }
 })();

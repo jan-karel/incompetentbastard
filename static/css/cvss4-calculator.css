@@ -44,11 +44,11 @@
 }
 
 /* Severity badges */
-.badge.sev-critical{background:#dc2626;color:#fff}
+.badge.sev-critical{background:#800080;color:#fff}
 .badge.sev-high{background:#ea580c;color:#fff}
 .badge.sev-medium{background:#d97706;color:#fff}
 .badge.sev-low{background:#2563eb;color:#fff}
-.badge.sev-none{background:#6b7280;color:#fff}
+.badge.sev-none{background:#5bc0de;color:#000}
 .badge{
   display:inline-block;
   padding:2px 10px;

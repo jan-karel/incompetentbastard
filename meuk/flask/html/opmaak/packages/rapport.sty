@@ -1,0 +1,318 @@
+\ProvidesPackage{opmaak/packages/rapport}
+%
+% Zelfstandig pakket voor rapport-generatie vanuit Flask.
+% Gebruikt dezelfde visuele stijl als bevindingen.sty (gekleurde vrule)
+% maar werkt op basis van CVSS-score i.p.v. Impact x Waarschijnlijkheid.
+%
+\RequirePackage{xcolor}
+\RequirePackage{colortbl}% \rowcolor/\cellcolor/\arrayrulecolor (tabelkoppen)
+\RequirePackage{graphicx}
+\RequirePackage{ifthen}
+\RequirePackage{array}
+\RequirePackage{tabularx}
+\RequirePackage{hyperref}
+\RequirePackage{tikz}
+\usetikzlibrary{shadows.blur}
+\RequirePackage[most]{tcolorbox}
+\tcbuselibrary{skins,breakable}
+
+% -------------------------------------------------- %
+% Kleuren (identiek aan colors.sty)                  %
+% -------------------------------------------------- %
+% Severity-palet: ingetogen, professionele tinten (rijkshuisstijl-achtig) i.p.v.
+% felle neonkleuren, maar met dezelfde kleurnamen (Paars/Rood/Oranje/Geel/
+% Lichtblauw) zodat de "Kleur"-kolom in de classificatietabel blijft kloppen.
+\providecolor{odarkred}{HTML}{7A0000}
+\providecolor{opaars}{HTML}{5B3F8C}
+\providecolor{olichtblauw}{HTML}{5BA3C7}
+\providecolor{ored}{HTML}{A90000}
+\providecolor{oorange}{HTML}{E17000}
+\providecolor{oyellow}{HTML}{E6B800}
+\providecolor{ogreen}{HTML}{2E7D32}
+\providecolor{ogrey}{RGB}{55,55,55}
+\providecolor{olightgray}{RGB}{240,240,240}
+\providecolor{donkerpaars}{RGB}{43,18,67}
+
+% -------------------------------------------------- %
+% TLP kleuren (Traffic Light Protocol 2.0)           %
+% -------------------------------------------------- %
+\providecolor{tlpred}{HTML}{FF2B2B}
+\providecolor{tlpamber}{HTML}{FFC000}
+\providecolor{tlpgreen}{HTML}{33FF00}
+\providecolor{tlpclear}{HTML}{000000}
+
+% -------------------------------------------------- %
+% Palet voor callout-kaders (Rijkshuisstijl-achtig)  %
+% -------------------------------------------------- %
+\providecolor{rijkblauw}{HTML}{154273}
+\providecolor{hemelblauw}{HTML}{E5F1F9}
+\providecolor{lichtblauw}{HTML}{F3F8FC}
+\providecolor{calloutgrijs}{HTML}{535353}
+\providecolor{calloutlichtgrijs}{HTML}{F2F2F2}
+\providecolor{donkergroen}{HTML}{275D38}
+\providecolor{lichtgroen}{HTML}{EDF5EF}
+\providecolor{calloutoranje}{HTML}{E17000}
+\providecolor{lichtoranje}{HTML}{FFF3E5}
+\providecolor{calloutrood}{HTML}{A90000}
+\providecolor{lichtrood}{HTML}{FBEAEA}
+\providecolor{calloutpaars}{HTML}{5B3F8C}
+\providecolor{lichtpaars}{HTML}{F1ECF8}
+
+% -------------------------------------------------- %
+% CVSS -> kleur mapping                              %
+% -------------------------------------------------- %
+% \ibseveritycolor{score} -> past \ibcurrentcolor EN \ibcurrenttextcolor aan.
+% De tekstkleur zorgt voor voldoende contrast: wit op de donkere severities
+% (Hoog=ored, Kritiek=opaars), zwart op de lichte (Nihil/Laag/Midden).
+\newcommand{\ibcurrentcolor}{ogreen}
+\newcommand{\ibcurrenttextcolor}{black}
+
+\newcommand{\ibseveritycolor}[1]{%
+  \ifdim #1 pt<0.1pt
+    \renewcommand{\ibcurrentcolor}{olichtblauw}\renewcommand{\ibcurrenttextcolor}{black}%
+  \else\ifdim #1 pt<4.0pt
+    \renewcommand{\ibcurrentcolor}{oyellow}\renewcommand{\ibcurrenttextcolor}{black}%
+  \else\ifdim #1 pt<7.0pt
+    \renewcommand{\ibcurrentcolor}{oorange}\renewcommand{\ibcurrenttextcolor}{black}%
+  \else\ifdim #1 pt<9.0pt
+    \renewcommand{\ibcurrentcolor}{ored}\renewcommand{\ibcurrenttextcolor}{white}%
+  \else
+    \renewcommand{\ibcurrentcolor}{opaars}\renewcommand{\ibcurrenttextcolor}{white}%
+  \fi\fi\fi\fi
+}
+
+% -------------------------------------------------- %
+% CVSS -> label mapping                              %
+% -------------------------------------------------- %
+\newcommand{\ibseveritylabel}[1]{%
+  \ifdim #1 pt<0.1pt
+    Nihil%
+  \else\ifdim #1 pt<4.0pt
+    Laag%
+  \else\ifdim #1 pt<7.0pt
+    Midden%
+  \else\ifdim #1 pt<9.0pt
+    Hoog%
+  \else
+    Kritiek%
+  \fi\fi\fi\fi
+}
+
+% -------------------------------------------------- %
+% Bevinding — body-flow layout                        %
+% -------------------------------------------------- %
+% Prose (beschrijving/bewijs/impact/aanbeveling) staat NIET meer in een
+% tabular-cel (daar lopen itemize/description/lstlisting mank), maar als
+% gewone documentstroom. Alleen de metadata zit in een gekleurde tabel.
+%
+% \ibfindinghead{ID}{Titel}{CVSS}{Categorie}{CWE}{NCSC}
+%   -> subsectie + label + compacte metadata-tabel
+%      (ID | CATEGORIE | PRIORITEIT | CWE | CVSS). PRIORITEIT-cel gekleurd naar
+%      severity met contrasterende tekstkleur. Body volgt in de template.
+\newcommand{\ibfindinghead}[6]{%
+  \ibseveritycolor{#3}%
+  \subsubsection{#2}%
+  \label{bev:#1}%
+  \nopagebreak
+  {\arrayrulecolor{white}%
+   \renewcommand{\arraystretch}{1.3}%
+   \noindent\begin{tabularx}{\textwidth}{|c|X|c|c|c|c|}
+     \hline
+     \rowcolor{rijkblauw}\textcolor{white}{\textbf{\small ID}} & \textcolor{white}{\textbf{\small CATEGORIE}} & \textcolor{white}{\textbf{\small PRIORITEIT}} & \textcolor{white}{\textbf{\small CWE}} & \textcolor{white}{\textbf{\small NCSC}} & \textcolor{white}{\textbf{\small CVSS}}\\
+     \hline
+     \cellcolor{olightgray}#1 & \cellcolor{olightgray}\small #4 & \cellcolor{\ibcurrentcolor}\textbf{\textcolor{\ibcurrenttextcolor}{\ibseveritylabel{#3}}} & \cellcolor{olightgray}#5 & \cellcolor{olightgray}\small #6 & \cellcolor{olightgray}#3\\
+     \hline
+   \end{tabularx}}%
+  \par\vspace{0.6em}%
+}
+% \ibfindingsection{Kop} -> gestileerde ongenummerde subsubsection met een
+%   klein severity-gekleurd vierkant als accent (Impact / Aanbeveling / Bewijs).
+\newcommand{\ibfindingsection}[1]{%
+  \subsubsection*{\textcolor{\ibcurrentcolor}{\rule[-0.1ex]{0.9ex}{0.9ex}}\hspace{0.5em}#1}%
+}
+% Compat-wrapper: complete bevinding in body-flow (niet meer gebruikt door de
+% Flask-template, maar blijft werken voor eventuele losse aanroepen).
+\newcommand{\ibfinding}[6]{%
+  \ibfindinghead{#1}{#2}{#3}{}{}{}%
+  \par\noindent #4\par
+  \ibfindingsection{Impact}\noindent #5\par
+  \ibfindingsection{Aanbeveling}\noindent #6\par
+  \vspace{0.5em}%
+}
+
+% -------------------------------------------------- %
+% Haakjes + kruisverwijzingen naar bevindingen        %
+% -------------------------------------------------- %
+% \haakjes{tekst}: cursief tussen aanhalingstekens (zelfde betekenis als in het
+% handboek). Wordt ook door de LaTeX-toolbar ingevoegd en gebruikt door
+% \bevinding. \providecommand zodat een bestaande definitie niet botst.
+\providecommand{\haakjes}[1]{\textit{`#1'}}
+% \bevinding{id}: nette kruisverwijzing naar bevinding <id>. De labels worden
+% door \ibfindinghead gezet als bev:<id> (mét dubbele punt), dus daar verwijzen
+% we naar. Toont paragraafnummer, naam en paginanummer.
+\newcommand{\bevinding}[1]{\textcolor{rijkblauw}{\S\,\ref{bev:#1} \haakjes{\nameref{bev:#1}} (pagina \pageref{bev:#1})}}
+% \uitwerking{id}: standaardzin die naar een andere bevinding doorverwijst.
+\newcommand{\uitwerking}[1]{We werken deze bevinding verder uit in \bevinding{#1}}
+% \bevindingref{id}: korte kruisverwijzing (alleen het paragraafnummer).
+\newcommand{\bevindingref}[1]{\textcolor{rijkblauw}{\S\,\ref{bev:#1}}}
+
+% -------------------------------------------------- %
+% Technische inline-opmaak (monospace)                %
+% -------------------------------------------------- %
+% Semantische varianten van \texttt; de LaTeX-toolbar voegt ze in. In HTML/MD
+% worden ze <code>/`...`. \providecommand zodat ze niet botsen met het handboek.
+\providecommand{\pad}[1]{\texttt{#1}}
+\providecommand{\host}[1]{\texttt{#1}}
+\providecommand{\route}[1]{\texttt{#1}}
+\providecommand{\param}[1]{\texttt{#1}}
+
+% -------------------------------------------------- %
+% Codes met klikbare bron (CWE/CVE/OWASP)             %
+% -------------------------------------------------- %
+% Argument is de KALE code: \cwe{79}, \cve{2024-1234}, \owasp{A03:2025}.
+\newcommand{\cwe}[1]{\href{https://cwe.mitre.org/data/definitions/#1.html}{CWE-#1}}
+\newcommand{\cve}[1]{\href{https://nvd.nist.gov/vuln/detail/CVE-#1}{CVE-#1}}
+\newcommand{\owasp}[1]{\href{https://owasp.org/Top10/}{#1}}
+
+% -------------------------------------------------- %
+% CVSS / severity inline-badge                        %
+% -------------------------------------------------- %
+% \cvss{7.5}: score + severity-label in de severity-kleur, met hetzelfde
+% contrast als de bevindingkop (achtergrond \ibcurrentcolor, tekst
+% \ibcurrenttextcolor). \severity{woord}: alleen het gekleurde label.
+\newcommand{\cvss}[1]{{\ibseveritycolor{#1}\colorbox{\ibcurrentcolor}{\textcolor{\ibcurrenttextcolor}{\textbf{#1\,(\ibseveritylabel{#1})}}}}}
+\newcommand{\ib@sevbox}[3]{\colorbox{#1}{\textcolor{#2}{\textbf{#3}}}}
+\newcommand{\severity}[1]{%
+  \ifthenelse{\equal{#1}{kritiek}}{\ib@sevbox{opaars}{white}{Kritiek}}{%
+  \ifthenelse{\equal{#1}{hoog}}{\ib@sevbox{ored}{white}{Hoog}}{%
+  \ifthenelse{\equal{#1}{midden}}{\ib@sevbox{oorange}{black}{Midden}}{%
+  \ifthenelse{\equal{#1}{laag}}{\ib@sevbox{oyellow}{black}{Laag}}{%
+  \ifthenelse{\equal{#1}{nihil}}{\ib@sevbox{olichtblauw}{black}{Nihil}}{%
+  \textbf{#1}}}}}}%
+}
+
+% -------------------------------------------------- %
+% Callouts + HTTP-blokken + reproductiestap           %
+% -------------------------------------------------- %
+% Gekleurde kaders (tcolorbox): gevulde achtergrond, gekleurd frame en een
+% titelbalk. \ib@calloutbox{env}{framekleur}{achtergrond}{titel} definieert een
+% tcolorbox-omgeving; de \<macro>{tekst} wikkelt haar inhoud erin.
+\newtcolorbox{ibwaarschuwing}{enhanced,breakable,colback=lichtrood,colframe=calloutrood,
+  colbacktitle=calloutrood,coltitle=white,boxrule=0.6pt,arc=1mm,
+  left=4mm,right=4mm,top=3mm,bottom=3mm,title={Waarschuwing},fonttitle=\bfseries}
+\newtcolorbox{ibtip}{enhanced,breakable,colback=lichtgroen,colframe=donkergroen,
+  colbacktitle=donkergroen,coltitle=white,boxrule=0.6pt,arc=1mm,
+  left=4mm,right=4mm,top=3mm,bottom=3mm,title={Tip},fonttitle=\bfseries}
+\newtcolorbox{ibopmerking}{enhanced,breakable,colback=hemelblauw,colframe=rijkblauw,
+  colbacktitle=rijkblauw,coltitle=white,boxrule=0.6pt,arc=1mm,
+  left=4mm,right=4mm,top=3mm,bottom=3mm,title={Opmerking},fonttitle=\bfseries}
+\newcommand{\waarschuwing}[1]{\begin{ibwaarschuwing}#1\end{ibwaarschuwing}}
+\newcommand{\tip}[1]{\begin{ibtip}#1\end{ibtip}}
+\newcommand{\opmerking}[1]{\begin{ibopmerking}#1\end{ibopmerking}}
+% Rijkere, inhoudelijke kaders (bestuurlijk/principe/aandachtspunt/praktijk/
+% keten/scenario) — zelfde kaderlogica, eigen titel en kleur.
+\newtcolorbox{ibbestuurlijk}{enhanced,breakable,colback=hemelblauw,colframe=rijkblauw,
+  colbacktitle=rijkblauw,coltitle=white,boxrule=0.8pt,arc=1mm,
+  left=4mm,right=4mm,top=3mm,bottom=3mm,title={Bestuurlijke kern},fonttitle=\bfseries}
+\newtcolorbox{ibprincipe}{enhanced,breakable,colback=lichtgroen,colframe=donkergroen,
+  colbacktitle=donkergroen,coltitle=white,boxrule=0.6pt,arc=1mm,
+  left=4mm,right=4mm,top=3mm,bottom=3mm,title={Leidend principe},fonttitle=\bfseries}
+\newtcolorbox{ibletop}{enhanced,breakable,colback=lichtoranje,colframe=calloutoranje,
+  colbacktitle=calloutoranje,coltitle=white,boxrule=0.6pt,arc=1mm,
+  left=4mm,right=4mm,top=3mm,bottom=3mm,title={Aandachtspunt},fonttitle=\bfseries}
+\newtcolorbox{ibpraktijk}{enhanced,breakable,colback=lichtblauw,colframe=rijkblauw,
+  colbacktitle=rijkblauw,coltitle=white,boxrule=0.5pt,arc=1mm,
+  left=4mm,right=4mm,top=3mm,bottom=3mm,title={Praktische toepassing},fonttitle=\bfseries}
+\newtcolorbox{ibketen}{enhanced,breakable,colback=lichtpaars,colframe=calloutpaars,
+  colbacktitle=calloutpaars,coltitle=white,boxrule=0.6pt,arc=1mm,
+  left=4mm,right=4mm,top=3mm,bottom=3mm,title={Ketenperspectief},fonttitle=\bfseries}
+\newtcolorbox{ibscenario}{enhanced,breakable,colback=calloutlichtgrijs,colframe=calloutgrijs,
+  colbacktitle=calloutgrijs,coltitle=white,boxrule=0.5pt,arc=1mm,
+  left=4mm,right=4mm,top=3mm,bottom=3mm,title={Ketenscenario},fonttitle=\bfseries}
+\newcommand{\bestuurlijk}[1]{\begin{ibbestuurlijk}#1\end{ibbestuurlijk}}
+\newcommand{\principe}[1]{\begin{ibprincipe}#1\end{ibprincipe}}
+\newcommand{\letop}[1]{\begin{ibletop}#1\end{ibletop}}
+\newcommand{\praktijk}[1]{\begin{ibpraktijk}#1\end{ibpraktijk}}
+\newcommand{\keten}[1]{\begin{ibketen}#1\end{ibketen}}
+\newcommand{\scenario}[1]{\begin{ibscenario}#1\end{ibscenario}}
+\newcommand{\stap}[1]{\par\noindent\textbf{Stap:} #1\par}
+\newcommand{\ib@httpblok}[2]{\par\smallskip\noindent\textbf{#1:}\nopagebreak\par
+  {\ttfamily\small #2}\par\smallskip}
+\newcommand{\request}[1]{\ib@httpblok{Request}{#1}}
+\newcommand{\response}[1]{\ib@httpblok{Response}{#1}}
+
+% \deelsgelakt{zichtbaar}{geheim}: het eerste deel blijft staan, het tweede
+% deel wordt in de gelakte build zwart gemaakt (via \lakken).
+\newcommand{\deelsgelakt}[2]{#1\lakken{#2}}
+
+% -------------------------------------------------- %
+% Lakken (redactie): gelakte vs. ongelakte versie     %
+% -------------------------------------------------- %
+% \weglakken schakelt tussen de ongelakte (false) en de gelakte (true) build.
+% De gelakte build wordt door de generator gemaakt met \renewcommand{\weglakken}{true}.
+\providecommand{\weglakken}{false}
+% \xblackout maakt tekst onleesbaar door haar te VERVANGEN door een zwarte balk
+% van gelijke breedte. De oorspronkelijke tekst komt niet in de PDF terecht, dus
+% er is geen copy-paste-lek (anders dan een zwart vlak boven leesbare tekst).
+\newlength{\ib@lakwidth}
+\newcommand{\xblackout}[1]{%
+  \settowidth{\ib@lakwidth}{#1}%
+  % Nooit breder dan de regel: anders loopt een lange redactie de marge in.
+  \ifdim\ib@lakwidth>\linewidth\setlength{\ib@lakwidth}{\linewidth}\fi
+  \leavevmode\rule[-0.3ex]{\ib@lakwidth}{2.2ex}%
+}
+\newcommand{\lakken}[1]{\ifthenelse{\equal{\weglakken}{true}}{\xblackout{#1}}{#1}}
+\newcommand{\codelakken}[1]{\ifthenelse{\equal{\weglakken}{true}}{\xblackout{#1}}{#1}}
+% Veilige placeholder als in de gelakte build geen gelakte kopie bestaat: toont
+% nooit het origineel, maar een zwart kader met de tekst [GELAKT].
+\newcommand{\iblakplaceholder}{%
+  \fcolorbox{black}{black}{\parbox{0.85\textwidth}{\centering
+    \vspace{2.5em}\textcolor{white}{\bfseries [GELAKT]\\[0.3em]
+    \footnotesize geen gelakte kopie beschikbaar}\vspace{2.5em}}}%
+}
+% \ibfiguur{normaalpad}{lakpad}{caption}
+% Kiest op basis van \weglakken de juiste afbeelding; in de gelakte build nooit
+% het origineel (bij ontbrekende lakpad -> \iblakplaceholder).
+\newcommand{\ibfiguur}[3]{%
+  \begin{figure}[htbp]
+    \centering
+    \ifthenelse{\equal{\weglakken}{true}}{%
+      \IfFileExists{#2}{\ib@grx{#2}}{\iblakplaceholder}%
+    }{%
+      \IfFileExists{#1}{\ib@grx{#1}}{\textit{[bestand niet gevonden: #1]}}%
+    }%
+    \caption{#3}
+  \end{figure}%
+}
+% \ib@grx{pad}: afbeelding op standaardbreedte met een subtiele, zachte
+% slagschaduw rechtsonder, zodat screenshots van het papier "getild" worden.
+% Eén centrale plek: zo krijgen evidence- en \plaatje-afbeeldingen dezelfde stijl.
+\newcommand{\ib@grx}[1]{%
+  \tikz[baseline]\node[inner sep=0pt,
+        blur shadow={shadow blur steps=8, shadow xshift=1pt, shadow yshift=-2pt,
+                     shadow opacity=30, shadow blur radius=3pt}]
+    {\includegraphics[width=0.9\textwidth,keepaspectratio]{#1}};%
+}
+% \plaatje{bestand}{caption}: projectafbeelding. De toolbar/plak-functie voegt
+% bare bestandsnamen in die in raw/screenshots/ (projectafbeeldingen) of in
+% evidence/ kunnen staan. We zoeken beide bronnen af (compile-cwd = rapport/,
+% dus ../raw/screenshots/). In de gelakte build komt de gelakte kopie uit de
+% lakken/-submap van dezelfde bron; ontbreekt die -> veilige [GELAKT]-placeholder.
+\newcommand{\plaatje}[2]{%
+  \begin{figure}[htbp]
+    \centering
+    \ifthenelse{\equal{\weglakken}{true}}{%
+      \IfFileExists{../raw/screenshots/lakken/#1}{\ib@grx{../raw/screenshots/lakken/#1}}{%
+        \IfFileExists{evidence/lakken/#1}{\ib@grx{evidence/lakken/#1}}{\iblakplaceholder}}%
+    }{%
+      \IfFileExists{../raw/screenshots/#1}{\ib@grx{../raw/screenshots/#1}}{%
+        \IfFileExists{evidence/#1}{\ib@grx{evidence/#1}}{\textit{[bestand niet gevonden: #1]}}}%
+    }%
+    \caption{#2}
+  \end{figure}%
+}
+
+% -------------------------------------------------- %
+% \ibevidence{pad}{lakpad}{caption}                   %
+% -------------------------------------------------- %
+\newcommand{\ibevidence}[3]{\ibfiguur{#1}{#2}{#3}}

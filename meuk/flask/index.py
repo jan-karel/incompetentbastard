@@ -101,7 +101,10 @@ def plaatje(plaatje):
 
 
 _SCREENSHOT_DIR = Path('raw/screenshots')
+_LAKKEN_DIR = _SCREENSHOT_DIR / 'lakken'
 _IMAGE_SUFFIXES = {'.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp', '.svg'}
+# Formaten die we niet rasterend kunnen lakken (canvas levert pixels, geen vector).
+_NO_REDACT_SUFFIXES = {'.svg'}
 
 
 @index_bp.route('/api/screenshots', methods=['GET'])
@@ -114,8 +117,91 @@ def api_screenshots():
                 items.append({
                     'name': p.name,
                     'url': '/dashboard/raw/screenshots/' + p.name,
+                    # Projectafbeelding heeft een gelakte kopie in lakken/<naam>.
+                    'has_lakken': (_LAKKEN_DIR / p.name).exists(),
+                    # svg kan niet rasterend worden gelakt (vectorformaat).
+                    'redactable': p.suffix.lower() not in _NO_REDACT_SUFFIXES,
                 })
     return jsonify(items)
+
+
+def _safe_screenshot_path(name):
+    """Resolve <name> binnen raw/screenshots/ en weer path-traversal af.
+
+    Geeft (basisnaam, origineel-pad) terug, of (None, None) als de naam
+    buiten de screenshots-map zou wijzen of het bestand niet bestaat.
+    """
+    from werkzeug.utils import secure_filename
+    safe = secure_filename(name or '')
+    if not safe or safe != (name or ''):
+        # secure_filename veranderde de naam -> verdacht (pad/rare tekens).
+        return None, None
+    src = _SCREENSHOT_DIR / safe
+    try:
+        src_res = src.resolve()
+        root_res = _SCREENSHOT_DIR.resolve()
+        if root_res not in src_res.parents:
+            return None, None
+    except OSError:
+        return None, None
+    if not src.is_file():
+        return None, None
+    return safe, src
+
+
+@index_bp.route('/api/screenshots/<name>/redact', methods=['POST', 'DELETE'])
+def api_screenshot_redact(name):
+    """Beheer de gelakte kopie van een projectafbeelding (screenshot).
+
+    POST: ontvangt de in de browser zwartgelakte afbeelding (PNG data-URL) en
+    bewaart die als raw/screenshots/lakken/<naam> met dezelfde bestandsnaam, zodat
+    de gelakte rapportbuild deze via \\plaatje{..} i.p.v. het origineel laadt.
+    DELETE: verwijdert de gelakte kopie weer.
+    """
+    require_dashboard_access()
+    safe, src = _safe_screenshot_path(name)
+    if not safe:
+        return jsonify({'error': 'afbeelding niet gevonden'}), 404
+    if src.suffix.lower() in _NO_REDACT_SUFFIXES:
+        return jsonify({'error': 'svg kan niet gelakt worden (vectorformaat)'}), 400
+
+    lak_path = _LAKKEN_DIR / safe
+
+    if request.method == 'DELETE':
+        try:
+            if lak_path.exists():
+                lak_path.unlink()
+        except OSError:
+            return jsonify({'error': 'verwijderen mislukt'}), 500
+        return jsonify({'ok': True, 'has_lakken': False})
+
+    data = request.get_json(silent=True) or {}
+    img = data.get('image') or ''
+    import re as _re
+    m = _re.match(r'^data:image/(?:png|jpeg);base64,(.+)$', img, _re.S)
+    if not m:
+        return jsonify({'error': 'geen geldige afbeelding (data-URL verwacht)'}), 400
+    try:
+        raw = base64.b64decode(m.group(1), validate=True)
+    except Exception:  # noqa: BLE001
+        return jsonify({'error': 'kon afbeelding niet decoderen'}), 400
+    if len(raw) > _MAX_SCREENSHOT_SIZE:
+        return jsonify({'error': 'afbeelding te groot'}), 413
+
+    # Her-encodeer naar het formaat van het origineel: de LaTeX-include kiest de
+    # driver op de bestandsextensie, dus die moet bij de inhoud passen.
+    _LAKKEN_DIR.mkdir(parents=True, exist_ok=True)
+    try:
+        import io
+        from PIL import Image
+        im = Image.open(io.BytesIO(raw))
+        if im.mode in ('RGBA', 'P', 'LA') and src.suffix.lower() in ('.jpg', '.jpeg', '.bmp'):
+            im = im.convert('RGB')
+        im.save(str(lak_path))
+    except Exception:  # noqa: BLE001 — PIL mag de UI nooit breken
+        return jsonify({'error': 'afbeelding kon niet worden opgeslagen'}), 400
+
+    return jsonify({'ok': True, 'has_lakken': True})
 
 
 _MAX_SCREENSHOT_SIZE = 15 * 1024 * 1024  # 15 MB

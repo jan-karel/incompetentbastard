@@ -8,7 +8,8 @@ from markupsafe import escape as html_escape
 from meuk.flask.models import db_bevindingen, db_bevindingen_templates, db_evidence, db_notes, db, db_finding_related, db_instellingen, db_checklist, db_rapport_template, db_opdracht_config, db_asset, db_asset_anchor
 from meuk.flask.findings import (_cvss_to_severity, _latex_escape, _latex_markup,
                                   _html_markup, _md_markup, _plain_markup,
-                                  owasptop10, _get_appdata)
+                                  owasptop10, _get_appdata, redact_mode,
+                                  redact_enabled)
 from meuk.flask.security import require_dashboard_access
 import datetime
 import difflib
@@ -44,7 +45,19 @@ def _check_dashboard_access():
 
 _RAPPORT_DIR = os.path.join(os.path.dirname(__file__), '..', '..', 'rapport')
 _HANDBOEK_DIR = os.path.join(os.path.dirname(__file__), '..', '..', 'handboek')
+# LaTeX-layout van de Flask-app zelf: bevat rapport_latex.tex, de uploadbare
+# templates en opmaak/packages/rapport.sty (projectmacro's/kaders/lakken).
+# Staat in TEXINPUTS zodat \usepackage{opmaak/packages/rapport} hier resolvet.
+_LAYOUT_DIR = os.path.join(os.path.dirname(__file__), 'html')
 _EVIDENCE_SRC = os.path.join(os.path.dirname(__file__), 'db', 'evidence')
+# Pandoc-referentiedocument voor DOCX: rijksblauwe tabelkoppen + gekleurde
+# koppen, zodat de Word-uitvoer dichter bij de PDF ligt.
+_DOCX_REFERENCE = os.path.join(os.path.dirname(__file__), 'html', 'rapport_reference.docx')
+# sRGB-ICC-profiel voor de PDF/A-archiefconversie (ghostscript).
+_SRGB_ICC = os.path.join(os.path.dirname(__file__), 'html', 'srgb.icc')
+# Projectafbeeldingen (\plaatje{..}); gelakte kopieën in de lakken/-submap.
+_SCREENSHOT_SRC = os.path.join(os.path.dirname(__file__), '..', '..',
+                               'raw', 'screenshots')
 
 _SEVERITY_LABELS = {
     'critical': 'Kritieke',
@@ -558,6 +571,50 @@ def _pdf_is_encrypted(path):
         return True
 
 
+def _make_pdfa(src_pdf, dest_pdf):
+    """Converteer een PDF naar PDF/A-2b via ghostscript (archiveerbaar, met
+    ingebed sRGB-outputintent). Best-effort: ontbreekt gs/het ICC-profiel of
+    faalt de conversie, dan False en blijft de gewone PDF beschikbaar."""
+    import shutil
+    import tempfile
+    gs = shutil.which('gs') or shutil.which('gswin64c') or shutil.which('gswin32c')
+    if not gs or not os.path.exists(src_pdf) or not os.path.exists(_SRGB_ICC):
+        return False
+    icc = os.path.abspath(_SRGB_ICC).replace('\\', '/')
+    defps = (
+        '%!\n'
+        '[ /_objdef {icc_PDFA} /type /stream /OBJ pdfmark\n'
+        '[ {icc_PDFA} << /N 3 >> /PUT pdfmark\n'
+        '[ {icc_PDFA} (' + icc + ') (r) file /PUT pdfmark\n'
+        '[ {icc_PDFA} /CLOSE pdfmark\n'
+        '[ /_objdef {OutputIntent_PDFA} /type /dict /OBJ pdfmark\n'
+        '[ {OutputIntent_PDFA} << /Type /OutputIntent /S /GTS_PDFA1 '
+        '/DestOutputProfile {icc_PDFA} /OutputConditionIdentifier (sRGB) '
+        '/Info (sRGB IEC61966-2.1) >> /PUT pdfmark\n'
+        '[ {Catalog} << /OutputIntents [ {OutputIntent_PDFA} ] >> /PUT pdfmark\n')
+    defpath = None
+    try:
+        with tempfile.NamedTemporaryFile('w', suffix='.ps', delete=False) as fh:
+            fh.write(defps)
+            defpath = fh.name
+        p = subprocess.run(
+            [gs, '-dPDFA=2', '-dBATCH', '-dNOPAUSE', '-sColorConversionStrategy=RGB',
+             '-sDEVICE=pdfwrite', '-dPDFACompatibilityPolicy=1',
+             '--permit-file-read=' + os.path.abspath(_SRGB_ICC),
+             '-sOutputFile=' + dest_pdf, defpath, src_pdf],
+            capture_output=True, timeout=180)
+        return (p.returncode == 0 and os.path.exists(dest_pdf)
+                and os.path.getsize(dest_pdf) > 0)
+    except (subprocess.SubprocessError, OSError):
+        return False
+    finally:
+        if defpath:
+            try:
+                os.unlink(defpath)
+            except OSError:
+                pass
+
+
 def _encrypt_pdf(src_path, dest_path, user_password, owner_password=''):
     """Versleutel een PDF met AES-256 (R=6) via pikepdf, met een los eigenaar-
     en lezerwachtwoord. Het lezerwachtwoord (user) is nodig om te openen; het
@@ -599,8 +656,18 @@ def _copy_evidence_for_rapport(finding_id, evidence_list, dest_dir):
         safe_name = 'ev_{}_{}'.format(finding_id, ev.filename)
         dst = os.path.join(dest_dir, safe_name)
         shutil.copy2(src, dst)
+        # Vooraf gelakte kopie (optioneel): db/evidence/<id>/lakken/<filename>
+        # -> rapport/evidence/lakken/<safe_name>. De gelakte rapportbuild laadt
+        # deze; ontbreekt hij, dan toont het rapport een [GELAKT]-placeholder
+        # (nooit het origineel).
+        lak_src = os.path.join(_EVIDENCE_SRC, str(finding_id), 'lakken', ev.filename)
+        if os.path.exists(lak_src):
+            lak_dir = os.path.join(dest_dir, 'lakken')
+            os.makedirs(lak_dir, exist_ok=True)
+            shutil.copy2(lak_src, os.path.join(lak_dir, safe_name))
         copied.append({
             'path': 'evidence/' + safe_name,
+            'lakpath': 'evidence/lakken/' + safe_name,
             'caption': ev.original_filename or ev.filename,
             'sha256': ev.sha256 or '',
         })
@@ -992,7 +1059,7 @@ def _digid_knockout_latex(data, taal='nl'):
     out.append(r'\begin{longtable}{>{\raggedright\arraybackslash}p{2.4cm} '
                r'>{\raggedright\arraybackslash}p{7.3cm} '
                r'>{\raggedright\arraybackslash}p{3.0cm}}')
-    out.append(r'\textbf{%s} & \textbf{%s} & \textbf{%s} \\ \hline \endhead'
+    out.append(r'\rowcolor{rijkblauw}\textcolor{white}{\textbf{%s}} & \textcolor{white}{\textbf{%s}} & \textcolor{white}{\textbf{%s}} \\ \hline \endhead'
                % (_latex_escape(c_code), _latex_escape(c_naam), _latex_escape(c_oordeel)))
     out.append(r'\ibvervolg{3}\endfoot')
     out.append(r'\endlastfoot')
@@ -1495,7 +1562,8 @@ def gen_rapport():
     handboek_abs = os.path.abspath(_HANDBOEK_DIR)
     try:
         env = os.environ.copy()
-        env['TEXINPUTS'] = '.:{handboek}:{handboek}//:{rapport}:'.format(
+        env['TEXINPUTS'] = '.:{layout}:{layout}//:{handboek}:{handboek}//:{rapport}:'.format(
+            layout=os.path.abspath(_LAYOUT_DIR),
             handboek=handboek_abs, rapport=os.path.abspath(_RAPPORT_DIR))
         for _ in range(3):
             subprocess.run(
@@ -1540,8 +1608,90 @@ def gen_rapport():
         except OSError:
             pass
 
+    # --- PDF/A-archiefvariant (ghostscript) ---
+    # Archiveerbare PDF/A-2b met ingebed sRGB-outputintent. Best-effort: lukt het
+    # niet, dan blijft de gewone PDF beschikbaar en wordt een oude PDF/A opgeruimd.
+    pdfa_pdf = os.path.join(_RAPPORT_DIR, 'rapport_pdfa.pdf')
+    if not _make_pdfa(plain_pdf, pdfa_pdf):
+        try:
+            if os.path.exists(pdfa_pdf):
+                os.remove(pdfa_pdf)
+        except OSError:
+            pass
+
+    # --- Gelakte (geredigeerde) rapportvariant ---
+    # Zelfde inhoud als het gewone rapport, maar met \weglakken=true: elke
+    # \lakken{...} wordt een zwarte balk en afbeeldingen laden hun gelakte kopie
+    # uit evidence/lakken/ (met veilige [GELAKT]-placeholder, nooit het origineel).
+    # Levert rapport_gelakt.pdf en, bij ingestelde wachtwoorden, een beveiligde
+    # variant rapport_gelakt_secure.pdf — spiegelbeeld van de gewone PDF's.
+    #
+    # De tweede xelatex-build is kostbaar; die loont alleen als er daadwerkelijk
+    # iets te lakken valt. Zonder redactiemacro's én zonder gelakte evidence-kopie
+    # is de gelakte PDF identiek aan de gewone, dus slaan we hem dan over (en
+    # ruimen we een eventuele oude gelakte PDF op zodat die niet verouderd blijft).
+    _needs_lak = (r'\lakken{' in tex_content or r'\codelakken{' in tex_content
+                  or os.path.isdir(os.path.join(_RAPPORT_DIR, 'evidence', 'lakken'))
+                  or os.path.isdir(os.path.join(_SCREENSHOT_SRC, 'lakken')))
+    gelakt_pdf = os.path.join(_RAPPORT_DIR, 'rapport_gelakt.pdf')
+    gelakt_secure = os.path.join(_RAPPORT_DIR, 'rapport_gelakt_secure.pdf')
+    gelakt_tex = os.path.join(_RAPPORT_DIR, 'rapport_gelakt.tex')
+    if not _needs_lak:
+        # Niets te lakken -> gelakte versie zou identiek zijn. Oude gelakte
+        # bestanden opruimen zodat er geen verouderde variant wordt geserveerd.
+        for _stale in (gelakt_pdf, gelakt_secure, gelakt_tex):
+            try:
+                if os.path.exists(_stale):
+                    os.remove(_stale)
+            except OSError:
+                pass
+    else:
+        gelakt_body = tex_content.replace(
+            r'\begin{document}',
+            r'\begin{document}' + '\n' + r'\renewcommand{\weglakken}{true}%', 1)
+        if use_special:
+            schrijven(gelakt_tex, gelakt_body.replace(
+                r'\begin{document}', r'\begin{document}' + '\n' + special, 1))
+        else:
+            schrijven(gelakt_tex, gelakt_body)
+        try:
+            for _ in range(3):
+                subprocess.run(
+                    ['xelatex', '-interaction=nonstopmode', '-output-directory',
+                     os.path.abspath(_RAPPORT_DIR), gelakt_tex],
+                    env=env, cwd=os.path.abspath(_RAPPORT_DIR),
+                    capture_output=True, timeout=120,
+                )
+        except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
+            pass  # xelatex niet beschikbaar
+        if use_special:
+            schrijven(gelakt_tex, gelakt_body)  # schone .tex zonder wachtwoorden
+
+        if encrypt and os.path.exists(gelakt_pdf):
+            if use_special:
+                try:
+                    shutil.copyfile(gelakt_pdf, gelakt_secure)
+                except OSError:
+                    pass
+            elif not _encrypt_pdf(gelakt_pdf, gelakt_secure, pdf_password,
+                                  pdf_owner_password):
+                try:
+                    if os.path.exists(gelakt_secure):
+                        os.remove(gelakt_secure)
+                except OSError:
+                    pass
+        elif os.path.exists(gelakt_secure) and not encrypt:
+            try:
+                os.remove(gelakt_secure)
+            except OSError:
+                pass
+
     # --- HTML generatie voor preview ---
-    html = _generate_html_preview(findings, grouped, counts, titel, auteur, subtitel, datum, classificatie, is_draft, notes_data, tlp_html_bg, tlp_html_fg, management_samenvatting=management_samenvatting, testtype=testtype, testscope=testscope, testscopes=testscopes, legsup_startpunt=legsup_startpunt, legsup_privileges=legsup_privileges, legsup_informatie=legsup_informatie, scenarios=scenarios, taal=taal, scope_targets=scope_targets, checklists=checklists_data, digid_knockout=digid_ko, key_findings=key_findings, algeheel_beeld=algeheel_beeld, **_extra_kwargs)
+    # Closure zodat de gelakte variant exact dezelfde invoer gebruikt (binnen
+    # redact_mode vertaalt de markup \lakken{} dan naar zwarte blokken).
+    def _gen_html():
+        return _generate_html_preview(findings, grouped, counts, titel, auteur, subtitel, datum, classificatie, is_draft, notes_data, tlp_html_bg, tlp_html_fg, management_samenvatting=management_samenvatting, testtype=testtype, testscope=testscope, testscopes=testscopes, legsup_startpunt=legsup_startpunt, legsup_privileges=legsup_privileges, legsup_informatie=legsup_informatie, scenarios=scenarios, taal=taal, scope_targets=scope_targets, checklists=checklists_data, digid_knockout=digid_ko, key_findings=key_findings, algeheel_beeld=algeheel_beeld, **_extra_kwargs)
+    html = _gen_html()
     schrijven(os.path.join(_RAPPORT_DIR, 'tex.html'), html)
 
     # --- STIX 2.1 bundle generatie ---
@@ -1555,21 +1705,40 @@ def gen_rapport():
               json.dumps(stix, indent=2, ensure_ascii=False))
 
     # --- DOCX Markdown generatie (altijd, onafhankelijk van pandoc) ---
-    docx_md = _generate_docx_markdown(
-        findings, grouped, counts, titel, auteur, subtitel, datum,
-        classificatie, is_draft, notes_data,
-        management_samenvatting=management_samenvatting,
-        testtype=testtype, testscope=testscope, testscopes=testscopes,
-        legsup_startpunt=legsup_startpunt,
-        legsup_privileges=legsup_privileges,
-        legsup_informatie=legsup_informatie,
-        scenarios=scenarios, scoped_hosts=scoped_hosts, taal=taal,
-        scope_targets=scope_targets,
-        checklists=checklists_data, digid_knockout=digid_ko,
-        key_findings=key_findings, algeheel_beeld=algeheel_beeld,
-        **_extra_kwargs)
+    def _gen_docx_md():
+        return _generate_docx_markdown(
+            findings, grouped, counts, titel, auteur, subtitel, datum,
+            classificatie, is_draft, notes_data,
+            management_samenvatting=management_samenvatting,
+            testtype=testtype, testscope=testscope, testscopes=testscopes,
+            legsup_startpunt=legsup_startpunt,
+            legsup_privileges=legsup_privileges,
+            legsup_informatie=legsup_informatie,
+            scenarios=scenarios, scoped_hosts=scoped_hosts, taal=taal,
+            scope_targets=scope_targets,
+            checklists=checklists_data, digid_knockout=digid_ko,
+            key_findings=key_findings, algeheel_beeld=algeheel_beeld,
+            **_extra_kwargs)
+    docx_md = _gen_docx_md()
     docx_md_path = os.path.join(_RAPPORT_DIR, 'rapport_docx.md')
     schrijven(docx_md_path, docx_md)
+
+    # Gelakte Markdown/HTML-bron: zelfde inhoud, maar \lakken{} -> blokken. Alleen
+    # als er iets te lakken valt (anders identiek aan de gewone export).
+    gelakt_docx_md_path = os.path.join(_RAPPORT_DIR, 'rapport_gelakt_docx.md')
+    gelakt_html_path = os.path.join(_RAPPORT_DIR, 'tex_gelakt.html')
+    if _needs_lak:
+        with redact_mode():
+            schrijven(gelakt_docx_md_path, _gen_docx_md())
+            schrijven(gelakt_html_path, _gen_html())
+    else:
+        for _stale in (gelakt_docx_md_path, gelakt_html_path,
+                       os.path.join(_RAPPORT_DIR, 'rapport_gelakt.docx')):
+            try:
+                if os.path.exists(_stale):
+                    os.remove(_stale)
+            except OSError:
+                pass
 
     # --- SARIF generatie ---
     sarif = _generate_sarif(findings, titel, auteur)
@@ -1596,8 +1765,14 @@ def gen_rapport():
         # DOCX en ODT van dedicated Markdown (spiegelt LaTeX structuur)
         _pandoc_args = ['--toc', '--toc-depth=2',
                         '--resource-path=' + os.path.abspath(_RAPPORT_DIR)]
+        if os.path.exists(_DOCX_REFERENCE):
+            _pandoc_args.append('--reference-doc=' + os.path.abspath(_DOCX_REFERENCE))
         pandoc(docx_md_path, *_pandoc_args,
                '-o', os.path.join(_RAPPORT_DIR, 'rapport.docx'))
+        # Gelakte DOCX uit de gelakte Markdown (indien aanwezig).
+        if _needs_lak and os.path.exists(gelakt_docx_md_path):
+            pandoc(gelakt_docx_md_path, *_pandoc_args,
+                   '-o', os.path.join(_RAPPORT_DIR, 'rapport_gelakt.docx'))
         # ODT en EPUB worden NIET standaard gebouwd: dat zijn nicheformaten en
         # elk een extra pandoc-subprocess. Ze worden lazy gegenereerd bij de
         # eerste download (zie _ensure_lazy_format). Oude versies verwijderen
@@ -1629,8 +1804,11 @@ def _sha256_file(path):
 
 # Deliverables waarvan de integriteit per versie wordt vastgelegd.
 _DELIVERABLES = (
-    'rapport.pdf', 'rapport_secure.pdf', 'rapport.docx', 'rapport.tex',
-    'rapport_docx.md', 'rapport.stix.json', 'rapport.sarif.json', 'tex.html',
+    'rapport.pdf', 'rapport_secure.pdf', 'rapport_gelakt.pdf',
+    'rapport_gelakt_secure.pdf', 'rapport.docx', 'rapport_gelakt.docx',
+    'rapport.tex', 'rapport_gelakt.tex', 'rapport_docx.md',
+    'rapport_gelakt_docx.md', 'rapport.stix.json',
+    'rapport.sarif.json', 'tex.html', 'tex_gelakt.html',
 )
 
 
@@ -1641,8 +1819,8 @@ def _snapshot_version():
     ts = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
     dest = os.path.join(_RAPPORT_DIR, 'versions', ts)
     os.makedirs(dest, exist_ok=True)
-    for fname in ('rapport.tex', 'rapport_docx.md', 'rapport.stix.json',
-                  'rapport.sarif.json', 'tex.html'):
+    for fname in ('rapport.tex', 'rapport_gelakt.tex', 'rapport_docx.md',
+                  'rapport.stix.json', 'rapport.sarif.json', 'tex.html'):
         src = os.path.join(_RAPPORT_DIR, fname)
         if os.path.exists(src):
             shutil.copy2(src, dest)
@@ -3939,7 +4117,7 @@ def _generate_html_preview(findings, grouped, counts, titel, auteur, subtitel, d
              'img{max-width:100%}',
              'table{width:100%;border-collapse:collapse;margin:1em 0}',
              'th,td{border:1px solid #ccc;padding:6px 10px;text-align:left}',
-             'th{background:#f0f0f0}',
+             'th{background:#154273;color:#fff}',
              '.severity-bar{width:4px;display:inline-block;height:1em;margin-right:6px}',
              '.finding{border-left:4px solid #ccc;padding:12px;margin:12px 0}',
              '.tlp-badge{display:inline-block;padding:2px 10px;border-radius:4px;font-weight:bold;font-size:0.9em}',
@@ -4935,9 +5113,19 @@ def _generate_docx_markdown(findings, grouped, counts, titel, auteur, subtitel,
                             rel_parts.append('{}: {}'.format(r.get('type_label', r['type']), r['naam']))
                     lines.append('**Related:** {}'.format(', '.join(rel_parts)))
                     lines.append('')
-                # Evidence afbeeldingen
+                # Evidence afbeeldingen. In de gelakte DOCX nooit het origineel:
+                # gebruik de gelakte kopie of laat de afbeelding weg (placeholder).
                 for ev in f.get('evidence', []):
-                    lines.append('![{}]({})'.format(ev['caption'], ev['path']))
+                    _ep = ev['path']
+                    if redact_enabled():
+                        _lp = ev.get('lakpath')
+                        if _lp and os.path.exists(os.path.join(_RAPPORT_DIR, _lp)):
+                            _ep = _lp
+                        else:
+                            lines.append('*[GELAKT — afbeelding niet opgenomen]*')
+                            lines.append('')
+                            continue
+                    lines.append('![{}]({})'.format(ev['caption'], _ep))
                     if ev.get('sha256'):
                         lines.append('*SHA-256: {}*'.format(ev['sha256']))
                     lines.append('')
@@ -5054,7 +5242,7 @@ def _generate_retest_html(findings, titel, auteur, datum, taal='nl'):
              'body{font-family:sans-serif;max-width:900px;margin:0 auto;padding:20px}',
              'table{width:100%;border-collapse:collapse;margin:1em 0}',
              'th,td{border:1px solid #ccc;padding:6px 10px;text-align:left;vertical-align:top}',
-             'th{background:#f0f0f0}',
+             'th{background:#154273;color:#fff}',
              '.badge{padding:2px 8px;border-radius:3px;color:#fff;font-size:0.9em}',
              '</style></head><body>']
     parts.append('<h1>{}</h1>'.format(html_escape(heading)))
@@ -5163,7 +5351,9 @@ def gen_retest_rapport():
     schrijven(md_path, md)
     try:
         from sh import pandoc
-        pandoc(md_path, '-o', os.path.join(_RAPPORT_DIR, 'rapport_retest.docx'))
+        _ref = (['--reference-doc=' + os.path.abspath(_DOCX_REFERENCE)]
+                if os.path.exists(_DOCX_REFERENCE) else [])
+        pandoc(md_path, *_ref, '-o', os.path.join(_RAPPORT_DIR, 'rapport_retest.docx'))
     except Exception:
         pass
     return html
@@ -5258,7 +5448,7 @@ def _generate_debrief_html(s, taal='nl'):
              'body{font-family:sans-serif;max-width:900px;margin:0 auto;padding:20px}',
              'table{width:100%;border-collapse:collapse;margin:1em 0}',
              'th,td{border:1px solid #ccc;padding:6px 10px;text-align:left}',
-             'th{background:#f0f0f0}', '</style></head><body>']
+             'th{background:#154273;color:#fff}', '</style></head><body>']
     parts.append('<h1>{}</h1>'.format(html_escape(heading)))
     for label, val in _debrief_fields(s, taal):
         parts.append('<h2>{}</h2>'.format(html_escape(label)))
@@ -5401,7 +5591,9 @@ def gen_debrief():
     schrijven(md_path, md)
     try:
         from sh import pandoc
-        pandoc(md_path, '-o', os.path.join(_RAPPORT_DIR, 'debrief.docx'))
+        _ref = (['--reference-doc=' + os.path.abspath(_DOCX_REFERENCE)]
+                if os.path.exists(_DOCX_REFERENCE) else [])
+        pandoc(md_path, *_ref, '-o', os.path.join(_RAPPORT_DIR, 'debrief.docx'))
     except Exception:
         pass
     return html
@@ -5555,7 +5747,12 @@ def rapport_download(fmt):
         'md':   ('tex.md',   'text/markdown'),
         'tex':  ('rapport.tex', 'application/x-tex'),
         'pdf':  ('rapport.pdf', 'application/pdf'),
+        'pdf-archief': ('rapport_pdfa.pdf', 'application/pdf'),
         'pdf-secure': ('rapport_secure.pdf', 'application/pdf'),
+        'pdf-gelakt': ('rapport_gelakt.pdf', 'application/pdf'),
+        'pdf-gelakt-secure': ('rapport_gelakt_secure.pdf', 'application/pdf'),
+        'docx-gelakt': ('rapport_gelakt.docx', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'),
+        'html-gelakt': ('tex_gelakt.html', 'text/html'),
         'docx': ('rapport.docx', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'),
         'odt':  ('rapport.odt',  'application/vnd.oasis.opendocument.text'),
         'stix': ('rapport.stix.json', 'application/json'),
@@ -6001,6 +6198,7 @@ def rapport_validate():
     s = _project.config_for(_oid) or _get_appdata()
     warnings = []
     errors = []
+    notices = []
 
     if not s or not getattr(s, 'rapport_titel', ''):
         errors.append('Rapport titel is niet ingesteld')
@@ -6038,10 +6236,59 @@ def rapport_validate():
     errors.extend(c_err)
     warnings.extend(c_warn)
 
+    # Pre-flight lakdekking: welke afbeeldingen missen een gelakte kopie?
+    # lak_used = er wordt ergens geredigeerd (lak-tekst of -kopie aanwezig). Bij
+    # actieve redactie is een ontbrekende kopie een waarschuwing ([GELAKT]-
+    # placeholder in de gelakte versie); zonder actieve redactie tonen we de
+    # ontbrekende kopieen als neutrale info-checklist, zodat je bewust kunt
+    # kiezen "deze hoeft niet" i.p.v. een gevoelige afbeelding per ongeluk te missen.
+    note_texts = [n.uitwerken or '' for n in _project.apply_scope(
+        db_notes.query.filter_by(rapport=True), db_notes.opdracht_id, _oid).all()]
+    lak_used = os.path.isdir(os.path.join(_SCREENSHOT_SRC, 'lakken'))
+    lak_missing = []
+    for f in findings:
+        if r'\lakken{' in (getattr(f, 'uitwerken', '') or ''):
+            lak_used = True
+        for ev in db_evidence.query.filter_by(finding_id=f.id).all():
+            if not (ev.content_type or '').startswith('image/'):
+                continue
+            if os.path.exists(os.path.join(_EVIDENCE_SRC, str(f.id),
+                                           'lakken', ev.filename)):
+                lak_used = True
+            else:
+                lak_missing.append('bevinding {} / {}'.format(
+                    f.id, ev.original_filename or ev.filename))
+    if any(r'\lakken{' in t for t in note_texts):
+        lak_used = True
+    # \plaatje{..}-projectafbeeldingen: alleen bestaande screenshots zonder
+    # gelakte kopie flaggen (onbekende namen zijn evidence-assets -> overslaan).
+    for t in [getattr(f, 'uitwerken', '') or '' for f in findings] + note_texts:
+        for naam in _re.findall(r'\\plaatje\{([^}]+)\}', t):
+            naam = naam.strip()
+            if not os.path.exists(os.path.join(_SCREENSHOT_SRC, naam)):
+                continue
+            if os.path.exists(os.path.join(_SCREENSHOT_SRC, 'lakken', naam)):
+                lak_used = True
+            else:
+                lak_missing.append('plaatje {}'.format(naam))
+    if lak_missing:
+        n = len(lak_missing)
+        toon = '; '.join(lak_missing[:8]) + ('; …' if n > 8 else '')
+        if lak_used:
+            warnings.append(
+                '{} afbeelding(en) zonder gelakte kopie: in de gelakte versie '
+                'verschijnt daarvoor een [GELAKT]-placeholder ({})'.format(n, toon))
+        else:
+            notices.append(
+                '{} afbeelding(en) hebben geen gelakte kopie en verschijnen '
+                'volledig in beide versies. Maak een gelakte kopie als ze gevoelig '
+                'zijn ({})'.format(n, toon))
+
     return jsonify({
         'ok': len(errors) == 0,
         'errors': errors,
         'warnings': warnings,
+        'notices': notices,
         'findings_count': len(findings),
     })
 
@@ -6385,7 +6632,8 @@ def _xelatex_dryrun(rendered):
                 fh.write(rendered)
             run_env = os.environ.copy()
             handboek_abs = os.path.abspath(_HANDBOEK_DIR)
-            run_env['TEXINPUTS'] = '.:{h}:{h}//:'.format(h=handboek_abs)
+            run_env['TEXINPUTS'] = '.:{l}:{l}//:{h}:{h}//:'.format(
+                l=os.path.abspath(_LAYOUT_DIR), h=handboek_abs)
             p = subprocess.run(
                 ['xelatex', '-interaction=nonstopmode', '-halt-on-error',
                  '-no-shell-escape', '-output-directory', td, texf],
@@ -6405,19 +6653,24 @@ def _xelatex_dryrun(rendered):
 _PREVIEW_PREAMBLE = r"""\documentclass[11pt]{article}
 \usepackage{fontspec}
 \usepackage[a4paper,margin=20mm]{geometry}
-\usepackage{graphicx}
-\usepackage{xcolor}
-\usepackage{array}
 \usepackage{booktabs}
 \usepackage{enumitem}
 \usepackage{listings}
 \lstset{basicstyle=\ttfamily\small,breaklines=true,frame=single}
+%% Laad de echte rapport-stijl, zodat ALLE projectmacro's (\cvss, \severity,
+%% \cwe/\cve/\owasp, \pad/\host/\route/\param, callouts, \request/\response,
+%% \deelsgelakt, \bevinding(ref)/\uitwerking, \lakken, \plaatje, ...) exact zoals
+%% in het rapport renderen. Nieuwe macro's in rapport.sty werken zo automatisch
+%% mee in de preview. (TEXINPUTS wijst naar handboek/.)
+\usepackage{opmaak/packages/rapport}
 \graphicspath{%(graphicspath)s}
-%% Lichte stand-ins voor projectmacro's, zodat een fragment zelfstandig rendert.
-\providecommand{\plaatje}[2]{\begin{center}\includegraphics[width=0.8\linewidth]{#1}\par\smallskip{\footnotesize\itshape #2}\end{center}}
-\providecommand{\haakjes}[1]{[#1]}
-\providecommand{\opdracht}[1]{\textbf{#1}}
-\providecommand{\lakken}[1]{\rule{2.2cm}{2.2mm}}
+%% Preview-overrides: toon afbeeldingen uit graphicspath (de preview compileert
+%% vanuit de projectroot, niet vanuit rapport/), en lichte stand-ins voor
+%% editor-macro's die niet in rapport.sty staan.
+\renewcommand{\plaatje}[2]{\begin{center}\includegraphics[width=0.8\linewidth,keepaspectratio]{#1}\par\smallskip{\footnotesize\itshape #2}\end{center}}
+%% \opdracht leeft op template-niveau (rapport_latex.tex), niet in rapport.sty;
+%% hier een visueel gelijkwaardige stand-in (monospace, grijs, tussen quotes).
+\providecommand{\opdracht}[1]{`{\texttt{\textcolor{gray}{#1}}}'}
 \providecommand{\gls}[1]{#1}
 \providecommand{\glspl}[1]{#1s}
 \providecommand{\reconoutput}[2]{\paragraph{#2}\texttt{#1}}
@@ -6464,16 +6717,33 @@ def latex_preview():
             texf = os.path.join(td, 'preview.tex')
             with open(texf, 'w', encoding='utf-8') as fh:
                 fh.write(tex)
+            run_env = os.environ.copy()
+            handboek_abs = os.path.abspath(_HANDBOEK_DIR)
+            # . (=projectroot, voor graphicspath) + layout (rapport.sty) + handboek (afbeeldingen/logo's).
+            run_env['TEXINPUTS'] = '.:{l}:{l}//:{h}:{h}//:'.format(
+                l=os.path.abspath(_LAYOUT_DIR), h=handboek_abs)
             p = subprocess.run(
                 ['xelatex', '-interaction=nonstopmode', '-halt-on-error',
                  '-no-shell-escape', '-output-directory', td, texf],
-                cwd=root, capture_output=True, timeout=30)
+                cwd=root, env=run_env, capture_output=True, timeout=30)
             pdf = os.path.join(td, 'preview.pdf')
             if p.returncode != 0 or not os.path.exists(pdf):
                 out = (p.stdout or b'').decode('utf-8', 'replace')
-                errs = [ln for ln in out.splitlines() if ln.startswith('!')]
-                return jsonify({'ok': False,
-                                'error': (errs[0] if errs else 'compilatie mislukt')[:300]})
+                lines = out.splitlines()
+                errs = [ln for ln in lines if ln.startswith('!')]
+                msg = errs[0] if errs else 'compilatie mislukt'
+                # Bij "Undefined control sequence" de macronaam erbij zoeken: die
+                # staat op de context-regel (l.NN ...) direct na de foutmelding.
+                if 'Undefined control sequence' in msg:
+                    for i, ln in enumerate(lines):
+                        if ln.startswith('!') and 'Undefined control sequence' in ln:
+                            ctx = next((lines[j] for j in range(i + 1, min(i + 4, len(lines)))
+                                        if lines[j].startswith('l.')), '')
+                            m = _re.search(r'(\\[a-zA-Z@]+)\s*$', ctx)
+                            if m:
+                                msg = 'Onbekende macro %s (niet gedefinieerd in het rapport)' % m.group(1)
+                            break
+                return jsonify({'ok': False, 'error': msg[:300]})
             subprocess.run(['pdftoppm', '-f', '1', '-l', '1', '-r', '110', '-png',
                             pdf, os.path.join(td, 'page')],
                            capture_output=True, timeout=20)

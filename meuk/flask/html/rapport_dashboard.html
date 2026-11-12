@@ -7,6 +7,8 @@
 <link rel="stylesheet" href="{{ url_for('static', filename='css/finding-form.css') }}" />
 <link rel="stylesheet" href="{{ url_for('static', filename='css/rapport-editor.css') }}" />
 <link rel="stylesheet" href="{{ url_for('static', filename='css/latexeditor.css') }}" />
+<link rel="stylesheet" href="{{ url_for('static', filename='css/findings-filter.css') }}" />
+<link rel="stylesheet" href="{{ url_for('static', filename='css/utility.css') }}" />
 {% endblock %}
 
 {% block content %}
@@ -370,18 +372,18 @@
     {% if findings %}
     <table class="table compact" id="rapport-findings-table">
       <thead>
-        <tr><th>ID</th><th>Naam</th><th>Host</th><th>CVSS</th><th>Status</th><th></th></tr>
+        <tr><th>ID</th><th>Naam</th><th>Host</th><th>CVSS</th><th>OWASP</th><th>NCSC</th><th>Status</th><th></th></tr>
       </thead>
       <tbody>
         {% for f in findings|reverse %}
-        {% set sev = severity_map.get(f.id, 'info') %}
+        {% set tmpl = template_map.get(f.ref | string) if f.ref else none %}
         <tr{% if f.status == 'final' %} class="rapport-included"{% endif %} data-finding-id="{{ f.id }}">
           <td>{{ '%03d'|format(f.id) }}</td>
           <td>{{ f.naam }}</td>
           <td>{{ f.locatie }}</td>
-          <td>
-            <span class="severity-badge {{ sev }}">{{ f.basescore or '0' }}</span>
-          </td>
+          <td>{% if f.basescore %}<span class="cvss-badge cvss-badge-{{ f.basescore | cvss_severity }}" title="{{ f.basescore | cvss_severity | capitalize }}">{{ f.basescore }}</span>{% else %}<span class="cvss-badge cvss-badge-none">-</span>{% endif %}</td>
+          <td class="fs-12">{% if tmpl and tmpl.owasp_2025 %}<span title="OWASP 2025">{{ tmpl.owasp_2025 | owaspcategorie_2025 }}</span>{% else %}-{% endif %}</td>
+          <td class="fs-12">{% if tmpl and tmpl.ncsc %}<span title="{{ tmpl.ncsc | ncsc_richtlijn }}">{{ tmpl.ncsc }}</span>{% else %}-{% endif %}</td>
           <td>
             <select class="status-inline" data-finding-id="{{ f.id }}">
               <option value="draft"{% if (f.status or 'draft') == 'draft' %} selected{% endif %}>Concept</option>
@@ -469,7 +471,7 @@
 
 {# ── Note edit/add modal ── #}
 <div id="rap-note-modal" class="modal-overlay d-none">
-  <div class="modal-box">
+  <div class="modal-box modal-md">
     <div class="modal-head">
       <h3 id="rap-note-title">Notitie bewerken</h3>
       <button class="modal-close-btn" id="rap-note-close">&times;</button>
@@ -483,7 +485,7 @@
       <div class="form-group">
         <label for="rap-note-uitwerken">Inhoud</label>
         <div data-latex-toolbar="rap-note-uitwerken" data-mode="note" data-project-images-url="/api/screenshots" data-draft-scope="#rap-note-id"></div>
-        <textarea id="rap-note-uitwerken" class="form-control" rows="6" placeholder="Inhoud..."></textarea>
+        <textarea id="rap-note-uitwerken" class="form-control" rows="10" placeholder="Inhoud..."></textarea>
       </div>
       <div class="btn-row">
         <button class="btn btn-primary" id="rap-note-save">Opslaan</button>
@@ -558,9 +560,14 @@
       <div class="dl-group">
         <span class="dl-label">Primair</span>
         <a class="btn btn-primary dl-link" href="/api/report/download/pdf">PDF</a>
+        <a class="btn dl-link" href="/api/report/download/pdf-archief" title="PDF/A-2b, archiveerbaar met ingebed kleurprofiel">PDF/A (archief)</a>
+        <a class="btn dl-link" href="/api/report/download/pdf-gelakt">PDF (gelakt)</a>
         <a class="btn dl-link" href="/api/report/download/pdf-secure">PDF (beveiligd)</a>
+        <a class="btn dl-link" href="/api/report/download/pdf-gelakt-secure">PDF (gelakt, beveiligd)</a>
         <a class="btn dl-link" href="/api/report/download/docx">DOCX</a>
+        <a class="btn dl-link" href="/api/report/download/docx-gelakt">DOCX (gelakt)</a>
         <a class="btn dl-link" href="/api/report/download/html">HTML</a>
+        <a class="btn dl-link" href="/api/report/download/html-gelakt">HTML (gelakt)</a>
       </div>
       <div class="dl-group">
         <span class="dl-label">Overige formaten</span>
@@ -1055,8 +1062,14 @@
           d.warnings.forEach(function(w) { html += "<p>&#9888; " + w + "</p>"; });
           html += "</div>";
         }
-        if (!d.errors.length && !d.warnings.length) {
-          html = '<p class="rv-success">&#10004; Geen problemen gevonden</p>';
+        var geenProblemen = !d.errors.length && !d.warnings.length;
+        if (geenProblemen) {
+          html += '<p class="rv-success">&#10004; Geen problemen gevonden</p>';
+        }
+        if (d.notices && d.notices.length) {
+          html += '<div class="rv-info">';
+          d.notices.forEach(function(n) { html += "<p>&#8505; " + n + "</p>"; });
+          html += "</div>";
         }
         html += "<p class='help'>" + (d.findings_count || 0) + " bevindingen klaar voor rapport</p>";
         resultsEl.innerHTML = html;

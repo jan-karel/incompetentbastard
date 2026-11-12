@@ -1,0 +1,171 @@
+% !TEX program = xelatex
+% ============================================================
+% Data-gedreven rapport-template in rijkshuisstijl (afgeleid van oob.tex).
+% Rendert de bevindingen/metadata van de generator; gebruikt de projectmacro's
+% uit opmaak/packages/rapport (lakken/weglakken, plaatje, ibfindinghead, cvss,
+% de kaders bestuurlijk/principe/..., severity-kleuren).
+% ============================================================
+\documentclass[11pt,a4paper]{article}
+\usepackage[a4paper,top=20mm,bottom=22mm,left=21mm,right=21mm,headheight=15pt]{geometry}
+\usepackage{fontspec}
+% Lato indien beschikbaar, anders de standaardfont (portabel).
+\IfFontExistsTF{Lato}{\setmainfont{Lato}\setsansfont{Lato}}{}
+[% if taal == 'en' %]\usepackage[english]{babel}[% else %]\usepackage[dutch]{babel}[% endif %]
+\usepackage{microtype}
+\usepackage{ragged2e}
+\usepackage{enumitem}
+\usepackage{parskip}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{tabularx}
+\usepackage{xltabular}
+\usepackage{titlesec}
+\usepackage{fancyhdr}
+\usepackage{lastpage}
+% Projectmacro's + palet + kaders + redactie (gelakt/ongelakt via \weglakken).
+\usepackage{opmaak/packages/rapport}
+\providecolor{grijs}{HTML}{535353}
+\hypersetup{colorlinks=true,linkcolor=rijkblauw,urlcolor=rijkblauw,citecolor=rijkblauw,
+  pdftitle={[[ titel ]]},pdfauthor={[[ auteur ]]}}
+% Koppen in rijkshuisstijl.
+\titleformat{\section}{\Large\bfseries\color{rijkblauw}}{\thesection}{0.65em}{}
+\titleformat{\subsection}{\large\bfseries\color{rijkblauw}}{\thesubsection}{0.65em}{}
+\titleformat{\subsubsection}{\normalsize\bfseries\color{grijs}}{\thesubsubsection}{0.65em}{}
+\titlespacing*{\section}{0pt}{1.7em}{0.7em}
+% Koptekst/voettekst.
+\pagestyle{fancy}\fancyhf{}
+\fancyhead[L]{\footnotesize\color{grijs}[[ classificatie ]]}
+\fancyhead[R]{\footnotesize\color{grijs}[[ project ]]}
+\fancyfoot[L]{\footnotesize\color{grijs}[[ auteur ]]}
+\fancyfoot[R]{\footnotesize\color{grijs}[% if taal == 'en' %]Page[% else %]Pagina[% endif %]~\thepage{}~[% if taal == 'en' %]of[% else %]van[% endif %]~\pageref*{LastPage}}
+\renewcommand{\headrulewidth}{0.3pt}\renewcommand{\footrulewidth}{0pt}
+\newcolumntype{Y}{>{\RaggedRight\arraybackslash}X}
+
+% TLP-contrast: zwarte tekst alleen op lichte achtergronden (amber/green).
+[% set _cl = (classificatie or '') | upper %]
+[% set _tlpblack = ('AMBER' in _cl) or ('GREEN' in _cl) or ('GROEN' in _cl) %]
+
+\begin{document}
+
+% ---------------- Titelblad ----------------
+\thispagestyle{empty}
+\IfFileExists{opmaak/dictu.png}{\begin{center}\vspace*{-0.5cm}\includegraphics[width=0.55\textwidth]{opmaak/dictu.png}\end{center}}{%
+  \noindent{\color{rijkblauw}\rule{\textwidth}{3pt}}}
+\vspace*{3cm}
+\begin{center}
+  {\color{rijkblauw}\fontsize{30}{36}\selectfont\bfseries [[ titel ]]\par}
+  \vspace{0.7cm}
+  {\Large\itshape\color{grijs} [[ subtitel ]]\par}
+  \vspace{0.6cm}
+  {\color{rijkblauw}\rule{0.42\textwidth}{1.2pt}\par}
+  \vspace{2.6cm}
+  {\large\renewcommand{\arraystretch}{1.5}%
+  \begin{tabular}{@{}r@{\hspace{1.2em}}l@{}}
+    [% if project %]\textcolor{rijkblauw}{\bfseries [% if taal == 'en' %]Client[% else %]Opdrachtgever[% endif %]} & [[ project ]] \\[% endif %]
+    \textcolor{rijkblauw}{\bfseries [% if taal == 'en' %]Author[% else %]Opsteller[% endif %]} & [[ auteur ]] \\
+    \textcolor{rijkblauw}{\bfseries [% if taal == 'en' %]Date[% else %]Datum[% endif %]} & [[ datum ]] \\
+    [% if rapport_versie is defined and rapport_versie %]\textcolor{rijkblauw}{\bfseries [% if taal == 'en' %]Version[% else %]Versie[% endif %]} & [[ rapport_versie ]] \\[% endif %]
+    [% if testscope %]\textcolor{rijkblauw}{\bfseries Scope} & [[ testscope | latex_escape ]] \\[% endif %]
+  \end{tabular}\par}
+  [% if is_draft %]\vspace{1.3cm}{\large\bfseries\textcolor{ored}{\fbox{\strut\,[% if taal == 'en' %]DRAFT[% else %]CONCEPT[% endif %]\,}}\par}[% endif %]
+\end{center}
+\vfill
+\noindent\colorbox{[[ tlp_color ]]}{%
+  \begin{minipage}[c][0.95cm][c]{\dimexpr\textwidth-2\fboxsep\relax}\centering
+    \color{[% if _tlpblack %]black[% else %]white[% endif %]}{\large\bfseries [% if taal == 'en' %]Classification[% else %]Classificatie[% endif %]:~[[ classificatie ]]}%
+  \end{minipage}}%
+\newpage
+
+% ---------------- Inhoudsopgave ----------------
+\tableofcontents
+\newpage
+
+% ---------------- Managementsamenvatting ----------------
+[% if management_samenvatting %]
+\section*{[% if taal == 'en' %]Executive Summary[% else %]Managementsamenvatting[% endif %]}
+\addcontentsline{toc}{section}{[% if taal == 'en' %]Executive Summary[% else %]Managementsamenvatting[% endif %]}
+[[ management_samenvatting ]]
+
+[% if algeheel_beeld is defined and algeheel_beeld %]\bestuurlijk{[[ algeheel_beeld ]]}[% endif %]
+\newpage
+[% endif %]
+
+% ---------------- Bevindingenlijst (overzicht) ----------------
+[% if bevindingenlijst_rows %]
+\section{[% if taal == 'en' %]Findings overview[% else %]Bevindingenlijst[% endif %]}
+{\arrayrulecolor{white}\renewcommand{\arraystretch}{1.25}%
+\begin{xltabular}{\textwidth}{|c|Y|c|}
+  \hline
+  \rowcolor{rijkblauw}\textcolor{white}{\textbf{ID}} & \textcolor{white}{\textbf{[% if taal == 'en' %]Finding[% else %]Bevinding[% endif %]}} & \textcolor{white}{\textbf{[% if taal == 'en' %]Risk[% else %]Risico[% endif %]}} \\ \hline
+  \endhead
+  [% for r in bevindingenlijst_rows %]
+  [[ r.id ]] & [[ r.titel | latex_escape ]] & \cellcolor{[[ r.color ]]}\textbf{\textcolor{[[ r.fg ]]}{[[ r.risk ]]}} \\ \hline
+  [% endfor %]
+\end{xltabular}}
+[% endif %]
+
+% ---------------- Bevindingen (detail) ----------------
+\section{[% if taal == 'en' %]Findings[% else %]Bevindingen[% endif %]}
+[% for severity_label, group in grouped_findings %]
+[% if group %]
+\subsection{[[ severity_label ]] [% if taal == 'en' %]findings[% else %]bevindingen[% endif %]}
+[% for item in group %]
+\ibfindinghead{[[ '%03d' | format(item.nr) ]]}%
+  {[[ item.titel | latex_escape ]]}%
+  {[[ item.basescore ]]}%
+  {[[ (item.owasp or '—') | latex_escape ]]}%
+  {[[ (('CWE-' ~ item.cwe) if item.cwe else '—') | latex_escape ]]}%
+  {[[ (item.ncsc or '—') | latex_escape ]]}
+
+\noindent [[ item.beschrijving | latex_markup ]]
+[% if item.evidence_tex is defined and item.evidence_tex %]
+[[ item.evidence_tex ]]
+[% endif %]
+[% if item.uitwerking_detail %]
+
+\noindent [[ item.uitwerking_detail | latex_markup ]]
+[% endif %]
+
+\ibfindingsection{Impact}
+\noindent [[ item.impact | latex_markup ]]
+
+\ibfindingsection{[% if taal == 'en' %]Recommendation[% else %]Aanbeveling[% endif %]}
+\noindent [[ item.aanbeveling | latex_markup ]]
+
+[% if item.locatie %]
+
+\noindent\textbf{[% if taal == 'en' %]Location[% else %]Locatie[% endif %]:}~\texttt{[[ item.locatie | latex_escape ]]}
+[% endif %]
+[% if item.cvss_vector %]
+
+\noindent\textbf{CVSS Vector:}~\texttt{\small [[ item.cvss_vector | latex_escape ]]}
+[% endif %]
+[% if item.referenties_list is defined and item.referenties_list %]
+
+\noindent\textbf{[% if taal == 'en' %]References[% else %]Referenties[% endif %]:}
+\begin{itemize}
+[% for ref in item.referenties_list %]
+  \item \texttt{\small [[ ref | latex_markup ]]}
+[% endfor %]
+\end{itemize}
+[% endif %]
+\vspace{0.6em}
+[% endfor %]
+[% endif %]
+[% endfor %]
+
+% ---------------- Begrippenlijst ----------------
+[% if begrippen_rows %]
+\newpage
+\section{[% if taal == 'en' %]Glossary[% else %]Begrippen- en afkortingenlijst[% endif %]}
+{\renewcommand{\arraystretch}{1.3}%
+\begin{xltabular}{\textwidth}{>{\bfseries}p{0.26\textwidth} Y}
+  \toprule
+  [% for r in begrippen_rows %]
+  [[ r.term ]] & [[ r.definitie ]] \\
+  [% endfor %]
+  \bottomrule
+\end{xltabular}}
+[% endif %]
+
+\end{document}

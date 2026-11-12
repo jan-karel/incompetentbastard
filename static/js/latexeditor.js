@@ -31,6 +31,30 @@
           ]
         },
         {
+          id: 'kaders',
+          label: 'Kaders',
+          items: [
+            { id: 'bestuurlijk', icon: '\u{1F3DB}', label: 'Bestuurlijk', type: 'button', tooltip: '\\bestuurlijk{...} - kader "Bestuurlijke kern" (blauw)' },
+            { id: 'principe', icon: '\u2696', label: 'Principe', type: 'button', tooltip: '\\principe{...} - kader "Leidend principe" (groen)' },
+            { id: 'letop', icon: '\u26A0', label: 'Aandachtspunt', type: 'button', tooltip: '\\letop{...} - kader "Aandachtspunt" (oranje)' },
+            { id: 'praktijk', icon: '\u{1F527}', label: 'Praktijk', type: 'button', tooltip: '\\praktijk{...} - kader "Praktische toepassing" (lichtblauw)' },
+            { id: 'keten', icon: '\u{1F517}', label: 'Keten', type: 'button', tooltip: '\\keten{...} - kader "Ketenperspectief" (paars)' },
+            { id: 'scenario', icon: '\u{1F3AC}', label: 'Scenario', type: 'button', tooltip: '\\scenario{...} - kader "Ketenscenario" (grijs)' },
+          ]
+        },
+        {
+          id: 'technisch',
+          label: 'Technisch',
+          items: [
+            { id: 'pad', icon: '/\u2026', label: 'Pad', type: 'button', tooltip: '\\pad{/etc/shadow} - bestandspad (monospace)' },
+            { id: 'host', icon: '\u{1F5A5}', label: 'Host', type: 'button', tooltip: '\\host{10.0.0.5} - host/IP (monospace)' },
+            { id: 'route', icon: '\u{1F517}', label: 'Endpoint', type: 'button', tooltip: '\\route{/api/login} - endpoint/URL-pad (monospace)' },
+            { id: 'param', icon: '?p', label: 'Param', type: 'button', tooltip: '\\param{redirect} - parameternaam (monospace)' },
+            { id: 'request', icon: '\u2192', label: 'Request', type: 'button', tooltip: '\\request{...} - HTTP-requestblok' },
+            { id: 'response', icon: '\u2190', label: 'Response', type: 'button', tooltip: '\\response{...} - HTTP-responseblok' },
+          ]
+        },
+        {
           id: 'media',
           label: 'Media',
           items: [
@@ -45,6 +69,8 @@
             { id: 'glossary', icon: '\u{1F4D6}', label: 'Glossary', type: 'button' },
             { id: 'gls', icon: '\u{1F4D6}', label: 'Gls', type: 'dropdown', dataAttr: 'glossaryTermsUrl', tooltip: '\\gls{term}' },
             { id: 'glspl', icon: '\u{1F4D6}+', label: 'Gls plural', type: 'dropdown', dataAttr: 'glossaryTermsUrl', tooltip: '\\glspl{term}' },
+            { id: 'bevinding', icon: '\u{00A7}', label: 'Bevinding', type: 'button', tooltip: '\\bevinding{id} - kruisverwijzing naar bevinding' },
+            { id: 'uitwerking', icon: '\u{00A7}+', label: 'Uitwerking', type: 'button', tooltip: '\\uitwerking{id} - "verder uitgewerkt in bevinding ..."' },
             { id: 'bibliography', icon: '\u{1F4DA}', label: 'Bibliografie', type: 'button' },
           ]
         }
@@ -69,6 +95,11 @@
             { id: 'haakjes', icon: '[ ]', label: 'Haakjes', type: 'button', tooltip: '\\haakjes{}' },
             { id: 'opdracht', icon: '\u{1F4CB}', label: 'Opdracht', type: 'button', tooltip: '\\opdracht{}' },
             { id: 'lakken', icon: '\u{2588}', label: 'Lakken', type: 'button', tooltip: '\\lakken{} - tekst censureren' },
+            { id: 'deelsgelakt', icon: '\u{2588}½', label: 'Deels lakken', type: 'button', tooltip: '\\deelsgelakt{zichtbaar}{geheim} - deel censureren' },
+            { id: 'waarschuwing', icon: '⚠', label: 'Waarschuwing', type: 'button', tooltip: '\\waarschuwing{...} - rode callout' },
+            { id: 'tip', icon: '\u{1F4A1}', label: 'Tip', type: 'button', tooltip: '\\tip{...} - groene callout' },
+            { id: 'opmerking', icon: '\u{1F4AC}', label: 'Opmerking', type: 'button', tooltip: '\\opmerking{...} - blauwe callout' },
+            { id: 'stap', icon: '①', label: 'Stap', type: 'button', tooltip: '\\stap{...} - reproductiestap' },
             { id: 'itemize', icon: '\u{2022}', label: 'Lijst', type: 'button', tooltip: 'Bullet list' },
             { id: 'enumerate', icon: '1.', label: 'Genummerd', type: 'button', tooltip: 'Genummerde lijst' },
             { id: 'table', icon: '\u{229E}', label: 'Tabel', type: 'button', tooltip: 'Tabel invoegen' },
@@ -81,6 +112,38 @@
             { id: 'snippet', icon: '{}', label: 'Snippet', type: 'dropdown', dataAttr: 'snippetsUrl' },
             { id: 'gls', icon: '\u{1F4D6}', label: 'Glossary', type: 'dropdown', dataAttr: 'glossaryTermsUrl', tooltip: '\\gls{term}' },
             { id: 'glspl', icon: '\u{1F4D6}+', label: 'Gls plural', type: 'dropdown', dataAttr: 'glossaryTermsUrl', tooltip: '\\glspl{term} (meervoud)' },
+            { id: 'bevinding', icon: '\u{00A7}', label: 'Bevinding', type: 'button', tooltip: '\\bevinding{id} - kruisverwijzing naar bevinding' },
+            { id: 'uitwerking', icon: '\u{00A7}+', label: 'Uitwerking', type: 'button', tooltip: '\\uitwerking{id} - "verder uitgewerkt in bevinding ..."' },
+            { id: 'bevindingref', icon: '\u{00A7}→', label: 'Bev.ref', type: 'button', tooltip: '\\bevindingref{id} - korte kruisverwijzing (alleen §nr)' },
+            { id: 'cvss', icon: '\u{1F3AF}', label: 'CVSS', type: 'button', tooltip: '\\cvss{7.5} - score + gekleurd severity-label' },
+            { id: 'severity', icon: '\u{1F6A9}', label: 'Severity', type: 'button', tooltip: '\\severity{hoog} - gekleurd ernstlabel (kritiek/hoog/midden/laag/nihil)' },
+            { id: 'cwe', icon: 'CWE', label: 'CWE', type: 'button', tooltip: '\\cwe{79} - klikbare CWE-link' },
+            { id: 'cve', icon: 'CVE', label: 'CVE', type: 'button', tooltip: '\\cve{2024-1234} - klikbare CVE-link' },
+            { id: 'owasp', icon: 'O10', label: 'OWASP', type: 'button', tooltip: '\\owasp{A03:2025} - klikbare OWASP-link' },
+          ]
+        },
+        {
+          id: 'kaders',
+          label: 'Kaders',
+          items: [
+            { id: 'bestuurlijk', icon: '\u{1F3DB}', label: 'Bestuurlijk', type: 'button', tooltip: '\\bestuurlijk{...} - kader "Bestuurlijke kern" (blauw)' },
+            { id: 'principe', icon: '\u2696', label: 'Principe', type: 'button', tooltip: '\\principe{...} - kader "Leidend principe" (groen)' },
+            { id: 'letop', icon: '\u26A0', label: 'Aandachtspunt', type: 'button', tooltip: '\\letop{...} - kader "Aandachtspunt" (oranje)' },
+            { id: 'praktijk', icon: '\u{1F527}', label: 'Praktijk', type: 'button', tooltip: '\\praktijk{...} - kader "Praktische toepassing" (lichtblauw)' },
+            { id: 'keten', icon: '\u{1F517}', label: 'Keten', type: 'button', tooltip: '\\keten{...} - kader "Ketenperspectief" (paars)' },
+            { id: 'scenario', icon: '\u{1F3AC}', label: 'Scenario', type: 'button', tooltip: '\\scenario{...} - kader "Ketenscenario" (grijs)' },
+          ]
+        },
+        {
+          id: 'technisch',
+          label: 'Technisch',
+          items: [
+            { id: 'pad', icon: '/\u2026', label: 'Pad', type: 'button', tooltip: '\\pad{/etc/shadow} - bestandspad (monospace)' },
+            { id: 'host', icon: '\u{1F5A5}', label: 'Host', type: 'button', tooltip: '\\host{10.0.0.5} - host/IP (monospace)' },
+            { id: 'route', icon: '\u{1F517}', label: 'Endpoint', type: 'button', tooltip: '\\route{/api/login} - endpoint/URL-pad (monospace)' },
+            { id: 'param', icon: '?p', label: 'Param', type: 'button', tooltip: '\\param{redirect} - parameternaam (monospace)' },
+            { id: 'request', icon: '\u2192', label: 'Request', type: 'button', tooltip: '\\request{...} - HTTP-requestblok' },
+            { id: 'response', icon: '\u2190', label: 'Response', type: 'button', tooltip: '\\response{...} - HTTP-responseblok' },
           ]
         },
         {
@@ -111,6 +174,11 @@
             { id: 'haakjes', icon: '[ ]', label: 'Haakjes', type: 'button', tooltip: '\\haakjes{}' },
             { id: 'opdracht', icon: '\u{1F4CB}', label: 'Opdracht', type: 'button', tooltip: '\\opdracht{}' },
             { id: 'lakken', icon: '\u{2588}', label: 'Lakken', type: 'button', tooltip: '\\lakken{} - tekst censureren' },
+            { id: 'deelsgelakt', icon: '\u{2588}½', label: 'Deels lakken', type: 'button', tooltip: '\\deelsgelakt{zichtbaar}{geheim} - deel censureren' },
+            { id: 'waarschuwing', icon: '⚠', label: 'Waarschuwing', type: 'button', tooltip: '\\waarschuwing{...} - rode callout' },
+            { id: 'tip', icon: '\u{1F4A1}', label: 'Tip', type: 'button', tooltip: '\\tip{...} - groene callout' },
+            { id: 'opmerking', icon: '\u{1F4AC}', label: 'Opmerking', type: 'button', tooltip: '\\opmerking{...} - blauwe callout' },
+            { id: 'stap', icon: '①', label: 'Stap', type: 'button', tooltip: '\\stap{...} - reproductiestap' },
           ]
         },
         {
@@ -120,6 +188,38 @@
             { id: 'snippet', icon: '{}', label: 'Snippet', type: 'dropdown', dataAttr: 'snippetsUrl' },
             { id: 'gls', icon: '\u{1F4D6}', label: 'Glossary', type: 'dropdown', dataAttr: 'glossaryTermsUrl', tooltip: '\\gls{term}' },
             { id: 'glspl', icon: '\u{1F4D6}+', label: 'Gls plural', type: 'dropdown', dataAttr: 'glossaryTermsUrl', tooltip: '\\glspl{term} (meervoud)' },
+            { id: 'bevinding', icon: '\u{00A7}', label: 'Bevinding', type: 'button', tooltip: '\\bevinding{id} - kruisverwijzing naar bevinding' },
+            { id: 'uitwerking', icon: '\u{00A7}+', label: 'Uitwerking', type: 'button', tooltip: '\\uitwerking{id} - "verder uitgewerkt in bevinding ..."' },
+            { id: 'bevindingref', icon: '\u{00A7}→', label: 'Bev.ref', type: 'button', tooltip: '\\bevindingref{id} - korte kruisverwijzing (alleen §nr)' },
+            { id: 'cvss', icon: '\u{1F3AF}', label: 'CVSS', type: 'button', tooltip: '\\cvss{7.5} - score + gekleurd severity-label' },
+            { id: 'severity', icon: '\u{1F6A9}', label: 'Severity', type: 'button', tooltip: '\\severity{hoog} - gekleurd ernstlabel (kritiek/hoog/midden/laag/nihil)' },
+            { id: 'cwe', icon: 'CWE', label: 'CWE', type: 'button', tooltip: '\\cwe{79} - klikbare CWE-link' },
+            { id: 'cve', icon: 'CVE', label: 'CVE', type: 'button', tooltip: '\\cve{2024-1234} - klikbare CVE-link' },
+            { id: 'owasp', icon: 'O10', label: 'OWASP', type: 'button', tooltip: '\\owasp{A03:2025} - klikbare OWASP-link' },
+          ]
+        },
+        {
+          id: 'kaders',
+          label: 'Kaders',
+          items: [
+            { id: 'bestuurlijk', icon: '\u{1F3DB}', label: 'Bestuurlijk', type: 'button', tooltip: '\\bestuurlijk{...} - kader "Bestuurlijke kern" (blauw)' },
+            { id: 'principe', icon: '\u2696', label: 'Principe', type: 'button', tooltip: '\\principe{...} - kader "Leidend principe" (groen)' },
+            { id: 'letop', icon: '\u26A0', label: 'Aandachtspunt', type: 'button', tooltip: '\\letop{...} - kader "Aandachtspunt" (oranje)' },
+            { id: 'praktijk', icon: '\u{1F527}', label: 'Praktijk', type: 'button', tooltip: '\\praktijk{...} - kader "Praktische toepassing" (lichtblauw)' },
+            { id: 'keten', icon: '\u{1F517}', label: 'Keten', type: 'button', tooltip: '\\keten{...} - kader "Ketenperspectief" (paars)' },
+            { id: 'scenario', icon: '\u{1F3AC}', label: 'Scenario', type: 'button', tooltip: '\\scenario{...} - kader "Ketenscenario" (grijs)' },
+          ]
+        },
+        {
+          id: 'technisch',
+          label: 'Technisch',
+          items: [
+            { id: 'pad', icon: '/\u2026', label: 'Pad', type: 'button', tooltip: '\\pad{/etc/shadow} - bestandspad (monospace)' },
+            { id: 'host', icon: '\u{1F5A5}', label: 'Host', type: 'button', tooltip: '\\host{10.0.0.5} - host/IP (monospace)' },
+            { id: 'route', icon: '\u{1F517}', label: 'Endpoint', type: 'button', tooltip: '\\route{/api/login} - endpoint/URL-pad (monospace)' },
+            { id: 'param', icon: '?p', label: 'Param', type: 'button', tooltip: '\\param{redirect} - parameternaam (monospace)' },
+            { id: 'request', icon: '\u2192', label: 'Request', type: 'button', tooltip: '\\request{...} - HTTP-requestblok' },
+            { id: 'response', icon: '\u2190', label: 'Response', type: 'button', tooltip: '\\response{...} - HTTP-responseblok' },
           ]
         },
         {
@@ -581,7 +681,10 @@
     return { value: item.name, label: item.name, sublabel: item.title || '', title: item.title };
   };
   LaTeXEditor.prototype._transformImage = function(item) {
-    return { value: item.name, label: item.name, url: item.url };
+    // redactable is alleen true voor projectscreenshots (/api/screenshots); zo
+    // verschijnt de lak-knop nooit bij een andere beeldbron.
+    return { value: item.name, label: item.name, url: item.url,
+             has_lakken: !!item.has_lakken, redactable: item.redactable === true };
   };
   LaTeXEditor.prototype._transformGlossaryTerm = function(item) {
     return { value: item.key, label: item.key, sublabel: item.name || '' };
@@ -619,6 +722,152 @@
     listEl.innerHTML = filtered.map(_dropdownItemHtml).join('');
   };
 
+  // Canvas-redactie voor een projectafbeelding: zwarte vlakken trekken en als
+  // gelakte kopie (raw/screenshots/lakken/<naam>) bewaren. Die wordt door de
+  // \plaatje{}-macro in de gelakte rapportbuild i.p.v. het origineel geladen.
+  LaTeXEditor.prototype._openScreenshotRedactor = function(lakBtn) {
+    var self = this;
+    var name = lakBtn.getAttribute('data-lak-name') || '';
+    var url = lakBtn.getAttribute('data-lak-url') || '';
+    var hasLakken = lakBtn.getAttribute('data-has-lakken') === '1';
+    if (!name || !url) return;
+    var endpoint = '/api/screenshots/' + encodeURIComponent(name) + '/redact';
+
+    function mkbtn(label) {
+      var b = document.createElement('button');
+      b.type = 'button'; b.className = 'btn btn-sm'; b.textContent = label;
+      return b;
+    }
+
+    var overlay = document.createElement('div');
+    overlay.className = 'latex-redact-overlay';
+    var modal = document.createElement('div');
+    modal.className = 'latex-redact-modal';
+    overlay.appendChild(modal);
+
+    var head = document.createElement('div');
+    head.className = 'latex-redact-head';
+    var h = document.createElement('h3');
+    h.textContent = 'Lakken — ' + name;
+    var closeX = mkbtn('Sluiten');
+    head.appendChild(h); head.appendChild(closeX);
+    modal.appendChild(head);
+
+    var cwrap = document.createElement('div');
+    cwrap.className = 'latex-redact-canvas-wrap';
+    var canvas = document.createElement('canvas');
+    canvas.className = 'latex-redact-canvas';
+    cwrap.appendChild(canvas);
+    modal.appendChild(cwrap);
+    var ctx = canvas.getContext('2d');
+
+    var tb = document.createElement('div');
+    tb.className = 'latex-redact-toolbar';
+    var hint = document.createElement('span');
+    hint.className = 'latex-redact-hint';
+    hint.textContent = 'Sleep rechthoeken over wat weg moet; in de gelakte rapportversie wordt dit zwart.';
+    var undoBtn = mkbtn('Laatste ongedaan');
+    var clearBtn = mkbtn('Wis alles');
+    var delBtn = hasLakken ? mkbtn('Lak verwijderen') : null;
+    var saveBtn = mkbtn('Opslaan'); saveBtn.classList.add('btn-primary');
+    tb.appendChild(hint); tb.appendChild(undoBtn); tb.appendChild(clearBtn);
+    if (delBtn) tb.appendChild(delBtn);
+    tb.appendChild(saveBtn);
+    modal.appendChild(tb);
+
+    var rects = [];
+    var imgEl = new Image();
+    imgEl.onload = function() {
+      var maxW = 1600;
+      var scale = imgEl.naturalWidth > maxW ? maxW / imgEl.naturalWidth : 1;
+      canvas.width = Math.max(1, Math.round(imgEl.naturalWidth * scale));
+      canvas.height = Math.max(1, Math.round(imgEl.naturalHeight * scale));
+      redraw();
+    };
+    imgEl.onerror = function() { hint.textContent = 'Kon de afbeelding niet laden.'; };
+    imgEl.src = url;
+
+    function redraw(cur) {
+      if (!canvas.width) return;
+      ctx.drawImage(imgEl, 0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = '#000';
+      rects.forEach(function(r) { ctx.fillRect(r.x, r.y, r.w, r.h); });
+      if (cur) ctx.fillRect(cur.x, cur.y, cur.w, cur.h);
+    }
+    function norm(a, b) {
+      return { x: Math.min(a.x, b.x), y: Math.min(a.y, b.y),
+               w: Math.abs(a.x - b.x), h: Math.abs(a.y - b.y) };
+    }
+    function pos(e) {
+      var r = canvas.getBoundingClientRect();
+      return { x: (e.clientX - r.left) * (canvas.width / r.width),
+               y: (e.clientY - r.top) * (canvas.height / r.height) };
+    }
+    var drawing = false, start = null;
+    canvas.addEventListener('pointerdown', function(e) {
+      drawing = true; start = pos(e);
+      try { canvas.setPointerCapture(e.pointerId); } catch (err) {}
+    });
+    canvas.addEventListener('pointermove', function(e) {
+      if (drawing) redraw(norm(start, pos(e)));
+    });
+    canvas.addEventListener('pointerup', function(e) {
+      if (!drawing) return;
+      drawing = false;
+      var r = norm(start, pos(e));
+      if (r.w > 3 && r.h > 3) rects.push(r);
+      redraw();
+    });
+
+    function close() { overlay.remove(); }
+
+    // Werk de knop + dropdowndata bij zodat de staat bewaard blijft bij filteren.
+    function markState(on) {
+      ['image', 'projectImage'].forEach(function(did) {
+        (self.dropdownData[did] || []).forEach(function(it) {
+          if (it.value === name) it.has_lakken = on;
+        });
+      });
+      lakBtn.setAttribute('data-has-lakken', on ? '1' : '0');
+      lakBtn.textContent = on ? '█ Lak ✓' : '█ Lakken';
+      lakBtn.classList.toggle('has-lakken', on);
+    }
+
+    closeX.addEventListener('click', close);
+    overlay.addEventListener('click', function(e) { if (e.target === overlay) close(); });
+    undoBtn.addEventListener('click', function() { rects.pop(); redraw(); });
+    clearBtn.addEventListener('click', function() { rects = []; redraw(); });
+    if (delBtn) delBtn.addEventListener('click', function() {
+      fetch(endpoint, { method: 'DELETE', credentials: 'same-origin',
+                        headers: { 'X-CSRFToken': _csrfToken() } })
+        .then(function(r) { return r.json(); })
+        .then(function() { markState(false); close(); })
+        .catch(function() { close(); });
+    });
+    saveBtn.addEventListener('click', function() {
+      var dataUrl;
+      try { dataUrl = canvas.toDataURL('image/png'); }
+      catch (err) { hint.textContent = 'Opslaan mislukt: kon de afbeelding niet lezen.'; return; }
+      saveBtn.disabled = true; saveBtn.textContent = 'Opslaan…';
+      fetch(endpoint, {
+        method: 'POST', credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': _csrfToken() },
+        body: JSON.stringify({ image: dataUrl })
+      }).then(function(r) { return r.json(); }).then(function(d) {
+        if (d && d.ok) { markState(true); close(); }
+        else {
+          saveBtn.disabled = false; saveBtn.textContent = 'Opslaan';
+          hint.textContent = 'Opslaan mislukt: ' + ((d && d.error) || 'onbekende fout');
+        }
+      }).catch(function() {
+        saveBtn.disabled = false; saveBtn.textContent = 'Opslaan';
+        hint.textContent = 'Opslaan mislukt (netwerk).';
+      });
+    });
+
+    document.body.appendChild(overlay);
+  };
+
   LaTeXEditor.prototype._bindEvents = function() {
     var self = this;
 
@@ -627,6 +876,13 @@
       if (toggle) {
         e.preventDefault();
         self._toggleDropdown(toggle.dataset.toggle);
+        return;
+      }
+
+      var lakBtn = e.target.closest('.latex-item-lak');
+      if (lakBtn) {
+        e.preventDefault();
+        self._openScreenshotRedactor(lakBtn);
         return;
       }
 
@@ -840,9 +1096,32 @@
     this._closeDropdown();
   };
 
+  // Eenvoudige één-argument-macro's (id == LaTeX-commando): wikkel de selectie
+  // of plaats de cursor tussen de accolades. Alle in rapport.sty gedefinieerd.
+  var SIMPLE_MACROS = {
+    cvss: 1, severity: 1, cwe: 1, cve: 1, owasp: 1, bevindingref: 1,
+    pad: 1, host: 1, route: 1, param: 1,
+    waarschuwing: 1, tip: 1, opmerking: 1, stap: 1, request: 1, response: 1,
+    bestuurlijk: 1, principe: 1, letop: 1, praktijk: 1, keten: 1, scenario: 1
+  };
+
   LaTeXEditor.prototype._handleAction = function(action) {
     var selected = this._getSelectedText();
     var latex = '';
+
+    if (SIMPLE_MACROS[action]) {
+      latex = '\\' + action + '{' + (selected || '') + '}';
+      this._insertAtCursor(latex);
+      if (!selected) this.textarea.selectionStart = this.textarea.selectionEnd - 1;
+      return;
+    }
+    if (action === 'deelsgelakt') {
+      // Twee argumenten: zichtbaar deel + te lakken deel.
+      latex = selected ? ('\\deelsgelakt{' + selected + '}{geheim}')
+                       : '\\deelsgelakt{zichtbaar}{geheim}';
+      this._insertAtCursor(latex);
+      return;
+    }
 
     switch (action) {
       case 'glossary':
@@ -898,6 +1177,17 @@
           return;
         }
         break;
+      case 'bevinding':
+        // Kruisverwijzing naar een bevinding; argument is het bevinding-id.
+        latex = '\\bevinding{' + (selected || '') + '}';
+        this._insertAtCursor(latex);
+        if (!selected) this.textarea.selectionStart = this.textarea.selectionEnd - 1;
+        return;
+      case 'uitwerking':
+        latex = '\\uitwerking{' + (selected || '') + '}';
+        this._insertAtCursor(latex);
+        if (!selected) this.textarea.selectionStart = this.textarea.selectionEnd - 1;
+        return;
       case 'itemize':
         if (selected) {
           var items = selected.split('\n').filter(function(l) { return l.trim(); }).map(function(l) { return '  \\item ' + l.trim(); }).join('\n');
@@ -1030,12 +1320,20 @@
     return /\.(png|jpe?g|gif|bmp|webp|svg)(\?|#|$)/i.test(u || '');
   }
 
+  function _csrfToken() {
+    var m = document.querySelector('meta[name="csrf-token"]');
+    if (m && m.getAttribute('content')) return m.getAttribute('content');
+    var i = document.querySelector('input[name="csrf_token"]');
+    return i ? i.value : '';
+  }
+
   // Gedeelde HTML voor één dropdown-item; toont een thumbnail bij een afbeelding.
   function _dropdownItemHtml(item) {
-    var thumb = _isImageUrl(item.url)
+    var isImg = _isImageUrl(item.url);
+    var thumb = isImg
       ? '<img class="latex-item-thumb" src="' + _escapeAttr(item.url) + '" alt="" loading="lazy" />'
       : '';
-    return '<button type="button" class="latex-dropdown-item' + (thumb ? ' has-thumb' : '') +
+    var selectBtn = '<button type="button" class="latex-dropdown-item' + (thumb ? ' has-thumb' : '') +
       '" data-value="' + _escapeAttr(item.value) + '" data-title="' + _escapeAttr(item.title || item.sublabel || '') +
       '" data-url="' + _escapeAttr(item.url || '') + '">' +
       thumb +
@@ -1044,6 +1342,19 @@
         (item.sublabel ? '<span class="latex-item-sublabel">' + _escapeHtml(item.sublabel) + '</span>' : '') +
       '</span>' +
     '</button>';
+    // Lak-knop alleen bij redigeerbare projectafbeeldingen: opent de canvas-
+    // redactie en bewaart een gelakte kopie voor de gelakte rapportversie.
+    if (isImg && item.redactable === true) {
+      var lakLabel = item.has_lakken ? '█ Lak ✓' : '█ Lakken';
+      var lakCls = 'latex-item-lak' + (item.has_lakken ? ' has-lakken' : '');
+      var lakBtn = '<button type="button" class="' + lakCls +
+        '" data-lak-name="' + _escapeAttr(item.value) +
+        '" data-lak-url="' + _escapeAttr(item.url || '') +
+        '" data-has-lakken="' + (item.has_lakken ? '1' : '0') +
+        '" title="Zwarte vlakken trekken voor de gelakte rapportversie">' + lakLabel + '</button>';
+      return '<div class="latex-dropdown-row">' + selectBtn + lakBtn + '</div>';
+    }
+    return selectBtn;
   }
 
   // Auto-initialize

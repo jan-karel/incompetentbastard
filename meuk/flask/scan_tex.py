@@ -254,7 +254,7 @@ def build_scan_tex(run_dir, taal='nl', include_steps=True):
                    r'>{\raggedright\arraybackslash}p{2.4cm} '
                    r'>{\raggedright\arraybackslash}p{1.6cm} '
                    r'>{\raggedright\arraybackslash}p{6.0cm}}')
-        out.append(r'\textbf{%s} & \textbf{%s} & \textbf{%s} & \textbf{%s} \\ \hline \endhead' % (
+        out.append(r'\rowcolor{rijkblauw}\textcolor{white}{\textbf{%s}} & \textcolor{white}{\textbf{%s}} & \textcolor{white}{\textbf{%s}} & \textcolor{white}{\textbf{%s}} \\ \hline \endhead' % (
             _tex(L('Stap', 'Step')), _tex('Status'),
             _tex(L('Exitcode', 'Exit code')), _tex(L('Reden', 'Reason'))))
         for r in notable:
@@ -325,7 +325,7 @@ def build_scan_tex(run_dir, taal='nl', include_steps=True):
         out.append(r'\begin{longtable}{>{\raggedright\arraybackslash}p{3.4cm} '
                    r'>{\raggedright\arraybackslash}p{1.6cm} '
                    r'>{\raggedright\arraybackslash}p{8.0cm}}')
-        out.append(r'\textbf{IP} & \textbf{%s} & \textbf{%s} \\ \hline \endhead' % (
+        out.append(r'\rowcolor{rijkblauw}\textcolor{white}{\textbf{IP}} & \textcolor{white}{\textbf{%s}} & \textcolor{white}{\textbf{%s}} \\ \hline \endhead' % (
             _tex(L('Poort', 'Port')), _tex(L('Service', 'Service'))))
         for p in ports:
             svc = p.get('service', {}) or {}
@@ -356,7 +356,7 @@ def build_scan_tex(run_dir, taal='nl', include_steps=True):
                    r'>{\raggedright\arraybackslash}p{1.3cm} '
                    r'>{\raggedright\arraybackslash}p{1.6cm} '
                    r'>{\raggedright\arraybackslash}p{6.0cm}}')
-        out.append(r'\textbf{%s} & \textbf{Secure} & \textbf{HttpOnly} & \textbf{SameSite} & \textbf{%s} \\ \hline \endhead' % (
+        out.append(r'\rowcolor{rijkblauw}\textcolor{white}{\textbf{%s}} & \textcolor{white}{\textbf{Secure}} & \textcolor{white}{\textbf{HttpOnly}} & \textcolor{white}{\textbf{SameSite}} & \textcolor{white}{\textbf{%s}} \\ \hline \endhead' % (
             _tex(L('Naam', 'Name')), _tex(L('Beoordeling', 'Assessment'))))
         for c in seen.values():
             review = c.get('review', '') or '—'

@@ -222,6 +222,128 @@
       .catch(function() { if (hashEl) hashEl.textContent = "verificatie mislukt"; });
   }
 
+  // ── Redactie-editor: zwarte vlakken trekken, opslaan als gelakte kopie ──
+  function openRedactor(ev) {
+    function mkbtn(label) {
+      var b = document.createElement("button");
+      b.type = "button"; b.className = "btn btn-sm"; b.textContent = label;
+      return b;
+    }
+    var overlay = document.createElement("div");
+    overlay.className = "redact-overlay";
+    var modal = document.createElement("div");
+    modal.className = "redact-modal";
+    overlay.appendChild(modal);
+
+    var head = document.createElement("div");
+    head.className = "redact-head";
+    var h = document.createElement("h3");
+    h.textContent = "Lakken — " + (ev.original_filename || "afbeelding");
+    var closeX = mkbtn("Sluiten");
+    head.appendChild(h); head.appendChild(closeX);
+    modal.appendChild(head);
+
+    var cwrap = document.createElement("div");
+    cwrap.className = "redact-canvas-wrap";
+    var canvas = document.createElement("canvas");
+    canvas.className = "redact-canvas";
+    cwrap.appendChild(canvas);
+    modal.appendChild(cwrap);
+    var ctx = canvas.getContext("2d");
+
+    var tb = document.createElement("div");
+    tb.className = "redact-toolbar";
+    var hint = document.createElement("span");
+    hint.className = "redact-hint";
+    hint.textContent = "Sleep rechthoeken over wat weg moet; in de gelakte rapportversie wordt dit zwart.";
+    var undoBtn = mkbtn("Laatste ongedaan");
+    var clearBtn = mkbtn("Wis alles");
+    var delBtn = ev.has_lakken ? mkbtn("Lak verwijderen") : null;
+    var saveBtn = mkbtn("Opslaan"); saveBtn.classList.add("btn-primary");
+    tb.appendChild(hint); tb.appendChild(undoBtn); tb.appendChild(clearBtn);
+    if (delBtn) tb.appendChild(delBtn);
+    tb.appendChild(saveBtn);
+    modal.appendChild(tb);
+
+    var rects = [];
+    var imgEl = new Image();
+    imgEl.onload = function() {
+      var maxW = 1600;
+      var scale = imgEl.naturalWidth > maxW ? maxW / imgEl.naturalWidth : 1;
+      canvas.width = Math.max(1, Math.round(imgEl.naturalWidth * scale));
+      canvas.height = Math.max(1, Math.round(imgEl.naturalHeight * scale));
+      redraw();
+    };
+    imgEl.src = "/api/findings/evidence/" + ev.id + "/download";
+
+    function redraw(cur) {
+      if (!canvas.width) return;
+      ctx.drawImage(imgEl, 0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = "#000";
+      rects.forEach(function(r) { ctx.fillRect(r.x, r.y, r.w, r.h); });
+      if (cur) ctx.fillRect(cur.x, cur.y, cur.w, cur.h);
+    }
+    function norm(a, b) {
+      return { x: Math.min(a.x, b.x), y: Math.min(a.y, b.y),
+               w: Math.abs(a.x - b.x), h: Math.abs(a.y - b.y) };
+    }
+    function pos(e) {
+      var r = canvas.getBoundingClientRect();
+      return { x: (e.clientX - r.left) * (canvas.width / r.width),
+               y: (e.clientY - r.top) * (canvas.height / r.height) };
+    }
+    var drawing = false, start = null;
+    canvas.addEventListener("pointerdown", function(e) {
+      drawing = true; start = pos(e);
+      try { canvas.setPointerCapture(e.pointerId); } catch (err) {}
+    });
+    canvas.addEventListener("pointermove", function(e) {
+      if (drawing) redraw(norm(start, pos(e)));
+    });
+    canvas.addEventListener("pointerup", function(e) {
+      if (!drawing) return;
+      drawing = false;
+      var r = norm(start, pos(e));
+      if (r.w > 3 && r.h > 3) rects.push(r);
+      redraw();
+    });
+
+    function close() { overlay.remove(); }
+    closeX.addEventListener("click", close);
+    overlay.addEventListener("click", function(e) { if (e.target === overlay) close(); });
+    undoBtn.addEventListener("click", function() { rects.pop(); redraw(); });
+    clearBtn.addEventListener("click", function() { rects = []; redraw(); });
+    if (delBtn) delBtn.addEventListener("click", function() {
+      fetch("/api/findings/evidence/" + ev.id + "/redact",
+            { method: "DELETE", headers: { "X-CSRFToken": csrfToken } })
+        .then(function(r) { return r.json(); })
+        .then(function() { close(); loadEvidence(); })
+        .catch(function() { close(); loadEvidence(); });
+    });
+    saveBtn.addEventListener("click", function() {
+      var dataUrl;
+      try { dataUrl = canvas.toDataURL("image/png"); }
+      catch (err) { hint.textContent = "Opslaan mislukt: kon de afbeelding niet lezen."; return; }
+      saveBtn.disabled = true; saveBtn.textContent = "Opslaan…";
+      fetch("/api/findings/evidence/" + ev.id + "/redact", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-CSRFToken": csrfToken },
+        body: JSON.stringify({ image: dataUrl })
+      }).then(function(r) { return r.json(); }).then(function(d) {
+        if (d && d.ok) { close(); loadEvidence(); }
+        else {
+          saveBtn.disabled = false; saveBtn.textContent = "Opslaan";
+          hint.textContent = "Opslaan mislukt: " + ((d && d.error) || "onbekende fout");
+        }
+      }).catch(function() {
+        saveBtn.disabled = false; saveBtn.textContent = "Opslaan";
+        hint.textContent = "Opslaan mislukt (netwerk).";
+      });
+    });
+
+    document.body.appendChild(overlay);
+  }
+
   function loadEvidence() {
     fetch("/api/findings/" + findingId + "/evidence")
       .then(function(r) { return r.json(); })
@@ -253,6 +375,21 @@
               document.body.appendChild(overlay);
             });
             wrap.appendChild(img);
+
+            // Redactie: gelakte kopie maken/bewerken voor het gelakte rapport.
+            var redactBtn = document.createElement("button");
+            redactBtn.type = "button";
+            redactBtn.className = "evidence-redact-btn";
+            redactBtn.textContent = ev.has_lakken ? "█ Lak bewerken" : "█ Lakken";
+            redactBtn.title = "Zwarte vlakken trekken voor de gelakte rapportversie";
+            redactBtn.addEventListener("click", function() { openRedactor(ev); });
+            wrap.appendChild(redactBtn);
+            if (ev.has_lakken) {
+              var badge = document.createElement("span");
+              badge.className = "evidence-lak-badge";
+              badge.textContent = "gelakt ✓";
+              wrap.appendChild(badge);
+            }
           } else {
             var link = document.createElement("a");
             link.href = "/api/findings/evidence/" + ev.id + "/download";

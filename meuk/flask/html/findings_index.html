@@ -6,6 +6,7 @@
 <link rel="stylesheet" href="{{ url_for('static', filename='css/findings-filter.css') }}" />
 <link rel="stylesheet" href="{{ url_for('static', filename='css/risk-matrix.css') }}" />
 <link rel="stylesheet" href="{{ url_for('static', filename='css/rapport-editor.css') }}" />
+<link rel="stylesheet" href="{{ url_for('static', filename='css/notes-overview.css') }}" />
 <style nonce="{{ csp_nonce }}">
   .nowrap { white-space: nowrap; }
   .w90 { width: 90px; }
@@ -38,6 +39,7 @@
   <button class="rapport-tab" data-tab="tab-bevindingen">Bevindingen</button>
   <button class="rapport-tab" data-tab="tab-sjablonen">Sjablonen</button>
   <button class="rapport-tab" data-tab="tab-risicomatrix">Risicomatrix</button>
+  <button class="rapport-tab" data-tab="tab-notities">Notities</button>
   <button class="rapport-tab" data-tab="tab-beheer">Beheer</button>
 </div>
 
@@ -103,7 +105,7 @@
         <thead>
           <tr>
             <th><input type="checkbox" class="batch-check-all" id="batch-check-all" /></th>
-            <th>ID</th><th>Naam</th><th>Host</th><th>CVSS</th><th>Status</th><th>Herstel</th><th>Acties</th>
+            <th>ID</th><th>Naam</th><th>Host</th><th>CVSS</th><th>OWASP</th><th>NCSC</th><th>Status</th><th>Herstel</th><th>Acties</th>
           </tr>
         </thead>
         <tbody>
@@ -113,7 +115,10 @@
             <td>{{ f.id | nulvul }}</td>
             <td>{{ f.naam }}{% if f.id in overdue_ids|default([]) %} <span class="sla-overdue-badge" title="Hersteltermijn (SLA) overschreden">SLA verlopen</span>{% endif %}</td>
             <td>{{ f.locatie }}</td>
-            <td>{{ f.basescore or '-' }}</td>
+            <td>{% if f.basescore %}<span class="cvss-badge cvss-badge-{{ f.basescore | cvss_severity }}" title="{{ f.basescore | cvss_severity | capitalize }}">{{ f.basescore }}</span>{% else %}<span class="cvss-badge cvss-badge-none">-</span>{% endif %}</td>
+            {% set tmpl = template_map.get(f.ref | string) if f.ref else none %}
+            <td class="fs-12">{% if tmpl and tmpl.owasp_2025 %}<span title="OWASP 2025">{{ tmpl.owasp_2025 | owaspcategorie_2025 }}</span>{% else %}-{% endif %}</td>
+            <td class="fs-12">{% if tmpl and tmpl.ncsc %}<span title="{{ tmpl.ncsc | ncsc_richtlijn }}">{{ tmpl.ncsc }}</span>{% else %}-{% endif %}</td>
             <td>
               <select class="status-inline" data-finding-id="{{ f.id }}">
                 <option value="draft"{% if (f.status or 'draft') == 'draft' %} selected{% endif %}>Concept</option>
@@ -248,6 +253,88 @@
 </div>
 
 {# ══════════════════════════════════════════════════ #}
+{# TAB: Notities                                       #}
+{# ══════════════════════════════════════════════════ #}
+<div class="rapport-tab-content" id="tab-notities">
+  <div class="grid cols-2 gap-16">
+    <section class="card">
+      <div class="card-head"><h2>Notitie toevoegen</h2></div>
+      <div class="card-body">
+        <form id="fx-note-add-form">
+          <div class="mb-10">
+            <label for="fx-note-naam"><strong>Naam</strong></label>
+            <input class="form-control" type="text" id="fx-note-naam" name="naam" required placeholder="Notitietitel..." />
+          </div>
+          <div class="mb-10">
+            <label for="fx-note-uitwerken"><strong>Inhoud</strong></label>
+            <div data-latex-toolbar="fx-note-uitwerken" data-mode="note" data-project-images-url="/api/screenshots"></div>
+            <textarea class="form-control" id="fx-note-uitwerken" name="uitwerken" rows="8" placeholder="Schrijf hier je notitie..."></textarea>
+          </div>
+          <button type="submit" class="btn btn-primary">Notitie opslaan</button>
+          <span class="help ml-10" id="fx-note-add-msg"></span>
+        </form>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <h2>Bestaande notities</h2>
+        <span class="help" id="fx-notes-counter">{{ notes|selectattr('rapport')|list|length }} in rapport</span>
+      </div>
+      <div class="card-body">
+        {% if notes %}
+        <ul id="notes-list" class="notes-drag-list">
+          {% for note in notes %}
+          <li class="notes-drag-item{% if note.rapport %} notes-in-rapport{% endif %}" draggable="true" data-id="{{ note.id }}">
+            <span class="drag-handle" title="Sleep om te herschikken">&#10495;</span>
+            <label class="rapport-toggle" title="Opnemen in rapport">
+              <input type="checkbox" data-note-id="{{ note.id }}" {% if note.rapport %}checked{% endif %} />
+              <span class="rapport-label">Rapport</span>
+            </label>
+            <span class="note-name">{{ note.naam }}</span>
+            <span class="note-actions">
+              <button type="button" class="btn btn-sm" data-fx-edit-note="{{ note.id }}">bewerken</button>
+              <button type="button" class="btn btn-sm" data-fx-del-note="{{ note.id }}" data-fx-note-naam="{{ note.naam }}">verwijderen</button>
+            </span>
+          </li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <p class="help" id="fx-notes-empty">Nog geen notities.</p>
+        <ul id="notes-list" class="notes-drag-list d-none"></ul>
+        {% endif %}
+      </div>
+    </section>
+  </div>
+</div>
+
+{# Notitie bewerken — modal #}
+<div id="fx-note-modal" class="modal-overlay d-none">
+  <div class="modal-box modal-md">
+    <div class="modal-head">
+      <h3>Notitie bewerken</h3>
+      <button type="button" class="modal-close-btn" id="fx-note-modal-close">&times;</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="fx-note-edit-id" />
+      <div class="mb-10">
+        <label for="fx-note-edit-naam"><strong>Naam</strong></label>
+        <input type="text" id="fx-note-edit-naam" class="form-control" placeholder="Notitietitel..." />
+      </div>
+      <div class="mb-10">
+        <label for="fx-note-edit-uitwerken"><strong>Inhoud</strong></label>
+        <div data-latex-toolbar="fx-note-edit-uitwerken" data-mode="note" data-project-images-url="/api/screenshots"></div>
+        <textarea id="fx-note-edit-uitwerken" class="form-control" rows="10" placeholder="Inhoud..."></textarea>
+      </div>
+      <div class="d-flex gap-8">
+        <button type="button" class="btn btn-primary" id="fx-note-edit-save">Opslaan</button>
+        <button type="button" class="btn" id="fx-note-edit-cancel">Annuleren</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# ══════════════════════════════════════════════════ #}
 {# TAB 4: Beheer (import/export + prullenbak)         #}
 {# ══════════════════════════════════════════════════ #}
 <div class="rapport-tab-content" id="tab-beheer">
@@ -366,6 +453,7 @@
 
 {% block scripts %}
 <script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='js/findings-filter.js') }}"></script>
+<script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='js/findings-notes.js') }}"></script>
 <script nonce="{{ csp_nonce }}">
 (function () {
   "use strict";

@@ -142,7 +142,91 @@ def _latex_escape(text):
 #   ('env', envname, [items])        description/itemize/enumerate/quote/center
 #   item := ('item', label_nodes|None, [body_nodes])
 _MK_ENVS = {'description', 'itemize', 'enumerate', 'quote', 'center'}
-_MK_INLINE = {'textbf', 'textit', 'emph', 'texttt', 'textrm', 'textsc', 'underline', 'textsf'}
+# Eén-argument-macro's die als \cmd{markup} worden doorgegeven. Naast de
+# tekstopmaak ook de rapport-macro's die de LaTeX-toolbar invoegt en die in
+# rapport.sty/de template gedefinieerd zijn (\lakken, \codelakken, \opdracht).
+# Technische inline-opmaak (monospace) — pad/host/endpoint/param krijgen in
+# HTML <code>, in Markdown `...`, in LaTeX \texttt (zie rapport.sty).
+_MK_MONO = {'pad', 'host', 'route', 'param'}
+# "Slimme" macro's met berekende uitvoer (link/kleur/label) i.p.v. simpele
+# opmaak. In LaTeX zijn het echte macro's (rapport.sty); in HTML/MD/plat
+# vertalen _smart_inline_* ze. cvss/severity -> gekleurd label, cwe/cve/owasp ->
+# klikbare code, bevindingref -> korte kruisverwijzing.
+_MK_SMART = {'cvss', 'severity', 'cwe', 'cve', 'owasp', 'bevindingref'}
+# Blok-macro's: callout-boxen en HTTP-blokken. Eén markup-argument. Naast de
+# drie basis-callouts ook de rijkere, inhoudelijke kaders.
+_MK_BLOCKMACRO = {'waarschuwing', 'tip', 'opmerking', 'stap', 'request', 'response',
+                  'bestuurlijk', 'principe', 'letop', 'praktijk', 'keten', 'scenario'}
+_MK_INLINE = ({'textbf', 'textit', 'emph', 'texttt', 'textrm', 'textsc', 'underline', 'textsf',
+               'lakken', 'codelakken', 'opdracht', 'haakjes', 'bevinding', 'uitwerking'}
+              | _MK_MONO | _MK_SMART | _MK_BLOCKMACRO)
+# Kruisverwijzing-macro's (\bevinding{id}, \uitwerking{id}) hebben in LaTeX een
+# paginareferentie; in HTML/Markdown/plat bestaat die niet, dus daar vertalen we
+# ze naar leesbare tekst. \haakjes wordt cursief tussen aanhalingstekens.
+_MK_REFMACRO = {'bevinding', 'uitwerking'}
+# Twee-argument-macro's: eerste arg is een RAUWE bestandsnaam (niet escapen,
+# vanwege underscores e.d.), tweede arg is een markup-caption.
+_MK_TWOARG = {'plaatje'}
+# Twee-argument-macro's waarvan BEIDE argumenten gewone markup zijn.
+# \deelsgelakt{zichtbaar}{geheim}: toont het eerste deel, redigeert het tweede.
+_MK_TWOARG_MK = {'deelsgelakt'}
+# Toegestane tekens in zo'n rauwe bestandsnaam; alles daarbuiten -> veilige
+# terugval (voorkomt LaTeX-injectie via het bestandsnaam-argument).
+_MK_RAWARG_RE = _re.compile(r'^[\w.\- /]+$')
+
+# --- Severity-model (gedeeld door \cvss en \severity) ---------------------- #
+_SEV_LABELS = {'critical': 'Kritiek', 'high': 'Hoog', 'medium': 'Midden',
+               'low': 'Laag', 'none': 'Nihil'}
+# (achtergrond, tekst) — zelfde palet als de bevindingkop/CVSS-badges.
+_SEV_COLORS = {'critical': ('#581c87', '#e9d5ff'), 'high': ('#dc2626', '#ffffff'),
+               'medium': ('#f59e0b', '#ffffff'), 'low': ('#22c55e', '#ffffff'),
+               'none': ('#e5e7eb', '#374151')}
+_SEV_WORDS = {'kritiek': 'critical', 'critical': 'critical', 'crit': 'critical',
+              'hoog': 'high', 'high': 'high',
+              'midden': 'medium', 'middel': 'medium', 'gemiddeld': 'medium', 'medium': 'medium',
+              'laag': 'low', 'low': 'low',
+              'nihil': 'none', 'none': 'none', 'info': 'none', 'informatief': 'none'}
+# (titel, framekleur, achtergrond) — zelfde palet als de tcolorbox-kaders in
+# rapport.sty, zodat HTML en PDF visueel overeenkomen.
+_CALLOUT_META = {'waarschuwing': ('Waarschuwing', '#A90000', '#FBEAEA'),
+                 'tip': ('Tip', '#275D38', '#EDF5EF'),
+                 'opmerking': ('Opmerking', '#154273', '#E5F1F9'),
+                 'bestuurlijk': ('Bestuurlijke kern', '#154273', '#E5F1F9'),
+                 'principe': ('Leidend principe', '#275D38', '#EDF5EF'),
+                 'letop': ('Aandachtspunt', '#E17000', '#FFF3E5'),
+                 'praktijk': ('Praktische toepassing', '#154273', '#F3F8FC'),
+                 'keten': ('Ketenperspectief', '#5B3F8C', '#F1ECF8'),
+                 'scenario': ('Ketenscenario', '#535353', '#F2F2F2')}
+_CWE_ARG_RE = _re.compile(r'^\d{1,7}$')
+_CVE_ARG_RE = _re.compile(r'^\d{4}-\d{4,}$')
+_OWASP_ARG_RE = _re.compile(r'^[A-Za-z0-9:\- ]{1,24}$')
+
+
+def _sev_from_word(w):
+    return _SEV_WORDS.get(str(w or '').strip().lower())
+
+
+def _link_cwe(arg):
+    a = str(arg or '').strip()
+    if not _CWE_ARG_RE.match(a):
+        return ('CWE-%s' % a, '')
+    return ('CWE-%s' % a, 'https://cwe.mitre.org/data/definitions/%s.html' % a)
+
+
+def _link_cve(arg):
+    a = str(arg or '').strip()
+    if a.upper().startswith('CVE-'):
+        a = a[4:]
+    if not _CVE_ARG_RE.match(a):
+        return ('CVE-%s' % a, '')
+    return ('CVE-%s' % a, 'https://nvd.nist.gov/vuln/detail/CVE-%s' % a)
+
+
+def _link_owasp(arg):
+    a = str(arg or '').strip()
+    if not _OWASP_ARG_RE.match(a):
+        return (a, '')
+    return (a, 'https://owasp.org/Top10/')
 _MK_ZERO = {'textbackslash', 'textrightarrow', 'textleftarrow', 'ldots', 'dots',
             'newline', 'par', 'noindent', 'textasciitilde', 'textasciicircum'}
 _MK_CMD_RE = _re.compile(r'\\([a-zA-Z]+)')
@@ -235,6 +319,27 @@ def _mk_parse_nodes(s, i, mode, envname=None):
                     nodes.append(('cmd', cmd, children))
                     continue
                 raise _MkFail()
+            if cmd in _MK_TWOARG:
+                # \plaatje{bestandsnaam}{caption}: arg1 rauw (bestandsnaam),
+                # arg2 als markup. Ongeldige bestandsnaam -> veilige terugval.
+                if j < n and s[j] == '{':
+                    raw1, k = _mk_read_raw_group(s, j + 1)
+                    if _MK_RAWARG_RE.match(raw1) and k < n and s[k] == '{':
+                        flush()
+                        caption, i, _ = _mk_parse_nodes(s, k + 1, 'group')
+                        nodes.append(('img', cmd, raw1, caption))
+                        continue
+                raise _MkFail()
+            if cmd in _MK_TWOARG_MK:
+                # \deelsgelakt{zichtbaar}{geheim}: beide argumenten zijn markup.
+                if j < n and s[j] == '{':
+                    flush()
+                    a1, k, _ = _mk_parse_nodes(s, j + 1, 'group')
+                    if k < n and s[k] == '{':
+                        a2, i, _ = _mk_parse_nodes(s, k + 1, 'group')
+                        nodes.append(('cmd2', cmd, a1, a2))
+                        continue
+                raise _MkFail()
             if cmd in _MK_ZERO:
                 flush()
                 nodes.append(('zero', cmd))
@@ -252,6 +357,21 @@ def _mk_parse_nodes(s, i, mode, envname=None):
         raise _MkFail()
     flush()
     return nodes, i, 'eof'
+
+
+def _mk_read_raw_group(s, i):
+    """Lees een accolade-groep rauw (geen markup/escape) tot de eerste '}'.
+
+    Bestandsnamen bevatten geen geneste accolades. Geeft (inhoud, index-na-'}').
+    """
+    n = len(s)
+    buf = []
+    while i < n and s[i] != '}':
+        buf.append(s[i])
+        i += 1
+    if i >= n:
+        raise _MkFail()
+    return ''.join(buf), i + 1
 
 
 def _mk_parse_env(s, i, envname):
@@ -329,6 +449,11 @@ def _mk_to_latex(nodes):
             out.append(_TEX_ZERO.get(nd[1], ''))
         elif t == 'cmd':
             out.append('\\%s{%s}' % (nd[1], _mk_to_latex(nd[2])))
+        elif t == 'img':
+            # nd[2] is de rauwe bestandsnaam (al gevalideerd), nd[3] de caption.
+            out.append('\\%s{%s}{%s}' % (nd[1], nd[2], _mk_to_latex(nd[3])))
+        elif t == 'cmd2':
+            out.append('\\%s{%s}{%s}' % (nd[1], _mk_to_latex(nd[2]), _mk_to_latex(nd[3])))
         elif t == 'env':
             out.append('\\begin{%s}' % nd[1])
             for _it, label, body in nd[2]:
@@ -349,12 +474,54 @@ def _latex_markup(text):
         return _latex_escape(text)
 
 
+# --- Lakken (redactie) voor niet-LaTeX-output (HTML/Markdown/DOCX) ---------- #
+# In de PDF is \lakken{} een echte LaTeX-macro; in HTML/Markdown/DOCX heeft die
+# geen betekenis en zou de ruwe tekst (het geheim!) letterlijk in de output komen.
+# Daarom vertalen _html_markup/_md_markup \lakken{X}/\codelakken{X}:
+#   - standaard (onthullen): -> X        (de gewone, ongelakte export)
+#   - in redactiemodus:      -> ████████ (de gelakte export; lekt geen lengte)
+# De modus is thread-local, zodat de gelakte export-build 'm tijdelijk aanzet
+# zonder dat gelijktijdige verzoeken elkaar beinvloeden.
+import threading as _threading  # noqa: E402
+
+_redact_state = _threading.local()
+_LAKKEN_RE = _re.compile(r'\\(?:code)?lakken\s*\{([^{}]*)\}')
+_REDACT_BLOCK = '\u2588' * 8
+
+
+def redact_enabled():
+    return getattr(_redact_state, 'on', False)
+
+
+class redact_mode:
+    """Context manager: binnen dit blok vertaalt de markup \\lakken{} naar blokken."""
+
+    def __enter__(self):
+        self._prev = getattr(_redact_state, 'on', False)
+        _redact_state.on = True
+        return self
+
+    def __exit__(self, *exc):
+        _redact_state.on = self._prev
+        return False
+
+
+def _apply_lakken(text):
+    """Vervang \\lakken{X}/\\codelakken{X} door X (onthullen) of blokken (redactie)."""
+    if not text or 'lakken' not in text:
+        return text
+    repl = (lambda m: _REDACT_BLOCK) if redact_enabled() else (lambda m: m.group(1))
+    return _LAKKEN_RE.sub(repl, text)
+
+
 # --- HTML-renderer (blok-niveau, CSP-veilig: geen inline styles) ----------- #
 
 _HTML_INLINE = {'textbf': ('<strong>', '</strong>'), 'textit': ('<em>', '</em>'),
                 'emph': ('<em>', '</em>'), 'texttt': ('<code>', '</code>'),
                 'underline': ('<u>', '</u>'), 'textrm': ('', ''),
-                'textsc': ('', ''), 'textsf': ('', '')}
+                'textsc': ('', ''), 'textsf': ('', ''),
+                'pad': ('<code>', '</code>'), 'host': ('<code>', '</code>'),
+                'route': ('<code>', '</code>'), 'param': ('<code>', '</code>')}
 _HTML_ZERO = {'textbackslash': '\\', 'textrightarrow': '&rarr;', 'textleftarrow': '&larr;',
               'ldots': '&hellip;', 'dots': '&hellip;', 'newline': '<br>', 'par': '<br>',
               'noindent': '', 'textasciitilde': '~', 'textasciicircum': '^'}
@@ -362,6 +529,137 @@ _HTML_ZERO = {'textbackslash': '\\', 'textrightarrow': '&rarr;', 'textleftarrow'
 
 def _html_esc(seg):
     return seg.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+
+
+# --- \plaatje{} -> echte afbeelding in niet-LaTeX-output ------------------- #
+# In de PDF is \plaatje een LaTeX-macro (zie rapport.sty); in HTML/Markdown/DOCX
+# bestaat die niet. Zonder vertaling verdwijnt de afbeelding (of komt de ruwe
+# \plaatje{} letterlijk mee). Daarom lossen we de bestandsnaam hier op naar het
+# echte screenshot-bestand: HTML krijgt een zelfstandige data-URI (<img>),
+# Markdown een absoluut pad (pandoc bakt het in de DOCX). In redactiemodus komt
+# nooit het origineel mee: wel de gelakte kopie uit lakken/, anders [GELAKT].
+_SCREENSHOT_DIR_REPORT = os.path.join(os.path.dirname(__file__), '..', '..',
+                                      'raw', 'screenshots')
+_IMG_MIME = {'.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
+             '.gif': 'image/gif', '.webp': 'image/webp', '.svg': 'image/svg+xml',
+             '.bmp': 'image/bmp'}
+
+
+def _plaatje_bronpad(naam):
+    """Zoek het bronbestand voor \\plaatje{naam}.
+
+    Retourneert (pad|None, gelakt_placeholder_nodig). In redactiemodus wordt
+    uitsluitend de gelakte kopie uit lakken/ teruggegeven; ontbreekt die, dan
+    (None, True) zodat de renderer een [GELAKT]-placeholder toont i.p.v. het
+    origineel. Alleen de bestandsnaam telt (geen pad-traversal)."""
+    base = os.path.basename((naam or '').strip())
+    if not base:
+        return None, False
+    if redact_enabled():
+        lak = os.path.join(_SCREENSHOT_DIR_REPORT, 'lakken', base)
+        return (lak, False) if os.path.isfile(lak) else (None, True)
+    orig = os.path.join(_SCREENSHOT_DIR_REPORT, base)
+    return (orig, False) if os.path.isfile(orig) else (None, False)
+
+
+def _mk_image_html(naam, caption_nodes):
+    cap_html = _mk_inline_html(caption_nodes).strip()
+    cap_plain = _html_esc(_mk_inline_plain(caption_nodes).strip())
+    figcap = ('<figcaption style="font-size:12px;color:#555;font-style:italic;'
+              'margin-top:4px">%s</figcaption>' % cap_html) if cap_html else ''
+    pad, gelakt = _plaatje_bronpad(naam)
+    if gelakt:
+        return ('<figure style="margin:12px 0;text-align:center">'
+                '<div style="display:inline-block;background:#000;color:#fff;'
+                'padding:24px 40px;font-weight:bold;border-radius:4px">[GELAKT]</div>'
+                '%s</figure>' % figcap)
+    if not pad:
+        return '<p><em>[bestand niet gevonden: %s]</em></p>' % _html_esc(
+            os.path.basename((naam or '').strip()))
+    import base64 as _b64
+    ext = os.path.splitext(pad)[1].lower()
+    mime = _IMG_MIME.get(ext, 'application/octet-stream')
+    try:
+        with open(pad, 'rb') as fh:
+            data = _b64.b64encode(fh.read()).decode('ascii')
+    except OSError:
+        return '<p><em>[bestand niet gevonden: %s]</em></p>' % _html_esc(
+            os.path.basename((naam or '').strip()))
+    return ('<figure style="margin:12px 0;text-align:center">'
+            '<img src="data:%s;base64,%s" alt="%s" '
+            'style="max-width:100%%;height:auto;border:1px solid #ccc;border-radius:4px" />'
+            '%s</figure>' % (mime, data, cap_plain, figcap))
+
+
+def _mk_image_md(naam, caption_nodes):
+    cap = _mk_inline_plain(caption_nodes).strip().replace(']', ' ').replace('\n', ' ')
+    pad, gelakt = _plaatje_bronpad(naam)
+    if gelakt:
+        return '**[GELAKT]**'
+    if not pad:
+        return '[bestand niet gevonden: %s]' % os.path.basename((naam or '').strip())
+    return '![%s](%s)' % (cap, pad)
+
+
+def _html_link(label, url):
+    label = _html_esc(label)
+    return ('<a href="%s">%s</a>' % (_html_esc(url), label)) if url else label
+
+
+def _smart_inline_html(nd):
+    """Vertaal een "slimme"/blok-macro naar HTML. None -> standaardopmaak."""
+    name = nd[1]
+    if name == 'haakjes':
+        return '<em>&lsquo;%s&rsquo;</em>' % _mk_inline_html(nd[2])
+    if name in _MK_REFMACRO:
+        ref = _mk_inline_html(nd[2]).strip()
+        if name == 'uitwerking':
+            return 'We werken deze bevinding verder uit in &sect;&nbsp;bevinding %s' % ref
+        return '&sect;&nbsp;bevinding %s' % ref
+    if name == 'bevindingref':
+        return '&sect;&nbsp;bevinding %s' % _mk_inline_html(nd[2]).strip()
+    if name == 'cwe':
+        return _html_link(*_link_cwe(_mk_inline_plain(nd[2]).strip()))
+    if name == 'cve':
+        return _html_link(*_link_cve(_mk_inline_plain(nd[2]).strip()))
+    if name == 'owasp':
+        return _html_link(*_link_owasp(_mk_inline_plain(nd[2]).strip()))
+    if name == 'cvss':
+        arg = _mk_inline_plain(nd[2]).strip()
+        key, _r = _cvss_to_severity(arg)
+        bg, fg = _SEV_COLORS[key]
+        return ('<strong style="background:%s;color:%s;padding:1px 6px;border-radius:3px">'
+                '%s (%s)</strong>' % (bg, fg, _html_esc(arg), _SEV_LABELS[key]))
+    if name == 'severity':
+        key = _sev_from_word(_mk_inline_plain(nd[2]).strip())
+        if not key:
+            return None
+        bg, fg = _SEV_COLORS[key]
+        return ('<strong style="background:%s;color:%s;padding:1px 6px;border-radius:3px">'
+                '%s</strong>' % (bg, fg, _SEV_LABELS[key]))
+    if name in _CALLOUT_META:
+        titel, frame, back = _CALLOUT_META[name]
+        return ('<div style="border:1px solid %s;background:%s;border-radius:4px;'
+                'margin:10px 0;overflow:hidden">'
+                '<div style="background:%s;color:#fff;font-weight:bold;padding:4px 10px">%s</div>'
+                '<div style="padding:8px 10px">%s</div></div>'
+                % (frame, back, frame, titel, _mk_inline_html(nd[2]).strip()))
+    if name == 'stap':
+        return '<p><strong>Stap:</strong> %s</p>' % _mk_inline_html(nd[2]).strip()
+    if name in ('request', 'response'):
+        titel = 'Request' if name == 'request' else 'Response'
+        return ('<p><strong>%s:</strong></p><pre style="white-space:pre-wrap;'
+                'font-family:monospace;font-size:12px;background:#f2f2f2;padding:8px;'
+                'border-radius:4px">%s</pre>'
+                % (titel, _html_esc(_mk_inline_plain(nd[2]).strip())))
+    return None
+
+
+def _smart_cmd2_html(nd):
+    if nd[1] == 'deelsgelakt':
+        hidden = _REDACT_BLOCK if redact_enabled() else _mk_inline_html(nd[3])
+        return _mk_inline_html(nd[2]) + hidden
+    return _mk_inline_html(nd[2]) + _mk_inline_html(nd[3])
 
 
 def _mk_inline_html(nodes):
@@ -373,8 +671,16 @@ def _mk_inline_html(nodes):
         elif t == 'zero':
             out.append(_HTML_ZERO.get(nd[1], ''))
         elif t == 'cmd':
-            w = _HTML_INLINE.get(nd[1], ('', ''))
-            out.append(w[0] + _mk_inline_html(nd[2]) + w[1])
+            sp = _smart_inline_html(nd)
+            if sp is not None:
+                out.append(sp)
+            else:
+                w = _HTML_INLINE.get(nd[1], ('', ''))
+                out.append(w[0] + _mk_inline_html(nd[2]) + w[1])
+        elif t == 'cmd2':
+            out.append(_smart_cmd2_html(nd))
+        elif t == 'img':
+            out.append(_mk_image_html(nd[2], nd[3]))
         elif t == 'env':
             out.append(_mk_env_html(nd))
     return ''.join(out)
@@ -429,6 +735,7 @@ def _html_markup(text):
     """Blok-HTML van template-markup; val bij twijfel terug op platte escape."""
     if not text:
         return ''
+    text = _apply_lakken(text)
     try:
         return _mk_blocks_html(_mk_parse(text))
     except (_MkFail, RecursionError):
@@ -439,7 +746,9 @@ def _html_markup(text):
 
 _MD_INLINE = {'textbf': ('**', '**'), 'textit': ('*', '*'), 'emph': ('*', '*'),
               'texttt': ('`', '`'), 'underline': ('', ''), 'textrm': ('', ''),
-              'textsc': ('', ''), 'textsf': ('', '')}
+              'textsc': ('', ''), 'textsf': ('', ''),
+              'pad': ('`', '`'), 'host': ('`', '`'),
+              'route': ('`', '`'), 'param': ('`', '`')}
 _MD_ZERO = {'textbackslash': '\\\\', 'textrightarrow': '→', 'textleftarrow': '←',
             'ldots': '…', 'dots': '…', 'newline': '  \n', 'par': '\n\n', 'noindent': '',
             'textasciitilde': '~', 'textasciicircum': '^'}
@@ -448,6 +757,53 @@ _MD_ESC_RE = _re.compile(r'([\\`*_\[\]<>#|])')
 
 def _md_esc(seg):
     return _MD_ESC_RE.sub(r'\\\1', seg)
+
+
+def _md_link(label, url):
+    return ('[%s](%s)' % (label.replace(']', ' '), url)) if url else label
+
+
+def _smart_inline_md(nd):
+    name = nd[1]
+    if name == 'haakjes':
+        inner = _mk_inline_md(nd[2]).strip()
+        return ("*'%s'*" % inner) if inner else ''
+    if name in _MK_REFMACRO:
+        ref = _mk_inline_md(nd[2]).strip()
+        if name == 'uitwerking':
+            return 'We werken deze bevinding verder uit in § bevinding %s' % ref
+        return '§ bevinding %s' % ref
+    if name == 'bevindingref':
+        return '§ bevinding %s' % _mk_inline_md(nd[2]).strip()
+    if name == 'cwe':
+        return _md_link(*_link_cwe(_mk_inline_plain(nd[2]).strip()))
+    if name == 'cve':
+        return _md_link(*_link_cve(_mk_inline_plain(nd[2]).strip()))
+    if name == 'owasp':
+        return _md_link(*_link_owasp(_mk_inline_plain(nd[2]).strip()))
+    if name == 'cvss':
+        arg = _mk_inline_plain(nd[2]).strip()
+        key, _r = _cvss_to_severity(arg)
+        return '**%s (%s)**' % (arg, _SEV_LABELS[key])
+    if name == 'severity':
+        key = _sev_from_word(_mk_inline_plain(nd[2]).strip())
+        return ('**%s**' % _SEV_LABELS[key]) if key else None
+    if name in _CALLOUT_META:
+        titel = _CALLOUT_META[name][0]
+        return '\n\n> **%s:** %s\n\n' % (titel, _mk_inline_md(nd[2]).strip())
+    if name == 'stap':
+        return '**Stap:** %s' % _mk_inline_md(nd[2]).strip()
+    if name in ('request', 'response'):
+        titel = 'Request' if name == 'request' else 'Response'
+        return '\n\n**%s:**\n\n```\n%s\n```\n\n' % (titel, _mk_inline_plain(nd[2]).strip())
+    return None
+
+
+def _smart_cmd2_md(nd):
+    if nd[1] == 'deelsgelakt':
+        hidden = _REDACT_BLOCK if redact_enabled() else _mk_inline_md(nd[3]).strip()
+        return _mk_inline_md(nd[2]).strip() + hidden
+    return _mk_inline_md(nd[2]) + _mk_inline_md(nd[3])
 
 
 def _mk_inline_md(nodes):
@@ -459,9 +815,17 @@ def _mk_inline_md(nodes):
         elif t == 'zero':
             out.append(_MD_ZERO.get(nd[1], ''))
         elif t == 'cmd':
-            w = _MD_INLINE.get(nd[1], ('', ''))
-            inner = _mk_inline_md(nd[2]).strip()
-            out.append((w[0] + inner + w[1]) if inner else '')
+            sp = _smart_inline_md(nd)
+            if sp is not None:
+                out.append(sp)
+            else:
+                w = _MD_INLINE.get(nd[1], ('', ''))
+                inner = _mk_inline_md(nd[2]).strip()
+                out.append((w[0] + inner + w[1]) if inner else '')
+        elif t == 'cmd2':
+            out.append(_smart_cmd2_md(nd))
+        elif t == 'img':
+            out.append(_mk_image_md(nd[2], nd[3]))
         elif t == 'env':
             out.append('\n\n' + _mk_env_md(nd) + '\n\n')
     return ''.join(out)
@@ -504,6 +868,7 @@ def _md_markup(text):
     """Markdown van template-markup; val bij twijfel terug op platte tekst."""
     if not text:
         return ''
+    text = _apply_lakken(text)
     try:
         return _mk_blocks_md(_mk_parse(text))
     except (_MkFail, RecursionError):
@@ -517,6 +882,41 @@ _PLAIN_ZERO = {'textbackslash': '\\', 'textrightarrow': '→', 'textleftarrow': 
                'textasciitilde': '~', 'textasciicircum': '^'}
 
 
+_PLAIN_LINK = {'cwe': _link_cwe, 'cve': _link_cve, 'owasp': _link_owasp}
+
+
+def _smart_inline_plain(nd):
+    name = nd[1]
+    if name == 'haakjes':
+        return "'%s'" % _mk_inline_plain(nd[2]).strip()
+    if name in _MK_REFMACRO:
+        ref = _mk_inline_plain(nd[2]).strip()
+        if name == 'uitwerking':
+            return 'We werken deze bevinding verder uit in § bevinding %s' % ref
+        return '§ bevinding %s' % ref
+    if name == 'bevindingref':
+        return '§ bevinding %s' % _mk_inline_plain(nd[2]).strip()
+    if name in _PLAIN_LINK:
+        label, _u = _PLAIN_LINK[name](_mk_inline_plain(nd[2]).strip())
+        return label
+    if name == 'cvss':
+        arg = _mk_inline_plain(nd[2]).strip()
+        key, _r = _cvss_to_severity(arg)
+        return '%s (%s)' % (arg, _SEV_LABELS[key])
+    if name == 'severity':
+        key = _sev_from_word(_mk_inline_plain(nd[2]).strip())
+        return _SEV_LABELS[key] if key else None
+    if name in _CALLOUT_META:
+        titel = _CALLOUT_META[name][0]
+        return '%s: %s' % (titel, _mk_inline_plain(nd[2]).strip())
+    if name == 'stap':
+        return 'Stap: %s' % _mk_inline_plain(nd[2]).strip()
+    if name in ('request', 'response'):
+        titel = 'Request' if name == 'request' else 'Response'
+        return '%s: %s' % (titel, _mk_inline_plain(nd[2]).strip())
+    return None
+
+
 def _mk_inline_plain(nodes):
     out = []
     for nd in nodes:
@@ -526,7 +926,17 @@ def _mk_inline_plain(nodes):
         elif t == 'zero':
             out.append(_PLAIN_ZERO.get(nd[1], ''))
         elif t == 'cmd':
-            out.append(_mk_inline_plain(nd[2]))
+            sp = _smart_inline_plain(nd)
+            out.append(sp if sp is not None else _mk_inline_plain(nd[2]))
+        elif t == 'cmd2':
+            if nd[1] == 'deelsgelakt':
+                hidden = _REDACT_BLOCK if redact_enabled() else _mk_inline_plain(nd[3]).strip()
+                out.append(_mk_inline_plain(nd[2]).strip() + hidden)
+            else:
+                out.append(_mk_inline_plain(nd[2]) + _mk_inline_plain(nd[3]))
+        elif t == 'img':
+            cap = _mk_inline_plain(nd[3]).strip()
+            out.append(('[afbeelding: %s]' % cap) if cap else '[afbeelding]')
         elif t == 'env':
             parts = []
             for _it, label, body in nd[2]:
@@ -1135,9 +1545,18 @@ def bevindingen_overzicht():
     }
     deleted_count = db_bevindingen.query.filter(db_bevindingen.deleted_at.isnot(None)).count()
     deleted_findings = db_bevindingen.query.filter(db_bevindingen.deleted_at.isnot(None)).order_by(db_bevindingen.deleted_at.desc()).all() if deleted_count else []
+    # OWASP/NCSC leven op de standaardbevinding (template); de bevinding koppelt
+    # daaraan via f.ref. Zo kan het overzicht die velden per bevinding tonen.
+    template_map = {str(t.id): t for t in templates}
+    # Notities (zelfde projectscope als de notes-blueprint) voor het tabblad.
+    from meuk.flask import project as _project
+    notes = _project.apply_scope(
+        db_notes.query, db_notes.opdracht_id, _project.current_opdracht_id()
+    ).order_by(db_notes.volgorde.asc(), db_notes.id.desc()).all()
     return render_template('findings_index.html', findings=findings, templates=templates,
                            template_groups=template_groups, deleted_count=deleted_count,
-                           deleted_findings=deleted_findings, overdue_ids=overdue_ids)
+                           deleted_findings=deleted_findings, overdue_ids=overdue_ids,
+                           template_map=template_map, notes=notes)
 
 
 @findings_bp.route('/dashboard/findings/edit/<bevinding_id>', methods=['GET', 'POST'])
@@ -1703,6 +2122,7 @@ def list_evidence(finding_id):
     if not bev:
         return jsonify({'error': 'bevinding niet gevonden'}), 404
     items = db_evidence.query.filter_by(finding_id=finding_id).all()
+    lak_dir = os.path.join(_evidence_path(finding_id), 'lakken')
     return jsonify({'evidence': [
         {
             'id': e.id,
@@ -1714,6 +2134,8 @@ def list_evidence(finding_id):
             'tool_name': e.tool_name or '',
             'evidence_category': e.evidence_category or '',
             'sha256': e.sha256 or '',
+            # True als er een gelakte kopie bestaat (voor het gelakte rapport).
+            'has_lakken': os.path.exists(os.path.join(lak_dir, e.filename)),
         } for e in items
     ]})
 
@@ -1765,6 +2187,63 @@ def upload_evidence(finding_id):
         'original_filename': original,
         'sha256': sha256,
     })
+
+
+_MAX_REDACT_BYTES = 20 * 1024 * 1024  # 20 MB gedecodeerde PNG
+
+
+@findings_bp.route('/api/findings/evidence/<int:evidence_id>/redact', methods=['POST', 'DELETE'])
+def redact_evidence(evidence_id):
+    """Beheer de gelakte kopie van een bewijsafbeelding voor het gelakte rapport.
+
+    POST: ontvangt de in de browser zwartgelakte afbeelding (PNG data-URL) en slaat
+    die op als lakken/<filename> naast het origineel. Zo laadt de gelakte
+    rapportbuild deze i.p.v. het origineel. DELETE: verwijdert de gelakte kopie.
+    """
+    ev = db.session.get(db_evidence, evidence_id)
+    if not ev:
+        return jsonify({'error': 'evidence niet gevonden'}), 404
+    if not (ev.content_type or '').startswith('image/'):
+        return jsonify({'error': 'alleen afbeeldingen kunnen gelakt worden'}), 400
+
+    lak_dir = os.path.join(_evidence_path(ev.finding_id), 'lakken')
+    lak_path = os.path.join(lak_dir, ev.filename)
+
+    if request.method == 'DELETE':
+        try:
+            if os.path.exists(lak_path):
+                os.remove(lak_path)
+        except OSError:
+            return jsonify({'error': 'verwijderen mislukt'}), 500
+        return jsonify({'ok': True, 'has_lakken': False})
+
+    data = request.get_json(silent=True) or {}
+    img = (data.get('image') or '')
+    m = _re.match(r'^data:image/(?:png|jpeg);base64,(.+)$', img, _re.S)
+    if not m:
+        return jsonify({'error': 'geen geldige PNG-afbeelding (data-URL verwacht)'}), 400
+    import base64
+    try:
+        raw = base64.b64decode(m.group(1), validate=True)
+    except Exception:  # noqa: BLE001
+        return jsonify({'error': 'kon afbeelding niet decoderen'}), 400
+    if len(raw) > _MAX_REDACT_BYTES:
+        return jsonify({'error': 'afbeelding te groot'}), 413
+
+    # Her-encodeer naar het formaat van het origineel (de LaTeX-include kiest de
+    # driver op de bestandsextensie, dus die moet bij de inhoud passen).
+    os.makedirs(lak_dir, exist_ok=True)
+    try:
+        import io
+        from PIL import Image
+        im = Image.open(io.BytesIO(raw))
+        if im.mode in ('RGBA', 'P', 'LA'):
+            im = im.convert('RGB')
+        im.save(lak_path)
+    except Exception:  # noqa: BLE001 — PIL mag de UI nooit breken
+        return jsonify({'error': 'afbeelding kon niet worden opgeslagen'}), 400
+
+    return jsonify({'ok': True, 'has_lakken': True})
 
 
 @findings_bp.route('/api/findings/evidence/<int:evidence_id>/download', methods=['GET'])

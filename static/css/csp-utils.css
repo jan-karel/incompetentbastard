@@ -36,6 +36,7 @@
 .rv-danger { color: var(--danger, #ef4444); margin-bottom: 8px; }
 .rv-warning { color: var(--warning, #f59e0b); }
 .rv-success { color: var(--success, #22c55e); }
+.rv-info { color: var(--muted, #6b7280); margin-top: 8px; }
 
 /* rapport versie-diff */
 .diff-pre { max-height: 360px; overflow: auto; background: #0b1021; color: #cbd5e1;

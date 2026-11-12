@@ -35,3 +35,12 @@
 .tmpl-cvss-high{background:#dc2626;color:#fff}
 .tmpl-cvss-medium{background:#f59e0b;color:#fff}
 .tmpl-cvss-low{background:#22c55e;color:#fff}
+
+/* CVSS-basescore als gekleurde badge in de bevindingentabel */
+.cvss-badge{display:inline-block;min-width:30px;text-align:center;
+  font-size:12px;font-weight:700;padding:1px 6px;border-radius:3px;white-space:nowrap}
+.cvss-badge-critical{background:#581c87;color:#e9d5ff}
+.cvss-badge-high{background:#dc2626;color:#fff}
+.cvss-badge-medium{background:#f59e0b;color:#fff}
+.cvss-badge-low{background:#22c55e;color:#fff}
+.cvss-badge-none{background:var(--surface-2,#e5e7eb);color:var(--muted,#6b7280)}

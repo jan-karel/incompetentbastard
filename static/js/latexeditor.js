@@ -768,13 +768,19 @@
     hint.textContent = 'Sleep rechthoeken over wat weg moet; in de gelakte rapportversie wordt dit zwart.';
     var undoBtn = mkbtn('Laatste ongedaan');
     var clearBtn = mkbtn('Wis alles');
+    // Bij een reeds gelakte afbeelding: bestaande gelakte versie als basis laden,
+    // zodat je erop kunt BIJlakken. "Vanaf origineel" schakelt naar het origineel.
+    var origBtn = hasLakken ? mkbtn('Vanaf origineel') : null;
     var delBtn = hasLakken ? mkbtn('Lak verwijderen') : null;
     var saveBtn = mkbtn('Opslaan'); saveBtn.classList.add('btn-primary');
     tb.appendChild(hint); tb.appendChild(undoBtn); tb.appendChild(clearBtn);
+    if (origBtn) tb.appendChild(origBtn);
     if (delBtn) tb.appendChild(delBtn);
     tb.appendChild(saveBtn);
     modal.appendChild(tb);
 
+    var lakUrl = '/dashboard/raw/screenshots/lakken/' + encodeURIComponent(name);
+    var vanafOrigineel = false;
     var rects = [];
     var imgEl = new Image();
     imgEl.onload = function() {
@@ -785,7 +791,21 @@
       redraw();
     };
     imgEl.onerror = function() { hint.textContent = 'Kon de afbeelding niet laden.'; };
-    imgEl.src = url;
+    function loadBase() {
+      rects = [];
+      var useLak = hasLakken && !vanafOrigineel;
+      imgEl.src = useLak ? (lakUrl + '?t=' + Date.now()) : url;
+      hint.textContent = useLak
+        ? 'Bestaande lak als basis — trek extra vlakken om bíj te lakken (of "Vanaf origineel" voor opnieuw).'
+        : 'Sleep rechthoeken over wat weg moet; in de gelakte rapportversie wordt dit zwart.';
+    }
+    loadBase();
+    if (origBtn) origBtn.addEventListener('click', function() {
+      vanafOrigineel = !vanafOrigineel;
+      origBtn.classList.toggle('is-on', vanafOrigineel);
+      origBtn.textContent = vanafOrigineel ? 'Terug naar gelakt' : 'Vanaf origineel';
+      loadBase();
+    });
 
     function redraw(cur) {
       if (!canvas.width) return;

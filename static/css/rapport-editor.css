@@ -256,3 +256,79 @@ tr.rapport-included td:first-child { border-left: 3px solid var(--success, #22c5
   border-bottom: 1px solid var(--border, #ddd);
   vertical-align: top;
 }
+
+/* "Vul met standaard"-knop onder een vrije-tekstveld (standaardteksten). */
+.rap-fill-btn {
+  display: inline-block;
+  margin: 4px 0 10px;
+  font-size: 0.82rem;
+  opacity: 0.9;
+}
+.rap-fill-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+#rap-defaults-card .card-body textarea { font-size: 0.9rem; }
+
+/* Boilerplate: per-veld actiebalk, badge, snippet-kiezer, snippet-lijst. */
+.rap-fieldbar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 4px 0 12px; }
+.rap-snip-sel { font-size: 0.8rem; padding: 2px 6px; max-width: 220px; }
+.rap-badge { font-size: 0.72rem; font-weight: 600; padding: 1px 7px; border-radius: 10px;
+  border: 1px solid var(--border, #ccc); color: var(--muted, #666); }
+.rap-badge-standaard { color: #0a7d33; border-color: #0a7d33; background: rgba(34,197,94,0.10); }
+.rap-badge-aangepast { color: #b45309; border-color: #b45309; background: rgba(245,158,11,0.10); }
+.rap-badge-leeg { color: var(--muted, #888); }
+.btn-xs { font-size: 0.74rem; padding: 1px 7px; }
+.boiler-inline { display: inline-block; }
+.boiler-inline-sel { display: inline-block; width: auto; }
+.snip-row { display: flex; align-items: center; gap: 8px; padding: 4px 0; border-bottom: 1px solid var(--border, #eee); }
+.snip-meta { font-size: 0.74rem; color: var(--muted, #888); min-width: 90px; }
+.snip-titel { flex: 1; }
+#boiler-tokens-help code { background: var(--codebg, #f1f1f1); padding: 0 4px; border-radius: 3px; }
+
+/* Tabblad Bewerken: klik-op-preview + zij-editor. */
+.rb-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 10px; }
+.rb-inline { display: inline-flex; align-items: center; gap: 4px; font-size: 0.85rem; }
+.rb-split { display: flex; gap: 14px; align-items: flex-start; }
+.rb-preview-wrap { flex: 1; min-width: 0; }
+.rb-frame { width: 100%; height: 72vh; border: 1px solid var(--border, #ccc); border-radius: 6px; background: #fff; }
+.rb-editor { width: 440px; max-width: 44vw; border: 1px solid var(--border, #ccc); border-radius: 6px;
+  padding: 10px; background: var(--card, #fff); position: sticky; top: 10px; }
+.rb-editor-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+.rb-editor-actions { margin-top: 8px; display: flex; align-items: center; gap: 8px; }
+@media (max-width: 900px) {
+  .rb-split { flex-direction: column; }
+  .rb-editor { width: 100%; max-width: none; position: static; }
+}
+
+/* Tabblad Bewerken: inline tabel-editor (rijen). */
+.rb-trow { display: flex; gap: 6px; align-items: center; margin-bottom: 6px; }
+.rb-trow .rb-tcell { flex: 1; min-width: 0; font-size: 0.85rem; padding: 3px 6px; }
+.rb-trow-del { flex: 0 0 auto; }
+
+/* Tabblad Bewerken: secties aan/uit-paneel. */
+.rb-sections { border: 1px solid var(--border, #ccc); border-radius: 6px; padding: 10px; margin-bottom: 10px; background: var(--card, #fafafa); }
+.rb-sections-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 4px 14px; }
+.rb-sec-item { display: flex; align-items: center; gap: 6px; font-size: 0.85rem; }
+.rb-sec-item input { flex: 0 0 auto; }
+
+/* Bewerken: sectie-herordenen. */
+.rb-sec-sub { font-weight: 600; font-size: 0.8rem; color: var(--muted, #666); margin: 10px 0 4px; }
+.rb-sec-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 2px 0; }
+.rb-sec-row .rb-sec-item { flex: 1; }
+.rb-sec-move { display: inline-flex; gap: 3px; flex: 0 0 auto; }
+.rb-sections-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 3px 14px; }
+
+/* Bewerken: validatie-paneel, inhoudsnavigatie, taalkeuze. */
+.rb-validation { border: 1px solid var(--border, #ccc); border-radius: 6px; padding: 8px 10px; margin-bottom: 10px; font-size: 0.85rem; }
+.rb-taal-sel { display: inline-block; width: auto; padding: 2px 6px; font-size: 0.8rem; }
+.rb-toc { border: 1px solid var(--border, #ccc); border-radius: 6px; padding: 8px 10px; margin-bottom: 10px;
+  max-height: 220px; overflow: auto; display: flex; flex-direction: column; gap: 2px; }
+.rb-toc-link { text-decoration: none; color: var(--link, #154273); font-size: 0.85rem; padding: 1px 0; }
+.rb-toc-link:hover { text-decoration: underline; }
+.rb-toc-l2 { padding-left: 14px; font-size: 0.82rem; color: var(--text, #333); }
+
+/* Bewerken: sectie-highlight bij klik vanuit de preview. */
+.rb-sec-flash { background: #fff3cd; border-radius: 4px; box-shadow: 0 0 0 2px #f59e0b; }
+
+/* Bewerken: bevinding-editor breder (volledige vorm in de zij-editor). */
+.rb-editor.rb-finding-wide { width: 680px; max-width: 64vw; }
+.rb-editor.rb-finding-wide #rb-ed-finding { max-height: 72vh; overflow: auto; }
+@media (max-width: 1100px) { .rb-editor.rb-finding-wide { width: 100%; max-width: none; } }

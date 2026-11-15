@@ -209,12 +209,33 @@
       }
     }
 
-    function applyCalculationError() {
+    // Vertaal de serverfout naar een leesbare reden, zodat de gebruiker ziet
+    // waarom er geen score komt (bv. ontbrekend cvss-pakket in de interpreter).
+    function _foutReden(err) {
+      var raw = (err && err.message) ? String(err.message) : '';
+      if (/cvss.*beschikbaar/i.test(raw)) {
+        return 'CVSS-pakket ontbreekt op de server (pip install cvss)';
+      }
+      if (/ontbrekende metrics/i.test(raw)) {
+        return 'Niet alle metrics ingevuld';
+      }
+      if (/^http_/.test(raw)) {
+        return 'Server gaf ' + raw.replace('http_', 'HTTP ');
+      }
+      return raw || 'Berekening mislukt';
+    }
+
+    function applyCalculationError(err) {
       if (scoreInput) scoreInput.value = '';
       if (scoreDisplay) scoreDisplay.textContent = '-';
+      var reden = _foutReden(err);
       if (severityDisplay) {
         severityDisplay.textContent = 'Invalid';
         severityDisplay.className = 'badge';
+        severityDisplay.title = reden;
+      }
+      if (window.console && console.error) {
+        console.error('[CVSS4] basescore niet berekend: ' + reden, err);
       }
     }
 
@@ -231,9 +252,9 @@
         var result = await calculateScoreFromServer(vector);
         if (token !== updateToken) return;
         applyCalculatedResult(result.score, result.severity);
-      } catch (_) {
+      } catch (err) {
         if (token !== updateToken) return;
-        applyCalculationError();
+        applyCalculationError(err);
       }
     }
 

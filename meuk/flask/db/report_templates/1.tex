@@ -1,1 +1,182 @@
-\documentclass{article}\begin{document}[[ titel ]]\end{document}
+\documentclass[10pt,a4paper]{article}
+
+% -------------------------------------------------- %
+% Packages                                           %
+% -------------------------------------------------- %
+\usepackage{fontspec}
+% Rijkshuisstijl: Lato indien beschikbaar (portabele terugval op standaard).
+\IfFontExistsTF{Lato}{\setmainfont{Lato}\setsansfont{Lato}}{}
+[% if taal == 'en' %]
+\usepackage[english]{babel}
+[% else %]
+\usepackage[dutch]{babel}
+[% endif %]
+\usepackage{geometry}
+\geometry{a4paper, margin=2.5cm}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{colortbl}
+\usepackage{hyperref}
+\usepackage{fancyhdr}
+\usepackage{lastpage}
+\usepackage{array}
+\usepackage{longtable}
+\usepackage{tabularx}
+\usepackage{xltabular}% longtable met X-kolommen: volle breedte + nette paginavervolg
+\usepackage{tikz}% CIA-triade radar/driehoek, grafieken
+\usetikzlibrary{positioning,arrows.meta}
+% Grafiekkleuren (HTML-hex, consistent met de preview).
+\definecolor{cgreen}{HTML}{22C55E}
+\definecolor{camber}{HTML}{F59E0B}
+\definecolor{cred}{HTML}{EF4444}
+\definecolor{cblue}{HTML}{3B82F6}
+\definecolor{cgray}{HTML}{94A3B8}
+\usepackage{booktabs}
+% Vervolg-voet voor tabellen die over meerdere pagina's lopen.
+[% if taal == 'en' %]\newcommand{\ibcontinued}{Continued on next page}[% else %]\newcommand{\ibcontinued}{Vervolg op de volgende pagina}[% endif %]
+\newcommand{\ibvervolg}[1]{\hline\multicolumn{#1}{r}{\footnotesize\itshape\ibcontinued}\\}
+% Halfronde risicometer (gauge): #1=naaldhoek(graden), #2=centrale tekst, #3=label, #4=bijschrift
+\newcommand{\ibgauge}[4]{%
+  \begin{center}
+  \begin{tikzpicture}[scale=0.95]
+    \draw[line width=6pt,green!60!black] (180:2) arc (180:135:2);
+    \draw[line width=6pt,yellow!85!black] (135:2) arc (135:90:2);
+    \draw[line width=6pt,orange] (90:2) arc (90:45:2);
+    \draw[line width=6pt,red!80!black] (45:2) arc (45:0:2);
+    \draw[line width=1.3pt] (0,0) -- (#1:1.65);
+    \fill (0,0) circle (2.3pt);
+    \node[below=4pt] at (0,0) {\textbf{#2} --- #3};
+    \node[font=\footnotesize,below=1.2em] at (0,0) {#4};
+  \end{tikzpicture}
+  \end{center}%
+}
+\usepackage{ifthen}
+\usepackage{soul}
+\usepackage{listings}
+% Courier-lettertype voor code/commando's (met fallback als het niet bestaat)
+\IfFontExistsTF{Courier New}%
+  {\newfontfamily\couriermono{Courier New}}%
+  {\IfFontExistsTF{Courier}%
+    {\newfontfamily\couriermono{Courier}}%
+    {\providecommand{\couriermono}{\ttfamily}}}
+\definecolor{codebg}{gray}{0.95}
+\lstset{
+  basicstyle=\footnotesize\couriermono,
+  backgroundcolor=\color{codebg},
+  frame=none,
+  framexleftmargin=6pt,
+  framexrightmargin=6pt,
+  xleftmargin=6pt,
+  xrightmargin=6pt,
+  breaklines=true,
+  breakatwhitespace=false,
+  columns=fullflexible,
+  keepspaces=true,
+  tabsize=2,
+  escapechar=§,
+  captionpos=b,
+  abovecaptionskip=2pt,
+  aboveskip=8pt,
+  belowskip=10pt,
+  showstringspaces=false,
+}
+\providecommand{\opdracht}[1]{`{\couriermono\textcolor{darkgray}{#1}}'}
+
+% Rapport package (bevindingen met CVSS-kleuren)
+\usepackage{opmaak/packages/rapport}
+\providecolor{grijs}{HTML}{535353}
+
+% -------------------------------------------------- %
+% Metadata                                           %
+% -------------------------------------------------- %
+\newcommand{\rapporttitel}{[[ titel ]]}
+\newcommand{\rapportsubtitel}{[[ subtitel ]]}
+\newcommand{\rapportauteur}{[[ auteur ]]}
+\newcommand{\rapportproject}{[[ project ]]}
+\newcommand{\rapportdatum}{[[ datum ]]}
+\newcommand{\rapportclassificatie}{[[ classificatie ]]}
+\newcommand{\rapporttlpkleur}{[[ tlp_color ]]}
+
+\hypersetup{
+  pdftitle={\rapporttitel},
+  pdfauthor={\rapportauteur},
+  pdfsubject={[% if taal == 'en' %]Security assessment report[% else %]Beveiligingsonderzoek-rapportage[% endif %] --- \rapportclassificatie},
+  pdfkeywords={[% if taal == 'en' %]penetration test, security assessment, CVSS, findings[% else %]penetratietest, beveiligingsonderzoek, CVSS, bevindingen[% endif %], \rapportclassificatie},
+  pdfcreator={Incompetent Bastard rapportgenerator},
+  pdflang={[% if taal == 'en' %]en[% else %]nl[% endif %]},
+  pdfdisplaydoctitle=true,
+}
+
+% -------------------------------------------------- %
+% Professionele afwerking                            %
+% -------------------------------------------------- %
+% Klikbare maar onopvallende links: geen gekleurde kaders meer rond
+% kruisverwijzingen en finding-titels (strakker, drukwerk-waardig).
+\hypersetup{hidelinks}
+% Sectiekoppen in rijksblauw — sluit aan op de rijksblauwe tabelkoppen en de
+% DOCX-opmaak, zodat het hele rapport één huisstijl ademt.
+\usepackage{titlesec}
+\titleformat{\section}{\normalfont\Large\bfseries\color{rijkblauw}}{\thesection}{0.75em}{}
+\titleformat{\subsection}{\normalfont\large\bfseries\color{rijkblauw}}{\thesubsection}{0.6em}{}
+\titleformat{\subsubsection}{\normalfont\normalsize\bfseries\color{rijkblauw}}{\thesubsubsection}{0.6em}{}
+% Lichtere, strakkere tabelranden (de bevinding-metadatatabel houdt lokaal
+% z'n eigen witte randen).
+\arrayrulecolor{black!18}
+% Professionele figuuronderschriften: vet rijksblauw label ("Figuur N:"),
+% kleinere grijze tekst. Figuren zijn al genummerd via \plaatje/\ibevidence.
+\usepackage{caption}
+\captionsetup{labelfont={bf,color=rijkblauw},textfont={small,color=black!70},
+  font=small,labelsep=colon,skip=4pt}
+
+% -------------------------------------------------- %
+% Pagina-opmaak                                      %
+% -------------------------------------------------- %
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small \rapporttitel}
+\fancyhead[R]{\small \textcolor{\rapporttlpkleur}{\rapportclassificatie}}
+\fancyfoot[L]{\small \rapportauteur}
+\fancyfoot[C]{\small \rapportproject}
+\fancyfoot[R]{\small\color{grijs}[% if taal == 'en' %]Page[% else %]Pagina[% endif %]~\thepage{}~[% if taal == 'en' %]of[% else %]van[% endif %]~\pageref*{LastPage}}
+\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\footrulewidth}{0.4pt}
+
+\graphicspath{[[ '{' ]]evidence/[[ '}' ]]}
+
+% -------------------------------------------------- %
+% Document                                           %
+% -------------------------------------------------- %
+\begin{document}
+% --- Voorblad (Rijkshuisstijl met DICTU-logo) ---
+\begin{titlepage}
+  \thispagestyle{empty}%
+  [% set _cl = (classificatie or '') | upper %]
+  [% set _tlpblack = ('AMBER' in _cl) or ('GREEN' in _cl) or ('GROEN' in _cl) %]
+  \IfFileExists{opmaak/dictu.png}{\begin{center}\vspace*{-0.5cm}\includegraphics[width=0.55\textwidth]{opmaak/dictu.png}\end{center}}{%
+    \noindent{\color{rijkblauw}\rule{\textwidth}{3pt}}}
+  \vspace*{3cm}
+  \begin{center}
+    {\color{rijkblauw}\fontsize{30}{36}\selectfont\bfseries \rapporttitel\par}
+    \vspace{0.7cm}
+    {\Large\itshape\color{grijs} \rapportsubtitel\par}
+    \vspace{0.6cm}
+    {\color{rijkblauw}\rule{0.42\textwidth}{1.2pt}\par}
+    \vspace{2.6cm}
+    {\large\renewcommand{\arraystretch}{1.5}%
+    \begin{tabular}{@{}r@{\hspace{1.2em}}l@{}}
+      [% if project %]\textcolor{rijkblauw}{\bfseries [% if taal == 'en' %]Client[% else %]Opdrachtgever[% endif %]} & \rapportproject \\[% endif %]
+      \textcolor{rijkblauw}{\bfseries [% if taal == 'en' %]Author[% else %]Opsteller[% endif %]} & \rapportauteur \\
+      \textcolor{rijkblauw}{\bfseries [% if taal == 'en' %]Date[% else %]Datum[% endif %]} & \rapportdatum \\
+      [% if rapport_versie %]\textcolor{rijkblauw}{\bfseries [% if taal == 'en' %]Version[% else %]Versie[% endif %]} & [[ rapport_versie | latex_escape ]] \\[% endif %]
+      [% if testscope %]\textcolor{rijkblauw}{\bfseries Scope} & [[ testscope | latex_escape ]] \\[% endif %]
+    \end{tabular}\par}
+    [% if is_draft %]\vspace{1.3cm}{\large\bfseries\textcolor{ored}{\fbox{\strut\,[% if taal == 'en' %]DRAFT[% else %]CONCEPT[% endif %]\,}}\par}[% endif %]
+  \end{center}
+  \vfill
+  \noindent\colorbox{\rapporttlpkleur}{%
+    \begin{minipage}[c][0.95cm][c]{\dimexpr\textwidth-2\fboxsep\relax}\centering
+      \color{[% if _tlpblack %]black[% else %]white[% endif %]}{\large\bfseries [% if taal == 'en' %]Classification[% else %]Classificatie[% endif %]:~\rapportclassificatie}%
+    \end{minipage}}%
+\end{titlepage}
+
+[% include '_rapport_body.tex' %]

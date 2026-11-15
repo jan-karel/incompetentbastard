@@ -297,6 +297,8 @@ def create_app():
                     ("rapport_distributie",        "TEXT DEFAULT '[]'"),
                     ("rapport_algeheel_beeld",     "TEXT DEFAULT ''"),
                     ("rapport_pdf_owner_password", "VARCHAR(200) DEFAULT ''"),
+                    ("rapport_begrippen",          "TEXT DEFAULT '[]'"),
+                    ("rapport_overrides",          "TEXT DEFAULT '{}'"),
                 ]:
                     try:
                         conn.execute(db.text(
@@ -473,10 +475,13 @@ def create_app():
         nonce = getattr(g, "csp_nonce", "")
 
         if getattr(g, "report_preview", False):
-            # Zelf-gegenereerde rapport-HTML (preview): inline styles toestaan, geen scripts
+            # Zelf-gegenereerde rapport-HTML (preview): inline styles toestaan. In
+            # de bewerk-modus (tabblad Bewerken) staan we uitsluitend het eigen
+            # static edit-script toe ('self'), zodat klik-op-preview werkt.
+            _prev_script = "'self'" if getattr(g, "report_preview_edit", False) else "'none'"
             csp = (
                 "default-src 'self'; "
-                "script-src 'none'; "
+                f"script-src {_prev_script}; "
                 "style-src 'self' 'unsafe-inline'; "
                 "img-src 'self' data:; "
                 "connect-src 'self'; "
@@ -504,13 +509,16 @@ def create_app():
                 "object-src 'none'"
             )
         else:
+            # Het tabblad Bewerken toont de rapport-preview in een same-origin
+            # iframe; sta framing alleen daar toe.
+            _frame = "'self'" if request.path.startswith('/dashboard/report') else "'none'"
             csp = (
                 "default-src 'self'; "
                 f"script-src 'self' 'nonce-{nonce}'; "
                 f"style-src 'self' 'nonce-{nonce}'; "
                 "img-src 'self' data:; "
                 "connect-src 'self'; "
-                "frame-src 'none'; "
+                f"frame-src {_frame}; "
                 "object-src 'none'"
             )
 

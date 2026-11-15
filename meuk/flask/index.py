@@ -299,6 +299,120 @@ def index(cms_pag):
         return pagina
 
 
+# Vrije-tekstvelden waarvoor een globale standaardtekst kan worden ingesteld
+# (opgeslagen op de db_instellingen-singleton). Per opdracht kan de operator ze
+# met één klik invoegen ("Vul met standaard") en daarna aanpassen.
+_RAPPORT_DEFAULT_FIELDS = (
+    'rapport_contact',
+    'rapport_management_samenvatting', 'rapport_algeheel_beeld',
+    'rapport_modus_operandi', 'rapport_kritieke_functies',
+    'rapport_blueteam', 'rapport_purpleteam', 'rapport_verklaring',
+    'rapport_legsup_startpunt', 'rapport_legsup_privileges',
+    'rapport_legsup_informatie', 'rapport_roe',
+)
+
+# Template-teksten die per opdracht overschreven kunnen worden (leeg = standaard
+# auto-gegenereerde tekst). Opgeslagen als JSON in rapport_overrides.
+_RAPPORT_OVERRIDE_KEYS = ('inleiding', 'methodologie', 'tools')
+
+# Label per veld (voor de boilerplate-UI, zonder hardcoding in de frontend).
+_RAPPORT_FIELD_LABELS = {
+    'rapport_contact': 'Contactgegevens (colofon)',
+    'rapport_management_samenvatting': 'Managementsamenvatting',
+    'rapport_algeheel_beeld': 'Algeheel beeld',
+    'rapport_kritieke_functies': 'Kritieke functies',
+    'rapport_roe': 'Rules of Engagement',
+    'rapport_modus_operandi': 'Modus operandi (red team)',
+    'rapport_blueteam': 'Blue team — detectie & respons (red team)',
+    'rapport_purpleteam': 'Purple teaming (red team)',
+    'rapport_verklaring': 'Verklaring (red team)',
+    'rapport_legsup_startpunt': 'Legs up — startpunt (red team)',
+    'rapport_legsup_privileges': 'Legs up — rechten (red team)',
+    'rapport_legsup_informatie': 'Legs up — verstrekte informatie (red team)',
+}
+
+# Placeholders die in standaardteksten gebruikt mogen worden; bij invoegen
+# vervangen door de gegevens van de actieve opdracht.
+_RAPPORT_TOKENS = [
+    ('{{klant}}', 'Opdrachtgever'),
+    ('{{project}}', 'Project/opdrachtnaam'),
+    ('{{auteur}}', 'Opsteller'),
+    ('{{omgeving}}', 'Omgeving'),
+    ('{{scope}}', 'Testscope'),
+    ('{{testtype}}', 'Type onderzoek'),
+    ('{{versie}}', 'Rapportversie'),
+    ('{{classificatie}}', 'Classificatie'),
+    ('{{periode}}', 'Testperiode (start–eind)'),
+    ('{{startdatum}}', 'Startdatum test'),
+    ('{{einddatum}}', 'Einddatum test'),
+    ('{{vandaag}}', 'Datum van vandaag'),
+]
+
+
+def _rapport_token_values(cfg):
+    """Waarden voor de placeholders, afgeleid van de actieve opdracht-config."""
+    import datetime as _d
+
+    def g(attr, default=''):
+        return (getattr(cfg, attr, '') or '') if cfg is not None else default
+    tt = g('rapport_testtype') or 'pentest'
+    tt_label = 'red team assessment' if tt == 'redteam' else 'penetratietest'
+    start = str(g('rapport_test_start_date') or '')
+    eind = str(g('rapport_test_end_date') or '')
+    if start and eind:
+        periode = '%s t/m %s' % (start, eind)
+    else:
+        periode = start or eind or ''
+    return {
+        '{{klant}}': g('rapport_project'),
+        '{{project}}': g('rapport_project'),
+        '{{auteur}}': g('rapport_auteur'),
+        '{{omgeving}}': g('rapport_omgeving'),
+        '{{scope}}': g('rapport_testscope'),
+        '{{testtype}}': tt_label,
+        '{{versie}}': g('rapport_versie'),
+        '{{classificatie}}': g('rapport_classificatie') or 'TLP:RED',
+        '{{periode}}': periode,
+        '{{startdatum}}': start,
+        '{{einddatum}}': eind,
+        '{{vandaag}}': _d.date.today().isoformat(),
+    }
+
+
+def _resolve_tokens(text, cfg):
+    """Vervang alle {{token}}'s in `text` door de opdrachtwaarden."""
+    if not text:
+        return text or ''
+    for tok, val in _rapport_token_values(cfg).items():
+        if tok in text:
+            text = text.replace(tok, val)
+    return text
+
+
+def _boiler_data(prof):
+    try:
+        d = json.loads(prof.data or '{}')
+        return d if isinstance(d, dict) else {}
+    except Exception:
+        return {}
+
+
+def _ensure_boiler_seed():
+    """Zorg dat er minstens één (default) boilerplate-profiel is; seed de eerste
+    keer uit de legacy db_instellingen-velden (nl)."""
+    if db_rapport_boiler.query.count() > 0:
+        return
+    s = db_instellingen.query.first()
+    data = {}
+    for f in _RAPPORT_DEFAULT_FIELDS:
+        val = (getattr(s, f, '') or '') if s is not None else ''
+        data[f] = {'nl': val, 'en': ''}
+    prof = db_rapport_boiler(naam='Standaard', testtype='', is_default=True,
+                             volgorde=0, data=json.dumps(data))
+    db.session.add(prof)
+    db.session.commit()
+
+
 @index_bp.route('/api/settings')
 def api_settings():
     require_dashboard_access()
@@ -326,10 +440,17 @@ def api_settings():
         'rapport_testscope': getattr(p, 'rapport_testscope', '') or 'blackbox',
         'rapport_management_samenvatting': getattr(p, 'rapport_management_samenvatting', '') or '',
         'rapport_algeheel_beeld': getattr(p, 'rapport_algeheel_beeld', '') or '',
+        'rapport_modus_operandi': getattr(p, 'rapport_modus_operandi', '') or '',
+        'rapport_kritieke_functies': getattr(p, 'rapport_kritieke_functies', '') or '',
+        'rapport_blueteam': getattr(p, 'rapport_blueteam', '') or '',
+        'rapport_purpleteam': getattr(p, 'rapport_purpleteam', '') or '',
+        'rapport_verklaring': getattr(p, 'rapport_verklaring', '') or '',
         'rapport_legsup_startpunt': getattr(p, 'rapport_legsup_startpunt', '') or '',
         'rapport_legsup_privileges': getattr(p, 'rapport_legsup_privileges', '') or '',
         'rapport_legsup_informatie': getattr(p, 'rapport_legsup_informatie', '') or '',
         'rapport_scenarios': json.loads(getattr(p, 'rapport_scenarios', '[]') or '[]'),
+        'rapport_begrippen': json.loads(getattr(p, 'rapport_begrippen', '[]') or '[]'),
+        'rapport_overrides': json.loads(getattr(p, 'rapport_overrides', '{}') or '{}'),
         'rapport_scope_targets': json.loads(getattr(p, 'rapport_scope_targets', '[]') or '[]'),
         'rapport_contact': getattr(p, 'rapport_contact', '') or '',
         'rapport_revisies': json.loads(getattr(p, 'rapport_revisies', '[]') or '[]'),
@@ -398,6 +519,12 @@ def api_settings_update():
         p.rapport_management_samenvatting = data['rapport_management_samenvatting'].strip()[:10000]
     if 'rapport_algeheel_beeld' in data and isinstance(data['rapport_algeheel_beeld'], str):
         p.rapport_algeheel_beeld = data['rapport_algeheel_beeld'].strip()[:10000]
+    if 'rapport_modus_operandi' in data and isinstance(data['rapport_modus_operandi'], str):
+        p.rapport_modus_operandi = data['rapport_modus_operandi'].strip()[:10000]
+    for _k in ('rapport_kritieke_functies', 'rapport_blueteam',
+               'rapport_purpleteam', 'rapport_verklaring'):
+        if _k in data and isinstance(data[_k], str):
+            setattr(p, _k, data[_k].strip()[:10000])
     for key in ('rapport_legsup_startpunt', 'rapport_legsup_privileges', 'rapport_legsup_informatie'):
         if key in data and isinstance(data[key], str):
             setattr(p, key, data[key].strip()[:10000])
@@ -411,6 +538,23 @@ def api_settings_update():
                     'beschrijving': str(sc.get('beschrijving', ''))[:5000],
                 })
         p.rapport_scenarios = json.dumps(clean)
+    if 'rapport_begrippen' in data and isinstance(data['rapport_begrippen'], list):
+        clean_b = []
+        for b in data['rapport_begrippen'][:200]:
+            if isinstance(b, dict) and str(b.get('term', '')).strip():
+                clean_b.append({'term': str(b.get('term', ''))[:200],
+                                'definitie': str(b.get('definitie', ''))[:2000]})
+        p.rapport_begrippen = json.dumps(clean_b)
+    if 'rapport_overrides' in data and isinstance(data['rapport_overrides'], dict):
+        try:
+            cur_ov = json.loads(getattr(p, 'rapport_overrides', '{}') or '{}')
+        except (ValueError, TypeError):
+            cur_ov = {}
+        for k in _RAPPORT_OVERRIDE_KEYS:
+            v = data['rapport_overrides'].get(k)
+            if isinstance(v, str):
+                cur_ov[k] = v[:10000]
+        p.rapport_overrides = json.dumps(cur_ov)
     _SCOPE_TARGET_TYPES = ('host', 'netwerk', 'url', 'applicatie')
     if 'rapport_scope_targets' in data and isinstance(data['rapport_scope_targets'], list):
         raw_targets = data['rapport_scope_targets'][:50]
@@ -509,5 +653,169 @@ def api_settings_update():
         p.dd_verify_ssl = bool(data['dd_verify_ssl'])
     if 'dd_auto_push' in data:
         p.dd_auto_push = bool(data['dd_auto_push'])
+    db.session.commit()
+    return jsonify({'ok': True})
+
+
+def _profiel_json(prof):
+    return {'id': prof.id, 'naam': prof.naam or '', 'testtype': prof.testtype or '',
+            'is_default': bool(prof.is_default), 'volgorde': prof.volgorde or 0,
+            'data': _boiler_data(prof)}
+
+
+def _snippet_json(sn):
+    return {'id': sn.id, 'titel': sn.titel or '', 'categorie': sn.categorie or '',
+            'taal': sn.taal or '', 'tekst': sn.tekst or '', 'volgorde': sn.volgorde or 0}
+
+
+@index_bp.route('/api/report-boiler', methods=['GET'])
+def api_report_boiler():
+    """Boilerplate-profielen, snippets, veld-labels en beschikbare tokens voor
+    het tabblad Instellingen."""
+    require_dashboard_access()
+    _ensure_boiler_seed()
+    profs = db_rapport_boiler.query.order_by(
+        db_rapport_boiler.volgorde, db_rapport_boiler.id).all()
+    snips = db_rapport_snippet.query.order_by(
+        db_rapport_snippet.volgorde, db_rapport_snippet.id).all()
+    return jsonify({
+        'profielen': [_profiel_json(p) for p in profs],
+        'snippets': [_snippet_json(s) for s in snips],
+        'velden': [{'key': k, 'label': _RAPPORT_FIELD_LABELS.get(k, k)}
+                   for k in _RAPPORT_DEFAULT_FIELDS],
+        'tokens': [{'token': t, 'label': lbl} for t, lbl in _RAPPORT_TOKENS],
+    })
+
+
+@index_bp.route('/api/report-boiler', methods=['POST'])
+def api_report_boiler_save():
+    """Een boilerplate-profiel aanmaken of bijwerken."""
+    require_dashboard_access()
+    if not is_local_request():
+        abort(403)
+    data = request.get_json(force=True) or {}
+    pid = data.get('id')
+    prof = db.session.get(db_rapport_boiler, pid) if pid else None
+    if prof is None:
+        prof = db_rapport_boiler()
+        db.session.add(prof)
+    prof.naam = (str(data.get('naam') or 'Profiel')).strip()[:120] or 'Profiel'
+    tt = str(data.get('testtype') or '')
+    prof.testtype = tt if tt in ('', 'pentest', 'redteam') else ''
+    prof.is_default = bool(data.get('is_default'))
+    try:
+        prof.volgorde = int(data.get('volgorde') or 0)
+    except (TypeError, ValueError):
+        prof.volgorde = 0
+    velden = data.get('data') or {}
+    clean = {}
+    if isinstance(velden, dict):
+        for k in _RAPPORT_DEFAULT_FIELDS:
+            v = velden.get(k) or {}
+            if isinstance(v, dict):
+                clean[k] = {'nl': str(v.get('nl') or '')[:10000],
+                            'en': str(v.get('en') or '')[:10000]}
+    prof.data = json.dumps(clean)
+    # Slechts één default toegestaan.
+    if prof.is_default:
+        db.session.flush()
+        for other in db_rapport_boiler.query.filter(db_rapport_boiler.id != prof.id):
+            other.is_default = False
+    db.session.commit()
+    return jsonify({'ok': True, 'id': prof.id})
+
+
+@index_bp.route('/api/report-boiler/<int:pid>', methods=['DELETE'])
+def api_report_boiler_delete(pid):
+    require_dashboard_access()
+    if not is_local_request():
+        abort(403)
+    prof = db.session.get(db_rapport_boiler, pid)
+    if prof is None:
+        return jsonify({'ok': False, 'error': 'niet gevonden'}), 404
+    if db_rapport_boiler.query.count() <= 1:
+        return jsonify({'ok': False, 'error': 'minimaal één profiel vereist'}), 400
+    db.session.delete(prof)
+    db.session.commit()
+    return jsonify({'ok': True})
+
+
+@index_bp.route('/api/report-boiler/resolve', methods=['GET'])
+def api_report_boiler_resolve():
+    """Geef de standaardteksten van een profiel, met {{tokens}} ingevuld op basis
+    van de actieve opdracht. Kiest automatisch het profiel dat bij het testtype
+    past als er geen profiel_id is opgegeven."""
+    require_dashboard_access()
+    from meuk.flask import project as _project
+    _ensure_boiler_seed()
+    cfg = _project.current_config()
+    taal = request.args.get('taal') or 'nl'
+    if taal not in ('nl', 'en'):
+        taal = 'nl'
+    pid = request.args.get('profiel_id', type=int)
+    prof = db.session.get(db_rapport_boiler, pid) if pid else None
+    if prof is None:
+        prof = _kies_boiler_profiel(cfg)
+    out = {}
+    if prof is not None:
+        data = _boiler_data(prof)
+        for k in _RAPPORT_DEFAULT_FIELDS:
+            raw = (data.get(k) or {}).get(taal) or ''
+            out[k] = _resolve_tokens(raw, cfg)
+    return jsonify({'ok': True, 'profiel_id': prof.id if prof else None,
+                    'profiel_naam': prof.naam if prof else '', 'velden': out,
+                    'tokenvalues': _rapport_token_values(cfg)})
+
+
+def _kies_boiler_profiel(cfg):
+    """Beste profiel voor het testtype van de opdracht: eerst een exacte
+    testtype-match, anders het default-profiel, anders het eerste."""
+    tt = (getattr(cfg, 'rapport_testtype', '') or '') if cfg is not None else ''
+    profs = db_rapport_boiler.query.order_by(
+        db_rapport_boiler.volgorde, db_rapport_boiler.id).all()
+    if not profs:
+        return None
+    for p in profs:
+        if p.testtype and p.testtype == tt:
+            return p
+    for p in profs:
+        if p.is_default:
+            return p
+    return profs[0]
+
+
+@index_bp.route('/api/report-snippets', methods=['POST'])
+def api_report_snippet_save():
+    require_dashboard_access()
+    if not is_local_request():
+        abort(403)
+    data = request.get_json(force=True) or {}
+    sid = data.get('id')
+    sn = db.session.get(db_rapport_snippet, sid) if sid else None
+    if sn is None:
+        sn = db_rapport_snippet()
+        db.session.add(sn)
+    sn.titel = (str(data.get('titel') or '')).strip()[:160]
+    sn.categorie = (str(data.get('categorie') or '')).strip()[:80]
+    taal = str(data.get('taal') or '')
+    sn.taal = taal if taal in ('', 'nl', 'en') else ''
+    sn.tekst = str(data.get('tekst') or '')[:10000]
+    try:
+        sn.volgorde = int(data.get('volgorde') or 0)
+    except (TypeError, ValueError):
+        sn.volgorde = 0
+    db.session.commit()
+    return jsonify({'ok': True, 'id': sn.id})
+
+
+@index_bp.route('/api/report-snippets/<int:sid>', methods=['DELETE'])
+def api_report_snippet_delete(sid):
+    require_dashboard_access()
+    if not is_local_request():
+        abort(403)
+    sn = db.session.get(db_rapport_snippet, sid)
+    if sn is None:
+        return jsonify({'ok': False, 'error': 'niet gevonden'}), 404
+    db.session.delete(sn)
     db.session.commit()
     return jsonify({'ok': True})

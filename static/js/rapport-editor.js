@@ -195,9 +195,18 @@
   var findingModalBody = document.getElementById("rap-finding-body");
   var findingModalClose = document.getElementById("rap-finding-close");
 
-  document.querySelectorAll("[data-edit-finding]").forEach(function (btn) {
-    btn.addEventListener("click", function () {
-      var id = btn.getAttribute("data-edit-finding");
+  // Na opslaan vanuit een modal: vanuit het tabblad Bewerken alleen de preview
+  // verversen (soepel); anders de pagina herladen (bestaand gedrag elders).
+  function rbAfterModalSave() {
+    if (window.rbEditContext === "bewerken" && typeof window.rbNotifySaved === "function") {
+      window.rbEditContext = null;
+      window.rbNotifySaved();
+    } else {
+      location.reload();
+    }
+  }
+
+  function openFindingModal(id) {
       if (!findingModal || !findingModalBody) return;
       findingModalBody.innerHTML = '<p class="help">Laden...</p>';
       findingModal.style.display = "flex";
@@ -241,19 +250,27 @@
                 .then(function (d) {
                   if (d.ok) {
                     findingModal.style.display = "none";
-                    location.reload();
+                    rbAfterModalSave();
                   }
                 });
             });
           }
         });
+  }
+
+  document.querySelectorAll("[data-edit-finding]").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      openFindingModal(btn.getAttribute("data-edit-finding"));
     });
   });
+  // Herbruikbaar vanuit het tabblad Bewerken (klik-op-preview).
+  window.openFindingEditorById = openFindingModal;
 
   if (findingModalClose) {
     findingModalClose.addEventListener("click", function () {
       findingModal.style.display = "none";
       findingModalBody.innerHTML = "";
+      window.rbEditContext = null;
     });
   }
 
@@ -262,6 +279,7 @@
       if (e.target === findingModal) {
         findingModal.style.display = "none";
         findingModalBody.innerHTML = "";
+        window.rbEditContext = null;
       }
     });
   }
@@ -291,6 +309,9 @@
   function closeNoteModal() {
     if (noteModal) noteModal.style.display = "none";
   }
+  // Annuleren/sluiten zonder opslaan: Bewerken-context opheffen.
+  if (noteModalCancel) noteModalCancel.addEventListener("click", function () { window.rbEditContext = null; });
+  if (noteModalClose) noteModalClose.addEventListener("click", function () { window.rbEditContext = null; });
 
   // Edit existing note
   document.querySelectorAll("[data-edit-note]").forEach(function (btn) {
@@ -310,6 +331,20 @@
         });
     });
   });
+
+  // Herbruikbaar vanuit het tabblad Bewerken (klik-op-preview).
+  window.openNoteEditorById = function (id) {
+    fetch("/api/notes")
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        var note = null;
+        (d.notes || []).forEach(function (n) { if (String(n.id) === String(id)) note = n; });
+        if (note) openNoteModal(note.id, note.naam, note.uitwerken);
+      });
+  };
+
+  // Herbruikbaar vanuit het tabblad Bewerken: nieuwe notitie.
+  window.openNoteEditorNew = function () { openNoteModal("", "", ""); };
 
   // Add new note
   var btnAddNote = document.getElementById("btn-add-note");
@@ -342,7 +377,7 @@
           .then(function (d) {
             if (d.ok) {
               closeNoteModal();
-              location.reload();
+              rbAfterModalSave();
             }
           });
       } else {
@@ -359,7 +394,7 @@
           .then(function (d) {
             if (d.ok) {
               closeNoteModal();
-              location.reload();
+              rbAfterModalSave();
             }
           });
       }

@@ -121,11 +121,23 @@ class db_instellingen(db.Model):
     rapport_testscope = db.Column(db.String(60), default='blackbox')
     rapport_management_samenvatting = db.Column(db.Text(), default='')
     rapport_algeheel_beeld = db.Column(db.Text(), default='')
+    rapport_modus_operandi = db.Column(db.Text(), default='')
+    # ART-raamwerk (red team): kritieke functies/kroonjuwelen, blue team (detectie
+    # & respons), purple teaming en de verklaring van betrokken partijen.
+    rapport_kritieke_functies = db.Column(db.Text(), default='')
+    rapport_blueteam = db.Column(db.Text(), default='')
+    rapport_purpleteam = db.Column(db.Text(), default='')
+    rapport_verklaring = db.Column(db.Text(), default='')
+    # Lak-galerij: JSON-lijst bestandsnamen die als "gecontroleerd, geen lak nodig"
+    # zijn gemarkeerd (naast de gelakte kopieën in raw/screenshots/lakken/).
+    rapport_lak_gecontroleerd = db.Column(db.Text(), default='[]')
     rapport_legsup_startpunt = db.Column(db.Text(), default='')
     rapport_legsup_privileges = db.Column(db.Text(), default='')
     rapport_legsup_informatie = db.Column(db.Text(), default='')
     rapport_scenarios = db.Column(db.Text(), default='[]')
     rapport_scope_targets = db.Column(db.Text(), default='[]')
+    rapport_begrippen = db.Column(db.Text(), default='[]')  # eigen begrippen/afkortingen (bijlage)
+    rapport_overrides = db.Column(db.Text(), default='{}')  # overschrijvingen van template-teksten (inleiding, ...)
     rapport_logo_path = db.Column(db.String(300), default='')
     rapport_template_variant = db.Column(db.String(20), default='detailed')
     rapport_roe = db.Column(db.Text(), default='')
@@ -260,9 +272,11 @@ _PROJECT_CONFIG_FIELDS = (
     'rapport_titel', 'rapport_auteur', 'rapport_subtitel', 'rapport_project',
     'rapport_omgeving', 'rapport_classificatie', 'rapport_taal', 'rapport_isdraft',
     'rapport_testtype', 'rapport_testscope', 'rapport_management_samenvatting',
-    'rapport_algeheel_beeld',
+    'rapport_algeheel_beeld', 'rapport_modus_operandi', 'rapport_kritieke_functies',
+    'rapport_blueteam', 'rapport_purpleteam', 'rapport_verklaring', 'rapport_lak_gecontroleerd',
     'rapport_legsup_startpunt', 'rapport_legsup_privileges', 'rapport_legsup_informatie',
-    'rapport_scenarios', 'rapport_scope_targets', 'rapport_logo_path',
+    'rapport_scenarios', 'rapport_scope_targets', 'rapport_begrippen',
+    'rapport_overrides', 'rapport_logo_path',
     'rapport_template_variant', 'rapport_roe', 'rapport_test_start_date',
     'rapport_test_end_date', 'rapport_versie', 'rapport_versie_status',
     'rapport_pdf_password', 'rapport_pdf_owner_password',
@@ -291,11 +305,23 @@ class db_opdracht_config(db.Model):
     rapport_testscope = db.Column(db.String(60), default='blackbox')
     rapport_management_samenvatting = db.Column(db.Text(), default='')
     rapport_algeheel_beeld = db.Column(db.Text(), default='')
+    rapport_modus_operandi = db.Column(db.Text(), default='')
+    # ART-raamwerk (red team): kritieke functies/kroonjuwelen, blue team (detectie
+    # & respons), purple teaming en de verklaring van betrokken partijen.
+    rapport_kritieke_functies = db.Column(db.Text(), default='')
+    rapport_blueteam = db.Column(db.Text(), default='')
+    rapport_purpleteam = db.Column(db.Text(), default='')
+    rapport_verklaring = db.Column(db.Text(), default='')
+    # Lak-galerij: JSON-lijst bestandsnamen die als "gecontroleerd, geen lak nodig"
+    # zijn gemarkeerd (naast de gelakte kopieën in raw/screenshots/lakken/).
+    rapport_lak_gecontroleerd = db.Column(db.Text(), default='[]')
     rapport_legsup_startpunt = db.Column(db.Text(), default='')
     rapport_legsup_privileges = db.Column(db.Text(), default='')
     rapport_legsup_informatie = db.Column(db.Text(), default='')
     rapport_scenarios = db.Column(db.Text(), default='[]')
     rapport_scope_targets = db.Column(db.Text(), default='[]')
+    rapport_begrippen = db.Column(db.Text(), default='[]')  # eigen begrippen/afkortingen (bijlage)
+    rapport_overrides = db.Column(db.Text(), default='{}')  # overschrijvingen van template-teksten (inleiding, ...)
     rapport_logo_path = db.Column(db.String(300), default='')
     rapport_template_variant = db.Column(db.String(20), default='detailed')
     rapport_roe = db.Column(db.Text(), default='')
@@ -679,4 +705,33 @@ class db_amsi_preset(db.Model):
     actief = db.Column(db.Boolean, default=True)
     ingebouwd = db.Column(db.Boolean, default=False)          # ingebouwde presets niet verwijderbaar
     volgorde = db.Column(db.Integer, default=99)
+
+
+class db_rapport_boiler(db.Model):
+    """Boilerplate-profiel: een benoemde set standaardteksten voor de
+    rapport-vrije-tekstvelden, met nl+en-variant per veld en optionele koppeling
+    aan een testtype. `data` = JSON {veldnaam: {"nl": str, "en": str}}."""
+    __tablename__ = 'db_rapport_boiler'
+    id = db.Column(db.Integer, primary_key=True)
+    naam = db.Column(db.String(120), default='Standaard')
+    testtype = db.Column(db.String(20), default='')           # '' = beide, 'pentest', 'redteam'
+    is_default = db.Column(db.Boolean, default=False)          # terugval wanneer geen testtype-match
+    volgorde = db.Column(db.Integer, default=0)
+    data = db.Column(db.Text(), default='{}')
+    created_at = db.Column(db.DateTime, default=nu_utc)
+    updated_at = db.Column(db.DateTime, default=nu_utc, onupdate=nu_utc)
+
+
+class db_rapport_snippet(db.Model):
+    """Herbruikbaar tekstblok dat in elk rapport-vrije-tekstveld kan worden
+    ingevoegd (RoE-clausules, methodologie-alinea's, verklaring-formules)."""
+    __tablename__ = 'db_rapport_snippet'
+    id = db.Column(db.Integer, primary_key=True)
+    titel = db.Column(db.String(160), default='')
+    categorie = db.Column(db.String(80), default='')
+    taal = db.Column(db.String(5), default='')                # '' = beide
+    tekst = db.Column(db.Text(), default='')
+    volgorde = db.Column(db.Integer, default=0)
+    created_at = db.Column(db.DateTime, default=nu_utc)
+    updated_at = db.Column(db.DateTime, default=nu_utc, onupdate=nu_utc)
 

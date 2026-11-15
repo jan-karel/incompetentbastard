@@ -11,10 +11,41 @@
 \RequirePackage{array}
 \RequirePackage{tabularx}
 \RequirePackage{hyperref}
+\RequirePackage{csquotes}% \begin{displayquote} in vrije tekstvelden (samenvatting e.d.)
+% Blokstijl voor alinea's: een witregel in de bron wordt zichtbaar als
+% alinea-afstand (i.p.v. de standaard article-inspring zonder witruimte).
+% Geldt voor het hele rapport (bevindingen, notities, scenario's, vrije velden).
+\RequirePackage{parskip}
 \RequirePackage{tikz}
 \usetikzlibrary{shadows.blur}
 \RequirePackage[most]{tcolorbox}
 \tcbuselibrary{skins,breakable}
+
+% Rapport-lettertype: Helvetica. Op systemen zonder Helvetica valt het terug op
+% een metrisch gelijke Helvetica-kloon (TeX Gyre Heros, altijd in TeX Live), of
+% als laatste op Latin Modern Sans. Een eigen template kan dit overschrijven.
+\RequirePackage{fontspec}
+\IfFontExistsTF{Helvetica}{%
+  \setmainfont{Helvetica}\setsansfont{Helvetica}%
+}{\IfFontExistsTF{Helvetica Neue}{%
+  \setmainfont{Helvetica Neue}\setsansfont{Helvetica Neue}%
+}{\IfFontExistsTF{TeX Gyre Heros}{%
+  \setmainfont{TeX Gyre Heros}\setsansfont{TeX Gyre Heros}%
+}{%
+  \renewcommand{\familydefault}{\sfdefault}%
+}}}
+
+% Float-plaatsing: sterke voorkeur voor "here" (afbeeldingen pal bij hun tekst),
+% maar floats MOGEN zweven om lelijke witruimte/overfull te voorkomen. Figures
+% gebruiken [!htbp]; onderstaande parameters maken LaTeX veel bereidwilliger om
+% de float op de huidige pagina te plaatsen i.p.v. door te schuiven.
+\setcounter{topnumber}{4}
+\setcounter{bottomnumber}{4}
+\setcounter{totalnumber}{8}
+\renewcommand{\topfraction}{0.95}
+\renewcommand{\bottomfraction}{0.95}
+\renewcommand{\textfraction}{0.05}
+\renewcommand{\floatpagefraction}{0.7}
 
 % -------------------------------------------------- %
 % Kleuren (identiek aan colors.sty)                  %
@@ -105,10 +136,14 @@
 % tabular-cel (daar lopen itemize/description/lstlisting mank), maar als
 % gewone documentstroom. Alleen de metadata zit in een gekleurde tabel.
 %
-% \ibfindinghead{ID}{Titel}{CVSS}{Categorie}{CWE}{NCSC}
+% Kop van de 6e metadatakolom (normatieve referentie). Standaard "NCSC"; een
+% red team-rapport zet deze op "ATT&CK" via \renewcommand{\ibnormlabel}{ATT\&CK}
+% en geeft dan de MITRE ATT&CK-techniek (bv. T1021) als 6e argument mee.
+\providecommand{\ibnormlabel}{NCSC}
+% \ibfindinghead{ID}{Titel}{CVSS}{Categorie}{CWE}{NCSC|ATT&CK}
 %   -> subsectie + label + compacte metadata-tabel
-%      (ID | CATEGORIE | PRIORITEIT | CWE | CVSS). PRIORITEIT-cel gekleurd naar
-%      severity met contrasterende tekstkleur. Body volgt in de template.
+%      (ID | CATEGORIE | PRIORITEIT | CWE | \ibnormlabel | CVSS). PRIORITEIT-cel
+%      gekleurd naar severity met contrasterende tekstkleur. Body volgt in de template.
 \newcommand{\ibfindinghead}[6]{%
   \ibseveritycolor{#3}%
   \subsubsection{#2}%
@@ -118,7 +153,7 @@
    \renewcommand{\arraystretch}{1.3}%
    \noindent\begin{tabularx}{\textwidth}{|c|X|c|c|c|c|}
      \hline
-     \rowcolor{rijkblauw}\textcolor{white}{\textbf{\small ID}} & \textcolor{white}{\textbf{\small CATEGORIE}} & \textcolor{white}{\textbf{\small PRIORITEIT}} & \textcolor{white}{\textbf{\small CWE}} & \textcolor{white}{\textbf{\small NCSC}} & \textcolor{white}{\textbf{\small CVSS}}\\
+     \rowcolor{rijkblauw}\textcolor{white}{\textbf{\small ID}} & \textcolor{white}{\textbf{\small CATEGORIE}} & \textcolor{white}{\textbf{\small PRIORITEIT}} & \textcolor{white}{\textbf{\small CWE}} & \textcolor{white}{\textbf{\small \ibnormlabel}} & \textcolor{white}{\textbf{\small CVSS}}\\
      \hline
      \cellcolor{olightgray}#1 & \cellcolor{olightgray}\small #4 & \cellcolor{\ibcurrentcolor}\textbf{\textcolor{\ibcurrenttextcolor}{\ibseveritylabel{#3}}} & \cellcolor{olightgray}#5 & \cellcolor{olightgray}\small #6 & \cellcolor{olightgray}#3\\
      \hline
@@ -274,7 +309,7 @@
 % Kiest op basis van \weglakken de juiste afbeelding; in de gelakte build nooit
 % het origineel (bij ontbrekende lakpad -> \iblakplaceholder).
 \newcommand{\ibfiguur}[3]{%
-  \begin{figure}[htbp]
+  \begin{figure}[!htbp]
     \centering
     \ifthenelse{\equal{\weglakken}{true}}{%
       \IfFileExists{#2}{\ib@grx{#2}}{\iblakplaceholder}%
@@ -298,12 +333,22 @@
 % evidence/ kunnen staan. We zoeken beide bronnen af (compile-cwd = rapport/,
 % dus ../raw/screenshots/). In de gelakte build komt de gelakte kopie uit de
 % lakken/-submap van dezelfde bron; ontbreekt die -> veilige [GELAKT]-placeholder.
+% Afbeeldingen die als "gecontroleerd, geen lak nodig" zijn gemarkeerd. De
+% generator injecteert in de GELAKTE build \ibcontrolled{bestand} per zulke
+% afbeelding; daarvan tonen we dan het ORIGINEEL i.p.v. een [GELAKT]-placeholder.
+\newcommand{\ibcontrolled}[1]{\expandafter\gdef\csname ibctl#1\endcsname{1}}
 \newcommand{\plaatje}[2]{%
-  \begin{figure}[htbp]
+  \begin{figure}[!htbp]
     \centering
     \ifthenelse{\equal{\weglakken}{true}}{%
       \IfFileExists{../raw/screenshots/lakken/#1}{\ib@grx{../raw/screenshots/lakken/#1}}{%
-        \IfFileExists{evidence/lakken/#1}{\ib@grx{evidence/lakken/#1}}{\iblakplaceholder}}%
+        \IfFileExists{evidence/lakken/#1}{\ib@grx{evidence/lakken/#1}}{%
+          \ifcsname ibctl#1\endcsname
+            \IfFileExists{../raw/screenshots/#1}{\ib@grx{../raw/screenshots/#1}}{%
+              \IfFileExists{evidence/#1}{\ib@grx{evidence/#1}}{\iblakplaceholder}}%
+          \else
+            \iblakplaceholder
+          \fi}}%
     }{%
       \IfFileExists{../raw/screenshots/#1}{\ib@grx{../raw/screenshots/#1}}{%
         \IfFileExists{evidence/#1}{\ib@grx{evidence/#1}}{\textit{[bestand niet gevonden: #1]}}}%

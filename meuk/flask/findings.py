@@ -493,16 +493,30 @@ def redact_enabled():
     return getattr(_redact_state, 'on', False)
 
 
+def redact_controlled():
+    """Bestandsnamen die als 'gecontroleerd (geen lak nodig)' zijn gemarkeerd:
+    daarvan tonen we in redactiemodus het origineel i.p.v. een [GELAKT]-blok."""
+    return getattr(_redact_state, 'controlled', None) or frozenset()
+
+
 class redact_mode:
-    """Context manager: binnen dit blok vertaalt de markup \\lakken{} naar blokken."""
+    """Context manager: binnen dit blok vertaalt de markup \\lakken{} naar blokken.
+    `controlled` = bestandsnamen die als gecontroleerd zijn gemarkeerd (origineel
+    tonen i.p.v. [GELAKT])."""
+
+    def __init__(self, controlled=None):
+        self._controlled = frozenset(controlled or ())
 
     def __enter__(self):
         self._prev = getattr(_redact_state, 'on', False)
+        self._prev_ctl = getattr(_redact_state, 'controlled', None)
         _redact_state.on = True
+        _redact_state.controlled = self._controlled
         return self
 
     def __exit__(self, *exc):
         _redact_state.on = self._prev
+        _redact_state.controlled = self._prev_ctl
         return False
 
 
@@ -555,10 +569,13 @@ def _plaatje_bronpad(naam):
     base = os.path.basename((naam or '').strip())
     if not base:
         return None, False
+    orig = os.path.join(_SCREENSHOT_DIR_REPORT, base)
     if redact_enabled():
+        # Gecontroleerd (geen lak nodig): toon het origineel.
+        if base in redact_controlled():
+            return (orig, False) if os.path.isfile(orig) else (None, True)
         lak = os.path.join(_SCREENSHOT_DIR_REPORT, 'lakken', base)
         return (lak, False) if os.path.isfile(lak) else (None, True)
-    orig = os.path.join(_SCREENSHOT_DIR_REPORT, base)
     return (orig, False) if os.path.isfile(orig) else (None, False)
 
 
@@ -567,12 +584,16 @@ def _mk_image_html(naam, caption_nodes):
     cap_plain = _html_esc(_mk_inline_plain(caption_nodes).strip())
     figcap = ('<figcaption style="font-size:12px;color:#555;font-style:italic;'
               'margin-top:4px">%s</figcaption>' % cap_html) if cap_html else ''
+    # Bestandsnaam meegeven zodat het tabblad Bewerken de juiste afbeelding in de
+    # lak-editor kan openen (onschadelijk buiten de bewerk-modus).
+    _imgname = _html_esc(os.path.basename((naam or '').strip()))
+    _imgattr = ' data-img-name="%s"' % _imgname
     pad, gelakt = _plaatje_bronpad(naam)
     if gelakt:
-        return ('<figure style="margin:12px 0;text-align:center">'
+        return ('<figure style="margin:12px 0;text-align:center"%s>'
                 '<div style="display:inline-block;background:#000;color:#fff;'
                 'padding:24px 40px;font-weight:bold;border-radius:4px">[GELAKT]</div>'
-                '%s</figure>' % figcap)
+                '%s</figure>' % (_imgattr, figcap))
     if not pad:
         return '<p><em>[bestand niet gevonden: %s]</em></p>' % _html_esc(
             os.path.basename((naam or '').strip()))
@@ -585,10 +606,10 @@ def _mk_image_html(naam, caption_nodes):
     except OSError:
         return '<p><em>[bestand niet gevonden: %s]</em></p>' % _html_esc(
             os.path.basename((naam or '').strip()))
-    return ('<figure style="margin:12px 0;text-align:center">'
+    return ('<figure style="margin:12px 0;text-align:center"%s>'
             '<img src="data:%s;base64,%s" alt="%s" '
             'style="max-width:100%%;height:auto;border:1px solid #ccc;border-radius:4px" />'
-            '%s</figure>' % (mime, data, cap_plain, figcap))
+            '%s</figure>' % (_imgattr, mime, data, cap_plain, figcap))
 
 
 def _mk_image_md(naam, caption_nodes):

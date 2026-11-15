@@ -5,7 +5,7 @@ from flask import Blueprint, request, send_file, jsonify, render_template, Respo
 from jinja2 import Environment, FileSystemLoader, StrictUndefined
 from jinja2 import TemplateError, TemplateSyntaxError, UndefinedError
 from markupsafe import escape as html_escape
-from meuk.flask.models import db_bevindingen, db_bevindingen_templates, db_evidence, db_notes, db, db_finding_related, db_instellingen, db_checklist, db_rapport_template, db_opdracht_config, db_asset, db_asset_anchor
+from meuk.flask.models import db_bevindingen, db_bevindingen_templates, db_evidence, db_notes, db, db_finding_related, db_instellingen, db_checklist, db_rapport_template, db_opdracht_config, db_asset, db_asset_anchor, db_opdracht
 from meuk.flask.findings import (_cvss_to_severity, _latex_escape, _latex_markup,
                                   _html_markup, _md_markup, _plain_markup,
                                   owasptop10, _get_appdata, redact_mode,
@@ -15,6 +15,7 @@ import datetime
 import difflib
 import hashlib
 import html as html_mod
+import contextlib
 import json
 import math
 import os
@@ -33,10 +34,147 @@ rapport_bp = Blueprint('rapport_bp', __name__,
 _async_runs = {}
 _async_lock = threading.Lock()
 
+# Serialiseer rapportgeneratie: één build tegelijk. Gelijktijdige builds schrijven
+# anders tegelijk naar rapport/rapport.tex (interleaved writes -> NULL-bytes ->
+# "Text line contains an invalid character" + corrupte PDF). _gen_thread_lock
+# serialiseert threads binnen dit proces; de flock op rapport/.genlock serialiseert
+# ook tussen processen (meerdere app-instances op dezelfde projectmap).
+_gen_thread_lock = threading.Lock()
+
+
+@contextlib.contextmanager
+def _report_gen_guard():
+    """Exclusieve toegang tot de rapport/-uitvoermap tijdens een build."""
+    try:
+        os.makedirs(_RAPPORT_DIR, exist_ok=True)
+    except OSError:
+        pass
+    with _gen_thread_lock:
+        _lf = None
+        try:
+            import fcntl
+            _lf = open(os.path.join(_RAPPORT_DIR, '.genlock'), 'w')
+            fcntl.flock(_lf, fcntl.LOCK_EX)
+        except (OSError, ImportError, AttributeError):
+            _lf = None
+        try:
+            yield
+        finally:
+            if _lf is not None:
+                try:
+                    import fcntl
+                    fcntl.flock(_lf, fcntl.LOCK_UN)
+                except (OSError, ImportError, AttributeError):
+                    pass
+                try:
+                    _lf.close()
+                except OSError:
+                    pass
+
 
 @rapport_bp.before_request
 def _check_dashboard_access():
     require_dashboard_access()
+
+
+# ---------------------------------------------------------------------------
+# Vrije tekstvelden (managementsamenvatting / algeheel beeld / modus operandi):
+# de operator schrijft hier ECHTE LaTeX (displayquote, \\, \footnote, \textbf...).
+# Die wordt als rauwe LaTeX in de PDF gezet (csquotes e.d. zijn geladen in
+# rapport.sty); voor HTML/DOCX een lichte, veilige LaTeX->opmaak-conversie.
+# ---------------------------------------------------------------------------
+
+def _vrij_latex_pdf(s):
+    """Rauwe LaTeX voor de PDF, met opschoning van losse \\ aan een alineagrens
+    (die geven 'There's no line here to end'). Interne regelbreuk-\\ blijft.
+
+    Alinea-afstand komt nu van de globale blokstijl (parskip in rapport.sty); een
+    witregel in de bron wordt zo zichtbaar als alinea-afstand."""
+    if not s:
+        return ''
+    s = s.replace('\r\n', '\n')
+    for _ in range(3):
+        s = _re.sub(r'\\\\[ \t]*(?=\n[ \t]*\n)', '', s)   # \\ net vóór lege regel
+        s = _re.sub(r'(?<=\n\n)[ \t]*\\\\[ \t]*', '', s)  # \\ net ná lege regel
+    s = _re.sub(r'^\s*\\\\', '', s)
+    s = _re.sub(r'\\\\[ \t]*$', '', s)
+    return s.strip('\n')
+
+
+def _vrij_latex_naar_opmaak(s, fmt):
+    """Lichte LaTeX->HTML/Markdown conversie voor vrije tekstvelden én notities:
+    rendert \\plaatje (afbeeldingen), \\textbf/\\textit/\\texttt, \\footnote,
+    \\url, quote/displayquote en \\\\ i.p.v. rauwe LaTeX te tonen."""
+    if not s:
+        return ''
+    from markupsafe import escape as _esc
+    from meuk.flask.findings import _mk_image_md, _mk_image_html
+    s = s.replace('\r\n', '\n')
+    # \plaatje{bestand}{caption} -> afbeelding (eigen alinea), beschermd tegen de
+    # generieke \cmd-opschoning hieronder via een sentinel.
+    _imgs = []
+
+    def _img_sub(m):
+        fn = (m.group(1) or '').strip()
+        cap = (m.group(2) or '').strip()
+        capnodes = [('text', cap)] if cap else []
+        _imgs.append(_mk_image_md(fn, capnodes) if fmt == 'md'
+                     else _mk_image_html(fn, capnodes))
+        return '\n\n\x01IMG%d\x02\n\n' % (len(_imgs) - 1)
+    s = _re.sub(r'\\plaatje\s*\{([^{}]+)\}\s*\{([^{}]*)\}', _img_sub, s)
+    # quote/displayquote -> blok
+    s = _re.sub(r'\\begin\{(?:display)?quote\}(.*?)\\end\{(?:display)?quote\}',
+                lambda m: '\n\n\x01BQ\x02' + m.group(1).strip() + '\x01/BQ\x02\n\n',
+                s, flags=_re.S)
+    s = _re.sub(r'\\footnote\{([^{}]*)\}', r' (\1)', s)
+    s = _re.sub(r'\\url\{([^{}]*)\}', r'\1', s)
+    s = _re.sub(r'\\(?:textbf|textsc)\s*\{([^{}]*)\}', '\x01B\x02' + r'\1' + '\x01/B\x02', s)
+    s = _re.sub(r'\\(?:textit|emph)\s*\{([^{}]*)\}', '\x01I\x02' + r'\1' + '\x01/I\x02', s)
+    s = _re.sub(r'\\texttt\s*\{([^{}]*)\}', '\x01C\x02' + r'\1' + '\x01/C\x02', s)
+    s = s.replace('\\\\', '\x01BR\x02')                    # regelbreuk
+    s = _re.sub(r'\\[a-zA-Z]+\*?\s*\{([^{}]*)\}', r'\1', s)  # overige \cmd{x} -> x
+    s = _re.sub(r'\\[a-zA-Z]+\*?', '', s)                    # losse \cmd -> weg
+    s = _re.sub(r'\\([%&_#$~^])', r'\1', s)                  # ont-escape specials
+    paras = [p.strip() for p in _re.split(r'\n[ \t]*\n', s) if p.strip()]
+    out = []
+    _imgre = _re.compile(r'^\x01IMG(\d+)\x02$')
+    if fmt == 'html':
+        def _tags(t):
+            t = str(_esc(t))
+            for a, b in (('\x01BQ\x02', ''), ('\x01/BQ\x02', ''),
+                         ('\x01B\x02', '<strong>'), ('\x01/B\x02', '</strong>'),
+                         ('\x01I\x02', '<em>'), ('\x01/I\x02', '</em>'),
+                         ('\x01C\x02', '<code>'), ('\x01/C\x02', '</code>'),
+                         ('\x01BR\x02', '<br>')):
+                t = t.replace(a, b)
+            return t
+        for p in paras:
+            _m = _imgre.match(p)
+            if _m:
+                out.append(_imgs[int(_m.group(1))])
+            elif p.startswith('\x01BQ\x02'):
+                out.append('<blockquote>%s</blockquote>' % _tags(p).replace('\n', '<br>'))
+            else:
+                out.append('<p>%s</p>' % _tags(p).replace('\n', '<br>'))
+        return '\n'.join(out)
+    # markdown
+    def _md(t):
+        for a, b in (('\x01BQ\x02', ''), ('\x01/BQ\x02', ''),
+                     ('\x01B\x02', '**'), ('\x01/B\x02', '**'),
+                     ('\x01I\x02', '*'), ('\x01/I\x02', '*'),
+                     ('\x01C\x02', '`'), ('\x01/C\x02', '`'),
+                     ('\x01BR\x02', '  \n')):
+            t = t.replace(a, b)
+        return t
+    for p in paras:
+        _m = _imgre.match(p)
+        if _m:
+            out.append(_imgs[int(_m.group(1))])
+        elif p.startswith('\x01BQ\x02'):
+            out.append('\n'.join('> ' + ln for ln in _md(p).split('\n')))
+        else:
+            out.append(_md(p))
+    return '\n\n'.join(out)
 
 
 # ---------------------------------------------------------------------------
@@ -198,11 +336,27 @@ _T = {
         'privilege_niveaus': 'Privilege Niveaus',
         'verstrekte_info': 'Verstrekte Informatie',
         'scenarios': "Scenario's",
+        'modus_operandi': 'Modus operandi',
+        'kritieke_functies': 'Kritieke functies',
+        'blueteam': 'Blue team — detectie & respons',
+        'purpleteam': 'Purple teaming',
+        'verklaring': 'Verklaring',
         'bevindingen_label': 'bevindingen',
         'pentest_intro': 'Dit rapport bevat de bevindingen van de penetratietest uitgevoerd op {project}. Het doel was het identificeren van kwetsbaarheden die de vertrouwelijkheid, integriteit en beschikbaarheid van de systemen kunnen aantasten.',
         'redteam_intro': 'Dit rapport bevat de bevindingen van het red team assessment uitgevoerd op {project}. Het doel was het simuleren van een realistische aanval om de detectie- en responscapaciteiten van de organisatie te evalueren, evenals het identificeren van kwetsbaarheden in mensen, processen en technologie.',
         'pentest_methode': 'De penetratietest is uitgevoerd conform de OWASP Testing Guide en PTES (Penetration Testing Execution Standard). De test bestond uit de volgende fasen:',
         'redteam_methode': 'Het red team assessment is uitgevoerd conform het MITRE ATT&amp;CK framework en de Cyber Kill Chain. De test bestond uit de volgende fasen:',
+        'tools_titel': 'Tools en technieken',
+        'tools_intro': 'Voor dit onderzoek is gebruik gemaakt van Incompetent Bastard, een opensourceproject dat ondersteuning biedt bij beveiligingsonderzoeken. Daarnaast zijn de volgende tools ingezet:',
+        'tools_lijst': [
+            ('Nmap', 'Netwerk discovery en poortscan'),
+            ('Burp Suite', 'Webapplicatie beveiligingstesten'),
+            ('Metasploit Framework', 'Exploit ontwikkeling en uitvoering'),
+            ('BloodHound', 'Active Directory aanvalspad-analyse'),
+            ('CrackMapExec', 'Netwerk penetratietesten'),
+            ('Impacket', 'Netwerkprotocol interactie'),
+        ],
+        'tools_outro': 'De specifieke tools die worden ingezet kunnen varieren afhankelijk van de scope en aard van het onderzoek. Alle tools worden ingezet conform de overeengekomen Rules of Engagement.',
         'pentest_fasen': [
             ('Verkenning', 'Informatie verzamelen over de doelomgeving'),
             ('Scanning', 'Diensten en kwetsbaarheden identificeren'),
@@ -222,6 +376,7 @@ _T = {
         'scope_blackbox': 'De test is (deels) uitgevoerd als black box assessment. De testers hadden vooraf geen informatie over de interne werking, broncode of architectuur van de doelomgeving. Dit simuleert het perspectief van een externe aanvaller.',
         'scope_greybox': 'De test is (deels) uitgevoerd als grey box assessment. De testers hadden beperkte informatie, zoals netwerktopologie, gebruikersaccounts of API-documentatie. Dit simuleert een aanvaller met beperkte interne kennis.',
         'scope_whitebox': 'De test is (deels) uitgevoerd als white box assessment. De testers hadden volledige toegang tot broncode, architectuurdocumentatie en configuraties. Dit maakt een grondige analyse mogelijk van alle beveiligingslagen.',
+        'scope_assumebreach': 'De test is (deels) uitgevoerd vanuit een assume breach-scenario. Er is uitgegaan van een reeds gecompromitteerd startpunt binnen de omgeving (bijv. een werkplek of account), zodat de nadruk ligt op laterale beweging, rechtenescalatie en detectie- en responscapaciteiten in plaats van op het verkrijgen van initiele toegang.',
     },
     'en': {
         'classificatie': 'Classification',
@@ -244,11 +399,27 @@ _T = {
         'privilege_niveaus': 'Privilege Levels',
         'verstrekte_info': 'Provided Information',
         'scenarios': 'Scenarios',
+        'modus_operandi': 'Modus operandi',
+        'kritieke_functies': 'Critical functions',
+        'blueteam': 'Blue team — detection & response',
+        'purpleteam': 'Purple teaming',
+        'verklaring': 'Declaration',
         'bevindingen_label': 'findings',
         'pentest_intro': 'This report contains the findings of the penetration test performed on {project}. The objective was to identify vulnerabilities that could compromise the confidentiality, integrity and availability of the systems.',
         'redteam_intro': 'This report contains the findings of the red team assessment performed on {project}. The objective was to simulate a realistic attack to evaluate the detection and response capabilities of the organisation, as well as to identify vulnerabilities in people, processes and technology.',
         'pentest_methode': 'The penetration test was performed in accordance with the OWASP Testing Guide and PTES (Penetration Testing Execution Standard). The test consisted of the following phases:',
         'redteam_methode': 'The red team assessment was performed in accordance with the MITRE ATT&amp;CK framework and the Cyber Kill Chain. The test consisted of the following phases:',
+        'tools_titel': 'Tools and Techniques',
+        'tools_intro': 'For this assessment, use was made of Incompetent Bastard, an open-source project that provides support for security assessments. In addition, the following tools were used:',
+        'tools_lijst': [
+            ('Nmap', 'Network discovery and port scanning'),
+            ('Burp Suite', 'Web application security testing'),
+            ('Metasploit Framework', 'Exploit development and execution'),
+            ('BloodHound', 'Active Directory attack path analysis'),
+            ('CrackMapExec', 'Network penetration testing'),
+            ('Impacket', 'Network protocol interaction'),
+        ],
+        'tools_outro': 'The specific tools used may vary depending on the scope and nature of the assessment. All tools are used in accordance with the agreed Rules of Engagement.',
         'pentest_fasen': [
             ('Reconnaissance', 'Gather information about the target environment'),
             ('Scanning', 'Identify services and vulnerabilities'),
@@ -268,6 +439,7 @@ _T = {
         'scope_blackbox': 'The test was (partially) performed as a black box assessment. The testers had no prior information about the internal workings, source code or architecture of the target environment. This simulates the perspective of an external attacker.',
         'scope_greybox': 'The test was (partially) performed as a grey box assessment. The testers had limited information, such as network topology, user accounts or API documentation. This simulates an attacker with limited internal knowledge.',
         'scope_whitebox': 'The test was (partially) performed as a white box assessment. The testers had full access to source code, architecture documentation and configurations. This allows for a thorough analysis of all security layers.',
+        'scope_assumebreach': 'The test was (partially) performed from an assume breach scenario. An already-compromised starting point within the environment (e.g. a workstation or account) was assumed, so the focus is on lateral movement, privilege escalation and detection and response capabilities rather than on obtaining initial access.',
     },
 }
 
@@ -436,6 +608,13 @@ def _build_rapport_appendices(findings, taal='nl'):
         'ncsc': (_ncsc(f['ncsc']) if f.get('ncsc') else '-'),
     } for f in findings if f.get('ncsc')]
 
+    # MITRE ATT&CK-mapping (red team): zelfde vorm als ncsc_rows, maar met de
+    # ATT&CK-techniek (bv. T1021) van de gekoppelde standaardbevinding.
+    mitre_rows = [{
+        'id': str(f['nr']).zfill(3), 'titel': f['titel'],
+        'mitre': f.get('mitre') or '-',
+    } for f in findings if f.get('mitre')]
+
     # ISO 27001 / BIO / NIS2-mapping (afgeleid van CWE via OWASP-categorie)
     controls_rows = []
     for f in findings:
@@ -523,6 +702,7 @@ def _build_rapport_appendices(findings, taal='nl'):
         'sla_rows': sla_rows,
         'owasp_rows': owasp_rows,
         'ncsc_rows': ncsc_rows,
+        'mitre_rows': mitre_rows,
         'controls_rows': controls_rows,
         'detection_tally': det_tally,
         'detection_label': det_label,
@@ -1190,7 +1370,7 @@ def _key_findings(findings, taal='nl', severities=('critical', 'high'), max_item
     return rows
 
 
-def _key_findings_html(rows, taal='nl'):
+def _key_findings_html(rows, taal='nl', edit_mode=False):
     if not rows:
         return ''
     _en = taal == 'en'
@@ -1200,7 +1380,9 @@ def _key_findings_html(rows, taal='nl'):
     parts = ['<h3 style="margin-top:14px">{}</h3>'.format(html_escape(kop))]
     for r in rows:
         col = _KEY_SEV_HEX.get(r['severity'], '#475467')
-        parts.append('<div style="margin:0 0 10px">')
+        _attr = (' data-ed-type="finding" data-ed-key="%s" class="rb-ed"'
+                 % html_escape(str(r.get('id', '')))) if edit_mode and r.get('id') else ''
+        parts.append('<div style="margin:0 0 10px"%s>' % _attr)
         parts.append('<div style="font-weight:700">{} <span style="color:{};font-size:11px">&mdash; {}</span></div>'
                      .format(html_escape(r['titel']), col, html_escape(r['severity_label'])))
         if r['impact_kort']:
@@ -1308,6 +1490,9 @@ def gen_rapport():
 
     # Taal ophalen
     taal = (getattr(s, 'rapport_taal', '') if s else '') or 'nl'
+    # Preview mag de taal tijdelijk overschrijven (taal-wissel in tabblad Bewerken).
+    if request.args.get('preview') == '1' and request.args.get('taal') in ('nl', 'en'):
+        taal = request.args.get('taal')
 
     # Bouw findings data
     findings = _build_findings_data(base_query, taal=taal)
@@ -1349,6 +1534,11 @@ def gen_rapport():
     testscope = (getattr(s, 'rapport_testscope', '') if s else '') or 'blackbox'
     testscopes = [t.strip() for t in testscope.split(',') if t.strip()]
     algeheel_beeld = (getattr(s, 'rapport_algeheel_beeld', '') if s else '') or ''
+    modus_operandi = (getattr(s, 'rapport_modus_operandi', '') if s else '') or ''
+    kritieke_functies = (getattr(s, 'rapport_kritieke_functies', '') if s else '') or ''
+    blueteam = (getattr(s, 'rapport_blueteam', '') if s else '') or ''
+    purpleteam = (getattr(s, 'rapport_purpleteam', '') if s else '') or ''
+    verklaring = (getattr(s, 'rapport_verklaring', '') if s else '') or ''
     management_samenvatting = (getattr(s, 'rapport_management_samenvatting', '') if s else '') or ''
     if not management_samenvatting.strip():
         management_samenvatting = _auto_management_samenvatting(counts, len(findings), taal)
@@ -1381,6 +1571,19 @@ def gen_rapport():
         rapport_distributie = json.loads((getattr(s, 'rapport_distributie', '[]') if s else '[]') or '[]')
     except (json.JSONDecodeError, TypeError):
         rapport_distributie = []
+    try:
+        rapport_begrippen = json.loads((getattr(s, 'rapport_begrippen', '[]') if s else '[]') or '[]')
+    except (json.JSONDecodeError, TypeError):
+        rapport_begrippen = []
+    try:
+        _overrides = json.loads((getattr(s, 'rapport_overrides', '{}') if s else '{}') or '{}')
+        if not isinstance(_overrides, dict):
+            _overrides = {}
+    except (json.JSONDecodeError, TypeError):
+        _overrides = {}
+    ov_inleiding = (_overrides.get('inleiding') or '').strip()
+    ov_methodologie = (_overrides.get('methodologie') or '').strip()
+    ov_tools = (_overrides.get('tools') or '').strip()
     datum = datetime.date.today().strftime('%d-%m-%Y')
     tlp_latex, tlp_html_bg, tlp_html_fg = _TLP_MAP.get(classificatie, ('tlpred', '#FF2B2B', '#ffffff'))
 
@@ -1409,21 +1612,29 @@ def gen_rapport():
         rapport_contact=rapport_contact,
         rapport_revisies=rapport_revisies,
         rapport_distributie=rapport_distributie,
+        rapport_begrippen=rapport_begrippen,
+        rapport_inleiding=ov_inleiding,
+        rapport_methodologie=ov_methodologie,
+        rapport_tools=ov_tools,
     )
 
     # Live preview: alleen de HTML teruggeven (geen xelatex/docx/stix)
     if request.args.get('preview') == '1':
         from flask import g as _g
         _g.report_preview = True  # relaxte CSP: inline styles in zelf-gegenereerde HTML
+        if request.args.get('edit') == '1':
+            _g.report_preview_edit = True  # sta het eigen edit-script toe (klik-op-preview)
         html = _generate_html_preview(
             findings, grouped, counts, titel, auteur, subtitel, datum,
             classificatie, is_draft, notes_data, tlp_html_bg, tlp_html_fg,
             management_samenvatting=management_samenvatting, testtype=testtype,
             testscope=testscope, testscopes=testscopes, digid_knockout=digid_ko,
-            key_findings=key_findings, algeheel_beeld=algeheel_beeld,
+            key_findings=key_findings, algeheel_beeld=algeheel_beeld, modus_operandi=modus_operandi, kritieke_functies=kritieke_functies, blueteam=blueteam, purpleteam=purpleteam, verklaring=verklaring,
             legsup_startpunt=legsup_startpunt, legsup_privileges=legsup_privileges,
             legsup_informatie=legsup_informatie, scenarios=scenarios, taal=taal,
-            scope_targets=scope_targets, checklists=checklists_data, **_extra_kwargs)
+            scope_targets=scope_targets, checklists=checklists_data,
+            edit_mode=(request.args.get('edit') == '1'),
+            show_disabled=(request.args.get('showoff', '1') == '1'), **_extra_kwargs)
         return Response(html, mimetype='text/html')
 
     # --- Render LaTeX via Jinja2 met aangepaste delimiters ---
@@ -1485,10 +1696,18 @@ def gen_rapport():
         testtype=testtype,
         testscope=testscope,
         testscopes=testscopes,
-        management_samenvatting=_latex_escape(management_samenvatting),
+        management_samenvatting=_vrij_latex_pdf(management_samenvatting),
         digid_knockout_tex=_digid_knockout_latex(digid_ko, taal=taal),
         key_findings_tex=_key_findings_latex(key_findings, taal=taal),
-        algeheel_beeld=_latex_escape(algeheel_beeld),
+        algeheel_beeld=_vrij_latex_pdf(algeheel_beeld),
+        modus_operandi=_vrij_latex_pdf(modus_operandi),
+        kritieke_functies=_vrij_latex_pdf(kritieke_functies),
+        blueteam=_vrij_latex_pdf(blueteam),
+        purpleteam=_vrij_latex_pdf(purpleteam),
+        verklaring=_vrij_latex_pdf(verklaring),
+        rapport_inleiding=_vrij_latex_pdf(ov_inleiding),
+        rapport_methodologie=_vrij_latex_pdf(ov_methodologie),
+        rapport_tools=_vrij_latex_pdf(ov_tools),
         legsup_startpunt=legsup_startpunt,
         legsup_privileges=legsup_privileges,
         legsup_informatie=legsup_informatie,
@@ -1499,7 +1718,7 @@ def gen_rapport():
         detect_labels=_DETECT_LABELS,
         begrippen_rows=[{'term': _latex_escape(r['term']),
                          'definitie': _latex_escape(r['definitie'])}
-                        for r in _begrippen_rows(taal)],
+                        for r in _begrippen_rows(taal, rapport_begrippen)],
         beperkingen_lines=[_latex_escape(x) for x in _beperkingen_lines(
             taal, testtype=testtype, testscope=testscope, test_start=test_start_str,
             test_end=test_end_str, rapport_omgeving=rapport_omgeving)],
@@ -1544,6 +1763,19 @@ def gen_rapport():
     except ImportError:
         _have_pikepdf = False
     use_special = encrypt and not _have_pikepdf
+
+    # Wis stale LaTeX-tussenbestanden vóór de build. Een eerder afgebroken
+    # xelatex (kill/timeout/gelijktijdige build) laat een half-geschreven
+    # .aux/.out achter (vol NULL-bytes); xelatex leest die bij de volgende run
+    # en faalt met "Text line contains an invalid character" + corrupte PDF.
+    for _job in ('rapport', 'rapport_gelakt'):
+        for _ext in ('aux', 'out', 'toc', 'lof', 'lot', 'idx', 'nav', 'snm'):
+            try:
+                _stale = os.path.join(_RAPPORT_DIR, '%s.%s' % (_job, _ext))
+                if os.path.exists(_stale):
+                    os.remove(_stale)
+            except OSError:
+                pass
 
     # Schrijf .tex bestand. De \special met wachtwoorden gaat ALLEEN in de te
     # compileren variant, nooit in de bewaarde rapport.tex of versie-snapshots.
@@ -1630,7 +1862,12 @@ def gen_rapport():
     # iets te lakken valt. Zonder redactiemacro's én zonder gelakte evidence-kopie
     # is de gelakte PDF identiek aan de gewone, dus slaan we hem dan over (en
     # ruimen we een eventuele oude gelakte PDF op zodat die niet verouderd blijft).
+    # Als "gecontroleerd (geen lak nodig)" gemarkeerde afbeeldingen: in de gelakte
+    # build tonen we hiervan het origineel i.p.v. een [GELAKT]-placeholder.
+    _controlled = _lak_gecontroleerd_set(s)
+    _controlled_inj = ''.join('\\ibcontrolled{%s}' % n for n in _controlled)
     _needs_lak = (r'\lakken{' in tex_content or r'\codelakken{' in tex_content
+                  or bool(_controlled)
                   or os.path.isdir(os.path.join(_RAPPORT_DIR, 'evidence', 'lakken'))
                   or os.path.isdir(os.path.join(_SCREENSHOT_SRC, 'lakken')))
     gelakt_pdf = os.path.join(_RAPPORT_DIR, 'rapport_gelakt.pdf')
@@ -1648,7 +1885,8 @@ def gen_rapport():
     else:
         gelakt_body = tex_content.replace(
             r'\begin{document}',
-            r'\begin{document}' + '\n' + r'\renewcommand{\weglakken}{true}%', 1)
+            r'\begin{document}' + '\n' + r'\renewcommand{\weglakken}{true}%'
+            + ('\n' + _controlled_inj if _controlled_inj else ''), 1)
         if use_special:
             schrijven(gelakt_tex, gelakt_body.replace(
                 r'\begin{document}', r'\begin{document}' + '\n' + special, 1))
@@ -1690,7 +1928,7 @@ def gen_rapport():
     # Closure zodat de gelakte variant exact dezelfde invoer gebruikt (binnen
     # redact_mode vertaalt de markup \lakken{} dan naar zwarte blokken).
     def _gen_html():
-        return _generate_html_preview(findings, grouped, counts, titel, auteur, subtitel, datum, classificatie, is_draft, notes_data, tlp_html_bg, tlp_html_fg, management_samenvatting=management_samenvatting, testtype=testtype, testscope=testscope, testscopes=testscopes, legsup_startpunt=legsup_startpunt, legsup_privileges=legsup_privileges, legsup_informatie=legsup_informatie, scenarios=scenarios, taal=taal, scope_targets=scope_targets, checklists=checklists_data, digid_knockout=digid_ko, key_findings=key_findings, algeheel_beeld=algeheel_beeld, **_extra_kwargs)
+        return _generate_html_preview(findings, grouped, counts, titel, auteur, subtitel, datum, classificatie, is_draft, notes_data, tlp_html_bg, tlp_html_fg, management_samenvatting=management_samenvatting, testtype=testtype, testscope=testscope, testscopes=testscopes, legsup_startpunt=legsup_startpunt, legsup_privileges=legsup_privileges, legsup_informatie=legsup_informatie, scenarios=scenarios, taal=taal, scope_targets=scope_targets, checklists=checklists_data, digid_knockout=digid_ko, key_findings=key_findings, algeheel_beeld=algeheel_beeld, modus_operandi=modus_operandi, kritieke_functies=kritieke_functies, blueteam=blueteam, purpleteam=purpleteam, verklaring=verklaring, **_extra_kwargs)
     html = _gen_html()
     schrijven(os.path.join(_RAPPORT_DIR, 'tex.html'), html)
 
@@ -1717,7 +1955,7 @@ def gen_rapport():
             scenarios=scenarios, scoped_hosts=scoped_hosts, taal=taal,
             scope_targets=scope_targets,
             checklists=checklists_data, digid_knockout=digid_ko,
-            key_findings=key_findings, algeheel_beeld=algeheel_beeld,
+            key_findings=key_findings, algeheel_beeld=algeheel_beeld, modus_operandi=modus_operandi, kritieke_functies=kritieke_functies, blueteam=blueteam, purpleteam=purpleteam, verklaring=verklaring,
             **_extra_kwargs)
     docx_md = _gen_docx_md()
     docx_md_path = os.path.join(_RAPPORT_DIR, 'rapport_docx.md')
@@ -1728,7 +1966,8 @@ def gen_rapport():
     gelakt_docx_md_path = os.path.join(_RAPPORT_DIR, 'rapport_gelakt_docx.md')
     gelakt_html_path = os.path.join(_RAPPORT_DIR, 'tex_gelakt.html')
     if _needs_lak:
-        with redact_mode():
+        # Gecontroleerde afbeeldingen tonen het origineel i.p.v. [GELAKT].
+        with redact_mode(controlled=_controlled):
             schrijven(gelakt_docx_md_path, _gen_docx_md())
             schrijven(gelakt_html_path, _gen_html())
     else:
@@ -2727,6 +2966,22 @@ def _append_ncsc_mapping_html(parts, findings, taal='nl'):
     parts.append('</table>')
 
 
+def _append_mitre_mapping_html(parts, findings, taal='nl'):
+    """Voeg MITRE ATT&CK-mapping-bijlage toe (red team i.p.v. NCSC)."""
+    relevant = [f for f in findings if f.get('mitre')]
+    if not relevant:
+        return
+    heading = 'Appendix: MITRE ATT&amp;CK Mapping' if taal == 'en' else 'Bijlage: MITRE ATT&amp;CK-mapping'
+    find_l = 'Finding' if taal == 'en' else 'Bevinding'
+    parts.append('<h2>{}</h2>'.format(heading))
+    parts.append('<table><tr><th>ID</th><th>{}</th><th>ATT&amp;CK</th></tr>'.format(find_l))
+    for f in relevant:
+        nr = str(f['nr']).zfill(3)
+        parts.append('<tr><td><a href="#bev-{0}">{0}</a></td><td>{1}</td><td>{2}</td></tr>'.format(
+            nr, html_escape(f['titel']), html_escape(f.get('mitre', '') or '&mdash;')))
+    parts.append('</table>')
+
+
 def _append_detection_html(parts, findings, taal='nl'):
     """Voeg detecteerbaarheid-overzicht + SOC/CDC-aanbevelingen toe."""
     rated = [f for f in findings if f.get('detecteerbaarheid')]
@@ -2927,14 +3182,15 @@ def _append_signoff_html(parts, taal='nl'):
 
 # Canonieke, toggelbare rapportsecties (volgorde = logische rapportvolgorde).
 _SECTION_KEYS = (
-    'managementsamenvatting', 'top_risk_gauge', 'methodologie', 'legsup', 'scenarios',
+    'managementsamenvatting', 'top_risk_gauge', 'methodologie', 'legsup', 'modus_operandi', 'scenarios',
     'samenvatting_bevindingen', 'bevindingenlijst', 'risicomatrix', 'sla',
     'detecteerbaarheid', 'verkenning', 'bevindingen', 'aanbevelingen',
+    'blueteam', 'purpleteam',
     'killchain', 'asset_dekking', 'checklists',
     'owasp_mapping', 'ncsc_mapping', 'controls_mapping', 'cia_triad',
     'subsequent_triad', 'exploit_profile', 'direct_exploitable', 'impact_gauge',
     'beperkingen', 'cvss_detail', 'bewijsregister', 'begrippenlijst',
-    'retest_voortgang',
+    'retest_voortgang', 'verklaring',
 )
 
 # Oudere opgeslagen secties: één 'appendices'-sleutel stuurde alle drie de
@@ -2963,9 +3219,10 @@ def _all_sections(enabled=True):
 
 # Herordenbare hoofdsecties (de appendix-groep blijft als groep achteraan).
 _REORDERABLE_SECTIONS = (
-    'managementsamenvatting', 'methodologie', 'legsup', 'scenarios',
+    'managementsamenvatting', 'methodologie', 'legsup', 'modus_operandi', 'scenarios',
     'samenvatting_bevindingen', 'bevindingenlijst', 'risicomatrix', 'sla',
     'detecteerbaarheid', 'verkenning', 'bevindingen', 'aanbevelingen',
+    'blueteam', 'purpleteam',
 )
 
 
@@ -2982,10 +3239,11 @@ def _normalize_order(order):
     return out
 
 
-def _reorder_marked(text, order, mk_fmt, end_tok):
+def _reorder_marked(text, order, mk_fmt, end_tok, wrap_edit=False, sections_state=None):
     """Herorden sectieblokken die met open-markers (mk_fmt met '{k}') zijn
     gemarkeerd en begrensd door end_tok. Het gebied van de eerste marker t/m
-    end_tok wordt op volgorde herschikt; markers + end_tok worden verwijderd."""
+    end_tok wordt op volgorde herschikt; markers + end_tok worden verwijderd.
+    wrap_edit=True pakt elk blok in een klikbare 'section'-div (tabblad Bewerken)."""
     mk_re = _re.compile(_re.escape(mk_fmt).replace(r'\{k\}', r'([a-z_]+)'))
     first = mk_re.search(text)
     if not first:
@@ -3003,8 +3261,41 @@ def _reorder_marked(text, order, mk_fmt, end_tok):
         seen.append(key)
     norm = _normalize_order(order)
     keys = [k for k in norm if k in blocks] + [k for k in seen if k not in norm]
-    new_region = ''.join(blocks[k] for k in keys)
+    if wrap_edit:
+        def _scls(k):
+            off = isinstance(sections_state, dict) and sections_state.get(k, True) is False
+            return 'rb-section rb-off' if off else 'rb-section'
+        new_region = ''.join(
+            '<div data-ed-type="section" data-ed-key="%s" class="%s">%s</div>'
+            % (k, _scls(k), blocks[k]) for k in keys)
+    else:
+        new_region = ''.join(blocks[k] for k in keys)
     return (text[:first.start()] + new_region + text[end_idx:]).replace(end_tok, '')
+
+
+def _wrap_sections_only(text, mk_fmt, end_tok, sections_state=None):
+    """Pak elk met mk_fmt gemarkeerd blok (t/m end_tok) in een klikbare
+    'section'-div (met rb-off voor uitgeschakelde secties) ZONDER te herordenen.
+    Gebruikt voor de bijlagen in de bewerk-preview."""
+    mk_re = _re.compile(_re.escape(mk_fmt).replace(r'\{k\}', r'([a-z_]+)'))
+    first = mk_re.search(text)
+    if not first:
+        return text.replace(end_tok, '')
+    end_idx = text.find(end_tok, first.start())
+    if end_idx == -1:
+        return text.replace(end_tok, '')
+    region = text[first.start():end_idx]
+    matches = list(mk_re.finditer(region))
+    out = region[:matches[0].start()]
+    for i, m in enumerate(matches):
+        key = m.group(1)
+        b_end = matches[i + 1].start() if i + 1 < len(matches) else len(region)
+        block = region[m.end():b_end]
+        off = isinstance(sections_state, dict) and sections_state.get(key, True) is False
+        cls = 'rb-section rb-off' if off else 'rb-section'
+        out += ('<div data-ed-type="section" data-ed-key="%s" class="%s">%s</div>'
+                % (key, cls, block))
+    return (text[:first.start()] + out + text[end_idx:]).replace(end_tok, '')
 
 
 # Ingebouwde varianten als sectie-presets + findings-scope.
@@ -3484,30 +3775,35 @@ _GLOSSARY = (
 )
 
 
-def _begrippen_rows(taal='nl'):
+def _begrippen_rows(taal='nl', extra=None):
     i = 2 if taal == 'en' else 1
-    return [{'term': g[0], 'definitie': g[i]} for g in _GLOSSARY]
+    rows = [{'term': g[0], 'definitie': g[i]} for g in _GLOSSARY]
+    # Eigen begrippen/afkortingen (per opdracht) achter de standaardlijst.
+    for b in (extra or []):
+        if isinstance(b, dict) and str(b.get('term', '')).strip():
+            rows.append({'term': str(b.get('term', '')), 'definitie': str(b.get('definitie', ''))})
+    return rows
 
 
-def _append_begrippen_html(parts, taal='nl'):
+def _append_begrippen_html(parts, taal='nl', extra=None):
     parts.append('<h2>{}</h2>'.format(
         'Glossary &amp; abbreviations' if taal == 'en' else 'Begrippen- en afkortingenlijst'))
     parts.append('<table><tr><th style="width:24%">{}</th><th>{}</th></tr>'.format(
         'Term' if taal == 'en' else 'Begrip',
         'Description' if taal == 'en' else 'Omschrijving'))
-    for r in _begrippen_rows(taal):
+    for r in _begrippen_rows(taal, extra):
         parts.append('<tr><td><strong>{}</strong></td><td>{}</td></tr>'.format(
             html_escape(r['term']), html_escape(r['definitie'])))
     parts.append('</table>')
 
 
-def _begrippen_md_lines(taal='nl'):
+def _begrippen_md_lines(taal='nl', extra=None):
     out = ['', '## {}'.format(
         'Glossary & abbreviations' if taal == 'en' else 'Begrippen- en afkortingenlijst'), '']
     out.append('| {} | {} |'.format('Term' if taal == 'en' else 'Begrip',
                                      'Description' if taal == 'en' else 'Omschrijving'))
     out.append('| --- | --- |')
-    for r in _begrippen_rows(taal):
+    for r in _begrippen_rows(taal, extra):
         out.append('| **{}** | {} |'.format(
             _md_escape_cell(r['term']), _md_escape_cell(r['definitie'])))
     out.append('')
@@ -4090,7 +4386,9 @@ def _retest_progress_md_lines(findings, taal='nl'):
     return out
 
 
-def _generate_html_preview(findings, grouped, counts, titel, auteur, subtitel, datum, classificatie, is_draft, notes=None, tlp_bg='#FF2B2B', tlp_fg='#ffffff', management_samenvatting='', testtype='pentest', testscope='blackbox', testscopes=None, legsup_startpunt='', legsup_privileges='', legsup_informatie='', scenarios=None, taal='nl', rapport_roe='', test_start='', test_end='', variant='detailed', rapport_versie='', rapport_versie_status='concept', scope_targets=None, checklists=None, digid_knockout=None, key_findings=None, algeheel_beeld='', sections=None, findings_scope=None, rapport_omgeving='', section_order=None, rapport_project='', rapport_contact='', rapport_revisies=None, rapport_distributie=None):
+def _generate_html_preview(findings, grouped, counts, titel, auteur, subtitel, datum, classificatie, is_draft, notes=None, tlp_bg='#FF2B2B', tlp_fg='#ffffff', management_samenvatting='', testtype='pentest', testscope='blackbox', testscopes=None, legsup_startpunt='', legsup_privileges='', legsup_informatie='', scenarios=None, taal='nl', rapport_roe='', test_start='', test_end='', variant='detailed', rapport_versie='', rapport_versie_status='concept', scope_targets=None, checklists=None, digid_knockout=None, key_findings=None, algeheel_beeld='', modus_operandi='', kritieke_functies='', blueteam='', purpleteam='', verklaring='', sections=None, findings_scope=None, rapport_omgeving='', section_order=None, rapport_project='', rapport_contact='', rapport_revisies=None, rapport_distributie=None, rapport_begrippen=None,
+                            rapport_inleiding='', rapport_methodologie='', rapport_tools='',
+                            edit_mode=False, show_disabled=True):
     """Genereer HTML preview van het rapport."""
     t = _T.get(taal, _T['nl'])
     sev_labels = _SEVERITY_LABELS_EN if taal == 'en' else _SEVERITY_LABELS
@@ -4108,7 +4406,28 @@ def _generate_html_preview(findings, grouped, counts, titel, auteur, subtitel, d
         findings_scope = 'all'
 
     def _sec(k):
+        # In de bewerk-modus kunnen we ook uitgeschakelde secties tonen (lichtgrijs
+        # gewrapt) zodat je ze vanaf de preview weer kunt inschakelen. Staat de
+        # schakelaar uit, dan volgt de preview exact de echte status (sneller,
+        # gelijk aan de PDF).
+        if edit_mode and show_disabled:
+            return True
         return sections.get(k, True)
+
+    def _ed(inner, etype, key=''):
+        """Wikkel bewerkbare content in een klikbaar edit-anker (alleen in de
+        bewerk-modus van het tabblad Bewerken)."""
+        if not edit_mode:
+            return inner
+        return ('<div class="rb-ed" data-ed-type="%s" data-ed-key="%s" tabindex="0">'
+                '%s</div>' % (etype, html_escape(str(key)), inner))
+
+    def _edopen(etype, key):
+        return ('<div class="rb-ed" data-ed-type="%s" data-ed-key="%s">'
+                % (etype, html_escape(str(key)))) if edit_mode else ''
+
+    def _edclose():
+        return '</div>' if edit_mode else ''
 
     findings, grouped = _scope_findings(findings, grouped, findings_scope)
     parts = ['<html><head><style>',
@@ -4121,21 +4440,41 @@ def _generate_html_preview(findings, grouped, counts, titel, auteur, subtitel, d
              '.severity-bar{width:4px;display:inline-block;height:1em;margin-right:6px}',
              '.finding{border-left:4px solid #ccc;padding:12px;margin:12px 0}',
              '.tlp-badge{display:inline-block;padding:2px 10px;border-radius:4px;font-weight:bold;font-size:0.9em}',
+             # Bewerk-modus: klikbare ankers rond bewerkbare onderdelen.
+             ('.rb-ed{position:relative;cursor:pointer;border-radius:4px;'
+              'transition:background .12s,box-shadow .12s}'
+              '.rb-ed:hover,.rb-ed:focus{background:#eef5ff;box-shadow:0 0 0 2px #154273 inset;outline:none}'
+              '.rb-ed:hover::after,.rb-ed:focus::after{content:"\\270E bewerken";position:absolute;'
+              'top:-2px;right:-2px;background:#154273;color:#fff;font-size:11px;'
+              'padding:1px 7px;border-radius:0 4px 0 4px;font-family:sans-serif}'
+              '[data-ed-type="finding"].rb-hot,[data-ed-type]:hover{outline:2px solid #154273;outline-offset:2px}'
+              '[data-ed-type="section"]{position:relative}'
+              '[data-ed-type="section"]:hover{outline:1px dashed rgba(21,66,115,0.4);outline-offset:3px}'
+              '.rb-section.rb-off>*:not(.rb-sec-toggle){opacity:0.45;filter:grayscale(1)}'
+              '.rb-sec-toggle{position:absolute;top:2px;right:2px;z-index:6;font-size:10px;'
+              'padding:2px 9px;border:1px solid #154273;border-radius:4px;background:#fff;'
+              'color:#154273;cursor:pointer;opacity:0;transition:opacity .12s;font-family:sans-serif}'
+              '[data-ed-type="section"]:hover>.rb-sec-toggle{opacity:1}'
+              '.rb-section.rb-off>.rb-sec-toggle{opacity:1;background:#154273;color:#fff}'
+              if edit_mode else ''),
              '</style></head><body>']
 
     # Titel + versie + TLP badge
-    parts.append('<h1>{}</h1>'.format(html_escape(titel)))
-    parts.append('<p><strong>{}</strong></p>'.format(html_escape(subtitel)))
+    parts.append(_ed('<h1>{}</h1>'.format(html_escape(titel)), 'meta', 'rapport_titel'))
+    parts.append(_ed('<p><strong>{}</strong></p>'.format(html_escape(subtitel)), 'meta', 'rapport_subtitel'))
     if rapport_versie:
         _vs_labels = {'concept': 'Concept', 'definitief': 'Definitief', 'herzien': 'Herzien'}
         _vs_label = _vs_labels.get(rapport_versie_status, rapport_versie_status.capitalize())
-        parts.append('<p>Versie {} &mdash; {}</p>'.format(html_escape(rapport_versie), html_escape(_vs_label)))
-    parts.append('<p>{} &mdash; {}</p>'.format(html_escape(auteur), html_escape(datum)))
-    parts.append('<p>{}: <span class="tlp-badge" style="background:{};color:{}">{}</span></p>'.format(
-        t['classificatie'], tlp_bg, tlp_fg, html_escape(classificatie)))
+        parts.append(_ed('<p>Versie {} &mdash; {}</p>'.format(
+            html_escape(rapport_versie), html_escape(_vs_label)), 'meta', 'rapport_versie'))
+    parts.append(_ed('<p>{} &mdash; {}</p>'.format(
+        html_escape(auteur), html_escape(datum)), 'meta', 'rapport_auteur'))
+    parts.append(_ed('<p>{}: <span class="tlp-badge" style="background:{};color:{}">{}</span></p>'.format(
+        t['classificatie'], tlp_bg, tlp_fg, html_escape(classificatie)), 'meta', 'rapport_classificatie'))
     if rapport_omgeving:
-        parts.append('<p><strong>{}:</strong> {}</p>'.format(
-            'Environment' if taal == 'en' else 'Omgeving', html_escape(rapport_omgeving)))
+        parts.append(_ed('<p><strong>{}:</strong> {}</p>'.format(
+            'Environment' if taal == 'en' else 'Omgeving', html_escape(rapport_omgeving)),
+            'meta', 'rapport_omgeving'))
     if is_draft:
         parts.append('<p style="color:red;font-size:1.2em"><strong>{}</strong></p>'.format(t['concept']))
 
@@ -4155,24 +4494,27 @@ def _generate_html_preview(findings, grouped, counts, titel, auteur, subtitel, d
     _periode = ''
     if test_start or test_end:
         _periode = '{} &ndash; {}'.format(test_start or '?', test_end or '?')
+    # (label, waarde, edit-key, edit-type) — key/type leeg = niet bewerkbaar.
     _col_rows = [
-        ('Title' if _en else 'Titel', html_escape(titel)),
-        ('Subtitle' if _en else 'Subtitel', html_escape(subtitel)),
-        ('Version' if _en else 'Versie', html_escape(rapport_versie)),
-        ('Status', html_escape(_status_lbl)),
-        ('Date' if _en else 'Datum', html_escape(datum)),
-        (t['classificatie'], html_escape(classificatie)),
-        ('Client' if _en else 'Opdrachtgever', html_escape(rapport_project)),
-        ('Author' if _en else 'Opsteller', html_escape(auteur)),
-        ('Assessment type' if _en else 'Type onderzoek', html_escape(_ttype)),
-        ('Environment' if _en else 'Omgeving', html_escape(rapport_omgeving)),
-        ('Test period' if _en else 'Testperiode', _periode),
-        ('Contact', str(html_escape(rapport_contact)).replace('\n', '<br>')),
+        ('Title' if _en else 'Titel', html_escape(titel), 'rapport_titel', 'meta'),
+        ('Subtitle' if _en else 'Subtitel', html_escape(subtitel), 'rapport_subtitel', 'meta'),
+        ('Version' if _en else 'Versie', html_escape(rapport_versie), 'rapport_versie', 'meta'),
+        ('Status', html_escape(_status_lbl), 'rapport_versie_status', 'meta'),
+        ('Date' if _en else 'Datum', html_escape(datum), '', ''),
+        (t['classificatie'], html_escape(classificatie), 'rapport_classificatie', 'meta'),
+        ('Client' if _en else 'Opdrachtgever', html_escape(rapport_project), 'rapport_project', 'meta'),
+        ('Author' if _en else 'Opsteller', html_escape(auteur), 'rapport_auteur', 'meta'),
+        ('Assessment type' if _en else 'Type onderzoek', html_escape(_ttype), 'rapport_testtype', 'meta'),
+        ('Environment' if _en else 'Omgeving', html_escape(rapport_omgeving), 'rapport_omgeving', 'meta'),
+        ('Test period' if _en else 'Testperiode', _periode, 'testperiode', 'meta'),
+        ('Contact', str(html_escape(rapport_contact)).replace('\n', '<br>'), 'rapport_contact', 'field'),
     ]
     parts.append('<h2>{}</h2>'.format('Colophon' if _en else 'Colofon'))
     parts.append('<table class="colofon">')
-    for _lbl, _val in _col_rows:
+    for _lbl, _val, _key, _etype in _col_rows:
         if _val:
+            if _key and _etype:
+                _val = _ed(_val, _etype, _key)
             parts.append('<tr><th style="width:30%">{}</th><td>{}</td></tr>'.format(_lbl, _val))
     parts.append('</table>')
     _vertrouwelijk = (
@@ -4187,6 +4529,7 @@ def _generate_html_preview(findings, grouped, counts, titel, auteur, subtitel, d
     # Revisiehistorie
     if rapport_revisies:
         parts.append('<h2>{}</h2>'.format('Revision history' if _en else 'Revisiehistorie'))
+        parts.append(_edopen('table', 'revisies'))
         parts.append('<table class="revisies">')
         parts.append('<tr><th>{}</th><th>{}</th><th>{}</th><th>{}</th></tr>'.format(
             'Version' if _en else 'Versie', 'Date' if _en else 'Datum',
@@ -4196,10 +4539,12 @@ def _generate_html_preview(findings, grouped, counts, titel, auteur, subtitel, d
                 html_escape(_rv.get('versie', '')), html_escape(_rv.get('datum', '')),
                 html_escape(_rv.get('auteur', '')), html_escape(_rv.get('wijziging', ''))))
         parts.append('</table>')
+        parts.append(_edclose())
 
     # Distributie
     if rapport_distributie:
         parts.append('<h2>{}</h2>'.format('Distribution' if _en else 'Distributie'))
+        parts.append(_edopen('table', 'distributie'))
         parts.append('<table class="revisies">')
         parts.append('<tr><th>{}</th><th>{}</th><th>{}</th><th>{}</th></tr>'.format(
             'Name' if _en else 'Naam', 'Organisation' if _en else 'Organisatie',
@@ -4209,11 +4554,16 @@ def _generate_html_preview(findings, grouped, counts, titel, auteur, subtitel, d
                 html_escape(_d.get('naam', '')), html_escape(_d.get('organisatie', '')),
                 html_escape(_d.get('rol', '')), html_escape(_d.get('versie', ''))))
         parts.append('</table>')
+        parts.append(_edclose())
 
-    # Inleiding
+    # Inleiding (overschrijfbaar; leeg = standaardtekst)
     parts.append('<h2>{}</h2>'.format(t['inleiding']))
     intro_key = 'redteam_intro' if testtype == 'redteam' else 'pentest_intro'
-    parts.append('<p>{}</p>'.format(t[intro_key].format(project=html_escape(titel))))
+    if rapport_inleiding:
+        _intro_html = _vrij_latex_naar_opmaak(rapport_inleiding, 'html')
+    else:
+        _intro_html = '<p>{}</p>'.format(t[intro_key].format(project=html_escape(titel)))
+    parts.append(_ed(_intro_html, 'override', 'inleiding'))
     parts.append('<p>{} &mdash; {}</p>'.format(html_escape(auteur), html_escape(datum)))
 
     # Test timeline
@@ -4226,7 +4576,7 @@ def _generate_html_preview(findings, grouped, counts, titel, auteur, subtitel, d
     if rapport_roe:
         roe_label = 'Rules of Engagement'
         parts.append('<h2>{}</h2>'.format(roe_label))
-        parts.append('<p>{}</p>'.format(html_escape(rapport_roe)))
+        parts.append(_ed('<p>{}</p>'.format(html_escape(rapport_roe)), 'field', 'rapport_roe'))
 
     # Scope targets
     if scope_targets:
@@ -4235,6 +4585,7 @@ def _generate_html_preview(findings, grouped, counts, titel, auteur, subtitel, d
         type_l = 'Type'
         desc_l = 'Description' if taal == 'en' else 'Beschrijving'
         parts.append('<h2>{}</h2>'.format(scope_label))
+        parts.append(_edopen('table', 'scope_targets'))
         parts.append('<table><tr><th>{}</th><th>{}</th><th>{}</th></tr>'.format(target_l, type_l, desc_l))
         for st in scope_targets:
             if isinstance(st, dict):
@@ -4243,19 +4594,28 @@ def _generate_html_preview(findings, grouped, counts, titel, auteur, subtitel, d
                     html_escape(st.get('type', '')),
                     html_escape(st.get('beschrijving', ''))))
         parts.append('</table>')
+        parts.append(_edclose())
+
+    # Kritieke functies / kroonjuwelen (ART) — bij de scope.
+    if kritieke_functies:
+        parts.append('<h3>{}</h3>'.format(t['kritieke_functies']))
+        parts.append(_ed(_vrij_latex_naar_opmaak(kritieke_functies, 'html'),
+                         'field', 'rapport_kritieke_functies'))
 
     # Managementsamenvatting
     if _sec('managementsamenvatting') and management_samenvatting:
         parts.append('<!--SEC:managementsamenvatting-->')
         parts.append('<h2>{}</h2>'.format(t['management_samenvatting']))
-        parts.append('<p>{}</p>'.format(html_escape(management_samenvatting)))
+        parts.append(_ed(_vrij_latex_naar_opmaak(management_samenvatting, "html"),
+                         'field', 'rapport_management_samenvatting'))
         if algeheel_beeld:
             parts.append('<h3 style="margin-top:14px">{}</h3>'.format('Overall assessment' if _en else 'Algeheel beeld'))
-            parts.append('<p>{}</p>'.format(html_escape(algeheel_beeld)))
+            parts.append(_ed(_vrij_latex_naar_opmaak(algeheel_beeld, "html"),
+                             'field', 'rapport_algeheel_beeld'))
         if _sec('top_risk_gauge'):
             _append_top_risk_gauge_html(parts, findings, taal)
         if key_findings:
-            parts.append(_key_findings_html(key_findings, taal))
+            parts.append(_key_findings_html(key_findings, taal, edit_mode))
         if digid_knockout:
             parts.append(_digid_knockout_html(digid_knockout, taal))
 
@@ -4263,23 +4623,43 @@ def _generate_html_preview(findings, grouped, counts, titel, auteur, subtitel, d
     if _sec('methodologie'):
         parts.append('<!--SEC:methodologie-->')
         parts.append('<h2>{}</h2>'.format(t['methodologie']))
-        methode_key = 'redteam_methode' if testtype == 'redteam' else 'pentest_methode'
-        fasen_key = 'redteam_fasen' if testtype == 'redteam' else 'pentest_fasen'
-        parts.append('<p>{}</p>'.format(t[methode_key]))
-        parts.append('<ol>')
-        for fase_naam, fase_beschrijving in t[fasen_key]:
-            parts.append('<li><strong>{}</strong> &mdash; {}</li>'.format(fase_naam, fase_beschrijving))
-        parts.append('</ol>')
+        if rapport_methodologie:
+            parts.append(_ed(_vrij_latex_naar_opmaak(rapport_methodologie, 'html'),
+                             'override', 'methodologie'))
+        else:
+            methode_key = 'redteam_methode' if testtype == 'redteam' else 'pentest_methode'
+            fasen_key = 'redteam_fasen' if testtype == 'redteam' else 'pentest_fasen'
+            _meth = '<p>{}</p>'.format(t[methode_key])
+            _meth += '<ol>'
+            for fase_naam, fase_beschrijving in t[fasen_key]:
+                _meth += '<li><strong>{}</strong> &mdash; {}</li>'.format(fase_naam, fase_beschrijving)
+            _meth += '</ol>'
+            # Scope type (multi-select) — eigen (geneste) editor
+            scopes = testscopes if testscopes else [testscope or 'blackbox']
+            _scope = ''
+            for scope in scopes:
+                if scope == 'whitebox':
+                    _scope += '<p>{}</p>'.format(t['scope_whitebox'])
+                elif scope == 'greybox':
+                    _scope += '<p>{}</p>'.format(t['scope_greybox'])
+                elif scope == 'assumebreach':
+                    _scope += '<p>{}</p>'.format(t['scope_assumebreach'])
+                else:
+                    _scope += '<p>{}</p>'.format(t['scope_blackbox'])
+            _meth += _edopen('meta', 'testscope') + _scope + _edclose()
+            parts.append(_ed(_meth, 'override', 'methodologie'))
 
-        # Scope type (multi-select)
-        scopes = testscopes if testscopes else [testscope or 'blackbox']
-        for scope in scopes:
-            if scope == 'whitebox':
-                parts.append('<p>{}</p>'.format(t['scope_whitebox']))
-            elif scope == 'greybox':
-                parts.append('<p>{}</p>'.format(t['scope_greybox']))
-            else:
-                parts.append('<p>{}</p>'.format(t['scope_blackbox']))
+        # Tools en technieken (overschrijfbaar; leeg = standaard)
+        parts.append('<h2>{}</h2>'.format(html_escape(t['tools_titel'])))
+        if rapport_tools:
+            _tools_html = _vrij_latex_naar_opmaak(rapport_tools, 'html')
+        else:
+            _tools_html = '<p>{}</p>'.format(html_escape(t['tools_intro']))
+            _tools_html += '<ul>' + ''.join(
+                '<li><strong>{}</strong> &mdash; {}</li>'.format(html_escape(_n), html_escape(_d))
+                for _n, _d in t['tools_lijst']) + '</ul>'
+            _tools_html += '<p>{}</p>'.format(html_escape(t['tools_outro']))
+        parts.append(_ed(_tools_html, 'override', 'tools'))
 
     # Legs up (alleen bij redteam)
     if _sec('legsup') and testtype == 'redteam' and (legsup_startpunt or legsup_privileges or legsup_informatie):
@@ -4287,24 +4667,36 @@ def _generate_html_preview(findings, grouped, counts, titel, auteur, subtitel, d
         parts.append('<h2>{}</h2>'.format(t['legs_up']))
         if legsup_startpunt:
             parts.append('<h3>{}</h3>'.format(t['startpunten']))
-            parts.append('<p>{}</p>'.format(html_escape(legsup_startpunt)))
+            parts.append(_ed('<p>{}</p>'.format(html_escape(legsup_startpunt)),
+                             'field', 'rapport_legsup_startpunt'))
         if legsup_privileges:
             parts.append('<h3>{}</h3>'.format(t['privilege_niveaus']))
-            parts.append('<p>{}</p>'.format(html_escape(legsup_privileges)))
+            parts.append(_ed('<p>{}</p>'.format(html_escape(legsup_privileges)),
+                             'field', 'rapport_legsup_privileges'))
         if legsup_informatie:
             parts.append('<h3>{}</h3>'.format(t['verstrekte_info']))
-            parts.append('<p>{}</p>'.format(html_escape(legsup_informatie)))
+            parts.append(_ed('<p>{}</p>'.format(html_escape(legsup_informatie)),
+                             'field', 'rapport_legsup_informatie'))
 
     # Scenario's (alleen bij redteam)
+    # Modus operandi van de actor (alleen red team) -- vóór de scenario's.
+    if _sec('modus_operandi') and testtype == 'redteam' and modus_operandi:
+        parts.append('<!--SEC:modus_operandi-->')
+        parts.append('<h2>{}</h2>'.format(t['modus_operandi']))
+        parts.append(_ed(_vrij_latex_naar_opmaak(modus_operandi, "html"),
+                         'field', 'rapport_modus_operandi'))
+
     if _sec('scenarios') and testtype == 'redteam' and scenarios:
         parts.append('<!--SEC:scenarios-->')
         parts.append('<h2>{}</h2>'.format(t['scenarios']))
+        parts.append(_edopen('table', 'scenarios'))
         for sc in scenarios:
             naam = sc.get('naam', '') if isinstance(sc, dict) else ''
             beschrijving = sc.get('beschrijving', '') if isinstance(sc, dict) else ''
             if naam or beschrijving:
                 parts.append('<h3>{}</h3>'.format(html_escape(naam)))
                 parts.append('<p>{}</p>'.format(html_escape(beschrijving)))
+        parts.append(_edclose())
 
     # Samenvatting
     if _sec('samenvatting_bevindingen'):
@@ -4363,14 +4755,16 @@ def _generate_html_preview(findings, grouped, counts, titel, auteur, subtitel, d
         parts.append('<!--SEC:verkenning-->')
         parts.append('<h2>{}</h2>'.format(t['verkenning']))
         for n in notes:
-            parts.append('<h3>{}</h3>'.format(html_escape(n['naam'])))
             if n.get('latex_raw'):
-                # Rauwe LaTeX: in de PDF gerenderd; in de preview als bron tonen.
-                parts.append('<pre style="white-space:pre-wrap;font-size:12px;'
-                             'background:#f6f8fa;border:1px solid #ddd;padding:8px;'
-                             'border-radius:6px">{}</pre>'.format(html_escape(n['uitwerken'])))
+                # Rauwe LaTeX -> HTML (afbeeldingen, vet, voetnoten...) i.p.v. de
+                # brontekst, zodat preview en DOCX de notitie gerenderd tonen.
+                _nhtml = _vrij_latex_naar_opmaak(n['uitwerken'], 'html')
             else:
-                parts.append('<p>{}</p>'.format(html_escape(n['uitwerken'])))
+                _nhtml = '<p>{}</p>'.format(html_escape(n['uitwerken']))
+            # Titel + inhoud samen in één klikbaar note-anker, zodat ook de titel
+            # (en lege notities) de notitie-editor openen.
+            _nblock = '<h3>{}</h3>{}'.format(html_escape(n['naam']), _nhtml)
+            parts.append(_ed(_nblock, 'note', n.get('id', '')))
 
     # Bevindingen (volledige inhoud)
     _REM_LABELS = {'open': 'Open', 'in_progress': 'In Progress', 'fixed': 'Fixed', 'verified': 'Verified', 'accepted': 'Accepted'}
@@ -4383,7 +4777,9 @@ def _generate_html_preview(findings, grouped, counts, titel, auteur, subtitel, d
         parts.append('<h3>{} {}</h3>'.format(html_escape(label), t['bevindingen_label']))
         for f in group:
             color = severity_colors.get(f['severity'], '#ccc')
-            parts.append('<div class="finding" style="border-left-color:{}">'.format(color))
+            _fattr = (' rb-ed" data-ed-type="finding" data-ed-key="{}'.format(
+                html_escape(str(f.get('id') or f['nr']))) if edit_mode else '')
+            parts.append('<div class="finding{}" style="border-left-color:{}">'.format(_fattr, color))
             parts.append('<h4 id="bev-{0}">[{0}] {1}</h4>'.format(str(f['nr']).zfill(3), html_escape(f['titel'])))
             parts.append('<p><strong>CVSS:</strong> {} ({})</p>'.format(
                 html_escape(str(f['basescore'])), html_escape(f['severity'])))
@@ -4483,68 +4879,119 @@ def _generate_html_preview(findings, grouped, counts, titel, auteur, subtitel, d
         parts.append('<table><tr><th>ID</th><th>{}</th><th>CVSS</th><th>{}</th></tr>'.format(t['bevindingen'], t['aanbeveling']))
         for f in findings:
             nr = str(f['nr']).zfill(3)
-            parts.append('<tr><td><a href="#bev-{0}">{0}</a></td><td>{1}</td><td>{2}</td><td>{3}</td></tr>'.format(
+            _fa = (' data-ed-type="finding" data-ed-key="%s"'
+                   % html_escape(str(f.get('id', '')))) if edit_mode and f.get('id') else ''
+            parts.append('<tr{4}><td><a href="#bev-{0}">{0}</a></td><td>{1}</td><td>{2}</td><td>{3}</td></tr>'.format(
                 nr, html_escape(f['titel']),
-                html_escape(str(f['basescore'])), html_escape(_f_aanbeveling_overzicht(f))))
+                html_escape(str(f['basescore'])), html_escape(_f_aanbeveling_overzicht(f)), _fa))
         parts.append('</table>')
+
+    # Blue team (detectie & respons) + Purple teaming (ART, alleen red team).
+    if _sec('blueteam') and testtype == 'redteam' and blueteam:
+        parts.append('<!--SEC:blueteam-->')
+        parts.append('<h2>{}</h2>'.format(t['blueteam']))
+        parts.append(_ed(_vrij_latex_naar_opmaak(blueteam, 'html'), 'field', 'rapport_blueteam'))
+    if _sec('purpleteam') and testtype == 'redteam' and purpleteam:
+        parts.append('<!--SEC:purpleteam-->')
+        parts.append('<h2>{}</h2>'.format(t['purpleteam']))
+        parts.append(_ed(_vrij_latex_naar_opmaak(purpleteam, 'html'), 'field', 'rapport_purpleteam'))
 
     # Einde herordenbaar gebied; appendix-groep blijft vast achteraan
     parts.append('<!--SEC-END-->')
 
     # Beperkingen & aannames (kwalificeert de bevindingen; vooraan in de bijlagen)
     if _sec('beperkingen'):
+        parts.append('<!--APX:beperkingen-->')
         _append_beperkingen_html(parts, taal, testtype=testtype, testscope=testscope,
                                  test_start=test_start, test_end=test_end,
                                  rapport_omgeving=rapport_omgeving)
 
     # Retest-voortgang (delta t.o.v. eerdere rapportage; alleen bij retest-data)
     if _sec('retest_voortgang'):
+        parts.append('<!--APX:retest_voortgang-->')
         _append_retest_progress_html(parts, findings, taal)
 
     # Kill chain + asset-dekking (appendix-groep)
     if _sec('killchain'):
+        parts.append('<!--APX:killchain-->')
         _append_chains_html(parts, taal)
     if _sec('asset_dekking'):
+        parts.append('<!--APX:asset_dekking-->')
         _append_coverage_html(parts, taal)
 
     # Mapping-bijlagen (OWASP Top 10 / NCSC-richtlijnen / ISO-BIO-NIS2)
     if _sec('owasp_mapping'):
+        parts.append('<!--APX:owasp_mapping-->')
         _append_owasp_mapping_html(parts, findings, taal)
     if _sec('ncsc_mapping'):
-        _append_ncsc_mapping_html(parts, findings, taal)
+        parts.append('<!--APX:ncsc_mapping-->')
+        # Red team: ATT&CK-mapping i.p.v. NCSC-richtlijnen mapping.
+        if testtype == 'redteam':
+            _append_mitre_mapping_html(parts, findings, taal)
+        else:
+            _append_ncsc_mapping_html(parts, findings, taal)
     if _sec('controls_mapping'):
+        parts.append('<!--APX:controls_mapping-->')
         _append_controls_mapping_html(parts, findings, taal)
     if _sec('cia_triad'):
+        parts.append('<!--APX:cia_triad-->')
         _append_cia_triad_html(parts, findings, taal)
     if _sec('subsequent_triad'):
+        parts.append('<!--APX:subsequent_triad-->')
         _append_subsequent_triad_html(parts, findings, taal)
     if _sec('exploit_profile'):
+        parts.append('<!--APX:exploit_profile-->')
         _append_exploit_profile_html(parts, findings, taal)
     if _sec('direct_exploitable'):
+        parts.append('<!--APX:direct_exploitable-->')
         _append_direct_exploitable_html(parts, findings, taal)
     if _sec('impact_gauge'):
+        parts.append('<!--APX:impact_gauge-->')
         _append_impact_gauge_html(parts, findings, taal)
 
     # CVSS-vectordetail + bewijsregister (technische, auditbare bijlagen)
     if _sec('cvss_detail'):
+        parts.append('<!--APX:cvss_detail-->')
         _append_cvss_detail_html(parts, findings, taal)
     if _sec('bewijsregister'):
+        parts.append('<!--APX:bewijsregister-->')
         _append_bewijsregister_html(parts, findings, taal)
 
     # Checklist appendix
     if _sec('checklists'):
+        parts.append('<!--APX:checklists-->')
         _append_checklist_html(parts, checklists, taal)
 
     # Begrippen- en afkortingenlijst (naslag, achteraan)
     if _sec('begrippenlijst'):
-        _append_begrippen_html(parts, taal)
+        parts.append('<!--APX:begrippenlijst-->')
+        parts.append(_edopen('table', 'begrippen'))
+        _append_begrippen_html(parts, taal, rapport_begrippen)
+        parts.append(_edclose())
+
+    # Verklaring van betrokken partijen (ART, alleen red team) — achteraan.
+    if _sec('verklaring') and testtype == 'redteam' and verklaring:
+        parts.append('<!--APX:verklaring-->')
+        parts.append('<h2>{}</h2>'.format(t['verklaring']))
+        parts.append(_ed(_vrij_latex_naar_opmaak(verklaring, 'html'), 'field', 'rapport_verklaring'))
 
     # Sign-off
     _append_signoff_html(parts, taal)
 
     parts.append('</body></html>')
+    if edit_mode:
+        # Klik-op-preview: extern script (CSP-veilig) stuurt kliks op edit-ankers
+        # via postMessage naar het dashboard (tabblad Bewerken).
+        parts.append('<script src="/static/js/rb-edit-frame.js"></script>')
+    parts.append('<!--APX-END-->')
     html = ''.join(parts)
-    return _reorder_marked(html, section_order or [], '<!--SEC:{k}-->', '<!--SEC-END-->')
+    html = _reorder_marked(html, section_order or [], '<!--SEC:{k}-->', '<!--SEC-END-->',
+                           wrap_edit=edit_mode, sections_state=sections)
+    if edit_mode:
+        html = _wrap_sections_only(html, '<!--APX:{k}-->', '<!--APX-END-->', sections)
+    else:
+        html = _re.sub(r'<!--APX:[a-z_]+-->', '', html).replace('<!--APX-END-->', '')
+    return html
 
 
 def _heatmap_md_lines(findings, taal='nl'):
@@ -4646,6 +5093,24 @@ def _ncsc_mapping_md_lines(findings, taal='nl'):
     return lines
 
 
+def _mitre_mapping_md_lines(findings, taal='nl'):
+    """MITRE ATT&CK-mapping-bijlage als Markdown (red team i.p.v. NCSC)."""
+    relevant = [f for f in findings if f.get('mitre')]
+    if not relevant:
+        return []
+    lines = []
+    lines.append('# {}'.format('Appendix: MITRE ATT&CK Mapping' if taal == 'en'
+                               else 'Bijlage: MITRE ATT&CK-mapping'))
+    lines.append('')
+    lines.append('| ID | {} | ATT&CK |'.format('Finding' if taal == 'en' else 'Bevinding'))
+    lines.append('|---|---|---|')
+    for f in relevant:
+        lines.append('| {} | {} | {} |'.format(
+            str(f['nr']).zfill(3), f['titel'], f.get('mitre', '') or '—'))
+    lines.append('')
+    return lines
+
+
 def _generate_docx_markdown(findings, grouped, counts, titel, auteur, subtitel,
                             datum, classificatie, is_draft, notes=None,
                             management_samenvatting='', testtype='pentest',
@@ -4657,11 +5122,12 @@ def _generate_docx_markdown(findings, grouped, counts, titel, auteur, subtitel,
                             variant='detailed', rapport_versie='',
                             rapport_versie_status='concept',
                             scope_targets=None, checklists=None, digid_knockout=None,
-                            key_findings=None, algeheel_beeld='',
+                            key_findings=None, algeheel_beeld='', modus_operandi='', kritieke_functies='', blueteam='', purpleteam='', verklaring='',
                             sections=None, findings_scope=None, rapport_omgeving='',
                             section_order=None, rapport_project='',
                             rapport_contact='', rapport_revisies=None,
-                            rapport_distributie=None):
+                            rapport_distributie=None, rapport_begrippen=None,
+                            rapport_inleiding='', rapport_methodologie='', rapport_tools=''):
     """Genereer pandoc-Markdown dat de LaTeX template 1:1 spiegelt."""
     t = _T.get(taal, _T['nl'])
     sev_labels = _SEVERITY_LABELS_EN if taal == 'en' else _SEVERITY_LABELS
@@ -4785,11 +5251,14 @@ def _generate_docx_markdown(findings, grouped, counts, titel, auteur, subtitel,
                 _mdcell(_d.get('rol', '')), _mdcell(_d.get('versie', ''))))
         lines.append('')
 
-    # Inleiding
+    # Inleiding (overschrijfbaar; leeg = standaardtekst)
     lines.append('# {}'.format(u(t['inleiding'])))
     lines.append('')
     intro_key = 'redteam_intro' if testtype == 'redteam' else 'pentest_intro'
-    lines.append(u(t[intro_key]).format(project=titel))
+    if rapport_inleiding:
+        lines.append(_vrij_latex_naar_opmaak(rapport_inleiding, 'md'))
+    else:
+        lines.append(u(t[intro_key]).format(project=titel))
     lines.append('')
     lines.append('{} — {}'.format(auteur, datum))
     lines.append('')
@@ -4835,17 +5304,24 @@ def _generate_docx_markdown(findings, grouped, counts, titel, auteur, subtitel,
             lines.append('- Zie bevindingen voor specifieke locaties')
     lines.append('')
 
+    # Kritieke functies / kroonjuwelen (ART) — bij de scope.
+    if kritieke_functies:
+        lines.append('### {}'.format(u(t['kritieke_functies'])))
+        lines.append('')
+        lines.append(_vrij_latex_naar_opmaak(kritieke_functies, 'md'))
+        lines.append('')
+
     # Managementsamenvatting
     if _sec('managementsamenvatting') and management_samenvatting:
         lines.append('%%SEC:managementsamenvatting%%')
         lines.append('# {}'.format(u(t['management_samenvatting'])))
         lines.append('')
-        lines.append(management_samenvatting)
+        lines.append(_vrij_latex_naar_opmaak(management_samenvatting, "md"))
         lines.append('')
         if algeheel_beeld:
             lines.append('## {}'.format('Overall assessment' if _en else 'Algeheel beeld'))
             lines.append('')
-            lines.append(algeheel_beeld)
+            lines.append(_vrij_latex_naar_opmaak(algeheel_beeld, "md"))
             lines.append('')
         if _sec('top_risk_gauge'):
             lines.extend(_top_risk_gauge_md_lines(findings, taal))
@@ -4859,23 +5335,44 @@ def _generate_docx_markdown(findings, grouped, counts, titel, auteur, subtitel,
         lines.append('%%SEC:methodologie%%')
         lines.append('# {}'.format(u(t['methodologie'])))
         lines.append('')
-        methode_key = 'redteam_methode' if testtype == 'redteam' else 'pentest_methode'
-        fasen_key = 'redteam_fasen' if testtype == 'redteam' else 'pentest_fasen'
-        lines.append(u(t[methode_key]))
-        lines.append('')
-        for i, (fase_naam, fase_beschrijving) in enumerate(t[fasen_key], 1):
-            lines.append('{}. **{}** — {}'.format(i, u(fase_naam), u(fase_beschrijving)))
-        lines.append('')
+        if rapport_methodologie:
+            lines.append(_vrij_latex_naar_opmaak(rapport_methodologie, 'md'))
+            lines.append('')
+        else:
+            methode_key = 'redteam_methode' if testtype == 'redteam' else 'pentest_methode'
+            fasen_key = 'redteam_fasen' if testtype == 'redteam' else 'pentest_fasen'
+            lines.append(u(t[methode_key]))
+            lines.append('')
+            for i, (fase_naam, fase_beschrijving) in enumerate(t[fasen_key], 1):
+                lines.append('{}. **{}** — {}'.format(i, u(fase_naam), u(fase_beschrijving)))
+            lines.append('')
 
-        # Scope type paragrafen
-        scopes = testscopes if testscopes else [testscope or 'blackbox']
-        for scope in scopes:
-            if scope == 'whitebox':
-                lines.append(u(t['scope_whitebox']))
-            elif scope == 'greybox':
-                lines.append(u(t['scope_greybox']))
-            else:
-                lines.append(u(t['scope_blackbox']))
+            # Scope type paragrafen
+            scopes = testscopes if testscopes else [testscope or 'blackbox']
+            for scope in scopes:
+                if scope == 'whitebox':
+                    lines.append(u(t['scope_whitebox']))
+                elif scope == 'greybox':
+                    lines.append(u(t['scope_greybox']))
+                elif scope == 'assumebreach':
+                    lines.append(u(t['scope_assumebreach']))
+                else:
+                    lines.append(u(t['scope_blackbox']))
+                lines.append('')
+
+        # Tools en technieken (overschrijfbaar; leeg = standaard)
+        lines.append('# {}'.format(u(t['tools_titel'])))
+        lines.append('')
+        if rapport_tools:
+            lines.append(_vrij_latex_naar_opmaak(rapport_tools, 'md'))
+            lines.append('')
+        else:
+            lines.append(u(t['tools_intro']))
+            lines.append('')
+            for _n, _d in t['tools_lijst']:
+                lines.append('- **{}** — {}'.format(u(_n), u(_d)))
+            lines.append('')
+            lines.append(u(t['tools_outro']))
             lines.append('')
 
     # Legs up (alleen redteam)
@@ -4898,6 +5395,14 @@ def _generate_docx_markdown(findings, grouped, counts, titel, auteur, subtitel,
             lines.append('')
             lines.append(legsup_informatie)
             lines.append('')
+
+    # Modus operandi van de actor (alleen red team) -- vóór de scenario's.
+    if _sec('modus_operandi') and testtype == 'redteam' and modus_operandi:
+        lines.append('%%SEC:modus_operandi%%')
+        lines.append('# {}'.format(u(t['modus_operandi'])))
+        lines.append('')
+        lines.append(_vrij_latex_naar_opmaak(modus_operandi, "md"))
+        lines.append('')
 
     # Scenario's (alleen redteam)
     if _sec('scenarios') and testtype == 'redteam' and scenarios:
@@ -4993,9 +5498,9 @@ def _generate_docx_markdown(findings, grouped, counts, titel, auteur, subtitel,
             lines.append('## {}'.format(n['naam']))
             lines.append('')
             if n.get('latex_raw'):
-                lines.append('```latex')
-                lines.append(n['uitwerken'])
-                lines.append('```')
+                # Rauwe LaTeX -> Markdown (afbeeldingen, vet, voetnoten...) i.p.v.
+                # de brontekst als codeblok in het Word-document.
+                lines.append(_vrij_latex_naar_opmaak(n['uitwerken'], 'md'))
             else:
                 lines.append(n['uitwerken'])
             lines.append('')
@@ -5144,6 +5649,20 @@ def _generate_docx_markdown(findings, grouped, counts, titel, auteur, subtitel,
                 str(f['nr']).zfill(3), titel, f['basescore'], aanb))
         lines.append('')
 
+    # Blue team (detectie & respons) + Purple teaming (ART, alleen red team).
+    if _sec('blueteam') and testtype == 'redteam' and blueteam:
+        lines.append('%%SEC:blueteam%%')
+        lines.append('# {}'.format(u(t['blueteam'])))
+        lines.append('')
+        lines.append(_vrij_latex_naar_opmaak(blueteam, 'md'))
+        lines.append('')
+    if _sec('purpleteam') and testtype == 'redteam' and purpleteam:
+        lines.append('%%SEC:purpleteam%%')
+        lines.append('# {}'.format(u(t['purpleteam'])))
+        lines.append('')
+        lines.append(_vrij_latex_naar_opmaak(purpleteam, 'md'))
+        lines.append('')
+
     # Einde herordenbaar gebied; appendix-groep blijft vast achteraan
     lines.append('%%SEC-END%%')
 
@@ -5165,7 +5684,11 @@ def _generate_docx_markdown(findings, grouped, counts, titel, auteur, subtitel,
     if _sec('owasp_mapping'):
         lines.extend(_owasp_mapping_md_lines(findings, taal))
     if _sec('ncsc_mapping'):
-        lines.extend(_ncsc_mapping_md_lines(findings, taal))
+        # Red team: ATT&CK-mapping i.p.v. NCSC-richtlijnen mapping.
+        if testtype == 'redteam':
+            lines.extend(_mitre_mapping_md_lines(findings, taal))
+        else:
+            lines.extend(_ncsc_mapping_md_lines(findings, taal))
     if _sec('controls_mapping'):
         lines.extend(_controls_mapping_md_lines(findings, taal))
     if _sec('cia_triad'):
@@ -5209,7 +5732,7 @@ def _generate_docx_markdown(findings, grouped, counts, titel, auteur, subtitel,
 
     # Begrippen- en afkortingenlijst (naslag, achteraan)
     if _sec('begrippenlijst'):
-        lines.extend(_begrippen_md_lines(taal))
+        lines.extend(_begrippen_md_lines(taal, rapport_begrippen))
 
     # Sign-off sectie
     lines.append('# Sign-off')
@@ -5223,6 +5746,13 @@ def _generate_docx_markdown(findings, grouped, counts, titel, auteur, subtitel,
     for role in (['Lead Tester', 'Reviewer', 'Project Manager'] if taal == 'en' else ['Lead Tester', 'Reviewer', 'Projectmanager']):
         lines.append('| {} | | | |'.format(role))
     lines.append('')
+
+    # Verklaring van betrokken partijen (ART, alleen red team) — achteraan.
+    if _sec('verklaring') and testtype == 'redteam' and verklaring:
+        lines.append('# {}'.format(u(t['verklaring'])))
+        lines.append('')
+        lines.append(_vrij_latex_naar_opmaak(verklaring, 'md'))
+        lines.append('')
 
     return _reorder_marked('\n'.join(lines), section_order or [], '%%SEC:{k}%%', '%%SEC-END%%')
 
@@ -6348,8 +6878,9 @@ def _async_generate(run_id, app, include_draft, include_checklists='', opdracht_
             qs += '&include_checklists=' + include_checklists
         if opdracht_id is not None:
             qs += '&opdracht_id=' + str(opdracht_id)
-        with app.test_request_context('/dashboard/report/generate?' + qs):
-            gen_rapport()
+        with _report_gen_guard():
+            with app.test_request_context('/dashboard/report/generate?' + qs):
+                gen_rapport()
         with _async_lock:
             _async_runs[run_id]['status'] = 'success'
             _async_runs[run_id]['finished_at'] = datetime.datetime.now().isoformat()
@@ -6551,6 +7082,7 @@ _TEX_CONTEXT_VARS = [
     {'naam': 'testscope', 'type': 'tekst', 'omschrijving': 'blackbox/greybox/whitebox'},
     {'naam': 'testscopes', 'type': 'lijst', 'omschrijving': 'Alle gekozen scope-typen'},
     {'naam': 'management_samenvatting', 'type': 'tekst', 'omschrijving': 'Managementsamenvatting'},
+    {'naam': 'modus_operandi', 'type': 'tekst', 'omschrijving': 'Red team: modus operandi van de actor'},
     {'naam': 'legsup_startpunt', 'type': 'tekst', 'omschrijving': 'Red team: assumed-breach startpunt'},
     {'naam': 'legsup_privileges', 'type': 'tekst', 'omschrijving': 'Red team: privilege-niveaus'},
     {'naam': 'legsup_informatie', 'type': 'tekst', 'omschrijving': 'Red team: verstrekte informatie'},
@@ -6584,10 +7116,19 @@ def _sample_tex_context():
         'referenties': '', 'related': [], 'assets': [], 'evidence': [],
         'faalmodus': '', 'detecteerbaarheid': '', 'detectie_notitie': '',
         'remediation_status': 'open',
+        # Afgeleide velden die gen_rapport per bevinding toevoegt.
+        'evidence_tex': '', 'referenties_list': [], 'tester': '',
     }
     ctx = dict(
         titel='Titel', subtitel='Subtitel', auteur='Auteur', project='Project',
         classificatie='TLP:RED', tlp_color='ored', datum='01-01-2026',
+        # Metadata die gen_rapport via _extra_kwargs meegeeft (anders faalt de
+        # StrictUndefined-validatie op templates die deze velden gebruiken).
+        rapport_versie='1.0', rapport_versie_status='definitief',
+        rapport_omgeving='Productie', test_start='01-01-2026', test_end='05-01-2026',
+        rapport_contact='Contact', rapport_revisies=[], rapport_distributie=[],
+        digid_knockout_tex='', key_findings_tex='',
+        rapport_inleiding='', rapport_methodologie='', rapport_tools='',
         is_draft=False, sections=_all_sections(True), findings=[f],
         grouped_findings=[('Kritiek', [f])],
         bevindingenlijst_rows=_bevindingenlijst_rows([f], 'nl'),
@@ -6602,6 +7143,8 @@ def _sample_tex_context():
         scoped_hosts=['host.example'], scope_targets=[], notes=[],
         testtype='pentest', testscope='blackbox', testscopes=['blackbox'],
         management_samenvatting='Samenvatting', legsup_startpunt='',
+        modus_operandi='', algeheel_beeld='',
+        kritieke_functies='', blueteam='', purpleteam='', verklaring='',
         legsup_privileges='', legsup_informatie='', scenarios=[], taal='nl',
         checklists=[], faalmodus_labels=_FAALMODUS_LABELS,
         detect_labels=_DETECT_LABELS,
@@ -6744,26 +7287,222 @@ def latex_preview():
                                 msg = 'Onbekende macro %s (niet gedefinieerd in het rapport)' % m.group(1)
                             break
                 return jsonify({'ok': False, 'error': msg[:300]})
-            subprocess.run(['pdftoppm', '-f', '1', '-l', '1', '-r', '110', '-png',
-                            pdf, os.path.join(td, 'page')],
-                           capture_output=True, timeout=20)
+            # ALLE pagina's renderen (tot een cap), zodat ook meerregelige/lange
+            # fragmenten volledig zichtbaar zijn i.p.v. alleen pagina 1.
+            _MAX_PREVIEW_PAGES = 12
+            subprocess.run(['pdftoppm', '-f', '1', '-l', str(_MAX_PREVIEW_PAGES),
+                            '-r', '110', '-png', pdf, os.path.join(td, 'page')],
+                           capture_output=True, timeout=25)
             pngs = sorted(_glob.glob(os.path.join(td, 'page*.png')))
             if not pngs:
                 return jsonify({'ok': False, 'error': 'geen afbeelding gegenereerd'})
-            with open(pngs[0], 'rb') as fh:
+            # Eén pagina -> direct; meerdere -> verticaal stapelen tot één beeld.
+            if len(pngs) == 1:
+                combined_path = pngs[0]
+            else:
+                combined_path = None
+                try:
+                    from PIL import Image
+                    ims = [Image.open(p).convert('RGB') for p in pngs]
+                    gap = 12
+                    w = max(im.width for im in ims)
+                    h = sum(im.height for im in ims) + gap * (len(ims) - 1)
+                    canvas = Image.new('RGB', (w, h), 'white')
+                    y = 0
+                    for im in ims:
+                        canvas.paste(im, (0, y))
+                        y += im.height + gap
+                    combined_path = os.path.join(td, 'combined.png')
+                    canvas.save(combined_path)
+                except Exception:
+                    combined_path = pngs[0]  # PIL ontbreekt -> val terug op pagina 1
+            with open(combined_path, 'rb') as fh:
                 b64 = base64.b64encode(fh.read()).decode('ascii')
-            return jsonify({'ok': True, 'image': 'data:image/png;base64,' + b64})
+            return jsonify({'ok': True, 'image': 'data:image/png;base64,' + b64,
+                            'pages': len(pngs)})
     except subprocess.TimeoutExpired:
         return jsonify({'ok': False, 'error': 'preview duurde te lang (time-out)'})
     except Exception as e:
         return jsonify({'ok': False, 'error': str(e)[:200]})
 
 
+# Afbeeldingsverwijzing in een \plaatje{bestand}{...}: eerste accolade-arg.
+_PLAATJE_REF_RE = _re.compile(r'\\plaatje\s*\{([^{}]+)\}')
+
+
+@rapport_bp.route('/dashboard/report/images', methods=['GET'])
+def report_images():
+    """Alle \\plaatje{..}-afbeeldingen die in de HUIDIGE opdracht worden gebruikt
+    (bevindingen, notities en de vrije tekstvelden), met lak-status. Voedt de
+    lak-galerij in het rapportdashboard."""
+    from meuk.flask import project as _project
+    _oid = _project.resolve_opdracht_id(request.args.get('opdracht_id', type=int))
+
+    gebruikt = {}  # naam -> set(context-labels)
+
+    def _scan(text, label):
+        if not text or '\\plaatje' not in text:
+            return
+        for m in _PLAATJE_REF_RE.finditer(text):
+            naam = (m.group(1) or '').strip()
+            if naam:
+                gebruikt.setdefault(naam, set()).add(label)
+
+    # Bevindingen: uitwerking + per-bevinding overrides.
+    for b in _project.apply_scope(
+            db_bevindingen.query.filter(db_bevindingen.deleted_at.is_(None)),
+            db_bevindingen.opdracht_id, _oid).all():
+        lbl = (b.naam or 'bevinding')[:70]
+        for fld in ('uitwerken', 'beschrijving_override', 'impact_override',
+                    'aanbeveling_override', 'impact_kort_override',
+                    'aanbeveling_kort_override'):
+            _scan(getattr(b, fld, '') or '', lbl)
+
+    # Notities.
+    for n in _project.apply_scope(
+            db_notes.query, db_notes.opdracht_id, _oid).all():
+        _scan(n.uitwerken or '', (n.naam or 'notitie')[:70])
+
+    # Vrije tekstvelden van de rapportconfig.
+    _opdr = db.session.get(db_opdracht, _oid) if _oid else None
+    _cfg = _opdr.config if _opdr is not None else None
+    if _cfg is not None:
+        for fld, lbl in (('rapport_management_samenvatting', 'Managementsamenvatting'),
+                         ('rapport_algeheel_beeld', 'Algeheel beeld'),
+                         ('rapport_modus_operandi', 'Modus operandi'),
+                         ('rapport_legsup_startpunt', 'Legs up'),
+                         ('rapport_legsup_privileges', 'Legs up'),
+                         ('rapport_legsup_informatie', 'Legs up')):
+            _scan(getattr(_cfg, fld, '') or '', lbl)
+
+    # Als "gecontroleerd, geen lak nodig" gemarkeerde bestanden (per opdracht).
+    gecontroleerd = set(_lak_gecontroleerd_set(_cfg))
+
+    shots = os.path.abspath(_SCREENSHOT_SRC)
+    lakdir = os.path.join(shots, 'lakken')
+    items = []
+    for naam in sorted(gebruikt):
+        pad = os.path.join(shots, naam)
+        bestaat = os.path.isfile(pad)
+        ext = os.path.splitext(naam)[1].lower()
+        items.append({
+            'name': naam,
+            'url': '/dashboard/raw/screenshots/' + naam,
+            'exists': bestaat,
+            'has_lakken': os.path.isfile(os.path.join(lakdir, naam)),
+            'gecontroleerd': naam in gecontroleerd,
+            'redactable': bestaat and ext not in ('.svg',),
+            'used_in': sorted(gebruikt[naam])[:6],
+        })
+    _gel = sum(1 for i in items if i['has_lakken'])
+    _gec = sum(1 for i in items if i['gecontroleerd'] and not i['has_lakken'])
+    return jsonify({
+        'ok': True,
+        'images': items,
+        'totaal': len(items),
+        'gelakt': _gel,
+        'gecontroleerd': _gec,
+        # Nog te beoordelen: niet gelakt én niet gecontroleerd.
+        'te_controleren': sum(1 for i in items
+                              if not i['has_lakken'] and not i['gecontroleerd']),
+        'ontbreekt': sum(1 for i in items if not i['exists']),
+    })
+
+
+def _lak_gecontroleerd_set(cfg):
+    """Lijst bestandsnamen die als 'gecontroleerd' zijn gemarkeerd (uit config)."""
+    if cfg is None:
+        return []
+    try:
+        data = json.loads(getattr(cfg, 'rapport_lak_gecontroleerd', '[]') or '[]')
+        return [str(x) for x in data] if isinstance(data, list) else []
+    except (json.JSONDecodeError, TypeError, ValueError):
+        return []
+
+
+def _override_default_text(key, t, testtype, titel):
+    """Platte standaardtekst voor een overschrijfbaar template-onderdeel, als
+    startpunt in de editor (leeg opslaan = terug naar de automatische tekst)."""
+    def _u(s):
+        return (s or '').replace('&amp;', '&')
+    if key == 'inleiding':
+        ik = 'redteam_intro' if testtype == 'redteam' else 'pentest_intro'
+        return _u(t[ik].format(project=titel))
+    if key == 'methodologie':
+        mk = 'redteam_methode' if testtype == 'redteam' else 'pentest_methode'
+        fk = 'redteam_fasen' if testtype == 'redteam' else 'pentest_fasen'
+        out = _u(t[mk]) + '\n\n'
+        for i, (n, d) in enumerate(t[fk], 1):
+            out += '%d. %s - %s\n' % (i, _u(n), _u(d))
+        return out.strip()
+    if key == 'tools':
+        out = _u(t['tools_intro']) + '\n\n'
+        for n, d in t['tools_lijst']:
+            out += '- %s - %s\n' % (_u(n), _u(d))
+        out += '\n' + _u(t['tools_outro'])
+        return out.strip()
+    return ''
+
+
+@rapport_bp.route('/dashboard/report/override-text', methods=['GET'])
+def report_override_text():
+    """Huidige effectieve tekst voor een overschrijfbaar onderdeel (opgeslagen
+    override, anders de standaardtekst) — om de editor voor te vullen."""
+    key = request.args.get('key', '')
+    if key not in ('inleiding', 'methodologie', 'tools'):
+        return jsonify({'ok': False, 'error': 'onbekend onderdeel'}), 400
+    from meuk.flask import project as _project
+    cfg = _project.current_config()
+    try:
+        ov = json.loads(getattr(cfg, 'rapport_overrides', '{}') or '{}')
+        if not isinstance(ov, dict):
+            ov = {}
+    except (ValueError, TypeError):
+        ov = {}
+    stored = (ov.get(key) or '').strip()
+    taal = (getattr(cfg, 'rapport_taal', '') or 'nl')
+    testtype = (getattr(cfg, 'rapport_testtype', '') or 'pentest')
+    titel = (getattr(cfg, 'rapport_titel', '') or '')
+    t = _T.get(taal, _T['nl'])
+    default_text = _override_default_text(key, t, testtype, titel)
+    return jsonify({'ok': True, 'text': stored if stored else default_text,
+                    'default': default_text, 'is_override': bool(stored)})
+
+
+@rapport_bp.route('/dashboard/report/images/<name>/reviewed', methods=['POST'])
+def report_image_reviewed(name):
+    """Markeer een afbeelding als 'gecontroleerd (geen lak nodig)' of haal die
+    markering weer weg, voor de huidige opdracht. Body: {reviewed: true|false}."""
+    from meuk.flask import project as _project
+    _oid = _project.resolve_opdracht_id(request.args.get('opdracht_id', type=int))
+    _opdr = db.session.get(db_opdracht, _oid) if _oid else None
+    if _opdr is None:
+        return jsonify({'ok': False, 'error': 'geen opdracht'}), 400
+    cfg = _project.get_or_create_config(_opdr)
+    safe = os.path.basename((name or '').strip())
+    if not safe or safe != (name or '').strip():
+        return jsonify({'ok': False, 'error': 'ongeldige naam'}), 400
+    data = request.get_json(silent=True) or {}
+    reviewed = bool(data.get('reviewed'))
+    namen = _lak_gecontroleerd_set(cfg)
+    if reviewed and safe not in namen:
+        namen.append(safe)
+    elif not reviewed and safe in namen:
+        namen = [n for n in namen if n != safe]
+    cfg.rapport_lak_gecontroleerd = json.dumps(namen)
+    db.session.commit()
+    return jsonify({'ok': True, 'gecontroleerd': reviewed})
+
+
 def _valideer_tex_template(src, met_xelatex=True):
     """Dry-run-validatie van een eigen .tex: rendert met StrictUndefined (vangt
     syntaxfouten en verwijzingen naar onbekende variabelen) en probeert optioneel
     een xelatex-compilatie. Geeft {ok, error, warning}."""
+    # Loader naar de html/-map, zodat eigen templates gedeelde partials kunnen
+    # [% include %]-en (o.a. _rapport_body.tex) — net als de echte render-env.
+    _tpl_dir = os.path.join(os.path.dirname(__file__), 'html')
     env = Environment(
+        loader=FileSystemLoader(_tpl_dir),
         block_start_string='[%', block_end_string='%]',
         variable_start_string='[[', variable_end_string=']]',
         comment_start_string='[#', comment_end_string='#]',

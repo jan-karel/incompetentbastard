@@ -5,6 +5,7 @@
 <link rel="stylesheet" href="{{ url_for('static', filename='css/safe-overview.css') }}" />
 <link rel="stylesheet" href="{{ url_for('static', filename='css/notes-overview.css') }}" />
 <link rel="stylesheet" href="{{ url_for('static', filename='css/finding-form.css') }}" />
+<link rel="stylesheet" href="{{ url_for('static', filename='css/cvss4-calculator.css') }}" />
 <link rel="stylesheet" href="{{ url_for('static', filename='css/rapport-editor.css') }}" />
 <link rel="stylesheet" href="{{ url_for('static', filename='css/latexeditor.css') }}" />
 <link rel="stylesheet" href="{{ url_for('static', filename='css/findings-filter.css') }}" />
@@ -23,6 +24,8 @@
 <div class="rapport-tabs">
   <button class="rapport-tab active" data-tab="tab-instellingen">Instellingen</button>
   <button class="rapport-tab" data-tab="tab-findings">Bevindingen &amp; notities</button>
+  <button class="rapport-tab" data-tab="tab-lakken">Afbeeldingen lakken</button>
+  <button class="rapport-tab" data-tab="tab-bewerken">Bewerken</button>
   <button class="rapport-tab" data-tab="tab-genereer">Genereer &amp; download</button>
 </div>
 
@@ -30,6 +33,84 @@
 {# TAB 1: Instellingen                                   #}
 {# ══════════════════════════════════════════════════════ #}
 <div class="rapport-tab-content active" id="tab-instellingen">
+
+{# Standaardteksten: boilerplate-profielen (per testtype, nl+en, met tokens) #}
+<section class="card mb-14" id="rap-boiler-card">
+  <div class="card-head collapsed"><h2>Standaardteksten &amp; profielen</h2></div>
+  <div class="card-body">
+    <p class="help">Herbruikbare boilerplate per <strong>profiel</strong> (bijv. Pentest of Red team), in NL en EN, met <strong>{{tokens}}</strong> die automatisch de opdrachtgegevens invullen. Per opdracht voeg je ze in met <strong>&#8595; Vul met standaard</strong> naast elk veld, of in één keer met <strong>Vul alle lege velden</strong>.</p>
+    <div class="grid cols-2 gap-16">
+      <div>
+        <label class="form-label" for="boiler-profiel">Profiel</label>
+        <select class="form-control" id="boiler-profiel"></select>
+      </div>
+      <div>
+        <label class="form-label" for="boiler-taal">Bewerk-taal</label>
+        <select class="form-control" id="boiler-taal">
+          <option value="nl">Nederlands</option>
+          <option value="en">English</option>
+        </select>
+      </div>
+    </div>
+    <div class="grid cols-2 gap-16 mt-8">
+      <div>
+        <label class="form-label" for="boiler-naam">Naam</label>
+        <input type="text" class="form-control" id="boiler-naam" />
+      </div>
+      <div>
+        <label class="form-label" for="boiler-testtype">Koppel aan testtype</label>
+        <select class="form-control" id="boiler-testtype">
+          <option value="">Beide / algemeen</option>
+          <option value="pentest">Pentest</option>
+          <option value="redteam">Red team</option>
+        </select>
+      </div>
+    </div>
+    <label class="mt-8 boiler-inline"><input type="checkbox" id="boiler-isdefault" /> Standaardprofiel (terugval als geen testtype matcht)</label>
+    <div class="mt-8">
+      <button type="button" class="btn btn-sm" id="boiler-new">Nieuw</button>
+      <button type="button" class="btn btn-sm" id="boiler-dup">Dupliceren</button>
+      <button type="button" class="btn btn-sm" id="boiler-del">Verwijderen</button>
+      <button type="button" class="btn btn-primary btn-sm" id="boiler-save">Profiel opslaan</button>
+      <button type="button" class="btn btn-sm" id="boiler-bulkfill" title="Vul alle lege opdrachtvelden met de standaardtekst van het passende profiel">&#8595; Vul alle lege velden</button>
+      <span id="boiler-status" class="help ml-8"></span>
+    </div>
+    <p class="help mt-8" id="boiler-tokens-help"></p>
+    <div id="boiler-velden" class="mt-8"></div>
+  </div>
+</section>
+
+{# Snippet-bibliotheek: herbruikbare tekstblokken #}
+<section class="card mb-14" id="rap-snippets-card">
+  <div class="card-head collapsed"><h2>Snippet-bibliotheek</h2></div>
+  <div class="card-body">
+    <p class="help">Herbruikbare tekstblokken (RoE-clausules, methodologie-alinea's, verklaring-formules) die je in elk vrije-tekstveld invoegt via <strong>Invoegen &#9662;</strong>. Tokens worden bij invoegen ingevuld.</p>
+    <div id="snippet-list"></div>
+    <div class="grid cols-2 gap-16 mt-8">
+      <div>
+        <label class="form-label" for="snippet-titel">Titel</label>
+        <input type="text" class="form-control" id="snippet-titel" placeholder="bijv. Standaard RoE-clausule" />
+      </div>
+      <div>
+        <label class="form-label" for="snippet-categorie">Categorie</label>
+        <input type="text" class="form-control" id="snippet-categorie" placeholder="bijv. RoE, Methodologie" />
+      </div>
+    </div>
+    <label class="form-label mt-8" for="snippet-tekst">Tekst</label>
+    <textarea class="form-control" id="snippet-tekst" rows="3" placeholder="Tekstblok (ondersteunt {{tokens}} en LaTeX-opmaak)..."></textarea>
+    <div class="mt-8">
+      <select class="form-control boiler-inline-sel" id="snippet-taal">
+        <option value="">Beide talen</option>
+        <option value="nl">NL</option>
+        <option value="en">EN</option>
+      </select>
+      <input type="hidden" id="snippet-edit-id" value="" />
+      <button type="button" class="btn btn-primary btn-sm" id="snippet-add">Snippet opslaan</button>
+      <button type="button" class="btn btn-sm" id="snippet-clear">Leegmaken</button>
+      <span id="snippet-status" class="help ml-8"></span>
+    </div>
+  </div>
+</section>
 
 {# Versie #}
 <section class="card mb-14">
@@ -122,6 +203,8 @@
   <div class="card-body">
     <div id="scope-targets-list"></div>
     <button type="button" id="btn-add-scope-target" class="btn mt-8">+ Target toevoegen</button>
+    <label class="form-label mt-8">Kritieke functies / kroonjuwelen (ART)</label>
+    <textarea class="form-control" data-rap="rapport_kritieke_functies" rows="3" placeholder="Te Beschermen Belangen / kritieke functies in scope (mensen, processen, technologie). Verschijnt bij de Scope."></textarea>
   </div>
 </section>
 
@@ -196,6 +279,7 @@
           <label class="fw-normal"><input type="checkbox" value="blackbox" data-scope> Black Box</label>
           <label class="fw-normal"><input type="checkbox" value="greybox" data-scope> Grey Box</label>
           <label class="fw-normal"><input type="checkbox" value="whitebox" data-scope> White Box</label>
+          <label class="fw-normal"><input type="checkbox" value="assumebreach" data-scope> Assume Breach</label>
         </div>
       </div>
     </div>
@@ -251,6 +335,38 @@
           <textarea class="form-control" data-rap="rapport_legsup_informatie" rows="3" placeholder="Beschrijf verstrekte informatie/voordelen..."></textarea>
         </div>
       </div>
+    </div>
+  </section>
+  <section class="card mb-14">
+    <div class="card-head"><h2>Red Team — Modus operandi</h2></div>
+    <div class="card-body">
+      <label class="form-label">Modus operandi van de actor</label>
+      <textarea id="rap-modus-operandi" class="form-control" data-rap="rapport_modus_operandi" rows="6" placeholder="Beschrijf de werkwijze/tradecraft van de gesimuleerde actor: initiële toegang, LotL/LOLBins, OPSEC, laterale beweging, persistentie... (ondersteunt \plaatje{bestand}{bijschrift}, \textbf{...}, kaders)"></textarea>
+      <p class="form-hint">Alleen zichtbaar in red team-rapportages, als eigen sectie "Modus operandi".</p>
+    </div>
+  </section>
+  <section class="card mb-14">
+    <div class="card-head"><h2>Red Team — Blue team (detectie &amp; respons)</h2></div>
+    <div class="card-body">
+      <label class="form-label">Blue team / detectie &amp; respons (ART)</label>
+      <textarea class="form-control" data-rap="rapport_blueteam" rows="6" placeholder="Wat detecteerde het SOC/CDC? Tijdlijn van detectie en respons, dwell time, welke TTP's (ATT&amp;CK-stappen) wél/niet gezien, kwaliteit van de respons... (ondersteunt \plaatje{...}, \textbf{...})"></textarea>
+      <p class="form-hint">ART-eis 12: naast het red team-deel ook een blue team / detectie-respons-evaluatie.</p>
+    </div>
+  </section>
+  <section class="card mb-14">
+    <div class="card-head"><h2>Red Team — Purple teaming</h2></div>
+    <div class="card-body">
+      <label class="form-label">Purple teaming (ART)</label>
+      <textarea class="form-control" data-rap="rapport_purpleteam" rows="5" placeholder="Opzet en uitkomsten van de purple teaming-oefening (gezamenlijke red/blue replay), geleerde lessen en verbeterpunten voor detectie/respons..."></textarea>
+      <p class="form-hint">ART-eis 13: purple teaming om de leerervaring te vergroten.</p>
+    </div>
+  </section>
+  <section class="card mb-14">
+    <div class="card-head"><h2>Red Team — Verklaring</h2></div>
+    <div class="card-body">
+      <label class="form-label">Verklaring van betrokken partijen (ART)</label>
+      <textarea class="form-control" data-rap="rapport_verklaring" rows="4" placeholder="Verklaring dat de test conform de vereisten is uitgevoerd, met ondertekenaars (red team-dienstverlener, entiteit, eventueel TCT) en datum..."></textarea>
+      <p class="form-hint">ART-eis 15: verklaring van alle betrokken partijen. Verschijnt achteraan.</p>
     </div>
   </section>
   <section class="card mb-14">
@@ -498,8 +614,110 @@
 </div>{# /tab-findings #}
 
 {# ══════════════════════════════════════════════════════ #}
+{# TAB: Afbeeldingen lakken                               #}
+{# ══════════════════════════════════════════════════════ #}
+<div class="rapport-tab-content" id="tab-lakken">
+<section class="card mb-14" data-lak-galerij>
+  <div class="card-head"><h2>Afbeeldingen lakken</h2></div>
+  <div class="card-body">
+    <p class="help">Alle afbeeldingen die via <code>\plaatje{}</code> in de bevindingen,
+      notities en vrije tekstvelden van deze opdracht gebruikt worden. Een
+      <span class="lak-badge lak-badge-inline">GELAKT</span>-markering betekent dat er een
+      gelakte kopie bestaat; die wordt in de <strong>gelakte</strong> rapportbuild gebruikt
+      i.p.v. het origineel. Klik een afbeelding aan om 'm groot te bekijken (←/→ bladeren,
+      L lakken, G gecontroleerd), of "Lakken" om zwarte vlakken over gevoelige delen te trekken.</p>
+    <div class="lak-bar">
+      <label class="lak-filter-label">Toon:
+        <select data-lak-filter class="form-control lak-filter-select">
+          <option value="alle">Alle</option>
+          <option value="todo">Te controleren</option>
+          <option value="gelakt">Gelakt</option>
+          <option value="gecontroleerd">Gecontroleerd</option>
+          <option value="niet">Niet gelakt</option>
+        </select>
+      </label>
+      <span data-lak-status class="lak-status"></span>
+      <button type="button" data-lak-refresh class="btn btn-sm">Vernieuwen</button>
+    </div>
+    <div data-lak-grid class="lak-grid"></div>
+  </div>
+</section>
+</div>{# /tab-lakken #}
+
+{# ══════════════════════════════════════════════════════ #}
 {# TAB 3: Genereer & download                            #}
 {# ══════════════════════════════════════════════════════ #}
+<div class="rapport-tab-content" id="tab-bewerken">
+  <section class="card mb-14">
+    <div class="card-head"><h2>Rapport bewerken</h2></div>
+    <div class="card-body">
+      <p class="help">Klik in de live preview op een onderdeel om het te bewerken: vrije-tekstvelden openen hier met de LaTeX-toolbar; bevindingen, notities en tabellen openen op het juiste tabblad. De preview is het rapport zoals het gegenereerd wordt (gekozen template, taal en secties).</p>
+      <div class="rb-toolbar">
+        <button type="button" class="btn btn-sm" id="rb-reload">&#8635; Preview herladen</button>
+        <button type="button" class="btn btn-sm" id="rb-sections-toggle">&#9776; Secties (aan/uit &amp; volgorde)</button>
+        <button type="button" class="btn btn-sm" id="rb-validate">&#10003; Controleren</button>
+        <button type="button" class="btn btn-sm" id="rb-toc-toggle">&#9776; Inhoud</button>
+        <button type="button" class="btn btn-sm" id="rb-add-note">+ Notitie</button>
+        <a class="btn btn-sm" href="/dashboard/findings" target="_blank" rel="noopener">+ Bevinding</a>
+        <label class="rb-inline"><input type="checkbox" id="rb-draft" checked /> Concept-inhoud tonen</label>
+        <label class="rb-inline"><input type="checkbox" id="rb-showoff" checked /> Uitgeschakelde secties tonen</label>
+        <label class="rb-inline">Preview-taal:
+          <select id="rb-taal" class="form-control rb-taal-sel">
+            <option value="">Rapporttaal</option>
+            <option value="nl">NL</option>
+            <option value="en">EN</option>
+          </select>
+        </label>
+        <a class="btn btn-sm" id="rb-open-new" href="#" target="_blank" rel="noopener">Open preview in nieuw tabblad</a>
+        <span id="rb-status" class="help"></span>
+      </div>
+      <div id="rb-sections" class="rb-sections" hidden>
+        <p class="help m-0 mb-8" id="rb-sections-hint">Vink secties aan/uit; dit wijzigt de gekozen rapport-template en ververst de preview.</p>
+        <div id="rb-sections-list" class="rb-sections-list"></div>
+      </div>
+      <div id="rb-validation" class="rb-validation" hidden></div>
+      <div id="rb-toc" class="rb-toc" hidden></div>
+      <div class="rb-split">
+        <div class="rb-preview-wrap">
+          <iframe id="rb-frame" title="Rapport-preview" class="rb-frame"></iframe>
+        </div>
+        <aside class="rb-editor" id="rb-editor" hidden>
+          <div class="rb-editor-head">
+            <strong id="rb-editor-title">Bewerken</strong>
+            <button type="button" class="btn btn-xs" id="rb-editor-close">&#10005;</button>
+          </div>
+          <div id="rb-ed-field">
+            <div data-latex-toolbar="rb-edit-text" data-mode="document" data-project-images-url="/api/screenshots"></div>
+            <textarea id="rb-edit-text" name="rb-edit-text" class="form-control" rows="14" placeholder="Tekst van dit onderdeel..."></textarea>
+          </div>
+          <div id="rb-ed-table" hidden>
+            <div id="rb-table-rows"></div>
+            <button type="button" class="btn btn-sm mt-8" id="rb-table-addrow">+ Rij toevoegen</button>
+          </div>
+          <div id="rb-ed-meta" hidden>
+            <label class="form-label" id="rb-meta-label"></label>
+            <div id="rb-meta-control"></div>
+          </div>
+          <div id="rb-ed-note" hidden>
+            <label class="form-label" for="rb-note-naam">Titel</label>
+            <input type="text" class="form-control mb-8" id="rb-note-naam" />
+            <label class="form-label">Inhoud</label>
+            <div data-latex-toolbar="rb-note-text" data-mode="note" data-project-images-url="/api/screenshots"></div>
+            <textarea id="rb-note-text" name="rb-note-text" class="form-control" rows="12"></textarea>
+          </div>
+          <div id="rb-ed-finding" hidden></div>
+          <div class="rb-editor-actions">
+            <button type="button" class="btn btn-primary btn-sm" id="rb-save">Opslaan &amp; verversen</button>
+            <button type="button" class="btn btn-sm" id="rb-override-reset" hidden>&#8634; Herstel standaard</button>
+            <button type="button" class="btn btn-sm" id="rb-cancel">Annuleren</button>
+            <span id="rb-edit-status" class="help ml-8"></span>
+          </div>
+        </aside>
+      </div>
+    </div>
+  </section>
+</div>{# /tab-bewerken #}
+
 <div class="rapport-tab-content" id="tab-genereer">
 
 {# KPI rij #}
@@ -650,7 +868,9 @@
 <script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='js/latexeditor.js') }}"></script>
 <script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='js/finding-template.js') }}"></script>
 <script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='js/finding-tabs.js') }}"></script>
+<script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='js/cvss4-calculator.js') }}"></script>
 <script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='js/rapport-editor.js') }}"></script>
+<script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='js/report-lak-gallery.js') }}"></script>
 <script nonce="{{ csp_nonce }}">
 (function() {
   "use strict";
@@ -665,6 +885,12 @@
     var panel = document.getElementById(tabId);
     if (btn) btn.classList.add("active");
     if (panel) panel.classList.add("active");
+    // Lak-galerij verversen bij openen (nieuwe afbeeldingen uit andere tabs).
+    if (tabId === "tab-lakken" && panel) {
+      var gal = panel.querySelector("[data-lak-galerij]");
+      if (gal && typeof gal._lakReload === "function") gal._lakReload();
+    }
+    if (tabId === "tab-bewerken" && panel && typeof rbLoadPreview === "function") rbLoadPreview();
     try { localStorage.setItem(LS_KEY, tabId); } catch(e) {}
   }
 
@@ -680,6 +906,607 @@
   if (savedRapTab && document.getElementById(savedRapTab)) {
     activateRapportTab(savedRapTab);
   }
+
+  // ── Tabblad Bewerken: klik-op-preview ───────────────────────────────
+  var RB_FIELD_LABELS = {
+    rapport_contact: "Contactgegevens (colofon)",
+    rapport_management_samenvatting: "Managementsamenvatting",
+    rapport_algeheel_beeld: "Algeheel beeld",
+    rapport_kritieke_functies: "Kritieke functies",
+    rapport_roe: "Rules of Engagement",
+    rapport_modus_operandi: "Modus operandi",
+    rapport_blueteam: "Blue team — detectie & respons",
+    rapport_purpleteam: "Purple teaming",
+    rapport_verklaring: "Verklaring",
+    rapport_legsup_startpunt: "Legs up — startpunt",
+    rapport_legsup_privileges: "Legs up — rechten",
+    rapport_legsup_informatie: "Legs up — verstrekte informatie"
+  };
+  var rbEditKey = null, rbEditMode = "field", rbTableName = null, rbTableRows = [], rbTplData = null, rbNoteId = null;
+  var rbIsOverride = false, rbOverrides = {}, rbOverrideDefault = "";
+  var RB_OVERRIDE_LABELS = { inleiding: "Inleiding", methodologie: "Methodologie", tools: "Tools en technieken" };
+  var RB_TABLES = {
+    scope_targets: { key: "rapport_scope_targets", titel: "Scope-targets",
+      cols: [["target", "Target"], ["type", "Type"], ["beschrijving", "Beschrijving"]] },
+    scenarios: { key: "rapport_scenarios", titel: "Scenario's",
+      cols: [["naam", "Naam"], ["beschrijving", "Beschrijving"]] },
+    revisies: { key: "rapport_revisies", titel: "Revisies",
+      cols: [["versie", "Versie"], ["datum", "Datum"], ["auteur", "Auteur"], ["wijziging", "Wijziging"]] },
+    distributie: { key: "rapport_distributie", titel: "Distributie",
+      cols: [["naam", "Naam"], ["organisatie", "Organisatie"], ["rol", "Rol"], ["versie", "Versie"]] },
+    begrippen: { key: "rapport_begrippen", titel: "Begrippen- en afkortingenlijst",
+      cols: [["term", "Begrip"], ["definitie", "Omschrijving"]] }
+  };
+  function rbPreviewUrl() {
+    var draft = document.getElementById("rb-draft");
+    var d = (!draft || draft.checked) ? "&include_draft=1" : "";
+    var tl = document.getElementById("rb-taal");
+    var tq = (tl && tl.value) ? ("&taal=" + tl.value) : "";
+    var so = document.getElementById("rb-showoff");
+    var soq = (so && !so.checked) ? "&showoff=0" : "";
+    return "/dashboard/report/generate?preview=1&edit=1" + d + tq + soq + "&_=" + Date.now();
+  }
+  function rbLoadPreview() {
+    var f = document.getElementById("rb-frame");
+    if (f) f.src = rbPreviewUrl();
+    var a = document.getElementById("rb-open-new");
+    if (a) a.href = "/dashboard/report/generate?preview=1&include_draft=1";
+    var sp = document.getElementById("rb-sections");
+    if (sp && !sp.hidden) rbLoadSections();
+    rbCloseEditor();
+  }
+  function rbStatus(msg, kind) { setStatus("rb-status", msg, kind); }
+  function rbCloseEditor() {
+    var ed = document.getElementById("rb-editor");
+    if (ed) { ed.hidden = true; ed.classList.remove("rb-finding-wide"); }
+    var acts = document.querySelector("#rb-editor .rb-editor-actions");
+    if (acts) acts.hidden = false;
+    var host = document.getElementById("rb-ed-finding");
+    if (host) host.innerHTML = "";
+    rbEditKey = null; rbNoteId = null; rbIsOverride = false;
+  }
+  var RB_META = {
+    rapport_titel: { label: "Titel", type: "text" },
+    rapport_subtitel: { label: "Subtitel", type: "text" },
+    rapport_versie: { label: "Versie", type: "text" },
+    rapport_versie_status: { label: "Status", type: "select",
+      options: [["concept", "Concept"], ["review", "Ter review"], ["definitief", "Definitief"]] },
+    rapport_classificatie: { label: "Classificatie", type: "select",
+      options: [["TLP:RED", "TLP:RED"], ["TLP:AMBER+STRICT", "TLP:AMBER+STRICT"],
+                ["TLP:AMBER", "TLP:AMBER"], ["TLP:GREEN", "TLP:GREEN"], ["TLP:CLEAR", "TLP:CLEAR"]] },
+    rapport_project: { label: "Opdrachtgever", type: "text" },
+    rapport_auteur: { label: "Opsteller", type: "text" },
+    rapport_testtype: { label: "Type onderzoek", type: "select",
+      options: [["pentest", "Pentest"], ["redteam", "Red team"]] },
+    rapport_omgeving: { label: "Omgeving", type: "text" },
+    testperiode: { label: "Testperiode", type: "daterange" },
+    testscope: { label: "Testscope (methodologie)", type: "multiscope",
+      options: [["blackbox", "Black box"], ["greybox", "Grey box"],
+                ["whitebox", "White box"], ["assumebreach", "Assume breach"]] }
+  };
+  function rbShowBlocks(mode) {
+    rbEditMode = mode;
+    ["field", "table", "meta", "note", "finding"].forEach(function(b) {
+      var el = document.getElementById("rb-ed-" + b);
+      if (el) el.hidden = (b !== mode);
+    });
+    var ed = document.getElementById("rb-editor");
+    if (ed) { ed.hidden = false; ed.classList.toggle("rb-finding-wide", mode === "finding"); }
+    // De bevinding heeft een eigen formulier met opslaan-knop; verberg de generieke acties.
+    var acts = document.querySelector("#rb-editor .rb-editor-actions");
+    if (acts) acts.hidden = (mode === "finding");
+    var rb = document.getElementById("rb-override-reset");
+    if (rb) rb.hidden = true;
+  }
+  function rbOpenFindingInline(id) {
+    rbEditKey = null; rbTableName = null; rbIsOverride = false; rbNoteId = null;
+    var host = document.getElementById("rb-ed-finding");
+    var title = document.getElementById("rb-editor-title");
+    if (title) title.textContent = "Bevinding bewerken";
+    if (host) host.innerHTML = '<p class="help">Laden…</p>';
+    rbShowBlocks("finding");
+    fetch("/dashboard/findings/edit/" + id, { headers: { "X-Requested-With": "XMLHttpRequest" } })
+      .then(function(r) { return r.text(); })
+      .then(function(html) {
+        if (!host) return;
+        host.innerHTML = html;
+        if (window.CVSS4 && typeof window.CVSS4.init === "function") window.CVSS4.init();
+        if (typeof window.initLatexToolbar === "function") window.initLatexToolbar();
+        if (typeof window.initFindingTemplate === "function") window.initFindingTemplate();
+        if (typeof window.initFindingTabs === "function") window.initFindingTabs();
+        var form = host.querySelector("form");
+        if (form) form.addEventListener("submit", function(e) {
+          e.preventDefault();
+          fetch("/dashboard/findings/save", { method: "POST",
+            headers: { "X-Requested-With": "XMLHttpRequest" }, body: new FormData(form) })
+            .then(function(r) { return r.json(); })
+            .then(function(d) { if (d.ok) { rbCloseEditor(); rbLoadPreview(); } });
+        });
+      });
+  }
+  function rbResetOverride() {
+    if (!rbIsOverride || !rbEditKey) return;
+    var ovp = {}; ovp[rbEditKey] = "";
+    setStatus("rb-edit-status", "Herstellen…", "warn");
+    fetch("/api/settings", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ rapport_overrides: ovp }) })
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        if (d.ok) {
+          var ta = document.getElementById("rb-edit-text");
+          if (ta) { ta.value = rbOverrideDefault || ""; ta.dispatchEvent(new Event("input", { bubbles: true })); }
+          var rb = document.getElementById("rb-override-reset"); if (rb) rb.hidden = true;
+          setStatus("rb-edit-status", "Standaard hersteld", "ok");
+          rbLoadPreview();
+        } else setStatus("rb-edit-status", "Fout bij herstellen", "err");
+      })
+      .catch(function() { setStatus("rb-edit-status", "Fout bij herstellen", "err"); });
+  }
+  function rbOpenNoteInline(id) {
+    rbNoteId = id; rbEditKey = null; rbTableName = null;
+    var title = document.getElementById("rb-editor-title");
+    fetch("/api/notes", { credentials: "same-origin" })
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        var note = (d.notes || []).filter(function(n) { return String(n.id) === String(id); })[0];
+        if (!note) return;
+        if (title) title.textContent = "Notitie bewerken";
+        document.getElementById("rb-note-naam").value = note.naam || "";
+        var ta = document.getElementById("rb-note-text");
+        ta.value = note.uitwerken || "";
+        ta.dispatchEvent(new Event("input", { bubbles: true }));
+        rbShowBlocks("note");
+        if (typeof window.initLatexToolbar === "function") window.initLatexToolbar();
+        document.getElementById("rb-note-naam").focus();
+      });
+  }
+  function rbValOf(id) { var el = document.getElementById(id); return el ? el.value : ""; }
+  function rbOpenMeta(key) {
+    var spec = RB_META[key]; if (!spec) return;
+    rbEditKey = key; rbTableName = null;
+    var title = document.getElementById("rb-editor-title");
+    if (title) title.textContent = spec.label;
+    var lab = document.getElementById("rb-meta-label");
+    if (lab) lab.textContent = spec.label;
+    fetch("/api/settings", { credentials: "same-origin" })
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        var host = document.getElementById("rb-meta-control");
+        if (!host) return;
+        host.innerHTML = "";
+        if (spec.type === "select") {
+          var sel = document.createElement("select");
+          sel.className = "form-control"; sel.id = "rb-meta-input";
+          spec.options.forEach(function(o) {
+            var op = document.createElement("option"); op.value = o[0]; op.textContent = o[1]; sel.appendChild(op);
+          });
+          sel.value = d[key] || spec.options[0][0];
+          host.appendChild(sel);
+        } else if (spec.type === "daterange") {
+          host.innerHTML =
+            '<label class="form-label">Startdatum</label><input type="date" class="form-control mb-8" id="rb-meta-start" />' +
+            '<label class="form-label">Einddatum</label><input type="date" class="form-control" id="rb-meta-end" />';
+          var s = document.getElementById("rb-meta-start"), e = document.getElementById("rb-meta-end");
+          if (s) s.value = d.rapport_test_start_date || "";
+          if (e) e.value = d.rapport_test_end_date || "";
+        } else if (spec.type === "multiscope") {
+          var cur = (d.rapport_testscope || "").split(",").map(function(x) { return x.trim(); });
+          host.innerHTML = spec.options.map(function(o) {
+            return '<label class="rb-sec-item"><input type="checkbox" class="rb-ms" value="' + o[0] + '"' +
+              (cur.indexOf(o[0]) !== -1 ? " checked" : "") + " /> " + escHtml(o[1]) + "</label>";
+          }).join("");
+        } else {
+          var inp = document.createElement("input");
+          inp.type = (spec.type === "date") ? "date" : "text";
+          inp.className = "form-control"; inp.id = "rb-meta-input";
+          inp.value = d[key] || "";
+          host.appendChild(inp);
+        }
+        rbShowBlocks("meta");
+        var first = host.querySelector("input,select"); if (first) first.focus();
+      });
+  }
+  function rbOpenOverride(key) {
+    rbEditKey = key; rbTableName = null; rbIsOverride = true;
+    var ta = document.getElementById("rb-edit-text");
+    var title = document.getElementById("rb-editor-title");
+    if (title) title.textContent = (RB_OVERRIDE_LABELS[key] || key) + " (template-tekst)";
+    fetch("/dashboard/report/override-text?key=" + encodeURIComponent(key), { credentials: "same-origin" })
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        rbOverrideDefault = (d && d.default) || "";
+        if (ta) {
+          ta.value = (d && d.text) || "";
+          ta.placeholder = "Leeg = standaard template-tekst";
+          ta.dispatchEvent(new Event("input", { bubbles: true }));
+        }
+        rbShowBlocks("field");
+        var rb = document.getElementById("rb-override-reset");
+        if (rb) rb.hidden = !(d && d.is_override);
+        if (typeof window.initLatexToolbar === "function") window.initLatexToolbar();
+        if (ta) ta.focus();
+      });
+  }
+  function rbOpenField(key) {
+    rbEditKey = key; rbTableName = null; rbIsOverride = false;
+    var ta = document.getElementById("rb-edit-text");
+    var title = document.getElementById("rb-editor-title");
+    if (title) title.textContent = RB_FIELD_LABELS[key] || key;
+    fetch("/api/settings", { credentials: "same-origin" })
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        if (ta) { ta.value = d[key] || ""; ta.dispatchEvent(new Event("input", { bubbles: true })); }
+        rbShowBlocks("field");
+        if (typeof window.initLatexToolbar === "function") window.initLatexToolbar();
+        if (ta) ta.focus();
+      });
+  }
+  function rbOpenTable(name) {
+    var spec = RB_TABLES[name]; if (!spec) return;
+    rbTableName = name; rbEditKey = null;
+    var title = document.getElementById("rb-editor-title");
+    if (title) title.textContent = spec.titel;
+    fetch("/api/settings", { credentials: "same-origin" })
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        var rows = d[spec.key];
+        rbTableRows = Array.isArray(rows) ? rows.slice() : [];
+        rbRenderTable();
+        rbShowBlocks("table");
+      });
+  }
+  function rbRenderTable() {
+    var spec = RB_TABLES[rbTableName]; if (!spec) return;
+    var wrap = document.getElementById("rb-table-rows"); if (!wrap) return;
+    wrap.innerHTML = rbTableRows.map(function(row, i) {
+      var inputs = spec.cols.map(function(c) {
+        var v = (row && row[c[0]] != null) ? String(row[c[0]]) : "";
+        return '<input class="form-control rb-tcell" data-ri="' + i + '" data-ck="' + c[0] +
+          '" placeholder="' + escHtml(c[1]) + '" value="' + escHtml(v) + '" />';
+      }).join("");
+      return '<div class="rb-trow">' + inputs +
+        '<button type="button" class="btn btn-xs rb-trow-del" data-ri="' + i + '">×</button></div>';
+    }).join("") || '<p class="help">Nog geen rijen.</p>';
+    wrap.querySelectorAll(".rb-tcell").forEach(function(inp) {
+      inp.addEventListener("input", function() {
+        var i = parseInt(inp.getAttribute("data-ri"), 10), k = inp.getAttribute("data-ck");
+        rbTableRows[i] = rbTableRows[i] || {}; rbTableRows[i][k] = inp.value;
+      });
+    });
+    wrap.querySelectorAll(".rb-trow-del").forEach(function(b) {
+      b.addEventListener("click", function() {
+        rbTableRows.splice(parseInt(b.getAttribute("data-ri"), 10), 1); rbRenderTable();
+      });
+    });
+  }
+  function rbAddRow() {
+    var spec = RB_TABLES[rbTableName]; if (!spec) return;
+    var o = {}; spec.cols.forEach(function(c) { o[c[0]] = ""; });
+    rbTableRows.push(o); rbRenderTable();
+  }
+  function rbSave() {
+    if (rbIsOverride && rbEditKey) {
+      var oval = document.getElementById("rb-edit-text").value;
+      // Gelijk aan de standaardtekst? Leeg opslaan, zodat het automatisch blijft meelopen.
+      var store = (oval.trim() === (rbOverrideDefault || "").trim()) ? "" : oval;
+      var ovp = {}; ovp[rbEditKey] = store;
+      setStatus("rb-edit-status", "Opslaan…", "warn");
+      fetch("/api/settings", { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rapport_overrides: ovp }) })
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+          if (d.ok) { setStatus("rb-edit-status", "Opgeslagen", "ok"); rbLoadPreview(); }
+          else setStatus("rb-edit-status", "Fout bij opslaan", "err");
+        })
+        .catch(function() { setStatus("rb-edit-status", "Fout bij opslaan", "err"); });
+      return;
+    }
+    if (rbEditMode === "note" && rbNoteId) {
+      var nn = document.getElementById("rb-note-naam").value.trim();
+      var nu = document.getElementById("rb-note-text").value;
+      if (!nn) { setStatus("rb-edit-status", "Titel is vereist", "err"); return; }
+      setStatus("rb-edit-status", "Opslaan…", "warn");
+      fetch("/api/notes/" + rbNoteId, { method: "PUT", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ naam: nn, uitwerken: nu }) })
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+          if (d.ok) { setStatus("rb-edit-status", "Opgeslagen", "ok"); rbLoadPreview(); }
+          else setStatus("rb-edit-status", "Fout bij opslaan", "err");
+        })
+        .catch(function() { setStatus("rb-edit-status", "Fout bij opslaan", "err"); });
+      return;
+    }
+    var payload = {};
+    if (rbEditMode === "table" && rbTableName) {
+      var spec = RB_TABLES[rbTableName];
+      payload[spec.key] = rbTableRows.filter(function(r) {
+        return spec.cols.some(function(c) { return (r[c[0]] || "").trim(); });
+      });
+    } else if (rbEditMode === "meta" && rbEditKey) {
+      if (rbEditKey === "testperiode") {
+        payload.rapport_test_start_date = rbValOf("rb-meta-start");
+        payload.rapport_test_end_date = rbValOf("rb-meta-end");
+      } else if (rbEditKey === "testscope") {
+        var vals = [];
+        document.querySelectorAll("#rb-meta-control .rb-ms:checked").forEach(function(cb) { vals.push(cb.value); });
+        payload.rapport_testscope = vals.join(",");
+      } else {
+        payload[rbEditKey] = rbValOf("rb-meta-input");
+      }
+    } else if (rbEditKey) {
+      var ta = document.getElementById("rb-edit-text");
+      payload[rbEditKey] = ta ? ta.value : "";
+    } else { return; }
+    setStatus("rb-edit-status", "Opslaan…", "warn");
+    fetch("/api/settings", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload) })
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        if (d.ok) { setStatus("rb-edit-status", "Opgeslagen", "ok"); rbLoadPreview(); }
+        else setStatus("rb-edit-status", "Fout bij opslaan", "err");
+      })
+      .catch(function() { setStatus("rb-edit-status", "Fout bij opslaan", "err"); });
+  }
+  function rbRoute(type, key) {
+    if (type === "finding") {
+      rbOpenFindingInline(key);
+    } else if (type === "note") {
+      rbOpenNoteInline(key);
+    } else if (type === "table") {
+      rbOpenTable(key);
+    } else if (type === "image") {
+      activateRapportTab("tab-lakken");
+      if (key && typeof window.rbOpenLakImage === "function") {
+        setTimeout(function() { window.rbOpenLakImage(key); }, 150);
+        rbStatus("Afbeelding geopend in de lak-editor", "ok");
+      } else {
+        rbStatus("Open de afbeelding in de lak-galerij", "ok");
+      }
+    }
+  }
+  // De modals (bevinding/notitie) roepen dit aan na opslaan vanuit Bewerken:
+  // alleen de preview verversen i.p.v. de hele pagina herladen.
+  window.rbNotifySaved = function() { rbLoadPreview(); };
+
+  // ── Inline validatie (zelfde controle als op Instellingen) ──────────
+  function rbValidate() {
+    var el = document.getElementById("rb-validation");
+    if (!el) return;
+    el.hidden = false;
+    el.innerHTML = "Controleren…";
+    fetch("/api/report/validate")
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        var html = "";
+        if (d.errors && d.errors.length) {
+          html += '<div class="rv-danger">';
+          d.errors.forEach(function(e) { html += "<p>&#10060; " + escHtml(e) + "</p>"; });
+          html += "</div>";
+        }
+        if (d.warnings && d.warnings.length) {
+          html += '<div class="rv-warning">';
+          d.warnings.forEach(function(w) { html += "<p>&#9888; " + escHtml(w) + "</p>"; });
+          html += "</div>";
+        }
+        if ((!d.errors || !d.errors.length) && (!d.warnings || !d.warnings.length)) {
+          html += '<p class="rv-success">&#10004; Geen problemen gevonden</p>';
+        }
+        if (d.notices && d.notices.length) {
+          html += '<div class="rv-info">';
+          d.notices.forEach(function(n) { html += "<p>&#8505; " + escHtml(n) + "</p>"; });
+          html += "</div>";
+        }
+        el.innerHTML = html;
+      })
+      .catch(function() { el.innerHTML = '<p class="rv-danger">Controle mislukt</p>'; });
+  }
+  window.addEventListener("message", function(e) {
+    var m = e.data;
+    if (!m || m.source !== "rb-edit") return;
+    if (m.type === "toc") { rbRenderToc(m.items || []); return; }
+    if (m.type === "field") rbOpenField(m.key);
+    else if (m.type === "override") rbOpenOverride(m.key);
+    else if (m.type === "meta") rbOpenMeta(m.key);
+    else if (m.type === "section") rbToggleSectionInline(m.key);
+    else rbRoute(m.type, m.key);
+  });
+  function rbToggleSectionInline(key) {
+    function doToggle() {
+      var act = rbActiveTemplate();
+      if (!act || act.builtin || act.id == null) { rbFocusSection(key); return; }
+      var secs = {};
+      Object.keys(act.sections || {}).forEach(function(k) { secs[k] = act.sections[k]; });
+      secs[key] = (secs[key] === false); // uit -> aan, aan -> uit
+      rbStatus(secs[key] ? "Sectie inschakelen…" : "Sectie uitschakelen…", "warn");
+      fetch("/api/report/templates/" + act.id, { method: "POST",
+        headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sections: secs }) })
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+          if (d.ok) {
+            (rbTplData.custom || []).forEach(function(t) { if (t.id === act.id) t.sections = secs; });
+            rbStatus(secs[key] ? "Sectie ingeschakeld" : "Sectie uitgeschakeld", "ok");
+            rbLoadPreview();
+          } else rbStatus("Fout bij wijzigen sectie", "err");
+        })
+        .catch(function() { rbStatus("Fout bij wijzigen sectie", "err"); });
+    }
+    if (rbTplData) doToggle(); else rbLoadSections().then(doToggle);
+  }
+  function rbFocusSection(key) {
+    var p = document.getElementById("rb-sections");
+    if (!p) return;
+    p.hidden = false;
+    rbLoadSections().then(function() {
+      var cb = document.querySelector('#rb-sections-list [data-sec="' + key + '"]');
+      if (cb) {
+        var row = cb.closest(".rb-sec-item") || cb.parentNode || cb;
+        if (row.scrollIntoView) row.scrollIntoView({ behavior: "smooth", block: "center" });
+        row.classList.add("rb-sec-flash");
+        setTimeout(function() { row.classList.remove("rb-sec-flash"); }, 1600);
+      }
+    });
+  }
+  var rbTocItems = [];
+  function rbRenderToc(items) {
+    rbTocItems = items || [];
+    var el = document.getElementById("rb-toc");
+    if (!el || el.hidden) return;
+    el.innerHTML = rbTocItems.map(function(it) {
+      return '<a href="#" class="rb-toc-link rb-toc-l' + it.level + '" data-id="' + escHtml(it.id) + '">' +
+        escHtml(it.text) + "</a>";
+    }).join("") || '<span class="help">Geen secties.</span>';
+    el.querySelectorAll(".rb-toc-link").forEach(function(a) {
+      a.addEventListener("click", function(e) {
+        e.preventDefault();
+        var f = document.getElementById("rb-frame");
+        if (f && f.contentWindow) f.contentWindow.postMessage({ rbScrollTo: a.getAttribute("data-id") }, "*");
+      });
+    });
+  }
+
+  // ── Secties aan/uit (horen bij de gekozen rapport-template) ──────────
+  function rbActiveTemplate() {
+    if (!rbTplData) return null;
+    var sel = rbTplData.selected || {};
+    if (sel.template_id != null) {
+      var m = (rbTplData.custom || []).filter(function(t) { return t.id === sel.template_id; })[0];
+      if (m) return { id: m.id, builtin: false, sections: m.sections || {}, order: m.section_order || [] };
+    }
+    var v = (rbTplData.builtin || []).filter(function(t) { return t.variant === (sel.variant || "detailed"); })[0];
+    if (v) return { id: null, builtin: true, sections: v.sections || {}, order: v.section_order || [] };
+    return null;
+  }
+  function rbLoadSections() {
+    return fetch("/api/report/templates", { credentials: "same-origin" })
+      .then(function(r) { return r.json(); })
+      .then(function(d) { rbTplData = d; rbRenderSections(); })
+      .catch(function() {});
+  }
+  function rbSecLabel(k) { return (typeof SEC_LABELS !== "undefined" && SEC_LABELS[k]) ? SEC_LABELS[k] : k; }
+  function rbRenderSections() {
+    var wrap = document.getElementById("rb-sections-list");
+    var hint = document.getElementById("rb-sections-hint");
+    if (!wrap || !rbTplData) return;
+    var act = rbActiveTemplate();
+    var keys = rbTplData.section_keys || [];
+    var reord = rbTplData.reorderable_keys || [];
+    var secs = (act && act.sections) || {};
+    var order = (act && act.order) || [];
+    var builtin = !act || act.builtin;
+    if (hint) hint.textContent = builtin
+      ? "De actieve template is een ingebouwde variant; secties en volgorde liggen vast. Kies of maak een eigen template (tabblad Instellingen) om ze aan te passen."
+      : "Vink secties aan/uit en zet de volgorde met ↑/↓; dit wijzigt de gekozen rapport-template en ververst de preview.";
+    // Herordenbare secties in huidige volgorde, daarna de rest.
+    var ro = order.filter(function(k) { return reord.indexOf(k) !== -1; });
+    reord.forEach(function(k) { if (ro.indexOf(k) === -1) ro.push(k); });
+    var rest = keys.filter(function(k) { return reord.indexOf(k) === -1; });
+    function chk(k) {
+      var on = (secs[k] !== false);
+      return '<input type="checkbox" data-sec="' + k + '"' + (on ? " checked" : "") +
+        (builtin ? " disabled" : "") + " />";
+    }
+    var html = '<div class="rb-sec-sub">Hoofdsecties (volgorde)</div>';
+    html += ro.map(function(k, i) {
+      var mv = builtin ? "" :
+        '<span class="rb-sec-move"><button type="button" class="btn btn-xs rb-sec-up" data-k="' + k + '"' +
+        (i === 0 ? " disabled" : "") + ">↑</button>" +
+        '<button type="button" class="btn btn-xs rb-sec-down" data-k="' + k + '"' +
+        (i === ro.length - 1 ? " disabled" : "") + ">↓</button></span>";
+      return '<div class="rb-sec-row"><label class="rb-sec-item">' + chk(k) + " " +
+        escHtml(rbSecLabel(k)) + "</label>" + mv + "</div>";
+    }).join("");
+    html += '<div class="rb-sec-sub">Overige secties &amp; bijlagen</div>';
+    html += '<div class="rb-sections-grid">' + rest.map(function(k) {
+      return '<label class="rb-sec-item">' + chk(k) + " " + escHtml(rbSecLabel(k)) + "</label>";
+    }).join("") + "</div>";
+    wrap.innerHTML = html;
+    wrap.querySelectorAll("[data-sec]").forEach(function(cb) {
+      cb.addEventListener("change", rbSaveSections);
+    });
+    wrap.querySelectorAll(".rb-sec-up").forEach(function(b) {
+      b.addEventListener("click", function() { rbMoveSection(b.getAttribute("data-k"), -1, ro); });
+    });
+    wrap.querySelectorAll(".rb-sec-down").forEach(function(b) {
+      b.addEventListener("click", function() { rbMoveSection(b.getAttribute("data-k"), 1, ro); });
+    });
+  }
+  function rbMoveSection(k, dir, ro) {
+    var i = ro.indexOf(k); if (i < 0) return;
+    var j = i + dir; if (j < 0 || j >= ro.length) return;
+    ro.splice(j, 0, ro.splice(i, 1)[0]);
+    rbSaveOrder(ro);
+  }
+  function rbSaveOrder(ro) {
+    var act = rbActiveTemplate();
+    if (!act || act.builtin || act.id == null) return;
+    rbStatus("Volgorde opslaan…", "warn");
+    fetch("/api/report/templates/" + act.id, { method: "POST",
+      headers: { "Content-Type": "application/json" }, body: JSON.stringify({ section_order: ro }) })
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        if (d.ok) {
+          (rbTplData.custom || []).forEach(function(t) { if (t.id === act.id) t.section_order = ro; });
+          rbRenderSections();
+          rbStatus("Volgorde opgeslagen", "ok");
+          rbLoadPreview();
+        } else rbStatus("Fout bij opslaan volgorde", "err");
+      })
+      .catch(function() { rbStatus("Fout bij opslaan volgorde", "err"); });
+  }
+  function rbSaveSections() {
+    var act = rbActiveTemplate();
+    if (!act || act.builtin || act.id == null) return;
+    var secs = {};
+    document.querySelectorAll("#rb-sections-list [data-sec]").forEach(function(cb) {
+      secs[cb.getAttribute("data-sec")] = cb.checked;
+    });
+    rbStatus("Secties opslaan…", "warn");
+    fetch("/api/report/templates/" + act.id, { method: "POST",
+      headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sections: secs }) })
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        if (d.ok) {
+          (rbTplData.custom || []).forEach(function(t) { if (t.id === act.id) t.sections = secs; });
+          rbStatus("Secties opgeslagen", "ok");
+          rbLoadPreview();
+        } else rbStatus("Fout bij opslaan secties", "err");
+      })
+      .catch(function() { rbStatus("Fout bij opslaan secties", "err"); });
+  }
+  (function() {
+    function bind(id, fn) { var el = document.getElementById(id); if (el) el.addEventListener("click", fn); }
+    bind("rb-reload", function() { rbLoadPreview(); });
+    bind("rb-validate", rbValidate);
+    bind("rb-toc-toggle", function() {
+      var p = document.getElementById("rb-toc");
+      if (!p) return;
+      p.hidden = !p.hidden;
+      if (!p.hidden) rbRenderToc(rbTocItems);
+    });
+    bind("rb-sections-toggle", function() {
+      var p = document.getElementById("rb-sections");
+      if (!p) return;
+      p.hidden = !p.hidden;
+      if (!p.hidden) rbLoadSections();
+    });
+    bind("rb-save", rbSave);
+    bind("rb-table-addrow", rbAddRow);
+    bind("rb-override-reset", rbResetOverride);
+    bind("rb-cancel", rbCloseEditor);
+    bind("rb-editor-close", rbCloseEditor);
+    var draft = document.getElementById("rb-draft");
+    if (draft) draft.addEventListener("change", rbLoadPreview);
+    var rbt = document.getElementById("rb-taal");
+    if (rbt) rbt.addEventListener("change", rbLoadPreview);
+    var rso = document.getElementById("rb-showoff");
+    if (rso) rso.addEventListener("change", rbLoadPreview);
+    bind("rb-add-note", function() {
+      if (typeof window.openNoteEditorNew === "function") {
+        window.rbEditContext = "bewerken";
+        window.openNoteEditorNew();
+      }
+    });
+  })();
 
   // ── Scope checkboxen helpers ────────────────────
   function loadScopeCheckboxes(val) {
@@ -977,6 +1804,7 @@
         renderDistributie(d.rapport_distributie || []);
         toggleRedteamFields();
         updateVersieKpi(d.rapport_versie || "", d.rapport_versie_status || "concept");
+        if (typeof loadResolved === "function") loadResolved(); // herbereken standaardteksten voor deze opdracht/taal
       });
   }
 
@@ -1025,6 +1853,290 @@
 
   var btnSave = document.getElementById("btn-rap-save");
   if (btnSave) btnSave.addEventListener("click", saveRapportSettings);
+
+  // ── Boilerplate-profielen, snippets, per-veld-acties ────────────────
+  var boiler = { profielen: [], snippets: [], velden: [], tokens: [] };
+  var boilerCurId = null, boilerResolved = {}, boilerTokenValues = {}, boilerTmpId = 0;
+  function escHtml(s) { var d = document.createElement("div"); d.textContent = s == null ? "" : s; return d.innerHTML; }
+  function boilerFieldKeys() { return boiler.velden.map(function(v) { return v.key; }); }
+  function reportTaal() { var el = document.getElementById("rap-taal"); return (el && el.value) || "nl"; }
+  function curProfiel() { return boiler.profielen.filter(function(p) { return p.id === boilerCurId; })[0] || null; }
+  function setStatus(id, msg, kind) {
+    var el = document.getElementById(id); if (!el) return;
+    el.textContent = msg;
+    el.style.color = kind === "ok" ? "var(--success, #22c55e)"
+                   : kind === "err" ? "var(--danger, #ef4444)" : "var(--warning, #f59e0b)";
+    if (kind === "ok") setTimeout(function() { el.textContent = ""; }, 2000);
+  }
+
+  function loadBoiler(preferId) {
+    return fetch("/api/report-boiler", { credentials: "same-origin" })
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        boiler = d;
+        renderTokensHelp();
+        buildBoilerFieldInputs();
+        injectFieldControls();
+        renderProfielSelect();
+        var pick = (preferId != null && boiler.profielen.some(function(p){ return p.id === preferId; }))
+                   ? preferId : (boiler.profielen[0] ? boiler.profielen[0].id : null);
+        if (pick != null) selectProfiel(pick);
+        renderSnippetList();
+        renderSnippetOptions();
+        return loadResolved();
+      });
+  }
+  function loadResolved() {
+    return fetch("/api/report-boiler/resolve?taal=" + encodeURIComponent(reportTaal()), { credentials: "same-origin" })
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        boilerResolved = d.velden || {};
+        boilerTokenValues = d.tokenvalues || {};
+        refreshFillControls();
+      })
+      .catch(function() {});
+  }
+  function renderTokensHelp() {
+    var el = document.getElementById("boiler-tokens-help"); if (!el) return;
+    el.innerHTML = "Tokens: " + (boiler.tokens || []).map(function(t) {
+      return "<code>" + escHtml(t.token) + "</code> = " + escHtml(t.label);
+    }).join(" &middot; ");
+  }
+  function buildBoilerFieldInputs() {
+    var wrap = document.getElementById("boiler-velden"); if (!wrap || wrap._built) return;
+    wrap._built = true;
+    wrap.innerHTML = (boiler.velden || []).map(function(v) {
+      return '<label class="form-label">' + escHtml(v.label) + '</label>' +
+        '<textarea class="form-control mb-8" data-boilerfield="' + escHtml(v.key) + '" rows="3"></textarea>';
+    }).join("");
+    wrap.querySelectorAll("[data-boilerfield]").forEach(function(ta) {
+      ta.addEventListener("input", function() {
+        var p = curProfiel(); if (!p) return;
+        var k = ta.getAttribute("data-boilerfield");
+        p.data[k] = p.data[k] || {};
+        p.data[k][document.getElementById("boiler-taal").value] = ta.value;
+      });
+    });
+  }
+  function renderProfielSelect() {
+    var sel = document.getElementById("boiler-profiel"); if (!sel) return;
+    sel.innerHTML = (boiler.profielen || []).map(function(p) {
+      var tag = p.testtype ? (" [" + p.testtype + "]") : "";
+      return '<option value="' + p.id + '">' + escHtml(p.naam) + tag + (p.is_default ? " ★" : "") + '</option>';
+    }).join("");
+    if (boilerCurId != null) sel.value = String(boilerCurId);
+  }
+  function selectProfiel(id) {
+    boilerCurId = id;
+    var p = curProfiel(); if (!p) return;
+    var sel = document.getElementById("boiler-profiel"); if (sel) sel.value = String(id);
+    document.getElementById("boiler-naam").value = p.naam || "";
+    document.getElementById("boiler-testtype").value = p.testtype || "";
+    document.getElementById("boiler-isdefault").checked = !!p.is_default;
+    populateProfielVelden();
+  }
+  function populateProfielVelden() {
+    var p = curProfiel(); if (!p) return;
+    var taal = document.getElementById("boiler-taal").value;
+    document.querySelectorAll("[data-boilerfield]").forEach(function(ta) {
+      var k = ta.getAttribute("data-boilerfield");
+      ta.value = ((p.data[k] || {})[taal]) || "";
+    });
+  }
+  function newProfiel() {
+    var p = { id: --boilerTmpId, naam: "Nieuw profiel", testtype: "", is_default: false, data: {} };
+    boiler.profielen.push(p); boilerCurId = p.id; renderProfielSelect(); selectProfiel(p.id);
+    setStatus("boiler-status", "Nieuw profiel — vul in en sla op", "warn");
+  }
+  function dupProfiel() {
+    var cur = curProfiel(); if (!cur) return;
+    var p = { id: --boilerTmpId, naam: (cur.naam || "Profiel") + " (kopie)", testtype: cur.testtype,
+              is_default: false, data: JSON.parse(JSON.stringify(cur.data || {})) };
+    boiler.profielen.push(p); boilerCurId = p.id; renderProfielSelect(); selectProfiel(p.id);
+  }
+  function saveProfiel() {
+    var p = curProfiel(); if (!p) return;
+    p.naam = document.getElementById("boiler-naam").value || "Profiel";
+    p.testtype = document.getElementById("boiler-testtype").value || "";
+    p.is_default = document.getElementById("boiler-isdefault").checked;
+    setStatus("boiler-status", "Opslaan…", "warn");
+    fetch("/api/report-boiler", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: p.id > 0 ? p.id : null, naam: p.naam, testtype: p.testtype,
+                             is_default: p.is_default, data: p.data }) })
+      .then(function(r) { return r.json(); })
+      .then(function(d) { if (d.ok) { setStatus("boiler-status", "Opgeslagen!", "ok"); loadBoiler(d.id); loadResolved(); }
+                          else setStatus("boiler-status", "Fout bij opslaan", "err"); })
+      .catch(function() { setStatus("boiler-status", "Fout bij opslaan", "err"); });
+  }
+  function delProfiel() {
+    var p = curProfiel(); if (!p) return;
+    if (p.id <= 0) {
+      boiler.profielen = boiler.profielen.filter(function(x) { return x.id !== p.id; });
+      boilerCurId = boiler.profielen[0] ? boiler.profielen[0].id : null;
+      renderProfielSelect(); if (boilerCurId != null) selectProfiel(boilerCurId); return;
+    }
+    if (boiler.profielen.filter(function(x){ return x.id > 0; }).length <= 1) {
+      setStatus("boiler-status", "Minimaal één profiel vereist", "err"); return;
+    }
+    if (!window.confirm("Profiel '" + (p.naam || "") + "' verwijderen?")) return;
+    fetch("/api/report-boiler/" + p.id, { method: "DELETE" })
+      .then(function(r) { return r.json(); })
+      .then(function(d) { if (d.ok) { loadBoiler(); loadResolved(); } });
+  }
+
+  // Per-opdrachtveld: knop (vullen/reset) + badge + snippet-invoeg
+  function injectFieldControls() {
+    boilerFieldKeys().forEach(function(k) {
+      var field = document.querySelector('#tab-instellingen [data-rap="' + k + '"]');
+      if (!field || field._ctrlInit) return;
+      field._ctrlInit = true;
+      var bar = document.createElement("div"); bar.className = "rap-fieldbar";
+      var btn = document.createElement("button");
+      btn.type = "button"; btn.className = "btn btn-sm rap-fill-btn";
+      btn.addEventListener("click", function() { fillField(k, true); });
+      var snip = document.createElement("select"); snip.className = "rap-snip-sel";
+      snip.setAttribute("data-rap-snip", k);
+      snip.addEventListener("change", function() {
+        var id = snip.value; snip.value = "";
+        var s = id && boiler.snippets.filter(function(x) { return String(x.id) === String(id); })[0];
+        if (s) insertIntoField(field, applyTokens(s.tekst));
+      });
+      var badge = document.createElement("span"); badge.className = "rap-badge";
+      bar.appendChild(btn); bar.appendChild(snip); bar.appendChild(badge);
+      field.insertAdjacentElement("afterend", bar);
+      field._fillBtn = btn; field._badge = badge;
+      field.addEventListener("input", function() { updateFieldBadge(k); });
+    });
+  }
+  function renderSnippetOptions() {
+    var taal = reportTaal();
+    document.querySelectorAll("[data-rap-snip]").forEach(function(sel) {
+      var opts = ['<option value="">Invoegen ▾</option>'];
+      (boiler.snippets || []).forEach(function(s) {
+        if (s.taal && s.taal !== taal) return;
+        opts.push('<option value="' + s.id + '">' + escHtml(s.titel || ("#" + s.id)) + '</option>');
+      });
+      sel.innerHTML = opts.join("");
+    });
+  }
+  function fillField(k, confirmOverwrite) {
+    var field = document.querySelector('#tab-instellingen [data-rap="' + k + '"]');
+    if (!field) return;
+    var def = boilerResolved[k] || ""; if (!def) return;
+    if (confirmOverwrite && field.value.trim() && field.value !== def &&
+        !window.confirm("Huidige tekst vervangen door de standaardtekst?")) return;
+    field.value = def; field.dispatchEvent(new Event("input", { bubbles: true }));
+  }
+  function insertIntoField(field, text) {
+    var s = field.selectionStart, e = field.selectionEnd;
+    if (typeof s === "number") {
+      field.value = field.value.slice(0, s) + text + field.value.slice(e);
+      field.selectionStart = field.selectionEnd = s + text.length;
+    } else { field.value += text; }
+    field.dispatchEvent(new Event("input", { bubbles: true })); field.focus();
+  }
+  function applyTokens(text) {
+    if (!text) return text || "";
+    Object.keys(boilerTokenValues).forEach(function(tok) {
+      if (text.indexOf(tok) !== -1) text = text.split(tok).join(boilerTokenValues[tok]);
+    });
+    return text;
+  }
+  function refreshFillControls() { boilerFieldKeys().forEach(updateFieldBadge); }
+  function updateFieldBadge(k) {
+    var field = document.querySelector('#tab-instellingen [data-rap="' + k + '"]');
+    if (!field || !field._badge) return;
+    var def = (boilerResolved[k] || ""), val = field.value || "", has = !!def.trim();
+    var state = !val.trim() ? "leeg" : (has && val.trim() === def.trim() ? "standaard" : "aangepast");
+    field._badge.textContent = state === "leeg" ? "Leeg" : (state === "standaard" ? "Standaard" : "Aangepast");
+    field._badge.className = "rap-badge rap-badge-" + state;
+    var btn = field._fillBtn;
+    btn.disabled = !has;
+    btn.hidden = has && state === "standaard";
+    btn.textContent = state === "aangepast" ? "↺ Reset naar standaard" : "↓ Vul met standaard";
+    btn.title = has ? "" : "Geen standaardtekst in het passende profiel";
+  }
+  function bulkFill() {
+    var n = 0;
+    boilerFieldKeys().forEach(function(k) {
+      var field = document.querySelector('#tab-instellingen [data-rap="' + k + '"]');
+      var def = boilerResolved[k] || "";
+      if (field && def && !field.value.trim()) {
+        field.value = def; field.dispatchEvent(new Event("input", { bubbles: true })); n++;
+      }
+    });
+    setStatus("boiler-status", n + " leeg veld(en) gevuld", "ok");
+  }
+
+  // Snippets
+  function renderSnippetList() {
+    var el = document.getElementById("snippet-list"); if (!el) return;
+    if (!boiler.snippets || !boiler.snippets.length) { el.innerHTML = '<p class="help">Nog geen snippets.</p>'; return; }
+    el.innerHTML = boiler.snippets.map(function(s) {
+      var meta = (s.categorie ? ("[" + escHtml(s.categorie) + "] ") : "") + (s.taal ? (s.taal.toUpperCase() + " ") : "");
+      return '<div class="snip-row"><span class="snip-meta">' + meta + '</span>' +
+        '<span class="snip-titel">' + escHtml(s.titel || ("#" + s.id)) + '</span>' +
+        '<button type="button" class="btn btn-xs" data-snip-edit="' + s.id + '">Bewerk</button>' +
+        '<button type="button" class="btn btn-xs" data-snip-del="' + s.id + '">×</button></div>';
+    }).join("");
+    el.querySelectorAll("[data-snip-edit]").forEach(function(b) {
+      b.addEventListener("click", function() { editSnippet(parseInt(b.getAttribute("data-snip-edit"), 10)); });
+    });
+    el.querySelectorAll("[data-snip-del]").forEach(function(b) {
+      b.addEventListener("click", function() { delSnippet(parseInt(b.getAttribute("data-snip-del"), 10)); });
+    });
+  }
+  function editSnippet(id) {
+    var s = boiler.snippets.filter(function(x) { return x.id === id; })[0]; if (!s) return;
+    document.getElementById("snippet-edit-id").value = s.id;
+    document.getElementById("snippet-titel").value = s.titel || "";
+    document.getElementById("snippet-categorie").value = s.categorie || "";
+    document.getElementById("snippet-taal").value = s.taal || "";
+    document.getElementById("snippet-tekst").value = s.tekst || "";
+  }
+  function clearSnippetForm() {
+    ["snippet-edit-id", "snippet-titel", "snippet-categorie", "snippet-tekst"].forEach(function(id) {
+      document.getElementById(id).value = "";
+    });
+    document.getElementById("snippet-taal").value = "";
+  }
+  function saveSnippet() {
+    var payload = {
+      id: parseInt(document.getElementById("snippet-edit-id").value, 10) || null,
+      titel: document.getElementById("snippet-titel").value,
+      categorie: document.getElementById("snippet-categorie").value,
+      taal: document.getElementById("snippet-taal").value,
+      tekst: document.getElementById("snippet-tekst").value
+    };
+    if (!payload.titel.trim() || !payload.tekst.trim()) { setStatus("snippet-status", "Titel en tekst vereist", "err"); return; }
+    fetch("/api/report-snippets", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) })
+      .then(function(r) { return r.json(); })
+      .then(function(d) { if (d.ok) { clearSnippetForm(); setStatus("snippet-status", "Opgeslagen!", "ok"); reloadSnippets(); } });
+  }
+  function delSnippet(id) {
+    if (!window.confirm("Snippet verwijderen?")) return;
+    fetch("/api/report-snippets/" + id, { method: "DELETE" })
+      .then(function(r) { return r.json(); })
+      .then(function(d) { if (d.ok) reloadSnippets(); });
+  }
+  function reloadSnippets() {
+    return fetch("/api/report-boiler").then(function(r) { return r.json(); })
+      .then(function(d) { boiler.snippets = d.snippets || []; renderSnippetList(); renderSnippetOptions(); });
+  }
+
+  (function() {
+    function bind(id, fn) { var el = document.getElementById(id); if (el) el.addEventListener("click", fn); }
+    var sel = document.getElementById("boiler-profiel");
+    if (sel) sel.addEventListener("change", function() { selectProfiel(parseInt(sel.value, 10)); });
+    var btaal = document.getElementById("boiler-taal");
+    if (btaal) btaal.addEventListener("change", populateProfielVelden);
+    bind("boiler-new", newProfiel); bind("boiler-dup", dupProfiel); bind("boiler-del", delProfiel);
+    bind("boiler-save", saveProfiel); bind("boiler-bulkfill", bulkFill);
+    bind("snippet-add", saveSnippet); bind("snippet-clear", clearSnippetForm);
+    var rt = document.getElementById("rap-taal");
+    if (rt) rt.addEventListener("change", function() { loadResolved(); renderSnippetOptions(); });
+    loadBoiler();
+  })();
 
   // ── TLP kleur styling ───────────────────────────
   var tlpSel = document.getElementById("rap-classificatie");
@@ -1111,7 +2223,8 @@
     managementsamenvatting: "Managementsamenvatting",
     top_risk_gauge: "Mgmt-samenvatting: risicometer (hoogste bevinding)",
     methodologie: "Methodologie",
-    legsup: "Legs Up", scenarios: "Scenario's",
+    legsup: "Legs Up", scenarios: "Scenario's", modus_operandi: "Modus operandi",
+    blueteam: "Blue team", purpleteam: "Purple teaming", verklaring: "Verklaring",
     samenvatting_bevindingen: "Samenvatting bevindingen", bevindingenlijst: "Bevindingenlijst",
     risicomatrix: "Risicomatrix",
     sla: "Oplostijden (SLA)", detecteerbaarheid: "Detecteerbaarheid",

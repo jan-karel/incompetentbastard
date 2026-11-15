@@ -50,6 +50,12 @@
           if (inner && inner !== el) return;
           onClick(el, e);
         });
+        // Toegankelijkheid: de ankers zijn focusbaar (tabindex=0); Enter/Space
+        // opent dezelfde editor als een klik.
+        el.addEventListener("keydown", function (e) {
+          if (e.target !== el) return;  // alleen het gefocuste anker zelf
+          if (e.key === "Enter" || e.key === " " || e.key === "Spacebar") onClick(el, e);
+        });
       })(nodes[i]);
     }
     // Afbeeldingen → lak-galerij (voorrang boven het omliggende tekst-anker).
@@ -82,12 +88,48 @@
     window.parent.postMessage({ source: "rb-edit", type: "toc", items: items }, "*");
   }
 
-  // Scroll-opdrachten vanuit de sectienavigatie in het dashboard.
+  // Zoek het edit-anker op type + key (met veilige attribuut-escaping).
+  function edBy(ref) {
+    if (!ref || !ref.type) return null;
+    try {
+      var sel = '[data-ed-type="' + ref.type + '"][data-ed-key="' +
+                String(ref.key).replace(/["\\]/g, "\\$&") + '"]';
+      return document.querySelector(sel);
+    } catch (err) { return null; }
+  }
+  function clearHot() {
+    var hot = document.querySelectorAll(".rb-hot");
+    for (var i = 0; i < hot.length; i++) hot[i].classList.remove("rb-hot");
+  }
+
+  // Scroll- en highlight-opdrachten vanuit het dashboard.
   window.addEventListener("message", function (e) {
     var m = e.data;
-    if (m && m.rbScrollTo) {
+    if (!m) return;
+    if (m.rbScrollTo) {
       var el = document.getElementById(m.rbScrollTo);
       if (el && el.scrollIntoView) el.scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
+    }
+    // Het onderdeel dat nu bewerkt wordt blijvend markeren (of markering wissen).
+    if ("rbHighlight" in m) {
+      clearHot();
+      var h = edBy(m.rbHighlight);
+      if (h) {
+        h.classList.add("rb-hot");
+        if (h.scrollIntoView) h.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      }
+      return;
+    }
+    // Na opslaan: terug naar het net bewerkte onderdeel met een korte flash.
+    if (m.rbScrollToEd && m.rbScrollToEd.type) {
+      var t = edBy(m.rbScrollToEd);
+      if (t && t.scrollIntoView) {
+        t.scrollIntoView({ behavior: "smooth", block: "center" });
+        clearHot();
+        t.classList.add("rb-hot");
+        setTimeout(function () { t.classList.remove("rb-hot"); }, 1400);
+      }
     }
   });
 

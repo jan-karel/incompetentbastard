@@ -680,6 +680,9 @@
       <div class="rb-split">
         <div class="rb-preview-wrap">
           <iframe id="rb-frame" title="Rapport-preview" class="rb-frame"></iframe>
+          <div id="rb-frame-loading" class="rb-frame-loading" hidden aria-live="polite">
+            <span class="rb-spinner" aria-hidden="true"></span> Preview bijwerken&hellip;
+          </div>
         </div>
         <aside class="rb-editor" id="rb-editor" hidden>
           <div class="rb-editor-head">
@@ -896,7 +899,12 @@
 
   document.querySelectorAll(".rapport-tab").forEach(function(tab) {
     tab.addEventListener("click", function() {
-      activateRapportTab(tab.getAttribute("data-tab"));
+      var target = tab.getAttribute("data-tab");
+      // Van Bewerken wegnavigeren met onopgeslagen tekst? Eerst bevestigen.
+      var cur = document.querySelector(".rapport-tab-content.active");
+      if (cur && cur.id === "tab-bewerken" && target !== "tab-bewerken" &&
+          typeof rbConfirmDiscard === "function" && !rbConfirmDiscard()) return;
+      activateRapportTab(target);
     });
   });
 
@@ -924,6 +932,9 @@
   };
   var rbEditKey = null, rbEditMode = "field", rbTableName = null, rbTableRows = [], rbTplData = null, rbNoteId = null;
   var rbIsOverride = false, rbOverrides = {}, rbOverrideDefault = "";
+  var rbDirty = false;       // niet-opgeslagen wijzigingen in de open editor
+  var rbLastScrollY = 0;     // scrollpositie van de preview, behouden over herladen heen
+  var rbFindingId = null;    // id van de bevinding die nu in de editor staat
   var RB_OVERRIDE_LABELS = { inleiding: "Inleiding", methodologie: "Methodologie", tools: "Tools en technieken" };
   var RB_TABLES = {
     scope_targets: { key: "rapport_scope_targets", titel: "Scope-targets",
@@ -946,9 +957,45 @@
     var soq = (so && !so.checked) ? "&showoff=0" : "";
     return "/dashboard/report/generate?preview=1&edit=1" + d + tq + soq + "&_=" + Date.now();
   }
+  // Beschrijft het onderdeel dat nu in de editor open staat, zodat we er na
+  // het herladen naartoe kunnen scrollen (robuuster dan een ruwe scrollpositie,
+  // want de hoogte kan door de bewerking verschoven zijn).
+  function rbCurrentEdRef() {
+    if (rbEditMode === "finding" && rbFindingId != null) return { type: "finding", key: String(rbFindingId) };
+    if (rbEditMode === "note" && rbNoteId != null) return { type: "note", key: String(rbNoteId) };
+    if (rbEditMode === "table" && rbTableName) return { type: "table", key: rbTableName };
+    if (rbEditMode === "meta" && rbEditKey) return { type: "meta", key: rbEditKey };
+    if (rbEditKey) return { type: rbIsOverride ? "override" : "field", key: rbEditKey };
+    return null;
+  }
   function rbLoadPreview() {
     var f = document.getElementById("rb-frame");
-    if (f) f.src = rbPreviewUrl();
+    if (f) {
+      // Scrollpositie vastleggen als terugval, en het net bewerkte onderdeel
+      // onthouden, zodat je bij een rapport van 100+ pagina's niet telkens
+      // bovenaan terechtkomt.
+      try {
+        if (f.contentWindow) rbLastScrollY = f.contentWindow.scrollY || f.contentWindow.pageYOffset || 0;
+      } catch (e) { /* zelfde origin verwacht; negeren */ }
+      var targetY = rbLastScrollY;
+      var edRef = rbCurrentEdRef();
+      var ld = document.getElementById("rb-frame-loading");
+      if (ld) ld.hidden = false;
+      f.addEventListener("load", function restore() {
+        f.removeEventListener("load", restore);
+        if (ld) ld.hidden = true;
+        try {
+          if (edRef && f.contentWindow) {
+            // Terug naar het bewerkte onderdeel; rb-edit-frame.js centreert het.
+            f.contentWindow.postMessage({ source: "rb-dash", rbScrollToEd: edRef }, "*");
+            return;
+          }
+        } catch (e) { /* val terug op scrollpositie */ }
+        if (!targetY) return;
+        try { if (f.contentWindow) f.contentWindow.scrollTo(0, targetY); } catch (e) {}
+      });
+      f.src = rbPreviewUrl();
+    }
     var a = document.getElementById("rb-open-new");
     if (a) a.href = "/dashboard/report/generate?preview=1&include_draft=1";
     var sp = document.getElementById("rb-sections");
@@ -956,6 +1003,11 @@
     rbCloseEditor();
   }
   function rbStatus(msg, kind) { setStatus("rb-status", msg, kind); }
+  // Waarschuw bij niet-opgeslagen wijzigingen voordat de editor sluit/wisselt.
+  function rbConfirmDiscard() {
+    if (!rbDirty) return true;
+    return window.confirm("Je hebt niet-opgeslagen wijzigingen in de editor. Doorgaan en deze verwerpen?");
+  }
   function rbCloseEditor() {
     var ed = document.getElementById("rb-editor");
     if (ed) { ed.hidden = true; ed.classList.remove("rb-finding-wide"); }
@@ -963,7 +1015,13 @@
     if (acts) acts.hidden = false;
     var host = document.getElementById("rb-ed-finding");
     if (host) host.innerHTML = "";
-    rbEditKey = null; rbNoteId = null; rbIsOverride = false;
+    rbEditKey = null; rbNoteId = null; rbIsOverride = false; rbFindingId = null;
+    rbDirty = false;
+    // Highlight in de preview opheffen.
+    var f = document.getElementById("rb-frame");
+    if (f && f.contentWindow) {
+      try { f.contentWindow.postMessage({ source: "rb-dash", rbHighlight: null }, "*"); } catch (e) {}
+    }
   }
   var RB_META = {
     rapport_titel: { label: "Titel", type: "text" },
@@ -997,16 +1055,28 @@
     if (acts) acts.hidden = (mode === "finding");
     var rb = document.getElementById("rb-override-reset");
     if (rb) rb.hidden = true;
+    // Verse editor: eventuele programmatische input-events tellen niet als wijziging.
+    rbDirty = false;
+    rbHighlightEdited();
+  }
+  // Markeer het onderdeel dat nu bewerkt wordt in de preview (oriëntatie).
+  function rbHighlightEdited() {
+    var f = document.getElementById("rb-frame");
+    var ref = rbCurrentEdRef();
+    if (f && f.contentWindow && ref) {
+      try { f.contentWindow.postMessage({ source: "rb-dash", rbHighlight: ref }, "*"); } catch (e) {}
+    }
   }
   function rbOpenFindingInline(id) {
     rbEditKey = null; rbTableName = null; rbIsOverride = false; rbNoteId = null;
+    rbFindingId = id;
     var host = document.getElementById("rb-ed-finding");
     var title = document.getElementById("rb-editor-title");
     if (title) title.textContent = "Bevinding bewerken";
     if (host) host.innerHTML = '<p class="help">Laden…</p>';
     rbShowBlocks("finding");
     fetch("/dashboard/findings/edit/" + id, { headers: { "X-Requested-With": "XMLHttpRequest" } })
-      .then(function(r) { return r.text(); })
+      .then(function(r) { if (!r.ok) throw new Error("http " + r.status); return r.text(); })
       .then(function(html) {
         if (!host) return;
         host.innerHTML = html;
@@ -1014,14 +1084,32 @@
         if (typeof window.initLatexToolbar === "function") window.initLatexToolbar();
         if (typeof window.initFindingTemplate === "function") window.initFindingTemplate();
         if (typeof window.initFindingTabs === "function") window.initFindingTabs();
+        rbDirty = false;  // init-toolbars kunnen input-events sturen; nog niet "gewijzigd"
         var form = host.querySelector("form");
         if (form) form.addEventListener("submit", function(e) {
           e.preventDefault();
+          var sub = form.querySelector('[type="submit"]');
+          if (sub) sub.disabled = true;
+          setStatus("rb-edit-status", "Opslaan…", "warn");
           fetch("/dashboard/findings/save", { method: "POST",
             headers: { "X-Requested-With": "XMLHttpRequest" }, body: new FormData(form) })
-            .then(function(r) { return r.json(); })
-            .then(function(d) { if (d.ok) { rbCloseEditor(); rbLoadPreview(); } });
+            .then(function(r) { if (!r.ok) throw new Error("http " + r.status); return r.json(); })
+            .then(function(d) {
+              if (d && d.ok) { rbCloseEditor(); rbLoadPreview(); }
+              else {
+                if (sub) sub.disabled = false;
+                setStatus("rb-edit-status", (d && d.error) ? d.error : "Fout bij opslaan", "err");
+              }
+            })
+            .catch(function() {
+              if (sub) sub.disabled = false;
+              setStatus("rb-edit-status", "Fout bij opslaan (netwerk)", "err");
+            });
         });
+      })
+      .catch(function() {
+        if (host) host.innerHTML = '<p class="rv-danger">Bevinding kon niet worden geladen. ' +
+          'Probeer opnieuw of open ’m via de bevindingenlijst.</p>';
       });
   }
   function rbResetOverride() {
@@ -1304,6 +1392,8 @@
     var m = e.data;
     if (!m || m.source !== "rb-edit") return;
     if (m.type === "toc") { rbRenderToc(m.items || []); return; }
+    // Een ander onderdeel aanklikken verwerpt de open editor — eerst bevestigen.
+    if (!rbConfirmDiscard()) return;
     if (m.type === "field") rbOpenField(m.key);
     else if (m.type === "override") rbOpenOverride(m.key);
     else if (m.type === "meta") rbOpenMeta(m.key);
@@ -1492,8 +1582,35 @@
     bind("rb-save", rbSave);
     bind("rb-table-addrow", rbAddRow);
     bind("rb-override-reset", rbResetOverride);
-    bind("rb-cancel", rbCloseEditor);
-    bind("rb-editor-close", rbCloseEditor);
+    bind("rb-cancel", function() { if (rbConfirmDiscard()) rbCloseEditor(); });
+    bind("rb-editor-close", function() { if (rbConfirmDiscard()) rbCloseEditor(); });
+    // Elke invoer in de editor markeert onopgeslagen wijzigingen.
+    var edRoot = document.getElementById("rb-editor");
+    if (edRoot) {
+      edRoot.addEventListener("input", function() { rbDirty = true; });
+      edRoot.addEventListener("change", function() { rbDirty = true; });
+    }
+    // Cmd/Ctrl+S slaat de open editor op (bevinding via eigen formulier).
+    document.addEventListener("keydown", function(e) {
+      if ((e.key !== "s" && e.key !== "S") || !(e.metaKey || e.ctrlKey)) return;
+      var ed = document.getElementById("rb-editor");
+      var bew = document.getElementById("tab-bewerken");
+      if (!ed || ed.hidden || !bew || !bew.classList.contains("active")) return;
+      e.preventDefault();
+      if (rbEditMode === "finding") {
+        var form = document.querySelector("#rb-ed-finding form");
+        if (form) {
+          if (form.requestSubmit) form.requestSubmit();
+          else form.dispatchEvent(new Event("submit", { cancelable: true, bubbles: true }));
+        }
+      } else {
+        rbSave();
+      }
+    });
+    // Waarschuw bij paginaverlaten met onopgeslagen wijzigingen.
+    window.addEventListener("beforeunload", function(e) {
+      if (rbDirty) { e.preventDefault(); e.returnValue = ""; }
+    });
     var draft = document.getElementById("rb-draft");
     if (draft) draft.addEventListener("change", rbLoadPreview);
     var rbt = document.getElementById("rb-taal");

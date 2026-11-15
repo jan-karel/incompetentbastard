@@ -264,6 +264,14 @@ def create_app():
             except Exception:
                 pass
 
+            # Auto-migrate: opdracht archiveren (soft-archive, herstelbaar)
+            try:
+                conn.execute(db.text(
+                    "ALTER TABLE db_opdracht ADD COLUMN archived_at DATETIME"))
+                conn.commit()
+            except Exception:
+                pass
+
             # Auto-migrate: multi-project — opdracht_id op notes/checklist/dd-sync
             for tbl in ("db_notes", "db_checklist", "db_defectdojo_sync"):
                 try:
@@ -417,6 +425,7 @@ def create_app():
         from meuk.flask import opdracht
         from meuk.flask import output_view
         from meuk.flask import rapport
+        from meuk.flask import rapport_share
         from meuk.flask import search
         from meuk.flask import msfrpc
         from meuk.flask import stix_taxii
@@ -452,6 +461,7 @@ def create_app():
         app.register_blueprint(macro.macro_bp)
         app.register_blueprint(notes.notes_bp)
         app.register_blueprint(rapport.rapport_bp)
+        app.register_blueprint(rapport_share.share_bp)
         app.register_blueprint(msfrpc.msf_bp)
         app.register_blueprint(stix_taxii.stix_taxii_bp)
         app.register_blueprint(search.search_bp)

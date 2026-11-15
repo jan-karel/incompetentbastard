@@ -76,6 +76,22 @@
     </table>
   </div>
 </section>
+
+<section class="card mb-14" id="op-archived-section" hidden>
+  <div class="card-head"><h2>Gearchiveerd</h2></div>
+  <div class="card-body">
+    <p class="help">Gearchiveerde opdrachten zijn verborgen uit de projectkiezer; de data blijft bewaard en kan worden teruggezet.</p>
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Naam</th><th>Klant</th><th>Gearchiveerd</th><th>Status</th>
+          <th>Bevindingen</th><th></th>
+        </tr>
+      </thead>
+      <tbody id="op-archived-tbody"></tbody>
+    </table>
+  </div>
+</section>
 {% endblock %}
 
 {% block scripts %}
@@ -105,35 +121,48 @@
     return o.dagen_resterend + " dgn";
   }
 
+  function mkBtn(label, title) {
+    var b = document.createElement("button");
+    b.className = "btn btn-sm";
+    b.textContent = label;
+    if (title) b.title = title;
+    return b;
+  }
+
+  function post(url, body) {
+    var opts = {method: "POST"};
+    if (body) { opts.headers = {"Content-Type": "application/json"}; opts.body = JSON.stringify(body); }
+    return fetch(url, opts).then(function(r) { return r.json(); });
+  }
+
   function render(opdrachten) {
+    var actief = opdrachten.filter(function(o) { return !o.archived; });
+    var arch = opdrachten.filter(function(o) { return o.archived; });
     tbody.innerHTML = "";
-    if (!opdrachten.length) {
+    if (!actief.length) {
       tbody.innerHTML = '<tr><td colspan="7" class="help">Nog geen opdrachten.</td></tr>';
-      return;
     }
-    opdrachten.forEach(function(o) {
+    actief.forEach(function(o) {
       var tr = document.createElement("tr");
-      var cells = [o.naam, o.klant || "—", periode(o),
-                   STATUS_LABEL[o.status] || o.status,
-                   String(o.aantal_bevindingen), resterend(o)];
-      cells.forEach(function(c) {
-        var td = document.createElement("td");
-        td.textContent = c;
-        tr.appendChild(td);
+      [o.naam, o.klant || "—", periode(o), STATUS_LABEL[o.status] || o.status,
+       String(o.aantal_bevindingen), resterend(o)].forEach(function(c) {
+        var td = document.createElement("td"); td.textContent = c; tr.appendChild(td);
       });
       var actions = document.createElement("td");
-      var repBtn = document.createElement("button");
-      repBtn.className = "btn btn-sm";
-      repBtn.textContent = "→ rapport";
-      repBtn.title = "Scope/RoE/periode overnemen in rapportinstellingen";
+      var repBtn = mkBtn("→ rapport", "Scope/RoE/periode overnemen in rapportinstellingen");
       repBtn.addEventListener("click", function() {
-        fetch("/api/opdrachten/" + o.id + "/activeer-rapport", {method: "POST"})
-          .then(function(r) { return r.json(); })
+        post("/api/opdrachten/" + o.id + "/activeer-rapport")
           .then(function(d) { showMsg(d.ok ? "Overgenomen in rapport" : "Mislukt", d.ok); });
       });
-      var delBtn = document.createElement("button");
-      delBtn.className = "btn btn-sm";
-      delBtn.textContent = "verwijderen";
+      var arcBtn = mkBtn("archiveren", "Verberg uit de projectkiezer; data blijft bewaard");
+      arcBtn.addEventListener("click", function() {
+        if (!window.confirm("Opdracht archiveren? Je kunt 'm later terugzetten.")) return;
+        post("/api/opdrachten/" + o.id + "/archiveer").then(function(d) {
+          if (d.ok) { showMsg("Gearchiveerd", true); load(); }
+          else { showMsg(d.error || "Mislukt", false); }
+        });
+      });
+      var delBtn = mkBtn("verwijderen");
       delBtn.addEventListener("click", function() {
         if (!window.confirm("Opdracht verwijderen? Bevindingen blijven bestaan maar worden ontkoppeld.")) return;
         fetch("/api/opdrachten/" + o.id, {method: "DELETE"})
@@ -141,9 +170,43 @@
           .then(function(d) { if (d.ok) load(); });
       });
       actions.appendChild(repBtn);
+      actions.appendChild(arcBtn);
       actions.appendChild(delBtn);
       tr.appendChild(actions);
       tbody.appendChild(tr);
+    });
+
+    // Gearchiveerde opdrachten.
+    var section = document.getElementById("op-archived-section");
+    var atbody = document.getElementById("op-archived-tbody");
+    atbody.innerHTML = "";
+    if (section) section.hidden = !arch.length;
+    arch.forEach(function(o) {
+      var tr = document.createElement("tr");
+      [o.naam, o.klant || "—", (o.archived_at || "").slice(0, 10) || "—",
+       STATUS_LABEL[o.status] || o.status, String(o.aantal_bevindingen)].forEach(function(c) {
+        var td = document.createElement("td"); td.textContent = c; tr.appendChild(td);
+      });
+      var actions = document.createElement("td");
+      var resBtn = mkBtn("↩ terugzetten", "Terug naar actief");
+      resBtn.className = "btn btn-sm btn-primary";
+      resBtn.addEventListener("click", function() {
+        post("/api/opdrachten/" + o.id + "/herstel").then(function(d) {
+          if (d.ok) { showMsg("Teruggezet", true); load(); }
+          else { showMsg(d.error || "Mislukt", false); }
+        });
+      });
+      var delBtn = mkBtn("verwijderen");
+      delBtn.addEventListener("click", function() {
+        if (!window.confirm("Gearchiveerde opdracht definitief verwijderen? Bevindingen worden ontkoppeld.")) return;
+        fetch("/api/opdrachten/" + o.id, {method: "DELETE"})
+          .then(function(r) { return r.json(); })
+          .then(function(d) { if (d.ok) load(); });
+      });
+      actions.appendChild(resBtn);
+      actions.appendChild(delBtn);
+      tr.appendChild(actions);
+      atbody.appendChild(tr);
     });
   }
 

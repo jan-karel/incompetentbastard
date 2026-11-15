@@ -57,8 +57,11 @@ def current_opdracht_id():
             oid = int(oid)
         except (TypeError, ValueError):
             oid = None
-        if oid is not None and db.session.get(db_opdracht, oid) is not None:
-            return oid
+        if oid is not None:
+            obj = db.session.get(db_opdracht, oid)
+            # Gearchiveerde opdracht telt niet als actief → val terug op standaard.
+            if obj is not None and getattr(obj, 'archived_at', None) is None:
+                return oid
     return default_opdracht_id()
 
 

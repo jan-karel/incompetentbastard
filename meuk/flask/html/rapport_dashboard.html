@@ -27,6 +27,7 @@
   <button class="rapport-tab" data-tab="tab-lakken">Afbeeldingen lakken</button>
   <button class="rapport-tab" data-tab="tab-bewerken">Bewerken</button>
   <button class="rapport-tab" data-tab="tab-genereer">Genereer &amp; download</button>
+  <button class="rapport-tab" data-tab="tab-delen">Delen</button>
 </div>
 
 {# ══════════════════════════════════════════════════════ #}
@@ -864,6 +865,45 @@
 </section>
 
 </div>{# /tab-genereer #}
+
+<div class="rapport-tab-content" id="tab-delen">
+  <section class="card mb-14">
+    <div class="card-head"><h2>Rapport exporteren</h2></div>
+    <div class="card-body">
+      <p class="help">Pak dit rapport (teksten, bevindingen, evidence, screenshots en notities)
+        in één <code>.zip</code> zodat een collega er op zijn eigen pc verder aan kan werken.
+        PDF-wachtwoorden en DefectDojo-gegevens blijven er bewust buiten.</p>
+      <a class="btn btn-primary" id="rb-export-link" href="/dashboard/report/export">
+        &#8681; Exporteer dit rapport (.zip)</a>
+      <p class="help mt-8">&#9888; De bundel kan vertrouwelijke bevindingen bevatten — deel 'm alleen
+        via vertrouwde kanalen met gemachtigde ontvangers.</p>
+    </div>
+  </section>
+
+  <section class="card mb-14">
+    <div class="card-head"><h2>Rapport importeren</h2></div>
+    <div class="card-body">
+      <label class="form-label" for="rb-import-file">Bundel (.zip)</label>
+      <input type="file" id="rb-import-file" accept=".zip,application/zip" class="form-control mb-8" />
+
+      <div class="mb-8">
+        <label class="form-label">Doel</label>
+        <label class="d-block"><input type="radio" name="rb-import-mode" value="new" checked />
+          Nieuwe opdracht aanmaken (niets wordt overschreven)</label>
+        <label class="d-block"><input type="radio" name="rb-import-mode" value="merge" />
+          Samenvoegen in bestaande opdracht (bevindingen/notities toevoegen)</label>
+      </div>
+
+      <div id="rb-import-target-wrap" class="mb-8" hidden>
+        <label class="form-label" for="rb-import-target">Doel-opdracht</label>
+        <select id="rb-import-target" class="form-control"></select>
+      </div>
+
+      <button type="button" class="btn btn-primary" id="rb-import-btn">&#8682; Importeren</button>
+      <span id="rb-import-status" class="help ml-8"></span>
+    </div>
+  </section>
+</div>{# /tab-delen #}
 
 {% endblock %}
 
@@ -2792,6 +2832,87 @@
       });
     });
   })();
+})();
+</script>
+<script nonce="{{ csp_nonce }}">
+// ── Tabblad Delen: export-link + import ─────────────────────────────────────
+(function() {
+  "use strict";
+  function $(id) { return document.getElementById(id); }
+  function setDelenStatus(msg, kind) {
+    var el = $("rb-import-status");
+    if (!el) return;
+    el.textContent = msg || "";
+    el.className = "help ml-8" + (kind ? " rv-" + kind : "");
+  }
+  // Export-link volgt de actief gekozen opdracht (query-arg wint van sessie).
+  var activeOid = {{ nav_active_opdracht_id | default('null', true) }};
+  var exp = $("rb-export-link");
+  if (exp && activeOid != null) exp.href = "/dashboard/report/export?opdracht_id=" + activeOid;
+
+  var targetWrap = $("rb-import-target-wrap");
+  var targetSel = $("rb-import-target");
+  var loadedTargets = false;
+  function loadTargets() {
+    if (loadedTargets || !targetSel) return;
+    loadedTargets = true;
+    fetch("/api/opdrachten", { credentials: "same-origin" })
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        var opts = (d.opdrachten || []).filter(function(o) { return !o.archived; }).map(function(o) {
+          var label = (o.naam || ("opdracht " + o.id)) + (o.klant ? " — " + o.klant : "");
+          return '<option value="' + o.id + '">' + escHtml(label) + "</option>";
+        });
+        targetSel.innerHTML = opts.join("");
+      })
+      .catch(function() { loadedTargets = false; });
+  }
+  function currentMode() {
+    var r = document.querySelector('input[name="rb-import-mode"]:checked');
+    return r ? r.value : "new";
+  }
+  Array.prototype.forEach.call(document.querySelectorAll('input[name="rb-import-mode"]'), function(r) {
+    r.addEventListener("change", function() {
+      var merge = currentMode() === "merge";
+      if (targetWrap) targetWrap.hidden = !merge;
+      if (merge) loadTargets();
+    });
+  });
+
+  var btn = $("rb-import-btn");
+  if (btn) btn.addEventListener("click", function() {
+    var f = $("rb-import-file");
+    if (!f || !f.files || !f.files[0]) { setDelenStatus("Kies eerst een .zip-bundel", "danger"); return; }
+    var mode = currentMode();
+    var fd = new FormData();
+    fd.append("file", f.files[0]);
+    fd.append("mode", mode);
+    if (mode === "merge") {
+      if (!targetSel || !targetSel.value) { setDelenStatus("Kies een doel-opdracht", "danger"); return; }
+      fd.append("target_opdracht_id", targetSel.value);
+    }
+    btn.disabled = true;
+    setDelenStatus("Importeren…", "warn");
+    fetch("/dashboard/report/import", { method: "POST", body: fd, credentials: "same-origin" })
+      .then(function(r) { return r.json().then(function(j) { return { ok: r.ok, j: j }; }); })
+      .then(function(res) {
+        btn.disabled = false;
+        if (!res.ok || !res.j.ok) {
+          setDelenStatus((res.j && res.j.error) ? res.j.error : "Import mislukt", "danger");
+          return;
+        }
+        var c = res.j.counts || {};
+        setDelenStatus("Geïmporteerd: " + (c.findings || 0) + " bevindingen, " +
+          (c.notes || 0) + " notities, " + (c.evidence || 0) + " evidence, " +
+          (c.screenshots || 0) + " screenshots. Overschakelen…", "ok");
+        // Schakel naar de doel-opdracht en herlaad.
+        fetch("/api/opdrachten/" + res.j.opdracht_id + "/activeer", {
+          method: "POST", credentials: "same-origin" })
+          .then(function() { window.location.reload(); })
+          .catch(function() { window.location.reload(); });
+      })
+      .catch(function() { btn.disabled = false; setDelenStatus("Import mislukt (netwerk)", "danger"); });
+  });
 })();
 </script>
 {% endblock %}

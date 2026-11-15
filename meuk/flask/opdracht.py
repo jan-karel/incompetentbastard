@@ -3,7 +3,7 @@ met koppeling van bevindingen aan een opdracht (hoofdstuk 2)."""
 
 import datetime
 
-from flask import Blueprint, request, jsonify, render_template
+from flask import Blueprint, request, jsonify, render_template, session
 
 from meuk.flask.models import db, db_opdracht, db_bevindingen
 from meuk.flask.security import require_dashboard_access
@@ -23,7 +23,10 @@ def _check_dashboard_access():
 def _inject_projects():
     """Lever de projectlijst + actief project aan alle templates (voor de kiezer)."""
     try:
-        opdrachten = db_opdracht.query.order_by(db_opdracht.id.desc()).all()
+        # Gearchiveerde opdrachten horen niet in de kiezer.
+        opdrachten = (db_opdracht.query
+                      .filter(db_opdracht.archived_at.is_(None))
+                      .order_by(db_opdracht.id.desc()).all())
         active = _project.current_opdracht_id()
     except Exception:
         opdrachten, active = [], None
@@ -56,6 +59,8 @@ def _opdracht_dict(o):
         'status': o.status or 'gepland',
         'aantal_bevindingen': len(actief_findings),
         'dagen_resterend': dagen_resterend,
+        'archived': getattr(o, 'archived_at', None) is not None,
+        'archived_at': o.archived_at.isoformat() if getattr(o, 'archived_at', None) else '',
     }
 
 
@@ -128,6 +133,34 @@ def api_opdracht_delete(opdracht_id):
     db.session.delete(o)
     db.session.commit()
     return jsonify({'ok': True})
+
+
+@opdracht_bp.route('/api/opdrachten/<int:opdracht_id>/archiveer', methods=['POST'])
+def api_opdracht_archive(opdracht_id):
+    """Archiveer een opdracht (soft): verbergt 'm uit de actieve lijsten, maar
+    behoudt alle data zodat 'm later teruggezet kan worden."""
+    o = db.session.get(db_opdracht, opdracht_id)
+    if not o:
+        return jsonify({'ok': False, 'error': 'niet gevonden'}), 404
+    if opdracht_id == _project.default_opdracht_id():
+        return jsonify({'ok': False, 'error': 'de standaardopdracht kan niet worden gearchiveerd'}), 400
+    o.archived_at = datetime.datetime.now(datetime.timezone.utc)
+    # Was deze het actieve project in deze sessie? Schakel terug naar standaard.
+    if session.get(_project.SESSION_KEY) == opdracht_id:
+        _project.set_active(None)
+    db.session.commit()
+    return jsonify({'ok': True, 'archived': True, 'opdracht': _opdracht_dict(o)})
+
+
+@opdracht_bp.route('/api/opdrachten/<int:opdracht_id>/herstel', methods=['POST'])
+def api_opdracht_restore(opdracht_id):
+    """Zet een gearchiveerde opdracht terug naar actief."""
+    o = db.session.get(db_opdracht, opdracht_id)
+    if not o:
+        return jsonify({'ok': False, 'error': 'niet gevonden'}), 404
+    o.archived_at = None
+    db.session.commit()
+    return jsonify({'ok': True, 'archived': False, 'opdracht': _opdracht_dict(o)})
 
 
 @opdracht_bp.route('/api/opdrachten/<int:opdracht_id>/findings', methods=['POST'])

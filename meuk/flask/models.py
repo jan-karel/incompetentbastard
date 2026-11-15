@@ -261,6 +261,8 @@ class db_opdracht(db.Model):
     eind_datum = db.Column(db.Date)
     status = db.Column(db.String(20), default='gepland')   # gepland / actief / afgerond
     created_at = db.Column(db.DateTime, default=nu_utc)
+    # Soft-archive: gevuld = gearchiveerd (verborgen uit actieve lijsten, herstelbaar).
+    archived_at = db.Column(db.DateTime, nullable=True)
     bevindingen = db.relationship('db_bevindingen', backref='opdracht', lazy='selectin')
     config = db.relationship('db_opdracht_config', backref='opdracht', uselist=False,
                              cascade='all, delete-orphan', lazy='selectin')

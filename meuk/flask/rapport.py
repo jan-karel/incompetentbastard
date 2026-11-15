@@ -1460,6 +1460,14 @@ def rapport_dashboard():
                            checklists=checklists)
 
 
+def _watermark_text(status, taal='nl'):
+    """Watermerktekst voor een rapport in de status concept of review
+    (overige statussen: geen watermerk)."""
+    if taal == 'en':
+        return {'concept': 'Draft', 'review': 'Under review'}.get(status, '')
+    return {'concept': 'Concept', 'review': 'Ter review'}.get(status, '')
+
+
 @rapport_bp.route('/dashboard/report/generate', methods=['GET'])
 def gen_rapport():
     os.makedirs(_RAPPORT_DIR, exist_ok=True)
@@ -1685,6 +1693,7 @@ def gen_rapport():
         is_draft=is_draft,
         rapport_versie=_latex_escape(rapport_versie),
         rapport_versie_status=rapport_versie_status,
+        watermark_text=_latex_escape(_watermark_text(rapport_versie_status, taal)),
         rapport_omgeving=_latex_escape(rapport_omgeving),
         test_start=test_start_str,
         test_end=test_end_str,
@@ -4501,13 +4510,23 @@ def _generate_html_preview(findings, grouped, counts, titel, auteur, subtitel, d
               '.rb-add-bijlage{border:1px dashed #154273;border-radius:6px;padding:8px 12px;'
               'color:#154273;text-align:center;font-family:sans-serif;margin:12px 0}'
               if edit_mode else ''),
+             # Watermerk bij concept/review (achter de inhoud, blokkeert geen kliks).
+             '.rb-watermark{position:fixed;top:50%;left:50%;'
+             'transform:translate(-50%,-50%) rotate(-35deg);font-size:120px;font-weight:bold;'
+             'color:rgba(120,120,120,0.12);z-index:0;pointer-events:none;'
+             'white-space:nowrap;font-family:sans-serif;text-transform:uppercase;letter-spacing:4px}',
              '</style></head><body>']
+
+    # Watermerk (concept/review) — visueel gelijk aan de PDF.
+    _wm = _watermark_text(rapport_versie_status, taal)
+    if _wm:
+        parts.append('<div class="rb-watermark">{}</div>'.format(html_escape(_wm)))
 
     # Titel + versie + TLP badge
     parts.append(_ed('<h1>{}</h1>'.format(html_escape(titel)), 'meta', 'rapport_titel'))
     parts.append(_ed('<p><strong>{}</strong></p>'.format(html_escape(subtitel)), 'meta', 'rapport_subtitel'))
     if rapport_versie:
-        _vs_labels = {'concept': 'Concept', 'definitief': 'Definitief', 'herzien': 'Herzien'}
+        _vs_labels = {'concept': 'Concept', 'review': 'Ter review', 'herzien': 'Herzien', 'definitief': 'Definitief'}
         _vs_label = _vs_labels.get(rapport_versie_status, rapport_versie_status.capitalize())
         parts.append(_ed('<p>Versie {} &mdash; {}</p>'.format(
             html_escape(rapport_versie), html_escape(_vs_label)), 'meta', 'rapport_versie'))
@@ -5216,7 +5235,7 @@ def _generate_docx_markdown(findings, grouped, counts, titel, auteur, subtitel,
     lines.append('')
 
     if rapport_versie:
-        _vs_labels = {'concept': 'Concept', 'definitief': 'Definitief', 'herzien': 'Herzien'}
+        _vs_labels = {'concept': 'Concept', 'review': 'Ter review', 'herzien': 'Herzien', 'definitief': 'Definitief'}
         _vs_label = _vs_labels.get(rapport_versie_status, rapport_versie_status.capitalize())
         lines.append('**Versie {} --- {}**'.format(rapport_versie, _vs_label))
         lines.append('')
@@ -7222,6 +7241,7 @@ def _sample_tex_context():
                          'definitie': _latex_escape(r['definitie'])}
                         for r in _begrippen_rows('nl')],
         bijlagen=[],
+        watermark_text='',
         beperkingen_lines=[_latex_escape(x) for x in _beperkingen_lines(
             'nl', testscope='blackbox')],
         evidence_register=[],

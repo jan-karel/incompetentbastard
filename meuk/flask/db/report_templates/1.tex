@@ -143,6 +143,12 @@
 
 \graphicspath{[[ '{' ]]evidence/[[ '}' ]]}
 
+% --- Watermerk bij concept/review (status-afhankelijk) ---
+[% if watermark_text %]
+\usepackage{draftwatermark}
+\SetWatermarkText{[[ watermark_text ]]}
+\SetWatermarkScale{1}
+[% endif %]
 % -------------------------------------------------- %
 % Document                                           %
 % -------------------------------------------------- %

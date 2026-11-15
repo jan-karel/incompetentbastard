@@ -639,7 +639,7 @@ def api_settings_update():
     if 'rapport_versie' in data and isinstance(data['rapport_versie'], str):
         p.rapport_versie = data['rapport_versie'].strip()[:20]
     if 'rapport_versie_status' in data and isinstance(data['rapport_versie_status'], str):
-        if data['rapport_versie_status'] in ('concept', 'definitief', 'herzien'):
+        if data['rapport_versie_status'] in ('concept', 'review', 'herzien', 'definitief'):
             p.rapport_versie_status = data['rapport_versie_status']
     # Debrief-teksten
     for key in ('debrief_context', 'debrief_werkte', 'debrief_faalde',

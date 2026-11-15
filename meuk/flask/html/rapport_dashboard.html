@@ -126,8 +126,9 @@
         <label class="form-label" for="rap-versie-status">Status</label>
         <select id="rap-versie-status" class="form-control" data-rap="rapport_versie_status">
           <option value="concept">Concept</option>
-          <option value="definitief">Definitief</option>
+          <option value="review">Ter review</option>
           <option value="herzien">Herzien</option>
+          <option value="definitief">Definitief</option>
         </select>
       </div>
     </div>
@@ -1080,7 +1081,7 @@
     rapport_subtitel: { label: "Subtitel", type: "text" },
     rapport_versie: { label: "Versie", type: "text" },
     rapport_versie_status: { label: "Status", type: "select",
-      options: [["concept", "Concept"], ["review", "Ter review"], ["definitief", "Definitief"]] },
+      options: [["concept", "Concept"], ["review", "Ter review"], ["herzien", "Herzien"], ["definitief", "Definitief"]] },
     rapport_classificatie: { label: "Classificatie", type: "select",
       options: [["TLP:RED", "TLP:RED"], ["TLP:AMBER+STRICT", "TLP:AMBER+STRICT"],
                 ["TLP:AMBER", "TLP:AMBER"], ["TLP:GREEN", "TLP:GREEN"], ["TLP:CLEAR", "TLP:CLEAR"]] },

@@ -149,7 +149,14 @@ def api_opdracht_archive(opdracht_id):
     if session.get(_project.SESSION_KEY) == opdracht_id:
         _project.set_active(None)
     db.session.commit()
-    return jsonify({'ok': True, 'archived': True, 'opdracht': _opdracht_dict(o)})
+    # Evidence + exclusief gebruikte screenshots naar het koud-archief verplaatsen.
+    from meuk.flask import rapport_share
+    try:
+        verplaatst = rapport_share.archive_opdracht_files(o)
+    except Exception:
+        verplaatst = {}
+    return jsonify({'ok': True, 'archived': True, 'bestanden': verplaatst,
+                    'opdracht': _opdracht_dict(o)})
 
 
 @opdracht_bp.route('/api/opdrachten/<int:opdracht_id>/herstel', methods=['POST'])
@@ -158,9 +165,16 @@ def api_opdracht_restore(opdracht_id):
     o = db.session.get(db_opdracht, opdracht_id)
     if not o:
         return jsonify({'ok': False, 'error': 'niet gevonden'}), 404
+    # Eerst de bestanden terugzetten, dan pas de vlag wissen.
+    from meuk.flask import rapport_share
+    try:
+        teruggezet = rapport_share.restore_opdracht_files(o)
+    except Exception:
+        teruggezet = {}
     o.archived_at = None
     db.session.commit()
-    return jsonify({'ok': True, 'archived': False, 'opdracht': _opdracht_dict(o)})
+    return jsonify({'ok': True, 'archived': False, 'bestanden': teruggezet,
+                    'opdracht': _opdracht_dict(o)})
 
 
 @opdracht_bp.route('/api/opdrachten/<int:opdracht_id>/findings', methods=['POST'])

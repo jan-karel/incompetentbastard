@@ -20,6 +20,7 @@ meuk/flask/db/evidence/
 meuk/logs/
 raw/loot/
 raw/screenshots/
+raw/archief/
 rapport/
 
 # Handboek (LaTeX-bronnen) bewust buiten versiebeheer

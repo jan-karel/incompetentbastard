@@ -2894,11 +2894,20 @@
     btn.disabled = true;
     setDelenStatus("Importeren…", "warn");
     fetch("/dashboard/report/import", { method: "POST", body: fd, credentials: "same-origin" })
-      .then(function(r) { return r.json().then(function(j) { return { ok: r.ok, j: j }; }); })
+      .then(function(r) {
+        // Respons kan niet-JSON zijn (bv. 413 van de server) — veilig parsen.
+        return r.text().then(function(t) {
+          var j = null; try { j = JSON.parse(t); } catch (e) {}
+          return { status: r.status, ok: r.ok, j: j };
+        });
+      })
       .then(function(res) {
         btn.disabled = false;
-        if (!res.ok || !res.j.ok) {
-          setDelenStatus((res.j && res.j.error) ? res.j.error : "Import mislukt", "danger");
+        if (!res.ok || !res.j || !res.j.ok) {
+          var msg = (res.j && res.j.error) ? res.j.error
+            : (res.status === 413 ? "Bundel te groot voor de server"
+               : "Import mislukt (status " + res.status + ")");
+          setDelenStatus(msg, "danger");
           return;
         }
         var c = res.j.counts || {};

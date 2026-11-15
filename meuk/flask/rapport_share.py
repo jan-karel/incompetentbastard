@@ -47,6 +47,17 @@ BUNDLE_VERSION = 1
 
 # Limieten (zip-bom / resource-bescherming).
 _MAX_BUNDLE_SIZE = 500 * 1024 * 1024      # .zip zelf
+
+
+@share_bp.before_request
+def _ruim_uploadlimiet_voor_import():
+    """De globale MAX_CONTENT_LENGTH (10 MB) is te klein voor rapportbundels;
+    verhoog 'm per-request alléén voor de import-route tot de bundellimiet."""
+    if request.method == 'POST' and request.path == '/dashboard/report/import':
+        try:
+            request.max_content_length = _MAX_BUNDLE_SIZE
+        except (AttributeError, TypeError):
+            pass
 _MAX_UNCOMPRESSED = 1024 * 1024 * 1024    # som van uitgepakte leden
 _MAX_MEMBER_SIZE = 60 * 1024 * 1024       # één lid
 _MAX_MEMBERS = 5000
@@ -54,6 +65,13 @@ _MAX_MEMBERS = 5000
 _SCREENSHOT_DIR = Path('raw/screenshots')
 _LAKKEN_DIR = _SCREENSHOT_DIR / 'lakken'
 _EVIDENCE_DIR = Path(os.path.join(os.path.dirname(__file__), 'db', 'evidence'))
+# Koud-archief: hierheen worden de bestanden van een gearchiveerde opdracht
+# verplaatst (en bij terugzetten weer terug).
+_ARCHIVE_DIR = Path('raw/archief')
+
+
+def _archive_base(oid):
+    return _ARCHIVE_DIR / ('opdracht_%d' % int(oid))
 
 _IMAGE_SUFFIXES = {'.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp', '.svg'}
 _EVIDENCE_SUFFIXES = {
@@ -152,6 +170,156 @@ def _opdracht_notes(opdracht_id):
     return q.order_by(db_notes.volgorde.asc(), db_notes.id.asc()).all()
 
 
+# ── Bestandsresolvers (live of koud-archief) ────────────────────────────────
+# Na koud-archiveren staan de bestanden onder raw/archief/opdracht_<id>/; de
+# resolvers kijken eerst op de live-locatie en anders in het archief, zodat
+# export en weergave blijven werken voor gearchiveerde opdrachten.
+
+def _evidence_src(fid, fname, oid):
+    p = _EVIDENCE_DIR / str(fid) / fname
+    if p.is_file():
+        return p
+    a = _archive_base(oid) / 'evidence' / str(fid) / fname
+    return a if a.is_file() else None
+
+
+def _screenshot_src(name, oid):
+    p = _SCREENSHOT_DIR / name
+    if p.is_file():
+        return p
+    a = _archive_base(oid) / 'screenshots' / name
+    return a if a.is_file() else None
+
+
+def _lak_src(name, oid):
+    p = _LAKKEN_DIR / name
+    if p.is_file():
+        return p
+    a = _archive_base(oid) / 'lakken' / name
+    return a if a.is_file() else None
+
+
+def _opdracht_plaatje_names(opdracht_id):
+    """Alle screenshot-namen waar deze opdracht naar verwijst (\\plaatje in
+    config/bevindingen/notities + de lak-gecontroleerd-lijst). Templates tellen
+    NIET mee: die zijn globaal/gedeeld en horen niet bij één opdracht."""
+    names = set()
+    texts = []
+    cfg = _project.config_for(opdracht_id)
+    if cfg is not None:
+        for f in _EXPORT_CONFIG_FIELDS:
+            v = getattr(cfg, f, None)
+            if isinstance(v, str):
+                texts.append(v)
+        try:
+            names |= set(json.loads(getattr(cfg, 'rapport_lak_gecontroleerd', '[]') or '[]'))
+        except (ValueError, TypeError):
+            pass
+    for bev in _opdracht_findings(opdracht_id):
+        texts.extend(str(getattr(bev, c) or '') for c in
+                     ('invoegen', 'uitwerken', 'beschrijving_override',
+                      'impact_override', 'aanbeveling_override',
+                      'impact_kort_override', 'aanbeveling_kort_override'))
+    for n in _opdracht_notes(opdracht_id):
+        texts.append(str(n.uitwerken or ''))
+    names |= _plaatjes_in(*texts)
+    return {n for n in names if isinstance(n, str) and n and os.path.basename(n) == n}
+
+
+def _move(src, dst):
+    """Verplaats één bestand; maak doelmap aan. Nooit falen op één bestand."""
+    try:
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        import shutil
+        shutil.move(str(src), str(dst))
+        return True
+    except OSError:
+        return False
+
+
+def archive_opdracht_files(opdracht):
+    """Verplaats de evidence en de (exclusief door deze opdracht gebruikte)
+    screenshots naar het koud-archief. Retourneert telling."""
+    oid = opdracht.id
+    base = _archive_base(oid)
+    moved = {'evidence': 0, 'screenshots': 0, 'gedeeld_overgeslagen': 0}
+
+    # Evidence: volledige per-bevinding-map (schoon toewijsbaar via finding_id).
+    for bev in _opdracht_findings(oid):
+        src = _EVIDENCE_DIR / str(bev.id)
+        if src.is_dir():
+            if _move(src, base / 'evidence' / str(bev.id)):
+                moved['evidence'] += 1
+
+    # Screenshots: alleen die níet door een andere, niet-gearchiveerde opdracht
+    # worden gebruikt (gedeelde namen blijven staan).
+    mine = _opdracht_plaatje_names(oid)
+    others = set()
+    for o in (db_opdracht.query
+              .filter(db_opdracht.id != oid, db_opdracht.archived_at.is_(None)).all()):
+        others |= _opdracht_plaatje_names(o.id)
+    for name in sorted(mine):
+        if name in others:
+            moved['gedeeld_overgeslagen'] += 1
+            continue
+        ss = _SCREENSHOT_DIR / name
+        if ss.is_file() and _move(ss, base / 'screenshots' / name):
+            moved['screenshots'] += 1
+        lak = _LAKKEN_DIR / name
+        if lak.is_file():
+            _move(lak, base / 'lakken' / name)
+
+    base.mkdir(parents=True, exist_ok=True)
+    try:
+        with open(base / 'moved.json', 'w') as fh:
+            json.dump(moved, fh)
+    except OSError:
+        pass
+    return moved
+
+
+def restore_opdracht_files(opdracht):
+    """Zet de bestanden uit het koud-archief terug op hun live-locatie. Bestaat
+    er live al een bestand met dezelfde naam, dan blijft dat staan (geen
+    overschrijving)."""
+    oid = opdracht.id
+    base = _archive_base(oid)
+    restored = {'evidence': 0, 'screenshots': 0}
+    if not base.is_dir():
+        return restored
+
+    ev_root = base / 'evidence'
+    if ev_root.is_dir():
+        for fid_dir in ev_root.iterdir():
+            tgt = _EVIDENCE_DIR / fid_dir.name
+            if not tgt.exists() and _move(fid_dir, tgt):
+                restored['evidence'] += 1
+
+    ss_root = base / 'screenshots'
+    if ss_root.is_dir():
+        _SCREENSHOT_DIR.mkdir(parents=True, exist_ok=True)
+        for f in ss_root.iterdir():
+            tgt = _SCREENSHOT_DIR / f.name
+            if not tgt.exists() and _move(f, tgt):
+                restored['screenshots'] += 1
+
+    lak_root = base / 'lakken'
+    if lak_root.is_dir():
+        _LAKKEN_DIR.mkdir(parents=True, exist_ok=True)
+        for f in lak_root.iterdir():
+            tgt = _LAKKEN_DIR / f.name
+            if not tgt.exists():
+                _move(f, tgt)
+
+    # Lege archiefmap opruimen.
+    try:
+        import shutil
+        shutil.rmtree(base, ignore_errors=True)
+    except OSError:
+        pass
+    return restored
+
+
 def _build_bundle(opdracht):
     """Bouw (manifest-dict, [(arcname, bytes)]) voor één opdracht."""
     cfg = _project.get_or_create_config(opdracht)
@@ -210,8 +378,8 @@ def _build_bundle(opdracht):
         # Evidence.
         ev_list = []
         for ev in getattr(bev, 'evidence_files', []) or []:
-            src = _EVIDENCE_DIR / str(bev.id) / ev.filename
-            if not src.is_file():
+            src = _evidence_src(bev.id, ev.filename, opdracht.id)
+            if src is None:
                 continue
             arc = 'evidence/{}/{}'.format(idx, ev.filename)
             try:
@@ -251,8 +419,8 @@ def _build_bundle(opdracht):
         safe = os.path.basename(name)
         if safe != name or not safe:
             continue
-        src = _SCREENSHOT_DIR / safe
-        if not src.is_file():
+        src = _screenshot_src(safe, opdracht.id)
+        if src is None:
             continue
         try:
             with open(src, 'rb') as fh:
@@ -262,8 +430,8 @@ def _build_bundle(opdracht):
         files.append(('screenshots/' + safe, blob))
         entry = {'name': safe, 'sha256': _sha_bytes(blob),
                  'redacted': False, 'gecontroleerd': safe in gecontroleerd}
-        lak = _LAKKEN_DIR / safe
-        if lak.is_file():
+        lak = _lak_src(safe, opdracht.id)
+        if lak is not None:
             try:
                 with open(lak, 'rb') as fh:
                     files.append(('screenshots/lakken/' + safe, fh.read()))

@@ -307,6 +307,7 @@ def create_app():
                     ("rapport_pdf_owner_password", "VARCHAR(200) DEFAULT ''"),
                     ("rapport_begrippen",          "TEXT DEFAULT '[]'"),
                     ("rapport_overrides",          "TEXT DEFAULT '{}'"),
+                    ("rapport_section_toggles",    "TEXT DEFAULT '{}'"),
                 ]:
                     try:
                         conn.execute(db.text(

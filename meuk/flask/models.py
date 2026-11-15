@@ -138,6 +138,7 @@ class db_instellingen(db.Model):
     rapport_scope_targets = db.Column(db.Text(), default='[]')
     rapport_begrippen = db.Column(db.Text(), default='[]')  # eigen begrippen/afkortingen (bijlage)
     rapport_overrides = db.Column(db.Text(), default='{}')  # overschrijvingen van template-teksten (inleiding, ...)
+    rapport_section_toggles = db.Column(db.Text(), default='{}')  # per-opdracht sectie aan/uit (afwijkingen t.o.v. template)
     rapport_logo_path = db.Column(db.String(300), default='')
     rapport_template_variant = db.Column(db.String(20), default='detailed')
     rapport_roe = db.Column(db.Text(), default='')
@@ -278,7 +279,7 @@ _PROJECT_CONFIG_FIELDS = (
     'rapport_blueteam', 'rapport_purpleteam', 'rapport_verklaring', 'rapport_lak_gecontroleerd',
     'rapport_legsup_startpunt', 'rapport_legsup_privileges', 'rapport_legsup_informatie',
     'rapport_scenarios', 'rapport_scope_targets', 'rapport_begrippen',
-    'rapport_overrides', 'rapport_logo_path',
+    'rapport_overrides', 'rapport_section_toggles', 'rapport_logo_path',
     'rapport_template_variant', 'rapport_roe', 'rapport_test_start_date',
     'rapport_test_end_date', 'rapport_versie', 'rapport_versie_status',
     'rapport_pdf_password', 'rapport_pdf_owner_password',
@@ -324,6 +325,7 @@ class db_opdracht_config(db.Model):
     rapport_scope_targets = db.Column(db.Text(), default='[]')
     rapport_begrippen = db.Column(db.Text(), default='[]')  # eigen begrippen/afkortingen (bijlage)
     rapport_overrides = db.Column(db.Text(), default='{}')  # overschrijvingen van template-teksten (inleiding, ...)
+    rapport_section_toggles = db.Column(db.Text(), default='{}')  # per-opdracht sectie aan/uit (afwijkingen t.o.v. template)
     rapport_logo_path = db.Column(db.String(300), default='')
     rapport_template_variant = db.Column(db.String(20), default='detailed')
     rapport_roe = db.Column(db.Text(), default='')

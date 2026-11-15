@@ -28,7 +28,8 @@
       e.preventDefault();
       e.stopPropagation();
       window.parent.postMessage({ source: "rb-edit", type: "section",
-        key: sec.getAttribute("data-ed-key") || "" }, "*");
+        key: sec.getAttribute("data-ed-key") || "",
+        off: sec.classList.contains("rb-off") }, "*");
     });
     sec.insertBefore(btn, sec.firstChild);
   }

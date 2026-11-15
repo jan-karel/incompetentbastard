@@ -1437,24 +1437,35 @@
     if (m.type === "field") rbOpenField(m.key);
     else if (m.type === "override") rbOpenOverride(m.key);
     else if (m.type === "meta") rbOpenMeta(m.key);
-    else if (m.type === "section") rbToggleSectionInline(m.key);
+    else if (m.type === "section") rbToggleSectionInline(m.key, m.off);
     else rbRoute(m.type, m.key);
   });
-  function rbToggleSectionInline(key) {
+  // Sectie aan/uit is een PER-OPDRACHT keuze (afwijking t.o.v. de template),
+  // zodat het ook werkt bij een ingebouwde variant en niet naar andere
+  // opdrachten lekt die dezelfde template delen.
+  function rbToggleSectionInline(key, currentlyOff) {
     function doToggle() {
       var act = rbActiveTemplate();
-      if (!act || act.builtin || act.id == null) { rbFocusSection(key); return; }
-      var secs = {};
-      Object.keys(act.sections || {}).forEach(function(k) { secs[k] = act.sections[k]; });
-      secs[key] = (secs[key] === false); // uit -> aan, aan -> uit
-      rbStatus(secs[key] ? "Sectie inschakelen…" : "Sectie uitschakelen…", "warn");
-      fetch("/api/report/templates/" + act.id, { method: "POST",
-        headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sections: secs }) })
+      var def = !!(act && act.sections && act.sections[key] !== false); // template-standaard aan?
+      var eff = (rbTplData && rbTplData.section_effective) || {};
+      var isOff = (currentlyOff != null) ? !!currentlyOff : (eff[key] === false);
+      var newOn = isOff; // uit -> aan, aan -> uit
+      var ov = {};
+      var cur = (rbTplData && rbTplData.section_toggles) || {};
+      Object.keys(cur).forEach(function(k) { ov[k] = cur[k]; });
+      if (newOn === def) delete ov[key]; else ov[key] = newOn; // alleen afwijkingen bewaren
+      rbStatus(newOn ? "Sectie inschakelen…" : "Sectie uitschakelen…", "warn");
+      fetch("/api/settings", { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rapport_section_toggles: ov }) })
         .then(function(r) { return r.json(); })
         .then(function(d) {
           if (d.ok) {
-            (rbTplData.custom || []).forEach(function(t) { if (t.id === act.id) t.sections = secs; });
-            rbStatus(secs[key] ? "Sectie ingeschakeld" : "Sectie uitgeschakeld", "ok");
+            if (rbTplData) {
+              rbTplData.section_toggles = ov;
+              rbTplData.section_effective = rbTplData.section_effective || {};
+              rbTplData.section_effective[key] = newOn;
+            }
+            rbStatus(newOn ? "Sectie ingeschakeld" : "Sectie uitgeschakeld", "ok");
             rbLoadPreview();
           } else rbStatus("Fout bij wijzigen sectie", "err");
         })
@@ -1520,20 +1531,20 @@
     var act = rbActiveTemplate();
     var keys = rbTplData.section_keys || [];
     var reord = rbTplData.reorderable_keys || [];
-    var secs = (act && act.sections) || {};
     var order = (act && act.order) || [];
     var builtin = !act || act.builtin;
+    // Zichtbaarheid = effectief (template + per-opdracht override); altijd bewerkbaar.
+    var eff = (rbTplData && rbTplData.section_effective) || (act && act.sections) || {};
     if (hint) hint.textContent = builtin
-      ? "De actieve template is een ingebouwde variant; secties en volgorde liggen vast. Kies of maak een eigen template (tabblad Instellingen) om ze aan te passen."
-      : "Vink secties aan/uit en zet de volgorde met ↑/↓; dit wijzigt de gekozen rapport-template en ververst de preview.";
+      ? "Secties aan/uit gelden voor dít rapport (niet de gedeelde template). De volgorde ligt bij een ingebouwde variant vast — kies of maak een eigen template (tabblad Instellingen) om die te wijzigen."
+      : "Vink secties aan/uit voor dít rapport; zet de volgorde met ↑/↓ (de volgorde hoort bij de gekozen template). De preview ververst automatisch.";
     // Herordenbare secties in huidige volgorde, daarna de rest.
     var ro = order.filter(function(k) { return reord.indexOf(k) !== -1; });
     reord.forEach(function(k) { if (ro.indexOf(k) === -1) ro.push(k); });
     var rest = keys.filter(function(k) { return reord.indexOf(k) === -1; });
     function chk(k) {
-      var on = (secs[k] !== false);
-      return '<input type="checkbox" data-sec="' + k + '"' + (on ? " checked" : "") +
-        (builtin ? " disabled" : "") + " />";
+      var on = (eff[k] !== false);
+      return '<input type="checkbox" data-sec="' + k + '"' + (on ? " checked" : "") + " />";
     }
     var html = '<div class="rb-sec-sub">Hoofdsecties (volgorde)</div>';
     html += ro.map(function(k, i) {
@@ -1585,20 +1596,22 @@
   }
   function rbSaveSections() {
     var act = rbActiveTemplate();
-    if (!act || act.builtin || act.id == null) return;
-    var secs = {};
+    var def = (act && act.sections) || {};  // template-standaard
+    var ov = {};
     document.querySelectorAll("#rb-sections-list [data-sec]").forEach(function(cb) {
-      secs[cb.getAttribute("data-sec")] = cb.checked;
+      var k = cb.getAttribute("data-sec");
+      var on = cb.checked;
+      if (on !== (def[k] !== false)) ov[k] = on;  // alleen afwijkingen t.o.v. template
     });
     rbStatus("Secties opslaan…", "warn");
-    fetch("/api/report/templates/" + act.id, { method: "POST",
-      headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sections: secs }) })
+    fetch("/api/settings", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ rapport_section_toggles: ov }) })
       .then(function(r) { return r.json(); })
       .then(function(d) {
         if (d.ok) {
-          (rbTplData.custom || []).forEach(function(t) { if (t.id === act.id) t.sections = secs; });
+          if (rbTplData) rbTplData.section_toggles = ov;
           rbStatus("Secties opgeslagen", "ok");
-          rbLoadPreview();
+          rbLoadSections().then(function() { rbLoadPreview(); });
         } else rbStatus("Fout bij opslaan secties", "err");
       })
       .catch(function() { rbStatus("Fout bij opslaan secties", "err"); });

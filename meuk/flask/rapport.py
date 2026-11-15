@@ -1482,7 +1482,7 @@ def gen_rapport():
     notities = _project.apply_scope(
         db_notes.query.filter_by(rapport=True), db_notes.opdracht_id, _oid
     ).order_by(db_notes.volgorde.asc()).all()
-    notes_data = [{'naam': n.naam or '', 'uitwerken': n.uitwerken or '',
+    notes_data = [{'id': n.id, 'naam': n.naam or '', 'uitwerken': n.uitwerken or '',
                    'latex_raw': bool(getattr(n, 'latex_raw', False))} for n in notities]
 
     # Metadata uit de projectconfig (val terug op globale instellingen)
@@ -3315,13 +3315,33 @@ _BUILTIN_VARIANTS = {
 }
 
 
+def _opdracht_section_override(cfg):
+    """Per-opdracht sectie aan/uit (afwijkingen t.o.v. de template). Dit maakt
+    sectie-zichtbaarheid een eigenschap van het rapport, niet van de gedeelde
+    template — zodat een wijziging niet naar andere opdrachten lekt en ook
+    werkt bij een ingebouwde variant."""
+    try:
+        ov = json.loads(getattr(cfg, 'rapport_section_toggles', '{}') or '{}')
+    except (json.JSONDecodeError, TypeError):
+        return {}
+    if not isinstance(ov, dict):
+        return {}
+    return {k: bool(v) for k, v in ov.items() if k in _SECTION_KEYS}
+
+
 def _resolve_report_template(cfg, tid=None, variant=None):
     """Bepaal {naam, sections, findings_scope, custom_tex_path, taal} voor het
     actieve rapport-template: expliciete override (tid/variant) > eigen template
-    (rapport_template_id) > ingebouwde variant (rapport_template_variant)."""
+    (rapport_template_id) > ingebouwde variant (rapport_template_variant).
+
+    De per-opdracht sectie-override wordt als laatste bovenop de template-secties
+    gelegd, zodat PDF, preview én DOCX dezelfde zichtbaarheid aanhouden."""
+    _toggle = _opdracht_section_override(cfg)
     if variant and variant in _BUILTIN_VARIANTS:
         base = _BUILTIN_VARIANTS[variant]
-        return {'naam': variant, 'sections': dict(base['sections']),
+        sections = dict(base['sections'])
+        sections.update(_toggle)
+        return {'naam': variant, 'sections': sections,
                 'findings_scope': base['findings_scope'], 'custom_tex_path': '', 'taal': '',
                 'section_order': _normalize_order([])}
     if tid is None:
@@ -3336,6 +3356,7 @@ def _resolve_report_template(cfg, tid=None, variant=None):
             secs = _apply_legacy_sections(secs)
             sections = _all_sections(True)
             sections.update({k: bool(v) for k, v in secs.items() if k in _SECTION_KEYS})
+            sections.update(_toggle)
             try:
                 order = json.loads(row.section_order or '[]')
             except (json.JSONDecodeError, TypeError):
@@ -3350,7 +3371,9 @@ def _resolve_report_template(cfg, tid=None, variant=None):
             }
     variant = (getattr(cfg, 'rapport_template_variant', '') if cfg else '') or 'detailed'
     base = _BUILTIN_VARIANTS.get(variant, _BUILTIN_VARIANTS['detailed'])
-    return {'naam': variant, 'sections': dict(base['sections']), 'section_order': _normalize_order([]),
+    sections = dict(base['sections'])
+    sections.update(_toggle)
+    return {'naam': variant, 'sections': sections, 'section_order': _normalize_order([]),
             'findings_scope': base['findings_scope'], 'custom_tex_path': '', 'taal': ''}
 
 
@@ -6982,9 +7005,14 @@ def report_templates_list():
     cfg = _project.current_config()
     sel = {'template_id': getattr(cfg, 'rapport_template_id', None),
            'variant': (getattr(cfg, 'rapport_template_variant', '') or 'detailed')}
+    # Per-opdracht sectie-override + de effectieve zichtbaarheid (template + override).
+    toggles = _opdracht_section_override(cfg)
+    rtpl = _resolve_report_template(cfg)
     return jsonify({'ok': True, 'section_keys': list(_SECTION_KEYS),
                     'reorderable_keys': list(_REORDERABLE_SECTIONS),
-                    'builtin': builtin, 'custom': custom, 'selected': sel})
+                    'builtin': builtin, 'custom': custom, 'selected': sel,
+                    'section_toggles': toggles,
+                    'section_effective': rtpl.get('sections', {})})
 
 
 @rapport_bp.route('/api/report/templates', methods=['POST'])

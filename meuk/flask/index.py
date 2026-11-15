@@ -451,6 +451,7 @@ def api_settings():
         'rapport_scenarios': json.loads(getattr(p, 'rapport_scenarios', '[]') or '[]'),
         'rapport_begrippen': json.loads(getattr(p, 'rapport_begrippen', '[]') or '[]'),
         'rapport_overrides': json.loads(getattr(p, 'rapport_overrides', '{}') or '{}'),
+        'rapport_section_toggles': json.loads(getattr(p, 'rapport_section_toggles', '{}') or '{}'),
         'rapport_scope_targets': json.loads(getattr(p, 'rapport_scope_targets', '[]') or '[]'),
         'rapport_contact': getattr(p, 'rapport_contact', '') or '',
         'rapport_revisies': json.loads(getattr(p, 'rapport_revisies', '[]') or '[]'),
@@ -555,6 +556,14 @@ def api_settings_update():
             if isinstance(v, str):
                 cur_ov[k] = v[:10000]
         p.rapport_overrides = json.dumps(cur_ov)
+    if 'rapport_section_toggles' in data and isinstance(data['rapport_section_toggles'], dict):
+        # Per-opdracht sectie aan/uit: afwijkingen t.o.v. de template. Volledige
+        # vervanging met gevalideerde {sectiesleutel: bool}-paren.
+        clean_t = {}
+        for k, v in list(data['rapport_section_toggles'].items())[:100]:
+            if isinstance(k, str):
+                clean_t[k[:50]] = bool(v)
+        p.rapport_section_toggles = json.dumps(clean_t)
     _SCOPE_TARGET_TYPES = ('host', 'netwerk', 'url', 'applicatie')
     if 'rapport_scope_targets' in data and isinstance(data['rapport_scope_targets'], list):
         raw_targets = data['rapport_scope_targets'][:50]

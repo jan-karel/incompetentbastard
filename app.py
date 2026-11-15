@@ -308,6 +308,7 @@ def create_app():
                     ("rapport_begrippen",          "TEXT DEFAULT '[]'"),
                     ("rapport_overrides",          "TEXT DEFAULT '{}'"),
                     ("rapport_section_toggles",    "TEXT DEFAULT '{}'"),
+                    ("rapport_bijlagen",           "TEXT DEFAULT '[]'"),
                 ]:
                     try:
                         conn.execute(db.text(

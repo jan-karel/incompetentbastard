@@ -1575,6 +1575,18 @@ def gen_rapport():
         rapport_begrippen = json.loads((getattr(s, 'rapport_begrippen', '[]') if s else '[]') or '[]')
     except (json.JSONDecodeError, TypeError):
         rapport_begrippen = []
+    # Eigen vrije-tekst bijlagen (na \appendix). Lijst van {titel, tekst}.
+    try:
+        rapport_bijlagen = json.loads((getattr(s, 'rapport_bijlagen', '[]') if s else '[]') or '[]')
+        if not isinstance(rapport_bijlagen, list):
+            rapport_bijlagen = []
+    except (json.JSONDecodeError, TypeError):
+        rapport_bijlagen = []
+    rapport_bijlagen = [
+        {'titel': str(b.get('titel', '')), 'tekst': str(b.get('tekst', ''))}
+        for b in rapport_bijlagen
+        if isinstance(b, dict) and (str(b.get('titel', '')).strip() or str(b.get('tekst', '')).strip())
+    ]
     try:
         _overrides = json.loads((getattr(s, 'rapport_overrides', '{}') if s else '{}') or '{}')
         if not isinstance(_overrides, dict):
@@ -1613,6 +1625,7 @@ def gen_rapport():
         rapport_revisies=rapport_revisies,
         rapport_distributie=rapport_distributie,
         rapport_begrippen=rapport_begrippen,
+        rapport_bijlagen=rapport_bijlagen,
         rapport_inleiding=ov_inleiding,
         rapport_methodologie=ov_methodologie,
         rapport_tools=ov_tools,
@@ -1719,6 +1732,8 @@ def gen_rapport():
         begrippen_rows=[{'term': _latex_escape(r['term']),
                          'definitie': _latex_escape(r['definitie'])}
                         for r in _begrippen_rows(taal, rapport_begrippen)],
+        bijlagen=[{'titel': _latex_escape(b['titel']), 'tekst': _vrij_latex_pdf(b['tekst'])}
+                  for b in rapport_bijlagen],
         beperkingen_lines=[_latex_escape(x) for x in _beperkingen_lines(
             taal, testtype=testtype, testscope=testscope, test_start=test_start_str,
             test_end=test_end_str, rapport_omgeving=rapport_omgeving)],
@@ -4411,6 +4426,7 @@ def _retest_progress_md_lines(findings, taal='nl'):
 
 def _generate_html_preview(findings, grouped, counts, titel, auteur, subtitel, datum, classificatie, is_draft, notes=None, tlp_bg='#FF2B2B', tlp_fg='#ffffff', management_samenvatting='', testtype='pentest', testscope='blackbox', testscopes=None, legsup_startpunt='', legsup_privileges='', legsup_informatie='', scenarios=None, taal='nl', rapport_roe='', test_start='', test_end='', variant='detailed', rapport_versie='', rapport_versie_status='concept', scope_targets=None, checklists=None, digid_knockout=None, key_findings=None, algeheel_beeld='', modus_operandi='', kritieke_functies='', blueteam='', purpleteam='', verklaring='', sections=None, findings_scope=None, rapport_omgeving='', section_order=None, rapport_project='', rapport_contact='', rapport_revisies=None, rapport_distributie=None, rapport_begrippen=None,
                             rapport_inleiding='', rapport_methodologie='', rapport_tools='',
+                            rapport_bijlagen=None,
                             edit_mode=False, show_disabled=True):
     """Genereer HTML preview van het rapport."""
     t = _T.get(taal, _T['nl'])
@@ -4482,6 +4498,8 @@ def _generate_html_preview(findings, grouped, counts, titel, auteur, subtitel, d
               'color:#154273;cursor:pointer;opacity:0;transition:opacity .12s;font-family:sans-serif}'
               '[data-ed-type="section"]:hover>.rb-sec-toggle{opacity:1}'
               '.rb-section.rb-off>.rb-sec-toggle{opacity:1;background:#154273;color:#fff}'
+              '.rb-add-bijlage{border:1px dashed #154273;border-radius:6px;padding:8px 12px;'
+              'color:#154273;text-align:center;font-family:sans-serif;margin:12px 0}'
               if edit_mode else ''),
              '</style></head><body>']
 
@@ -5001,6 +5019,17 @@ def _generate_html_preview(findings, grouped, counts, titel, auteur, subtitel, d
         parts.append('<h2>{}</h2>'.format(t['verklaring']))
         parts.append(_ed(_vrij_latex_naar_opmaak(verklaring, 'html'), 'field', 'rapport_verklaring'))
 
+    # Eigen vrije-tekst bijlagen (door de gebruiker toegevoegd, na \appendix).
+    _bijlagen = rapport_bijlagen or []
+    for _i, _b in enumerate(_bijlagen):
+        _btitel = html_escape(_b.get('titel', '') or '{} {}'.format(
+            'Appendix' if taal == 'en' else 'Bijlage', chr(65 + _i) if _i < 26 else _i + 1))
+        _bhtml = '<h2>{}</h2>{}'.format(_btitel, _vrij_latex_naar_opmaak(_b.get('tekst', ''), 'html'))
+        parts.append(_ed(_bhtml, 'bijlage', str(_i)))
+    if edit_mode:
+        _addlabel = 'Add your own appendix' if taal == 'en' else 'Eigen bijlage toevoegen'
+        parts.append(_ed('<p class="rb-add-bijlage">➕ {}</p>'.format(_addlabel), 'bijlage', 'new'))
+
     # Sign-off
     _append_signoff_html(parts, taal)
 
@@ -5153,7 +5182,8 @@ def _generate_docx_markdown(findings, grouped, counts, titel, auteur, subtitel,
                             section_order=None, rapport_project='',
                             rapport_contact='', rapport_revisies=None,
                             rapport_distributie=None, rapport_begrippen=None,
-                            rapport_inleiding='', rapport_methodologie='', rapport_tools=''):
+                            rapport_inleiding='', rapport_methodologie='', rapport_tools='',
+                            rapport_bijlagen=None):
     """Genereer pandoc-Markdown dat de LaTeX template 1:1 spiegelt."""
     t = _T.get(taal, _T['nl'])
     sev_labels = _SEVERITY_LABELS_EN if taal == 'en' else _SEVERITY_LABELS
@@ -5778,6 +5808,15 @@ def _generate_docx_markdown(findings, grouped, counts, titel, auteur, subtitel,
         lines.append('# {}'.format(u(t['verklaring'])))
         lines.append('')
         lines.append(_vrij_latex_naar_opmaak(verklaring, 'md'))
+        lines.append('')
+
+    # Eigen vrije-tekst bijlagen (door de gebruiker toegevoegd, na \appendix).
+    for _i, _b in enumerate(rapport_bijlagen or []):
+        _bt = (_b.get('titel') or '').strip() or '{} {}'.format(
+            'Appendix' if taal == 'en' else 'Bijlage', chr(65 + _i) if _i < 26 else _i + 1)
+        lines.append('# {}'.format(u(_bt)))
+        lines.append('')
+        lines.append(_vrij_latex_naar_opmaak(_b.get('tekst', ''), 'md'))
         lines.append('')
 
     return _reorder_marked('\n'.join(lines), section_order or [], '%%SEC:{k}%%', '%%SEC-END%%')
@@ -7182,6 +7221,7 @@ def _sample_tex_context():
         begrippen_rows=[{'term': _latex_escape(r['term']),
                          'definitie': _latex_escape(r['definitie'])}
                         for r in _begrippen_rows('nl')],
+        bijlagen=[],
         beperkingen_lines=[_latex_escape(x) for x in _beperkingen_lines(
             'nl', testscope='blackbox')],
         evidence_register=[],

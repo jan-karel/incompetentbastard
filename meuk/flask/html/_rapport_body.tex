@@ -1234,4 +1234,11 @@ De volgende bevindingen waren niet (volledig) detecteerbaar. Versterking van mon
 [[ verklaring ]]
 [% endif %]
 
+[# Eigen vrije-tekst bijlagen (door de gebruiker toegevoegd, na \appendix). #]
+[% for b in bijlagen %]
+\section{[[ b.titel ]]}
+
+[[ b.tekst ]]
+[% endfor %]
+
 \end{document}

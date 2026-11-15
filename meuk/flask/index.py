@@ -450,6 +450,7 @@ def api_settings():
         'rapport_legsup_informatie': getattr(p, 'rapport_legsup_informatie', '') or '',
         'rapport_scenarios': json.loads(getattr(p, 'rapport_scenarios', '[]') or '[]'),
         'rapport_begrippen': json.loads(getattr(p, 'rapport_begrippen', '[]') or '[]'),
+        'rapport_bijlagen': json.loads(getattr(p, 'rapport_bijlagen', '[]') or '[]'),
         'rapport_overrides': json.loads(getattr(p, 'rapport_overrides', '{}') or '{}'),
         'rapport_section_toggles': json.loads(getattr(p, 'rapport_section_toggles', '{}') or '{}'),
         'rapport_scope_targets': json.loads(getattr(p, 'rapport_scope_targets', '[]') or '[]'),
@@ -556,6 +557,14 @@ def api_settings_update():
             if isinstance(v, str):
                 cur_ov[k] = v[:10000]
         p.rapport_overrides = json.dumps(cur_ov)
+    if 'rapport_bijlagen' in data and isinstance(data['rapport_bijlagen'], list):
+        # Eigen vrije-tekst bijlagen (na \appendix): lijst van {titel, tekst}.
+        clean_bij = []
+        for b in data['rapport_bijlagen'][:50]:
+            if isinstance(b, dict) and (str(b.get('titel', '')).strip() or str(b.get('tekst', '')).strip()):
+                clean_bij.append({'titel': str(b.get('titel', ''))[:200],
+                                  'tekst': str(b.get('tekst', ''))[:50000]})
+        p.rapport_bijlagen = json.dumps(clean_bij)
     if 'rapport_section_toggles' in data and isinstance(data['rapport_section_toggles'], dict):
         # Per-opdracht sectie aan/uit: afwijkingen t.o.v. de template. Volledige
         # vervanging met gevalideerde {sectiesleutel: bool}-paren.

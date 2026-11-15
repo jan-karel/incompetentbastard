@@ -709,6 +709,14 @@
             <div data-latex-toolbar="rb-note-text" data-mode="note" data-project-images-url="/api/screenshots"></div>
             <textarea id="rb-note-text" name="rb-note-text" class="form-control" rows="12"></textarea>
           </div>
+          <div id="rb-ed-bijlage" hidden>
+            <label class="form-label" for="rb-bijlage-titel">Titel</label>
+            <input type="text" class="form-control mb-8" id="rb-bijlage-titel" placeholder="Bijlagetitel" />
+            <label class="form-label">Inhoud (vrije tekst / LaTeX)</label>
+            <div data-latex-toolbar="rb-bijlage-tekst" data-mode="document" data-project-images-url="/api/screenshots"></div>
+            <textarea id="rb-bijlage-tekst" name="rb-bijlage-tekst" class="form-control" rows="12"></textarea>
+            <button type="button" class="btn btn-sm mt-8" id="rb-bijlage-del">&#128465; Bijlage verwijderen</button>
+          </div>
           <div id="rb-ed-finding" hidden></div>
           <div class="rb-editor-actions">
             <button type="button" class="btn btn-primary btn-sm" id="rb-save">Opslaan &amp; verversen</button>
@@ -975,6 +983,8 @@
   var rbDirty = false;       // niet-opgeslagen wijzigingen in de open editor
   var rbLastScrollY = 0;     // scrollpositie van de preview, behouden over herladen heen
   var rbFindingId = null;    // id van de bevinding die nu in de editor staat
+  var rbBijlagen = [];       // eigen vrije-tekst bijlagen (na \appendix)
+  var rbBijlageIndex = null; // index van de bijlage in bewerking (of "new")
   var RB_OVERRIDE_LABELS = { inleiding: "Inleiding", methodologie: "Methodologie", tools: "Tools en technieken" };
   var RB_TABLES = {
     scope_targets: { key: "rapport_scope_targets", titel: "Scope-targets",
@@ -1003,6 +1013,8 @@
   function rbCurrentEdRef() {
     if (rbEditMode === "finding" && rbFindingId != null) return { type: "finding", key: String(rbFindingId) };
     if (rbEditMode === "note" && rbNoteId != null) return { type: "note", key: String(rbNoteId) };
+    if (rbEditMode === "bijlage" && rbBijlageIndex != null && rbBijlageIndex !== "new")
+      return { type: "bijlage", key: String(rbBijlageIndex) };
     if (rbEditMode === "table" && rbTableName) return { type: "table", key: rbTableName };
     if (rbEditMode === "meta" && rbEditKey) return { type: "meta", key: rbEditKey };
     if (rbEditKey) return { type: rbIsOverride ? "override" : "field", key: rbEditKey };
@@ -1055,7 +1067,7 @@
     if (acts) acts.hidden = false;
     var host = document.getElementById("rb-ed-finding");
     if (host) host.innerHTML = "";
-    rbEditKey = null; rbNoteId = null; rbIsOverride = false; rbFindingId = null;
+    rbEditKey = null; rbNoteId = null; rbIsOverride = false; rbFindingId = null; rbBijlageIndex = null;
     rbDirty = false;
     // Highlight in de preview opheffen.
     var f = document.getElementById("rb-frame");
@@ -1084,7 +1096,7 @@
   };
   function rbShowBlocks(mode) {
     rbEditMode = mode;
-    ["field", "table", "meta", "note", "finding"].forEach(function(b) {
+    ["field", "table", "meta", "note", "finding", "bijlage"].forEach(function(b) {
       var el = document.getElementById("rb-ed-" + b);
       if (el) el.hidden = (b !== mode);
     });
@@ -1187,6 +1199,62 @@
         if (typeof window.initLatexToolbar === "function") window.initLatexToolbar();
         document.getElementById("rb-note-naam").focus();
       });
+  }
+  // Eigen vrije-tekst bijlage (na \appendix) openen; key is de index of "new".
+  function rbOpenBijlage(key) {
+    rbEditKey = null; rbTableName = null; rbIsOverride = false; rbNoteId = null; rbFindingId = null;
+    var title = document.getElementById("rb-editor-title");
+    fetch("/api/settings", { credentials: "same-origin" })
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        rbBijlagen = Array.isArray(d.rapport_bijlagen) ? d.rapport_bijlagen : [];
+        var isNew = (key === "new" || key == null);
+        rbBijlageIndex = isNew ? "new" : parseInt(key, 10);
+        var b = isNew ? { titel: "", tekst: "" } : (rbBijlagen[rbBijlageIndex] || { titel: "", tekst: "" });
+        if (title) title.textContent = isNew ? "Nieuwe bijlage" : "Bijlage bewerken";
+        document.getElementById("rb-bijlage-titel").value = b.titel || "";
+        var ta = document.getElementById("rb-bijlage-tekst");
+        ta.value = b.tekst || "";
+        var del = document.getElementById("rb-bijlage-del");
+        if (del) del.hidden = isNew;
+        rbShowBlocks("bijlage");
+        ta.dispatchEvent(new Event("input", { bubbles: true }));
+        if (typeof window.initLatexToolbar === "function") window.initLatexToolbar();
+        document.getElementById("rb-bijlage-titel").focus();
+      });
+  }
+  function rbSaveBijlage() {
+    var titel = document.getElementById("rb-bijlage-titel").value.trim();
+    var tekst = document.getElementById("rb-bijlage-tekst").value;
+    if (!titel && !tekst.trim()) { setStatus("rb-edit-status", "Titel of inhoud is vereist", "err"); return; }
+    var lijst = rbBijlagen.slice();
+    var item = { titel: titel, tekst: tekst };
+    if (rbBijlageIndex === "new" || rbBijlageIndex == null) lijst.push(item);
+    else lijst[rbBijlageIndex] = item;
+    setStatus("rb-edit-status", "Opslaan…", "warn");
+    fetch("/api/settings", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ rapport_bijlagen: lijst }) })
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        if (d.ok) { rbBijlagen = lijst; setStatus("rb-edit-status", "Opgeslagen", "ok"); rbLoadPreview(); }
+        else setStatus("rb-edit-status", "Fout bij opslaan", "err");
+      })
+      .catch(function() { setStatus("rb-edit-status", "Fout bij opslaan", "err"); });
+  }
+  function rbDeleteBijlage() {
+    if (rbBijlageIndex === "new" || rbBijlageIndex == null) { rbCloseEditor(); return; }
+    if (!window.confirm("Deze bijlage verwijderen?")) return;
+    var lijst = rbBijlagen.slice();
+    lijst.splice(rbBijlageIndex, 1);
+    setStatus("rb-edit-status", "Verwijderen…", "warn");
+    fetch("/api/settings", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ rapport_bijlagen: lijst }) })
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        if (d.ok) { rbBijlagen = lijst; setStatus("rb-edit-status", "Verwijderd", "ok"); rbLoadPreview(); }
+        else setStatus("rb-edit-status", "Fout bij verwijderen", "err");
+      })
+      .catch(function() { setStatus("rb-edit-status", "Fout bij verwijderen", "err"); });
   }
   function rbValOf(id) { var el = document.getElementById(id); return el ? el.value : ""; }
   function rbOpenMeta(key) {
@@ -1313,6 +1381,7 @@
     rbTableRows.push(o); rbRenderTable();
   }
   function rbSave() {
+    if (rbEditMode === "bijlage") { rbSaveBijlage(); return; }
     if (rbIsOverride && rbEditKey) {
       var oval = document.getElementById("rb-edit-text").value;
       // Gelijk aan de standaardtekst? Leeg opslaan, zodat het automatisch blijft meelopen.
@@ -1382,6 +1451,8 @@
       rbOpenNoteInline(key);
     } else if (type === "table") {
       rbOpenTable(key);
+    } else if (type === "bijlage") {
+      rbOpenBijlage(key);
     } else if (type === "image") {
       activateRapportTab("tab-lakken");
       if (key && typeof window.rbOpenLakImage === "function") {
@@ -1637,6 +1708,7 @@
     bind("rb-override-reset", rbResetOverride);
     bind("rb-cancel", function() { if (rbConfirmDiscard()) rbCloseEditor(); });
     bind("rb-editor-close", function() { if (rbConfirmDiscard()) rbCloseEditor(); });
+    bind("rb-bijlage-del", rbDeleteBijlage);
     // Elke invoer in de editor markeert onopgeslagen wijzigingen.
     var edRoot = document.getElementById("rb-editor");
     if (edRoot) {

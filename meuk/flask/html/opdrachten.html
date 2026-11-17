@@ -4,6 +4,7 @@
 {% block styles %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/safe-overview.css') }}" />
 <link rel="stylesheet" href="{{ url_for('static', filename='css/finding-form.css') }}" />
+<link rel="stylesheet" href="{{ url_for('static', filename='css/rapport-editor.css') }}" />
 {% endblock %}
 
 {% block content %}
@@ -14,6 +15,12 @@
   </div>
 </div>
 
+<div class="rapport-tabs">
+  <button class="rapport-tab active" data-tab="tab-op-overzicht">Overzicht</button>
+  <button class="rapport-tab" data-tab="tab-op-nieuw">Nieuwe opdracht</button>
+</div>
+
+<div class="rapport-tab-content" id="tab-op-nieuw">
 <section class="card mb-14">
   <div class="card-head"><h2>Nieuwe opdracht</h2></div>
   <div class="card-body">
@@ -59,7 +66,9 @@
     </div>
   </div>
 </section>
+</div>{# /tab-op-nieuw #}
 
+<div class="rapport-tab-content active" id="tab-op-overzicht">
 <section class="card mb-14">
   <div class="card-head"><h2>Opdrachten</h2></div>
   <div class="card-body">
@@ -92,10 +101,30 @@
     </table>
   </div>
 </section>
+</div>{# /tab-op-overzicht #}
 {% endblock %}
 
 {% block scripts %}
 <script nonce="{{ csp_nonce }}">
+(function() {
+  "use strict";
+  // ── Tabbladen (zelfde patroon als het rapport-dashboard) ──────
+  var LS = "op_active_tab";
+  function activate(id) {
+    document.querySelectorAll(".rapport-tab").forEach(function(t) {
+      t.classList.toggle("active", t.getAttribute("data-tab") === id);
+    });
+    document.querySelectorAll(".rapport-tab-content").forEach(function(c) {
+      c.classList.toggle("active", c.id === id);
+    });
+    try { localStorage.setItem(LS, id); } catch (e) {}
+  }
+  document.querySelectorAll(".rapport-tab").forEach(function(t) {
+    t.addEventListener("click", function() { activate(t.getAttribute("data-tab")); });
+  });
+  var saved; try { saved = localStorage.getItem(LS); } catch (e) {}
+  if (saved && document.getElementById(saved)) activate(saved);
+})();
 (function() {
   "use strict";
   var tbody = document.getElementById("op-tbody");

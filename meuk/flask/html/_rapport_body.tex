@@ -732,7 +732,7 @@ De volgende bevindingen waren niet (volledig) detecteerbaar. Versterking van mon
 [% for note in notes %]
 \subsection{[[ note.naam | latex_escape ]]}
 
-[% if note.latex_raw %][[ note.uitwerken ]][% else %][[ note.uitwerken | latex_escape ]][% endif %]
+[% if note.latex_raw %][[ note.uitwerken | http_env ]][% else %][[ note.uitwerken | latex_escape ]][% endif %]
 
 [% endfor %]
 \newpage

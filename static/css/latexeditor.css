@@ -567,3 +567,283 @@ body.latex-editor-fullscreen-active{
   display:flex; gap:8px; justify-content:center; flex-wrap:wrap; margin-top:2px;
 }
 .lak-lightbox-tools .btn{ min-width:130px; }
+
+/* ── Bevinding-kiezer (cross-reference macro's \bevinding/\uitwerking/\bevindingref) ── */
+.lx-fp-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 9999;
+  display: flex; align-items: center; justify-content: center; }
+.lx-fp-box { background: #fff; color: #1a2733; border-radius: 10px; padding: 16px 18px;
+  width: 100%; max-width: 520px; max-height: 80vh; display: flex; flex-direction: column;
+  box-shadow: 0 10px 40px rgba(0,0,0,.3); }
+.lx-fp-head { display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 8px; font-weight: bold; }
+.lx-fp-close { border: 0; background: none; font-size: 20px; cursor: pointer; line-height: 1; color: inherit; }
+.lx-fp-search { width: 100%; padding: 8px 10px; border: 1px solid #ccc; border-radius: 6px;
+  margin-bottom: 8px; box-sizing: border-box; }
+.lx-fp-list { overflow: auto; border: 1px solid #eee; border-radius: 6px; }
+.lx-fp-row { display: block; width: 100%; text-align: left; border: 0; border-bottom: 1px solid #f0f0f0;
+  background: none; padding: 8px 10px; cursor: pointer; font-size: 14px; color: inherit; }
+.lx-fp-row:hover { background: #eef5ff; }
+.lx-fp-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 8px; vertical-align: middle; }
+.lx-fp-loc { color: #888; font-size: 12px; }
+.lx-fp-msg { padding: 10px; color: #666; }
+
+/* ── Kader-dialoog (generieke callout met kleur/titel/inhoud) ── */
+.lx-fp-field { display: block; margin-bottom: 10px; }
+.lx-fp-label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 4px; }
+.lx-fp-field textarea.lx-fp-search { margin-bottom: 0; resize: vertical; font-family: inherit; }
+.lx-fp-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 6px; }
+
+/* ── Zoek-en-vervang-balk ── */
+.latex-findbar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px;
+  padding: 6px 8px; background: var(--card, #f7f8fa); border: 1px solid var(--border, #ddd);
+  border-radius: 6px; margin-bottom: 6px; }
+.latex-findbar[hidden] { display: none; }
+.latex-find-input { padding: 5px 8px; border: 1px solid var(--border, #ccc); border-radius: 5px;
+  font-size: 13px; min-width: 150px; }
+.latex-find-info { font-size: 12px; color: var(--muted, #64748b); margin-left: auto; }
+
+/* HTTP-modal (\request/\response): caption + body + highlight-markering */
+.lx-http-box { max-width: 760px; width: 92vw; }
+.lx-http-body {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px; line-height: 1.5; white-space: pre; overflow-wrap: normal;
+  min-height: 220px; resize: vertical; tab-size: 4;
+}
+.lx-http-tools { display: flex; align-items: center; gap: 8px; margin: 6px 0 2px; flex-wrap: wrap; }
+.lx-http-mark { background: #fff3b0; border-color: #e0c84a; }
+.lx-http-hint { font-size: 11px; color: #6b7785; }
+
+/* Live-arcering achter de code/HTTP-textarea (duidelijke gele markering) */
+.lx-hl-wrap { position: relative; width: 100%; background: #fff; border: 1px solid #ccd3dd; border-radius: 6px; }
+.lx-codearea, .lx-hl-backdrop {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px; line-height: 1.5; padding: 8px; margin: 0;
+  box-sizing: border-box; width: 100%; border: 0;
+  white-space: pre-wrap; overflow-wrap: break-word; word-break: break-word; tab-size: 4;
+}
+.lx-codearea { position: relative; display: block; background: transparent; color: inherit;
+  min-height: 230px; resize: vertical; z-index: 1; }
+.lx-codearea:focus { outline: 2px solid #4d90d6; outline-offset: -2px; border-radius: 6px; }
+.lx-hl-backdrop { position: absolute; inset: 0; overflow: auto; pointer-events: none; color: transparent; }
+.lx-hl-backdrop mark { background: #ffe14d; color: transparent; border-radius: 2px;
+  box-shadow: inset 0 0 0 1px #d9a400; }
+/* Regelnummer-rij in de code-modal */
+.lx-code-numrow { gap: 6px; }
+.lx-code-numchk { margin: 0 2px 0 0; }
+.lx-code-from { width: 72px; flex: 0 0 auto; }
+
+/* Markeerkleuren in de arcering-laag (per type) */
+.lx-hl-backdrop mark.lx-m-geel { background: #ffe14d; box-shadow: inset 0 0 0 1px #d9a400; }
+.lx-hl-backdrop mark.lx-m-rood { background: #ffb3b3; box-shadow: inset 0 0 0 1px #d4351c; }
+.lx-hl-backdrop mark.lx-m-groen { background: #b6e6b6; box-shadow: inset 0 0 0 1px #2a8f2a; }
+.lx-hl-backdrop mark.lx-m-lak  { background: #e1e1e1; box-shadow: inset 0 0 0 1px #8a8a8a; }
+.lx-mark-type { width: auto; min-width: 150px; flex: 0 0 auto; }
+/* Mini-voorbeeld in de modal */
+.lx-pv-btn { margin: 4px 0 0; align-self: flex-start; }
+.lx-mini-preview { margin: 6px 0 2px; max-height: 280px; overflow: auto; }
+.lx-mini-preview img { max-width: 100%; border: 1px solid #ccd3dd; border-radius: 4px; background: #fff; }
+.lx-mini-preview.is-loading, .lx-mini-preview.is-error { font-size: 12px; color: #6b7785; padding: 4px 2px; }
+.lx-mini-preview.is-error { color: #b4231a; }
+.lx-hidden { display: none !important; }
+
+/* Afbeeldings-modal: keuzelijst met thumbnails + voorbeeld */
+.lx-img-list { max-height: 210px; overflow-y: auto; border: 1px solid #dde3ea; border-radius: 6px; margin: 4px 0; background: #fff; }
+.lx-img-row { display: flex; align-items: center; gap: 8px; width: 100%; text-align: left;
+  padding: 4px 8px; background: transparent; border: 0; border-bottom: 1px solid #eef1f5; cursor: pointer; }
+.lx-img-row:hover { background: #f1f6fc; }
+.lx-img-row.is-active { background: #e3eefb; font-weight: 600; }
+.lx-img-thumb { width: 44px; height: 34px; object-fit: cover; border-radius: 3px; border: 1px solid #ccd3dd; background: #f2f2f2; flex: 0 0 auto; }
+.lx-img-thumb.is-broken { visibility: hidden; }
+.lx-img-name { font-size: 12px; word-break: break-all; }
+.lx-img-preview { margin: 4px 0 2px; text-align: center; max-height: 240px; overflow: auto; }
+.lx-img-preview img { max-width: 100%; max-height: 230px; border: 1px solid #ccd3dd; border-radius: 4px; background: #fff; }
+.lx-img-preview.is-empty { font-size: 12px; color: #6b7785; text-align: left; padding: 4px 2px; }
+
+/* Grotere, 2-koloms afbeeldings-modal */
+.lx-img-box { max-width: min(1040px, 96vw); max-height: 90vh; overflow-y: auto; }
+.lx-img-cols { display: flex; gap: 18px; flex-wrap: wrap; }
+.lx-img-col { flex: 1 1 320px; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.lx-img-col .lx-img-list { max-height: 320px; }
+.lx-img-col .lx-img-preview { max-height: 360px; }
+.lx-img-col .lx-img-preview img { max-height: 340px; }
+.lx-img-row { position: relative; }
+.lx-img-tag { margin-left: auto; font-size: 12px; font-weight: 700; flex: 0 0 auto; }
+.lx-img-tag.is-lak { color: #1a1a1a; }
+.lx-img-tag.is-ctrl { color: #2a8f2a; }
+/* Status + lak/controle-acties */
+.lx-img-statusbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+.lx-img-badge { font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 10px; background: #eef1f5; }
+.lx-img-badge.is-lak { background: #2b2b2b; color: #fff; }
+.lx-img-badge.is-ctrl { background: #d9f0d9; color: #1c661c; }
+.lx-img-badge.is-todo { background: #fff3cd; color: #7a5b00; }
+.lx-img-lak.has-lakken { background: #2b2b2b; color: #fff; }
+
+/* Origineel/Gelakt-schakelaar in het afbeeldingsvoorbeeld */
+.lx-img-viewtoggle { display: flex; gap: 4px; margin-bottom: 4px; }
+.lx-img-viewtoggle .btn.is-active { background: #154273; color: #fff; border-color: #154273; }
+
+/* Aandachtspunt-annotatie (rode kaders) in de afbeeldings-modal */
+.lx-img-tag.is-annot { color: #e4002b; }
+.lx-img-annot.has-lakken { background: #e4002b; color: #fff; border-color: #e4002b; }
+.lx-img-badge.is-annot { background: #ffe0e4; color: #a4001f; }
+
+/* Gereedschapsbalk in de annotatie-editor */
+.latex-redact-tools { display: flex; gap: 6px; flex-wrap: wrap; padding: 6px 0 2px; }
+.latex-redact-tools .lx-tool.is-on { background: #e4002b; color: #fff; border-color: #e4002b; }
+
+/* Classificatie-/referentie-modal */
+.lx-ref-box { max-width: min(760px, 95vw); }
+.lx-ref-form { margin: 4px 0; }
+.lx-cvss-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 6px 10px; }
+.lx-cvss-score { margin: 8px 0 2px; font-weight: 600; font-size: 13px; word-break: break-all; }
+.lx-ref-list { max-height: 260px; overflow-y: auto; border: 1px solid #dde3ea; border-radius: 6px; margin: 4px 0; background: #fff; }
+.lx-ref-row { display: flex; gap: 10px; align-items: baseline; width: 100%; text-align: left; padding: 5px 9px;
+  background: transparent; border: 0; border-bottom: 1px solid #eef1f5; cursor: pointer; }
+.lx-ref-row:hover { background: #f1f6fc; }
+.lx-ref-row.is-active { background: #e3eefb; }
+.lx-ref-id { font-family: ui-monospace, Menlo, Consolas, monospace; font-weight: 700; flex: 0 0 auto; min-width: 72px; }
+.lx-ref-name { font-size: 12px; color: #33414f; }
+.lx-ref-sugg { display: flex; align-items: center; gap: 6px; font-size: 12px; margin: 6px 0 2px; }
+.lx-ref-preview { margin: 8px 0 2px; border-top: 1px solid #eef1f5; padding-top: 8px; }
+.lx-ref-pvrow { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.lx-ref-code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; background: #f5f7fa;
+  border: 1px solid #e2e8f0; border-radius: 4px; padding: 3px 7px; word-break: break-all; }
+.lx-ref-badge { display: inline-block; padding: 2px 9px; border-radius: 4px; font-weight: 700; font-size: 12px; }
+.lx-ref-badge.is-code { background: #eef1f5; color: #15385f; font-family: ui-monospace, Menlo, Consolas, monospace; }
+
+/* ============ Professionele editor-styling ============ */
+.latex-toolbar{
+  align-items:center; gap:6px; padding:7px 9px; position:sticky; top:0; z-index:6;
+  background:linear-gradient(to bottom, var(--surface-2), var(--surface));
+  box-shadow:0 1px 3px rgba(16,42,67,.06);
+}
+.latex-toolbar-group{ gap:3px; padding-right:8px; margin-right:1px; align-items:center; }
+.latex-btn{
+  height:30px; border-radius:6px; padding:0 9px; font-size:12.5px; font-weight:500;
+  transition:background .14s, border-color .14s, box-shadow .14s, transform .05s;
+}
+.latex-btn:hover{ box-shadow:0 1px 3px rgba(16,42,67,.12); }
+.latex-btn:active{ transform:translateY(1px); }
+.latex-btn-icon{ font-size:14px; }
+.latex-btn-label{ font-weight:500; }
+
+/* Opmaak-groep: vierkante B/I/U/A knoppen */
+.latex-format-group{ padding-right:9px; }
+.latex-fmt-btn{ width:30px; padding:0; justify-content:center; }
+.latex-fmt-btn .lx-fmt-ico{ font-size:15px; line-height:1; font-weight:700; }
+.lx-fmt-b .lx-fmt-ico{ font-weight:800; }
+.lx-fmt-i .lx-fmt-ico{ font-style:italic; font-family:Georgia,'Times New Roman',serif; }
+.lx-fmt-u .lx-fmt-ico{ text-decoration:underline; text-underline-offset:2px; }
+.lx-fmt-c .lx-fmt-ico{ font-weight:800; border-bottom:3px solid #D4351C; line-height:.86; padding-bottom:1px; }
+
+/* Kleur-popover */
+.lx-color-pop{ background:#fff; color:#1a2733; border-radius:12px; padding:14px 16px;
+  box-shadow:0 12px 44px rgba(0,0,0,.32); }
+.lx-color-title{ font-size:12px; font-weight:700; color:#5a6b7b; margin-bottom:10px; text-transform:uppercase; letter-spacing:.04em; }
+.lx-color-grid{ display:grid; grid-template-columns:repeat(7,1fr); gap:10px; }
+.lx-color-sw{ width:30px; height:30px; border-radius:50%; border:2px solid #fff;
+  box-shadow:0 0 0 1px #ccd3dd; cursor:pointer; transition:transform .1s, box-shadow .1s; padding:0; }
+.lx-color-sw:hover{ transform:scale(1.14); box-shadow:0 0 0 2px var(--primary,#154273); }
+
+/* Textarea: rustig en leesbaar, duidelijke focus */
+.latex-toolbar + textarea, .latex-editor-wrapper textarea{
+  font-size:13px; line-height:1.6; padding:12px 14px;
+  font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+.latex-toolbar + textarea:focus, .latex-editor-wrapper textarea:focus{
+  outline:none; border-color:var(--primary,#154273);
+  box-shadow:0 0 0 3px color-mix(in oklab, var(--primary,#154273) 16%, transparent);
+}
+
+/* ============ Statusbalk + vlakke, strakke toolbar (v2) ============ */
+.latex-status{
+  display:flex; justify-content:space-between; align-items:center; gap:14px;
+  padding:6px 12px; margin:0; font-size:11.5px; color:var(--muted,#6b7785);
+  background:var(--surface-2); border:1px solid var(--border); border-top:none;
+  border-radius:0 0 9px 9px;
+}
+.latex-lint{ display:inline-flex; align-items:center; gap:5px; }
+.latex-stat{ font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  white-space:nowrap; opacity:.8; }
+.latex-editor-wrapper:not(.is-fullscreen) textarea{ border-radius:0; }
+.latex-editor-wrapper:not(.is-fullscreen) .latex-img-hint{
+  margin:0; padding:5px 12px; background:var(--surface);
+  border-left:1px solid var(--border); border-right:1px solid var(--border);
+}
+.latex-editor-wrapper:not(.is-fullscreen) .latex-draft-restore{
+  margin:0; border-radius:0; border-top:none;
+  border-left:1px solid var(--border); border-right:1px solid var(--border);
+}
+.latex-editor-wrapper.is-fullscreen .latex-status{ border-radius:0; border-left:none; border-right:none; }
+
+/* Vlakke knoppen: rustig tenzij hover; "container"-knoppen houden een rand */
+.latex-btn{ background:transparent; border:1px solid transparent; box-shadow:none; }
+.latex-btn:hover{
+  background:color-mix(in oklab, var(--primary) 10%, var(--surface));
+  border-color:transparent; color:var(--primary); box-shadow:none;
+}
+.latex-btn:active{ background:color-mix(in oklab, var(--primary) 20%, var(--surface)); transform:none; }
+.latex-fmt-btn, .latex-btn-dropdown, .latex-btn-fullscreen{
+  background:var(--surface); border:1px solid var(--border);
+}
+.latex-fmt-btn:hover, .latex-btn-dropdown:hover, .latex-btn-fullscreen:hover{ border-color:var(--primary); }
+.latex-toolbar-group{ border-right:1px solid var(--border); padding-right:8px; }
+.latex-toolbar-group:last-child, .latex-toolbar-right{ border-right:none; }
+
+/* ============ Syntax-highlight editor-laag ============ */
+.lx-ed-wrap{
+  position:relative; flex:1; min-height:200px; display:block;
+  background:var(--surface);
+  border-left:1px solid var(--border); border-right:1px solid var(--border);
+}
+.lx-ed-area{
+  position:absolute !important; inset:0; width:100%; height:100%; margin:0 !important;
+  border:none !important; border-radius:0 !important; resize:none; z-index:1;
+  background:transparent !important; color:transparent !important;
+  caret-color:var(--text,#1a2733) !important;
+}
+.lx-ed-area::selection{ background:rgba(21,66,115,.25); }
+.lx-ed-backdrop{
+  position:absolute; inset:0; margin:0; overflow:hidden; pointer-events:none;
+  box-sizing:border-box; color:var(--text,#1a2733); background:transparent;
+  overflow-wrap:break-word;
+}
+.tk-cmd{ color:#2563eb; }
+.tk-brace{ color:#b45309; }
+.tk-com{ color:#6b7785; font-style:italic; }
+.tk-math{ color:#7c3aed; }
+.latex-editor-wrapper.is-fullscreen .lx-ed-wrap{ border:none; flex:1; }
+@media (prefers-color-scheme: dark){
+  .tk-cmd{ color:#7cb3ff; }
+  .tk-brace{ color:#e0a85a; }
+  .tk-com{ color:#8a97a5; }
+  .tk-math{ color:#c08cf0; }
+  .lx-ed-area::selection{ background:rgba(124,179,255,.28); }
+}
+
+/* ============ Uniforme, strakke icoonknoppen (basis: vet/cursief/onderstrepen/kleur) ============ */
+.latex-btn{
+  height:30px; padding:0 9px; gap:5px; border-radius:7px;
+  background:var(--surface); border:1px solid var(--border); color:var(--text);
+  font-size:12.5px; font-weight:500; box-shadow:none;
+}
+.latex-btn:hover{
+  background:color-mix(in oklab, var(--primary) 8%, var(--surface));
+  border-color:var(--primary); color:var(--primary);
+  box-shadow:0 1px 2px rgba(16,42,67,.08);
+}
+.latex-btn:active{ background:color-mix(in oklab, var(--primary) 16%, var(--surface)); }
+.latex-btn-icon{
+  display:inline-flex; align-items:center; justify-content:center;
+  min-width:17px; font-size:14px; line-height:1;
+}
+/* Alle niet-opmaak-iconen monochroom -> één icoonfamilie (ook de emoji) */
+.latex-btn:not(.latex-fmt-btn) .latex-btn-icon{ filter:grayscale(1); opacity:.82; }
+.latex-btn:hover .latex-btn-icon{ opacity:1; }
+/* Opmaakknoppen blijven vierkant en houden hun eigen glyph/accent */
+.latex-fmt-btn{ width:30px; }
+.latex-btn-label{ font-weight:500; }
+
+/* Inline-SVG icoonset: uniform, monochroom, erft knopkleur (currentColor) */
+.latex-ico{ width:15px; height:15px; display:block; }
+.latex-btn-icon:has(.latex-ico){ filter:none; opacity:1; }

@@ -7,6 +7,7 @@ from jinja2 import TemplateError, TemplateSyntaxError, UndefinedError
 from markupsafe import escape as html_escape
 from meuk.flask.models import db_bevindingen, db_bevindingen_templates, db_evidence, db_notes, db, db_finding_related, db_instellingen, db_checklist, db_rapport_template, db_opdracht_config, db_asset, db_asset_anchor, db_opdracht
 from meuk.flask.findings import (_cvss_to_severity, _latex_escape, _latex_markup,
+                                  http_to_latex_env,
                                   _html_markup, _md_markup, _plain_markup,
                                   owasptop10, _get_appdata, redact_mode,
                                   redact_enabled)
@@ -93,6 +94,8 @@ def _vrij_latex_pdf(s):
     if not s:
         return ''
     s = s.replace('\r\n', '\n')
+    # \request{..}{..}/\response{..} -> ibhttpblok-omgeving (verbatim + §\hl§).
+    s = http_to_latex_env(s)
     for _ in range(3):
         s = _re.sub(r'\\\\[ \t]*(?=\n[ \t]*\n)', '', s)   # \\ net vóór lege regel
         s = _re.sub(r'(?<=\n\n)[ \t]*\\\\[ \t]*', '', s)  # \\ net ná lege regel
@@ -110,6 +113,181 @@ def _vrij_latex_naar_opmaak(s, fmt):
     from markupsafe import escape as _esc
     from meuk.flask.findings import _mk_image_md, _mk_image_html
     s = s.replace('\r\n', '\n')
+
+    # \kader<kleur>{titel}{inhoud} -> gekleurd kader (box) met eigen titel.
+    # Geneste markup wordt recursief gerenderd; beschermd via een sentinel tegen
+    # de generieke \cmd-opschoning verderop.
+    _kaders = []
+    _KADER_C = {'blauw': ('#154273', '#E5F1F9'), 'groen': ('#275D38', '#EDF5EF'),
+                'oranje': ('#E17000', '#FFF3E5'), 'paars': ('#5B3F8C', '#F1ECF8'),
+                'grijs': ('#535353', '#F2F2F2'), 'rood': ('#A90000', '#FBEAEA')}
+
+    def _read_braced(txt, pos):
+        if pos >= len(txt) or txt[pos] != '{':
+            return None, None
+        depth = 0
+        for k in range(pos, len(txt)):
+            if txt[k] == '{':
+                depth += 1
+            elif txt[k] == '}':
+                depth -= 1
+                if depth == 0:
+                    return txt[pos + 1:k], k + 1
+        return None, None
+
+    def _kaders_pass(txt):
+        res = []
+        pos = 0
+        pat = _re.compile(r'\\kader(blauw|groen|oranje|paars|grijs|rood)\s*(?=\{)')
+        while True:
+            m = pat.search(txt, pos)
+            if not m:
+                res.append(txt[pos:])
+                break
+            res.append(txt[pos:m.start()])
+            titel, p2 = _read_braced(txt, m.end())
+            inhoud, p3 = (None, None) if p2 is None else _read_braced(txt, p2)
+            if p2 is None or p3 is None:
+                res.append(txt[m.start():m.end()])
+                pos = m.end()
+                continue
+            frame, back = _KADER_C[m.group(1)]
+            ti = _vrij_latex_naar_opmaak(titel, fmt).strip()
+            inh = _vrij_latex_naar_opmaak(inhoud, fmt).strip()
+            if fmt == 'md':
+                ti_txt = _re.sub(r'<[^>]+>', '', ti)
+                _kaders.append('**' + ti_txt + '**\n\n' + inh)
+            else:
+                ti_in = _re.sub(r'(?s)^<p>(.*)</p>$', r'\1', ti)
+                _kaders.append(
+                    '<div style="border:1px solid %s;background:%s;border-radius:4px;'
+                    'margin:10px 0;overflow:hidden">'
+                    '<div style="background:%s;color:#fff;font-weight:bold;padding:4px 10px">%s</div>'
+                    '<div style="padding:8px 10px">%s</div></div>'
+                    % (frame, back, frame, ti_in, inh))
+            res.append('\n\n\x01KADER%d\x02\n\n' % (len(_kaders) - 1))
+            pos = p3
+        return ''.join(res)
+    s = _kaders_pass(s)
+
+    # \tekstkleur{naam}{inhoud} -> gekleurde span (html) / inhoud (md).
+    def _kleur_sub(m):
+        hexc = {'rood': '#D4351C', 'oranje': '#E17000', 'groen': '#2A8F2A',
+                'blauw': '#154273', 'paars': '#5B3F8C', 'grijs': '#535353',
+                'zwart': '#1A1A1A'}.get(m.group(1).lower())
+        inner = m.group(2)
+        if fmt == 'md' or not hexc:
+            return inner
+        return '\x01KLEUR%s\x02%s\x01/KLEUR\x02' % (hexc, inner)
+    s = _re.sub(r'\\tekstkleur\s*\{(\w+)\}\{([^{}]*)\}', _kleur_sub, s)
+
+    # \request{caption}{body} / \response{...} -> HTTP-blok (monospace + <mark>).
+    # Hergebruikt de findings-renderer (die http-nodes aankan) en beschermt het
+    # resultaat via een sentinel tegen de generieke \cmd-opschoning hieronder.
+    _https = []
+
+    def _http_pass(txt):
+        res = []
+        pos = 0
+        pat = _re.compile(r'\\(request|response)\s*(?=\{)')
+        while True:
+            m = pat.search(txt, pos)
+            if not m:
+                res.append(txt[pos:])
+                break
+            res.append(txt[pos:m.start()])
+            a1, p2 = _read_braced(txt, m.end())
+            if a1 is None:
+                res.append(txt[m.start():m.end()])
+                pos = m.end()
+                continue
+            a2, p3 = (None, p2)
+            if p2 is not None and p2 < len(txt) and txt[p2] == '{':
+                a2, p3 = _read_braced(txt, p2)
+            if p3 is None:
+                res.append(txt[m.start():m.end()])
+                pos = m.end()
+                continue
+            cap = a1 if a2 is not None else ''
+            body = a2 if a2 is not None else a1
+            frag = '\\%s{%s}{%s}' % (m.group(1), cap, body)
+            _https.append((_md_markup(frag) if fmt == 'md' else _html_markup(frag)).strip())
+            res.append('\n\n\x01HTTP%d\x02\n\n' % (len(_https) - 1))
+            pos = p3
+        return ''.join(res)
+    s = _http_pass(s)
+
+    # \begin{lstlisting}[opts]...\end{lstlisting} -> code-blok (monospace + <mark>).
+    # Highlights staan als §\hl{..}§ in de body (escapeinside). Beschermd via een
+    # sentinel tegen de generieke \cmd-opschoning hieronder.
+    from meuk.flask.findings import _latex_unescape as _flu
+    from meuk.flask.findings import redact_enabled as _redact_on, _REDACT_BLOCK as _REDBLK
+    _lsts = []
+    _LST_RE = _re.compile(r'\\begin\{lstlisting\}(\[[^\]]*\])?\n?(.*?)\\end\{lstlisting\}', _re.S)
+    _MARKSPLIT = r'(\u00a7\\(?:hl|hlrood|hlgroen|lakken|codelakken)\{.*?\}\u00a7)'
+    _MARKONE = r'\u00a7\\(hl|hlrood|hlgroen|lakken|codelakken)\{(.*?)\}\u00a7$'
+    _MARK_HTML = {'hl': '', 'hlrood': ' style="background:#ffd4d4"',
+                  'hlgroen': ' style="background:#cdeccd"'}
+
+    def _lst_sub(m):
+        opts = m.group(1) or ''
+        code = m.group(2)
+        if code.startswith('\n'):
+            code = code[1:]
+        code = code.rstrip('\n')
+        cm = _re.search(r'caption=\{(.*?)\}', opts, _re.S) or _re.search(r'caption=([^,\]]+)', opts)
+        lm = _re.search(r'language=([A-Za-z0-9_#+.-]+)', opts)
+        cap = _flu(cm.group(1)).strip() if cm else ''
+        lang = lm.group(1).strip() if lm else ''
+        segs = _re.split(_MARKSPLIT, code, flags=_re.S)
+        if fmt == 'md':
+            parts = []
+            for seg in segs:
+                hm = _re.match(_MARKONE, seg, _re.S)
+                if hm:
+                    nm, inner = hm.group(1), _flu(hm.group(2))
+                    if nm in ('lakken', 'codelakken'):
+                        parts.append(_REDBLK if _redact_on() else inner)
+                    else:
+                        parts.append('\u00ab%s\u00bb' % inner)
+                else:
+                    parts.append(seg)
+            head = []
+            if cap:
+                head.append('**%s**' % cap)
+            if lang:
+                head.append('`%s`' % lang)
+            _lsts.append((('\n\n'.join(head) + '\n\n') if head else '')
+                         + '```\n' + ''.join(parts) + '\n```')
+        else:
+            parts = []
+            for seg in segs:
+                hm = _re.match(_MARKONE, seg, _re.S)
+                if hm:
+                    nm, inner = hm.group(1), _flu(hm.group(2))
+                    if nm in ('lakken', 'codelakken'):
+                        parts.append(str(_esc(_REDBLK)) if _redact_on() else str(_esc(inner)))
+                    else:
+                        parts.append('<mark%s>%s</mark>' % (_MARK_HTML.get(nm, ''), str(_esc(inner))))
+                else:
+                    parts.append(str(_esc(seg)))
+            capbits = ''
+            if lang:
+                capbits += ' <span style="opacity:.75;font-weight:normal">[%s]</span>' % str(_esc(lang))
+            if cap:
+                capbits += ': <code style="background:transparent;color:#fff">%s</code>' % str(_esc(cap))
+            _lsts.append(
+                '<div class="ib-code" style="margin:12px 0;border:1px solid #c9d3df;'
+                'border-radius:4px;overflow:hidden">'
+                '<div style="background:#3a3f4b;color:#fff;font-weight:bold;'
+                'padding:4px 10px;font-size:12px">Code%s</div>'
+                '<pre style="margin:0;white-space:pre-wrap;word-break:break-all;'
+                'font-family:monospace;font-size:12px;line-height:1.45;'
+                'background:#f7f9fb;padding:8px;color:#1a1a1a">%s</pre></div>'
+                % (capbits, ''.join(parts)))
+        return '\n\n\x01LST%d\x02\n\n' % (len(_lsts) - 1)
+    s = _LST_RE.sub(_lst_sub, s)
+
     # \plaatje{bestand}{caption} -> afbeelding (eigen alinea), beschermd tegen de
     # generieke \cmd-opschoning hieronder via een sentinel.
     _imgs = []
@@ -138,6 +316,9 @@ def _vrij_latex_naar_opmaak(s, fmt):
     paras = [p.strip() for p in _re.split(r'\n[ \t]*\n', s) if p.strip()]
     out = []
     _imgre = _re.compile(r'^\x01IMG(\d+)\x02$')
+    _kadre = _re.compile(r'^\x01KADER(\d+)\x02$')
+    _httpre = _re.compile(r'^\x01HTTP(\d+)\x02$')
+    _lstre = _re.compile(r'^\x01LST(\d+)\x02$')
     if fmt == 'html':
         def _tags(t):
             t = str(_esc(t))
@@ -147,11 +328,22 @@ def _vrij_latex_naar_opmaak(s, fmt):
                          ('\x01C\x02', '<code>'), ('\x01/C\x02', '</code>'),
                          ('\x01BR\x02', '<br>')):
                 t = t.replace(a, b)
+            t = _re.sub(r'\x01KLEUR(#[0-9A-Fa-f]+)\x02', r'<span style="color:\1">', t)
+            t = t.replace('\x01/KLEUR\x02', '</span>')
             return t
         for p in paras:
             _m = _imgre.match(p)
+            _k = _kadre.match(p)
+            _h = _httpre.match(p)
+            _l = _lstre.match(p)
             if _m:
                 out.append(_imgs[int(_m.group(1))])
+            elif _k:
+                out.append(_kaders[int(_k.group(1))])
+            elif _h:
+                out.append(_https[int(_h.group(1))])
+            elif _l:
+                out.append(_lsts[int(_l.group(1))])
             elif p.startswith('\x01BQ\x02'):
                 out.append('<blockquote>%s</blockquote>' % _tags(p).replace('\n', '<br>'))
             else:
@@ -168,8 +360,17 @@ def _vrij_latex_naar_opmaak(s, fmt):
         return t
     for p in paras:
         _m = _imgre.match(p)
+        _k = _kadre.match(p)
+        _h = _httpre.match(p)
+        _l = _lstre.match(p)
         if _m:
             out.append(_imgs[int(_m.group(1))])
+        elif _k:
+            out.append(_kaders[int(_k.group(1))])
+        elif _h:
+            out.append(_https[int(_h.group(1))])
+        elif _l:
+            out.append(_lsts[int(_l.group(1))])
         elif p.startswith('\x01BQ\x02'):
             out.append('\n'.join('> ' + ln for ln in _md(p).split('\n')))
         else:
@@ -1672,6 +1873,7 @@ def gen_rapport():
     )
     latex_env.filters['latex_escape'] = _latex_escape
     latex_env.filters['latex_markup'] = _latex_markup
+    latex_env.filters['http_env'] = http_to_latex_env
     # Eigen .tex-template indien ingesteld, anders de standaard
     if _custom_tex and os.path.exists(_custom_tex):
         try:
@@ -7287,10 +7489,10 @@ def _xelatex_dryrun(rendered):
 _PREVIEW_PREAMBLE = r"""\documentclass[11pt]{article}
 \usepackage{fontspec}
 \usepackage[a4paper,margin=20mm]{geometry}
+\pagestyle{empty}
 \usepackage{booktabs}
 \usepackage{enumitem}
 \usepackage{listings}
-\lstset{basicstyle=\ttfamily\small,breaklines=true,frame=single}
 %% Laad de echte rapport-stijl, zodat ALLE projectmacro's (\cvss, \severity,
 %% \cwe/\cve/\owasp, \pad/\host/\route/\param, callouts, \request/\response,
 %% \deelsgelakt, \bevinding(ref)/\uitwerking, \lakken, \plaatje, ...) exact zoals
@@ -7298,6 +7500,9 @@ _PREVIEW_PREAMBLE = r"""\documentclass[11pt]{article}
 %% mee in de preview. (TEXINPUTS wijst naar handboek/.)
 \usepackage{opmaak/packages/rapport}
 \graphicspath{%(graphicspath)s}
+\definecolor{codebg}{HTML}{F5F5F5}
+\IfFontExistsTF{Courier New}{\newfontfamily\couriermono{Courier New}}{\IfFontExistsTF{Courier}{\newfontfamily\couriermono{Courier}}{\providecommand{\couriermono}{\ttfamily}}}
+\lstset{basicstyle=\footnotesize\couriermono,backgroundcolor=\color{codebg},frame=none,framexleftmargin=6pt,framexrightmargin=6pt,xleftmargin=6pt,xrightmargin=6pt,breaklines=true,breakatwhitespace=false,columns=fullflexible,keepspaces=true,tabsize=2,escapechar=§,captionpos=b,aboveskip=6pt,belowskip=8pt,showstringspaces=false}
 %% Preview-overrides: toon afbeeldingen uit graphicspath (de preview compileert
 %% vanuit de projectroot, niet vanuit rapport/), en lichte stand-ins voor
 %% editor-macro's die niet in rapport.sty staan.
@@ -7322,6 +7527,9 @@ def _prepare_preview_fragment(content):
         return r'\textit{[ingevoegd: %s]}' % _latex_escape(m.group(1))
     content = _re.sub(r'\\input\s*\{([^}]*)\}', _repl_input, content)
     content = _re.sub(r'\\makeglossaries\b', '', content)
+    # \request/\response -> ibhttpblok (net als in het rapport), zodat de
+    # editor-preview het HTTP-blok met highlight laat zien.
+    content = http_to_latex_env(content)
     return content
 
 
@@ -7378,11 +7586,22 @@ def latex_preview():
                                 msg = 'Onbekende macro %s (niet gedefinieerd in het rapport)' % m.group(1)
                             break
                 return jsonify({'ok': False, 'error': msg[:300]})
+            # Snijd de PDF bij tot de inhoud, zodat een fragment niet als een
+            # halve lege A4 verschijnt maar strak om het blok (request/response,
+            # lstlisting, kaders, ...). Valt stil terug op de ongesneden PDF.
+            try:
+                _crop = os.path.join(td, 'preview-crop.pdf')
+                _cp = subprocess.run(['pdfcrop', '--margins', '8', pdf, _crop],
+                                     capture_output=True, timeout=20)
+                if _cp.returncode == 0 and os.path.exists(_crop):
+                    pdf = _crop
+            except (OSError, subprocess.SubprocessError):
+                pass
             # ALLE pagina's renderen (tot een cap), zodat ook meerregelige/lange
             # fragmenten volledig zichtbaar zijn i.p.v. alleen pagina 1.
             _MAX_PREVIEW_PAGES = 12
             subprocess.run(['pdftoppm', '-f', '1', '-l', str(_MAX_PREVIEW_PAGES),
-                            '-r', '110', '-png', pdf, os.path.join(td, 'page')],
+                            '-r', '150', '-png', pdf, os.path.join(td, 'page')],
                            capture_output=True, timeout=25)
             pngs = sorted(_glob.glob(os.path.join(td, 'page*.png')))
             if not pngs:
@@ -7471,6 +7690,7 @@ def report_images():
 
     shots = os.path.abspath(_SCREENSHOT_SRC)
     lakdir = os.path.join(shots, 'lakken')
+    annotdir = os.path.join(shots, 'annot')
     items = []
     for naam in sorted(gebruikt):
         pad = os.path.join(shots, naam)
@@ -7481,6 +7701,7 @@ def report_images():
             'url': '/dashboard/raw/screenshots/' + naam,
             'exists': bestaat,
             'has_lakken': os.path.isfile(os.path.join(lakdir, naam)),
+            'has_annot': os.path.isfile(os.path.join(annotdir, naam)),
             'gecontroleerd': naam in gecontroleerd,
             'redactable': bestaat and ext not in ('.svg',),
             'used_in': sorted(gebruikt[naam])[:6],

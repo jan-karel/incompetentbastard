@@ -6,6 +6,7 @@
 %
 \RequirePackage{xcolor}
 \RequirePackage{colortbl}% \rowcolor/\cellcolor/\arrayrulecolor (tabelkoppen)
+\RequirePackage{listings}% \request/\response-blokken (ibhttpblok, verbatim+\hl)
 \RequirePackage{graphicx}
 \RequirePackage{ifthen}
 \RequirePackage{array}
@@ -200,6 +201,22 @@
 \providecommand{\host}[1]{\texttt{#1}}
 \providecommand{\route}[1]{\texttt{#1}}
 \providecommand{\param}[1]{\texttt{#1}}
+\providecommand{\port}[1]{\texttt{#1}}
+\providecommand{\proto}[1]{\texttt{#1}}
+\providecommand{\kbd}[1]{\fbox{\texttt{\small #1}}}
+\providecommand{\highlight}[1]{\colorbox{yellow!40}{#1}}
+\providecommand{\hl}[1]{\colorbox{yellow!40}{#1}}% HTTP-highlight binnen §..§
+\providecommand{\hlrood}[1]{\colorbox{red!25}{#1}}% rode highlight (bijv. injectiepunt)
+\providecommand{\hlgroen}[1]{\colorbox{green!25}{#1}}% groene highlight (bijv. resultaat/fix)
+% Tekstkleuren (\tekstkleur{naam}{tekst}); palet matcht de HTML-render.
+\providecolor{ibkleurrood}{HTML}{D4351C}
+\providecolor{ibkleuroranje}{HTML}{E17000}
+\providecolor{ibkleurgroen}{HTML}{2A8F2A}
+\providecolor{ibkleurblauw}{HTML}{154273}
+\providecolor{ibkleurpaars}{HTML}{5B3F8C}
+\providecolor{ibkleurgrijs}{HTML}{535353}
+\providecolor{ibkleurzwart}{HTML}{1A1A1A}
+\newcommand{\tekstkleur}[2]{{\ifcsname ibkleur#1\endcsname\color{ibkleur#1}\fi #2}}
 
 % -------------------------------------------------- %
 % Codes met klikbare bron (CWE/CVE/OWASP)             %
@@ -208,6 +225,11 @@
 \newcommand{\cwe}[1]{\href{https://cwe.mitre.org/data/definitions/#1.html}{CWE-#1}}
 \newcommand{\cve}[1]{\href{https://nvd.nist.gov/vuln/detail/CVE-#1}{CVE-#1}}
 \newcommand{\owasp}[1]{\href{https://owasp.org/Top10/}{#1}}
+\newcommand{\mitre}[1]{\href{https://attack.mitre.org/techniques/#1/}{#1}}
+\newcommand{\iso}[1]{ISO~27001~#1}
+\newcommand{\bio}[1]{BIO~#1}
+\newcommand{\nist}[1]{NIST~#1}
+\newcommand{\link}[2]{\href{#1}{#2}}
 
 % -------------------------------------------------- %
 % CVSS / severity inline-badge                        %
@@ -270,11 +292,49 @@
 \newcommand{\praktijk}[1]{\begin{ibpraktijk}#1\end{ibpraktijk}}
 \newcommand{\keten}[1]{\begin{ibketen}#1\end{ibketen}}
 \newcommand{\scenario}[1]{\begin{ibscenario}#1\end{ibscenario}}
+% Generiek kader met EIGEN titel + gekozen kleur: \kader<kleur>{titel}{inhoud}.
+% Eén knop in de editor; zelfde kaderlogica als de vaste callouts.
+\newtcolorbox{ibkaderblauw}[1]{enhanced,breakable,colback=hemelblauw,colframe=rijkblauw,
+  colbacktitle=rijkblauw,coltitle=white,boxrule=0.6pt,arc=1mm,
+  left=4mm,right=4mm,top=3mm,bottom=3mm,title={#1},fonttitle=\bfseries}
+\newtcolorbox{ibkadergroen}[1]{enhanced,breakable,colback=lichtgroen,colframe=donkergroen,
+  colbacktitle=donkergroen,coltitle=white,boxrule=0.6pt,arc=1mm,
+  left=4mm,right=4mm,top=3mm,bottom=3mm,title={#1},fonttitle=\bfseries}
+\newtcolorbox{ibkaderoranje}[1]{enhanced,breakable,colback=lichtoranje,colframe=calloutoranje,
+  colbacktitle=calloutoranje,coltitle=white,boxrule=0.6pt,arc=1mm,
+  left=4mm,right=4mm,top=3mm,bottom=3mm,title={#1},fonttitle=\bfseries}
+\newtcolorbox{ibkaderpaars}[1]{enhanced,breakable,colback=lichtpaars,colframe=calloutpaars,
+  colbacktitle=calloutpaars,coltitle=white,boxrule=0.6pt,arc=1mm,
+  left=4mm,right=4mm,top=3mm,bottom=3mm,title={#1},fonttitle=\bfseries}
+\newtcolorbox{ibkadergrijs}[1]{enhanced,breakable,colback=calloutlichtgrijs,colframe=calloutgrijs,
+  colbacktitle=calloutgrijs,coltitle=white,boxrule=0.6pt,arc=1mm,
+  left=4mm,right=4mm,top=3mm,bottom=3mm,title={#1},fonttitle=\bfseries}
+\newtcolorbox{ibkaderrood}[1]{enhanced,breakable,colback=lichtrood,colframe=calloutrood,
+  colbacktitle=calloutrood,coltitle=white,boxrule=0.6pt,arc=1mm,
+  left=4mm,right=4mm,top=3mm,bottom=3mm,title={#1},fonttitle=\bfseries}
+\newcommand{\kaderblauw}[2]{\begin{ibkaderblauw}{#1}#2\end{ibkaderblauw}}
+\newcommand{\kadergroen}[2]{\begin{ibkadergroen}{#1}#2\end{ibkadergroen}}
+\newcommand{\kaderoranje}[2]{\begin{ibkaderoranje}{#1}#2\end{ibkaderoranje}}
+\newcommand{\kaderpaars}[2]{\begin{ibkaderpaars}{#1}#2\end{ibkaderpaars}}
+\newcommand{\kadergrijs}[2]{\begin{ibkadergrijs}{#1}#2\end{ibkadergrijs}}
+\newcommand{\kaderrood}[2]{\begin{ibkaderrood}{#1}#2\end{ibkaderrood}}
 \newcommand{\stap}[1]{\par\noindent\textbf{Stap:} #1\par}
 \newcommand{\ib@httpblok}[2]{\par\smallskip\noindent\textbf{#1:}\nopagebreak\par
   {\ttfamily\small #2}\par\smallskip}
-\newcommand{\request}[1]{\ib@httpblok{Request}{#1}}
-\newcommand{\response}[1]{\ib@httpblok{Response}{#1}}
+% Legacy 1-arg-vorm (oude rapporten). Nieuwe content gebruikt ibhttpblok.
+\providecommand{\requestlegacy}[1]{\ib@httpblok{Request}{#1}}
+\providecommand{\responselegacy}[1]{\ib@httpblok{Response}{#1}}
+% HTTP-blok als lstlisting-omgeving: verbatim body (geen escapen nodig),
+% monospace, gekleurde titelbalk met label + caption. §\hl{..}§ markeert tekst.
+\lstnewenvironment{ibhttpblok}[2]
+  {\lstset{basicstyle=\ttfamily\footnotesize,breaklines=true,columns=fullflexible,%
+      keepspaces=true,breakatwhitespace=false,escapeinside={§}{§},%
+      frame=single,framesep=4pt,rulecolor=\color{rijkblauw!40},%
+      backgroundcolor=\color{rijkblauw!5},xleftmargin=3pt,xrightmargin=3pt,%
+      aboveskip=\medskipamount,belowskip=\medskipamount,%
+      title={\colorbox{rijkblauw}{\textcolor{white}{\bfseries\small\,#1\,}}%
+             \hspace{0.6em}{\ttfamily\small #2}}}}%
+  {}
 
 % \deelsgelakt{zichtbaar}{geheim}: het eerste deel blijft staan, het tweede
 % deel wordt in de gelakte build zwart gemaakt (via \lakken).
@@ -344,14 +404,16 @@
       \IfFileExists{../raw/screenshots/lakken/#1}{\ib@grx{../raw/screenshots/lakken/#1}}{%
         \IfFileExists{evidence/lakken/#1}{\ib@grx{evidence/lakken/#1}}{%
           \ifcsname ibctl#1\endcsname
-            \IfFileExists{../raw/screenshots/#1}{\ib@grx{../raw/screenshots/#1}}{%
-              \IfFileExists{evidence/#1}{\ib@grx{evidence/#1}}{\iblakplaceholder}}%
+            \IfFileExists{../raw/screenshots/annot/#1}{\ib@grx{../raw/screenshots/annot/#1}}{%
+              \IfFileExists{../raw/screenshots/#1}{\ib@grx{../raw/screenshots/#1}}{%
+                \IfFileExists{evidence/#1}{\ib@grx{evidence/#1}}{\iblakplaceholder}}}%
           \else
             \iblakplaceholder
           \fi}}%
     }{%
-      \IfFileExists{../raw/screenshots/#1}{\ib@grx{../raw/screenshots/#1}}{%
-        \IfFileExists{evidence/#1}{\ib@grx{evidence/#1}}{\textit{[bestand niet gevonden: #1]}}}%
+      \IfFileExists{../raw/screenshots/annot/#1}{\ib@grx{../raw/screenshots/annot/#1}}{%
+        \IfFileExists{../raw/screenshots/#1}{\ib@grx{../raw/screenshots/#1}}{%
+          \IfFileExists{evidence/#1}{\ib@grx{evidence/#1}}{\textit{[bestand niet gevonden: #1]}}}}%
     }%
     \caption{#2}
   \end{figure}%

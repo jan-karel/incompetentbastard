@@ -147,18 +147,25 @@ _MK_ENVS = {'description', 'itemize', 'enumerate', 'quote', 'center'}
 # rapport.sty/de template gedefinieerd zijn (\lakken, \codelakken, \opdracht).
 # Technische inline-opmaak (monospace) — pad/host/endpoint/param krijgen in
 # HTML <code>, in Markdown `...`, in LaTeX \texttt (zie rapport.sty).
-_MK_MONO = {'pad', 'host', 'route', 'param'}
+_MK_MONO = {'pad', 'host', 'route', 'param', 'port', 'proto'}
 # "Slimme" macro's met berekende uitvoer (link/kleur/label) i.p.v. simpele
 # opmaak. In LaTeX zijn het echte macro's (rapport.sty); in HTML/MD/plat
 # vertalen _smart_inline_* ze. cvss/severity -> gekleurd label, cwe/cve/owasp ->
 # klikbare code, bevindingref -> korte kruisverwijzing.
-_MK_SMART = {'cvss', 'severity', 'cwe', 'cve', 'owasp', 'bevindingref'}
+_MK_SMART = {'cvss', 'severity', 'cwe', 'cve', 'owasp', 'bevindingref',
+             'mitre', 'url', 'iso', 'bio', 'nist'}
 # Blok-macro's: callout-boxen en HTTP-blokken. Eén markup-argument. Naast de
 # drie basis-callouts ook de rijkere, inhoudelijke kaders.
-_MK_BLOCKMACRO = {'waarschuwing', 'tip', 'opmerking', 'stap', 'request', 'response',
+_MK_BLOCKMACRO = {'waarschuwing', 'tip', 'opmerking', 'stap',
                   'bestuurlijk', 'principe', 'letop', 'praktijk', 'keten', 'scenario'}
+# HTTP-blokken: \request{caption}{body} / \response{...} (caption optioneel,
+# 1-arg-vorm \request{body} blijft werken). Verbatim body met \hl{...}-
+# highlights; rendert als monospace-blok (lstlisting met escapeinside in LaTeX,
+# <pre>+<mark> in HTML). Aparte node 'http', niet als inline-macro.
+_MK_HTTP = {'request', 'response'}
 _MK_INLINE = ({'textbf', 'textit', 'emph', 'texttt', 'textrm', 'textsc', 'underline', 'textsf',
-               'lakken', 'codelakken', 'opdracht', 'haakjes', 'bevinding', 'uitwerking'}
+               'lakken', 'codelakken', 'opdracht', 'haakjes', 'bevinding', 'uitwerking',
+               'footnote', 'kbd', 'highlight', 'hl', 'hlrood', 'hlgroen'}
               | _MK_MONO | _MK_SMART | _MK_BLOCKMACRO)
 # Kruisverwijzing-macro's (\bevinding{id}, \uitwerking{id}) hebben in LaTeX een
 # paginareferentie; in HTML/Markdown/plat bestaat die niet, dus daar vertalen we
@@ -167,9 +174,25 @@ _MK_REFMACRO = {'bevinding', 'uitwerking'}
 # Twee-argument-macro's: eerste arg is een RAUWE bestandsnaam (niet escapen,
 # vanwege underscores e.d.), tweede arg is een markup-caption.
 _MK_TWOARG = {'plaatje'}
+# Generiek kader met EIGEN titel + gekozen kleur: \kader<kleur>{titel}{inhoud}.
+# (frame-/titelbalkkleur, achtergrond) — zelfde palet als de vaste callouts.
+_KADER_META = {
+    'kaderblauw':  ('#154273', '#E5F1F9'),
+    'kadergroen':  ('#275D38', '#EDF5EF'),
+    'kaderoranje': ('#E17000', '#FFF3E5'),
+    'kaderpaars':  ('#5B3F8C', '#F1ECF8'),
+    'kadergrijs':  ('#535353', '#F2F2F2'),
+    'kaderrood':   ('#A90000', '#FBEAEA'),
+}
 # Twee-argument-macro's waarvan BEIDE argumenten gewone markup zijn.
 # \deelsgelakt{zichtbaar}{geheim}: toont het eerste deel, redigeert het tweede.
-_MK_TWOARG_MK = {'deelsgelakt'}
+# \kader<kleur>{titel}{inhoud}: generiek gekleurd kader met eigen titel.
+# Tekstkleur: \tekstkleur{<naam>}{inhoud} (naam uit dit palet; onbekende
+# naam -> geen kleur, tekst blijft staan). HTML gebruikt de hex; LaTeX heeft
+# gelijknamige \providecolor's in rapport.sty.
+_KLEUR = {'rood': '#D4351C', 'oranje': '#E17000', 'groen': '#2A8F2A',
+          'blauw': '#154273', 'paars': '#5B3F8C', 'grijs': '#535353', 'zwart': '#1A1A1A'}
+_MK_TWOARG_MK = {'deelsgelakt', 'link', 'tekstkleur'} | set(_KADER_META)
 # Toegestane tekens in zo'n rauwe bestandsnaam; alles daarbuiten -> veilige
 # terugval (voorkomt LaTeX-injectie via het bestandsnaam-argument).
 _MK_RAWARG_RE = _re.compile(r'^[\w.\- /]+$')
@@ -227,6 +250,32 @@ def _link_owasp(arg):
     if not _OWASP_ARG_RE.match(a):
         return (a, '')
     return (a, 'https://owasp.org/Top10/')
+
+
+_MITRE_ARG_RE = _re.compile(r'^T\d{4}(?:\.\d{3})?$', _re.I)
+
+
+def _link_mitre(arg):
+    """MITRE ATT&CK-techniek (Txxxx of sub-techniek Txxxx.yyy)."""
+    a = str(arg or '').strip().upper()
+    if not _MITRE_ARG_RE.match(a):
+        return (a, '')
+    return (a, 'https://attack.mitre.org/techniques/%s/' % a.replace('.', '/'))
+
+
+_URL_ARG_RE = _re.compile(r'^https?://', _re.I)
+
+
+def _link_url(arg):
+    a = str(arg or '').strip()
+    if not _URL_ARG_RE.match(a):
+        return (a, '')
+    label = a if len(a) <= 60 else (a[:57] + '…')
+    return (label, a)
+
+
+# Handmatige compliance-/normreferenties (gelabelde tekst, geen externe link).
+_NORM_PREFIX = {'iso': 'ISO 27001', 'bio': 'BIO', 'nist': 'NIST'}
 _MK_ZERO = {'textbackslash', 'textrightarrow', 'textleftarrow', 'ldots', 'dots',
             'newline', 'par', 'noindent', 'textasciitilde', 'textasciicircum'}
 _MK_CMD_RE = _re.compile(r'\\([a-zA-Z]+)')
@@ -317,6 +366,20 @@ def _mk_parse_nodes(s, i, mode, envname=None):
                     flush()
                     children, i, _ = _mk_parse_nodes(s, j + 1, 'group')
                     nodes.append(('cmd', cmd, children))
+                    continue
+                raise _MkFail()
+            if cmd in _MK_HTTP:
+                # \request{caption}{body} (2 arg) of \request{body} (1 arg,
+                # legacy). Body = verbatim markup met \hl{}-highlights.
+                if j < n and s[j] == '{':
+                    flush()
+                    a1, k, _ = _mk_parse_nodes(s, j + 1, 'group')
+                    if k < n and s[k] == '{':
+                        a2, i, _ = _mk_parse_nodes(s, k + 1, 'group')
+                        nodes.append(('http', cmd, a1, a2))
+                        continue
+                    nodes.append(('http', cmd, [], a1))
+                    i = k
                     continue
                 raise _MkFail()
             if cmd in _MK_TWOARG:
@@ -418,6 +481,9 @@ def _mk_blocks(nodes):
         if nd[0] == 'env':
             flush()
             blocks.append(('env', nd))
+        elif nd[0] == 'http':
+            flush()
+            blocks.append(('http', nd))
         else:
             buf.append(nd)
     flush()
@@ -454,6 +520,8 @@ def _mk_to_latex(nodes):
             out.append('\\%s{%s}{%s}' % (nd[1], nd[2], _mk_to_latex(nd[3])))
         elif t == 'cmd2':
             out.append('\\%s{%s}{%s}' % (nd[1], _mk_to_latex(nd[2]), _mk_to_latex(nd[3])))
+        elif t == 'http':
+            out.append(_http_latex(nd))
         elif t == 'env':
             out.append('\\begin{%s}' % nd[1])
             for _it, label, body in nd[2]:
@@ -472,6 +540,191 @@ def _latex_markup(text):
         return _mk_to_latex(_mk_parse(text))
     except (_MkFail, RecursionError):
         return _latex_escape(text)
+
+
+# --- HTTP-blokken (\request/\response): verbatim + \hl-highlights --------- #
+# Opslagvorm: \request{caption}{body} met body = LaTeX-ge-escapete tekst +
+# \hl{...}-spans + echte regeleinden. LaTeX rendert als lstlisting-omgeving
+# ibhttpblok (verbatim; escapeinside={\u00a7}{\u00a7} laat \hl{} werken);
+# HTML/Markdown als monospace-blok met <mark>/accolades.
+
+def _latex_unescape(t):
+    """Keert _latex_escape om, zodat verbatim-tekst weer rauw wordt."""
+    t = t.replace('\\textbackslash{}', '\x00BS\x00')
+    for a, b in (('\\&', '&'), ('\\%', '%'), ('\\$', '$'), ('\\#', '#'),
+                 ('\\_', '_'), ('\\{', '{'), ('\\}', '}'),
+                 ('\\textasciitilde{}', '~'), ('\\textasciicircum{}', '^')):
+        t = t.replace(a, b)
+    return t.replace('\x00BS\x00', '\\')
+
+
+def _read_braced_str(s, pos):
+    """Lees een gebalanceerde {..}-groep (respecteert \\{ en \\})."""
+    n = len(s)
+    if pos >= n or s[pos] != '{':
+        return None, pos
+    depth = 0
+    i = pos
+    while i < n:
+        c = s[i]
+        if c == '\\' and i + 1 < n:
+            i += 2
+            continue
+        if c == '{':
+            depth += 1
+        elif c == '}':
+            depth -= 1
+            if depth == 0:
+                return s[pos + 1:i], i + 1
+        i += 1
+    return None, pos
+
+
+def _http_verbatim(body):
+    """Zet een opgeslagen (ge-escapete) body om naar verbatim lstlisting-tekst:
+    \\hl{..} -> \u00a7\\hl{..}\u00a7, overige tekst ont-escaped."""
+    hre = _re.compile(r'\\(hl|highlight|hlrood|hlgroen|lakken|codelakken)\s*\{')
+    out = []
+    i = 0
+    n = len(body)
+    while i < n:
+        m = hre.match(body, i)
+        if m:
+            inner, j = _read_braced_str(body, m.end() - 1)
+            if inner is not None:
+                name = 'hl' if m.group(1) == 'highlight' else m.group(1)
+                out.append('\x01M\x02' + name + '\x03' + inner + '\x01/M\x02')
+                i = j
+                continue
+        out.append(body[i])
+        i += 1
+    segs = _re.split(r'(\x01M\x02.*?\x01/M\x02)', ''.join(out), flags=_re.S)
+    res = []
+    for seg in segs:
+        if seg.startswith('\x01M\x02'):
+            inside = seg[len('\x01M\x02'):-len('\x01/M\x02')]
+            name, _, inner = inside.partition('\x03')
+            res.append('\u00a7\\%s{%s}\u00a7' % (name, inner))
+        else:
+            res.append(_latex_unescape(seg).replace('\u00a7', '?'))
+    return ''.join(res).strip('\n')
+
+
+_HTTP_MACRO_RE = _re.compile(r'\\(request|response)\s*(?=\{)')
+
+
+def http_to_latex_env(s):
+    """Herschrijf rauwe \request{..}{..}/\response{..} naar de ibhttpblok-
+    omgeving. Voor vrije-tekstvelden en rauwe notities (die niet via de
+    node-parser lopen). Laat de rest van de LaTeX ongemoeid."""
+    if not s or ('\\request' not in s and '\\response' not in s):
+        return s
+    out = []
+    pos = 0
+    while True:
+        m = _HTTP_MACRO_RE.search(s, pos)
+        if not m:
+            out.append(s[pos:])
+            break
+        out.append(s[pos:m.start()])
+        a1, p2 = _read_braced_str(s, m.end())
+        if a1 is None:
+            out.append(s[m.start():m.end()])
+            pos = m.end()
+            continue
+        a2, p3 = (None, p2)
+        if p2 < len(s) and s[p2] == '{':
+            a2, p3 = _read_braced_str(s, p2)
+        cap, body = (a1, a2) if a2 is not None else ('', a1)
+        label = 'Request' if m.group(1) == 'request' else 'Response'
+        out.append('\n\\begin{ibhttpblok}{%s}{%s}\n%s\n\\end{ibhttpblok}\n'
+                   % (label, cap.strip(), _http_verbatim(body)))
+        pos = p3
+    return ''.join(out)
+
+
+# Markeer-/lak-macro's die binnen een HTTP/code-blok (verbatim, §..§) mogen
+# staan: gele/rode/groene highlight + redactie. 'highlight' is een alias van
+# 'hl'. In LaTeX worden ze §\naam{..}§; in HTML kleurblokken resp. [GELAKT].
+_HTTP_MARKS = ('hl', 'highlight', 'hlrood', 'hlgroen', 'lakken', 'codelakken')
+_HTTP_HTML_MARK = {
+    'hl': ('<mark>', '</mark>'),
+    'highlight': ('<mark>', '</mark>'),
+    'hlrood': ('<mark style="background:#ffd4d4">', '</mark>'),
+    'hlgroen': ('<mark style="background:#cdeccd">', '</mark>'),
+}
+
+
+def _http_body_latex(nodes):
+    parts = []  # (tekst, is_mark)
+    for nd in nodes:
+        if nd[0] == 'cmd' and nd[1] in _HTTP_MARKS:
+            name = 'hl' if nd[1] == 'highlight' else nd[1]
+            inner = _latex_escape(_mk_inline_plain(nd[2]))
+            parts.append(('\u00a7\\%s{%s}\u00a7' % (name, inner), True))
+        else:
+            parts.append((_mk_inline_plain([nd]), False))
+    # Rauwe tekst: ont-escape de §-delimiter (verbatim); mark-stukken intact.
+    out = [txt if ismark else txt.replace('\u00a7', '?') for txt, ismark in parts]
+    return ''.join(out).strip('\n')
+
+
+def _http_latex(nd):
+    label = 'Request' if nd[1] == 'request' else 'Response'
+    cap = _mk_to_latex(nd[2]).strip()
+    return ('\n\\begin{ibhttpblok}{%s}{%s}\n%s\n\\end{ibhttpblok}\n'
+            % (label, cap, _http_body_latex(nd[3])))
+
+
+def _http_body_html(nodes):
+    out = []
+    for nd in nodes:
+        if nd[0] == 'cmd' and nd[1] in _HTTP_HTML_MARK:
+            pre, post = _HTTP_HTML_MARK[nd[1]]
+            out.append(pre + _html_esc(_mk_inline_plain(nd[2])) + post)
+        elif nd[0] == 'cmd' and nd[1] in ('lakken', 'codelakken'):
+            out.append(_html_esc(_REDACT_BLOCK if redact_enabled()
+                                 else _mk_inline_plain(nd[2])))
+        elif nd[0] == 'text':
+            out.append(_html_esc(nd[1]))
+        elif nd[0] == 'zero':
+            out.append(_HTML_ZERO.get(nd[1], ''))
+        else:
+            out.append(_html_esc(_mk_inline_plain([nd])))
+    return ''.join(out).strip('\n')
+
+
+def _http_html(nd):
+    label = 'Request' if nd[1] == 'request' else 'Response'
+    cap = _mk_inline_html(nd[2]).strip()
+    capline = (': <code style="background:transparent;color:#fff">%s</code>' % cap) if cap else ''
+    return ('<div class="ib-http" style="margin:12px 0;border:1px solid #c9d3df;'
+            'border-radius:4px;overflow:hidden">'
+            '<div style="background:#154273;color:#fff;font-weight:bold;'
+            'padding:4px 10px;font-size:12px">%s%s</div>'
+            '<pre style="margin:0;white-space:pre-wrap;word-break:break-all;'
+            'font-family:monospace;font-size:12px;line-height:1.45;'
+            'background:#f7f9fb;padding:8px;color:#1a1a1a">%s</pre></div>'
+            % (label, capline, _http_body_html(nd[3])))
+
+
+def _http_md(nd):
+    label = 'Request' if nd[1] == 'request' else 'Response'
+    cap = _mk_inline_md(nd[2]).strip()
+    head = '**%s%s**' % (label, (': `%s`' % cap) if cap else '')
+    seg = []
+    for b in nd[3]:
+        if b[0] == 'cmd' and b[1] in ('hl', 'highlight', 'hlrood', 'hlgroen'):
+            seg.append('\u00ab%s\u00bb' % _mk_inline_plain(b[2]))
+        elif b[0] == 'cmd' and b[1] in ('lakken', 'codelakken'):
+            seg.append(_REDACT_BLOCK if redact_enabled() else _mk_inline_plain(b[2]))
+        elif b[0] == 'text':
+            seg.append(b[1])
+        elif b[0] == 'zero':
+            seg.append(_PLAIN_ZERO.get(b[1], ''))
+        else:
+            seg.append(_mk_inline_plain([b]))
+    return '\n\n%s\n\n```\n%s\n```\n\n' % (head, ''.join(seg).strip('\n'))
 
 
 # --- Lakken (redactie) voor niet-LaTeX-output (HTML/Markdown/DOCX) ---------- #
@@ -535,7 +788,12 @@ _HTML_INLINE = {'textbf': ('<strong>', '</strong>'), 'textit': ('<em>', '</em>')
                 'underline': ('<u>', '</u>'), 'textrm': ('', ''),
                 'textsc': ('', ''), 'textsf': ('', ''),
                 'pad': ('<code>', '</code>'), 'host': ('<code>', '</code>'),
-                'route': ('<code>', '</code>'), 'param': ('<code>', '</code>')}
+                'route': ('<code>', '</code>'), 'param': ('<code>', '</code>'),
+                'port': ('<code>', '</code>'), 'proto': ('<code>', '</code>'),
+                'kbd': ('<kbd>', '</kbd>'), 'highlight': ('<mark>', '</mark>'),
+                'footnote': (' <sup>(', ')</sup>'), 'hl': ('<mark>', '</mark>'),
+                'hlrood': ('<mark style="background:#ffd4d4">', '</mark>'),
+                'hlgroen': ('<mark style="background:#cdeccd">', '</mark>')}
 _HTML_ZERO = {'textbackslash': '\\', 'textrightarrow': '&rarr;', 'textleftarrow': '&larr;',
               'ldots': '&hellip;', 'dots': '&hellip;', 'newline': '<br>', 'par': '<br>',
               'noindent': '', 'textasciitilde': '~', 'textasciicircum': '^'}
@@ -570,8 +828,12 @@ def _plaatje_bronpad(naam):
     if not base:
         return None, False
     orig = os.path.join(_SCREENSHOT_DIR_REPORT, base)
+    # Annotaties (rode aandachtskaders) gelden in ALLE versies: als er een
+    # geannoteerde kopie is, is die de basis i.p.v. het kale origineel.
+    annot = os.path.join(_SCREENSHOT_DIR_REPORT, 'annot', base)
+    orig = annot if os.path.isfile(annot) else orig
     if redact_enabled():
-        # Gecontroleerd (geen lak nodig): toon het origineel.
+        # Gecontroleerd (geen lak nodig): toon de (geannoteerde) basis.
         if base in redact_controlled():
             return (orig, False) if os.path.isfile(orig) else (None, True)
         lak = os.path.join(_SCREENSHOT_DIR_REPORT, 'lakken', base)
@@ -645,6 +907,12 @@ def _smart_inline_html(nd):
         return _html_link(*_link_cve(_mk_inline_plain(nd[2]).strip()))
     if name == 'owasp':
         return _html_link(*_link_owasp(_mk_inline_plain(nd[2]).strip()))
+    if name == 'mitre':
+        return _html_link(*_link_mitre(_mk_inline_plain(nd[2]).strip()))
+    if name == 'url':
+        return _html_link(*_link_url(_mk_inline_plain(nd[2]).strip()))
+    if name in _NORM_PREFIX:
+        return '%s&nbsp;%s' % (_NORM_PREFIX[name], _html_esc(_mk_inline_plain(nd[2]).strip()))
     if name == 'cvss':
         arg = _mk_inline_plain(nd[2]).strip()
         key, _r = _cvss_to_severity(arg)
@@ -677,9 +945,25 @@ def _smart_inline_html(nd):
 
 
 def _smart_cmd2_html(nd):
+    if nd[1] in _KADER_META:
+        frame, back = _KADER_META[nd[1]]
+        return ('<div style="border:1px solid %s;background:%s;border-radius:4px;'
+                'margin:10px 0;overflow:hidden">'
+                '<div style="background:%s;color:#fff;font-weight:bold;padding:4px 10px">%s</div>'
+                '<div style="padding:8px 10px">%s</div></div>'
+                % (frame, back, frame, _mk_inline_html(nd[2]).strip(),
+                   _mk_inline_html(nd[3]).strip()))
+    if nd[1] == 'link':
+        url = _mk_inline_plain(nd[2]).strip()
+        inner = _mk_inline_html(nd[3]).strip() or _html_esc(url)
+        return ('<a href="%s">%s</a>' % (_html_esc(url), inner)) if url else inner
     if nd[1] == 'deelsgelakt':
         hidden = _REDACT_BLOCK if redact_enabled() else _mk_inline_html(nd[3])
         return _mk_inline_html(nd[2]) + hidden
+    if nd[1] == 'tekstkleur':
+        hexc = _KLEUR.get(_mk_inline_plain(nd[2]).strip().lower())
+        inner = _mk_inline_html(nd[3])
+        return ('<span style="color:%s">%s</span>' % (hexc, inner)) if hexc else inner
     return _mk_inline_html(nd[2]) + _mk_inline_html(nd[3])
 
 
@@ -702,6 +986,8 @@ def _mk_inline_html(nodes):
             out.append(_smart_cmd2_html(nd))
         elif t == 'img':
             out.append(_mk_image_html(nd[2], nd[3]))
+        elif t == 'http':
+            out.append(_http_html(nd))
         elif t == 'env':
             out.append(_mk_env_html(nd))
     return ''.join(out)
@@ -747,6 +1033,8 @@ def _mk_blocks_html(nodes):
             inner = _mk_inline_html(payload).strip()
             if inner:
                 out.append('<p>%s</p>' % inner)
+        elif kind == 'http':
+            out.append(_http_html(payload))
         else:
             out.append(_mk_env_html(payload))
     return ''.join(out)
@@ -769,7 +1057,11 @@ _MD_INLINE = {'textbf': ('**', '**'), 'textit': ('*', '*'), 'emph': ('*', '*'),
               'texttt': ('`', '`'), 'underline': ('', ''), 'textrm': ('', ''),
               'textsc': ('', ''), 'textsf': ('', ''),
               'pad': ('`', '`'), 'host': ('`', '`'),
-              'route': ('`', '`'), 'param': ('`', '`')}
+              'route': ('`', '`'), 'param': ('`', '`'),
+              'port': ('`', '`'), 'proto': ('`', '`'),
+              'kbd': ('`', '`'), 'highlight': ('**', '**'),
+              'footnote': (' (', ')'), 'hl': ('**', '**'),
+              'hlrood': ('**', '**'), 'hlgroen': ('**', '**')}
 _MD_ZERO = {'textbackslash': '\\\\', 'textrightarrow': '→', 'textleftarrow': '←',
             'ldots': '…', 'dots': '…', 'newline': '  \n', 'par': '\n\n', 'noindent': '',
             'textasciitilde': '~', 'textasciicircum': '^'}
@@ -802,6 +1094,12 @@ def _smart_inline_md(nd):
         return _md_link(*_link_cve(_mk_inline_plain(nd[2]).strip()))
     if name == 'owasp':
         return _md_link(*_link_owasp(_mk_inline_plain(nd[2]).strip()))
+    if name == 'mitre':
+        return _md_link(*_link_mitre(_mk_inline_plain(nd[2]).strip()))
+    if name == 'url':
+        return _md_link(*_link_url(_mk_inline_plain(nd[2]).strip()))
+    if name in _NORM_PREFIX:
+        return '%s %s' % (_NORM_PREFIX[name], _mk_inline_md(nd[2]).strip())
     if name == 'cvss':
         arg = _mk_inline_plain(nd[2]).strip()
         key, _r = _cvss_to_severity(arg)
@@ -821,9 +1119,18 @@ def _smart_inline_md(nd):
 
 
 def _smart_cmd2_md(nd):
+    if nd[1] in _KADER_META:
+        return ('\n\n**%s**\n\n%s\n\n'
+                % (_mk_inline_md(nd[2]).strip(), _mk_inline_md(nd[3]).strip()))
+    if nd[1] == 'link':
+        url = _mk_inline_plain(nd[2]).strip()
+        label = _mk_inline_md(nd[3]).strip() or url
+        return _md_link(label, url) if url else label
     if nd[1] == 'deelsgelakt':
         hidden = _REDACT_BLOCK if redact_enabled() else _mk_inline_md(nd[3]).strip()
         return _mk_inline_md(nd[2]).strip() + hidden
+    if nd[1] == 'tekstkleur':
+        return _mk_inline_md(nd[3])
     return _mk_inline_md(nd[2]) + _mk_inline_md(nd[3])
 
 
@@ -847,6 +1154,8 @@ def _mk_inline_md(nodes):
             out.append(_smart_cmd2_md(nd))
         elif t == 'img':
             out.append(_mk_image_md(nd[2], nd[3]))
+        elif t == 'http':
+            out.append(_http_md(nd))
         elif t == 'env':
             out.append('\n\n' + _mk_env_md(nd) + '\n\n')
     return ''.join(out)
@@ -880,6 +1189,8 @@ def _mk_blocks_md(nodes):
             inner = _mk_inline_md(payload).strip()
             if inner:
                 out.append(inner)
+        elif kind == 'http':
+            out.append(_http_md(payload).strip())
         else:
             out.append(_mk_env_md(payload))
     return '\n\n'.join(out)
@@ -903,7 +1214,8 @@ _PLAIN_ZERO = {'textbackslash': '\\', 'textrightarrow': '→', 'textleftarrow': 
                'textasciitilde': '~', 'textasciicircum': '^'}
 
 
-_PLAIN_LINK = {'cwe': _link_cwe, 'cve': _link_cve, 'owasp': _link_owasp}
+_PLAIN_LINK = {'cwe': _link_cwe, 'cve': _link_cve, 'owasp': _link_owasp,
+               'mitre': _link_mitre, 'url': _link_url}
 
 
 def _smart_inline_plain(nd):
@@ -920,6 +1232,8 @@ def _smart_inline_plain(nd):
     if name in _PLAIN_LINK:
         label, _u = _PLAIN_LINK[name](_mk_inline_plain(nd[2]).strip())
         return label
+    if name in _NORM_PREFIX:
+        return '%s %s' % (_NORM_PREFIX[name], _mk_inline_plain(nd[2]).strip())
     if name == 'cvss':
         arg = _mk_inline_plain(nd[2]).strip()
         key, _r = _cvss_to_severity(arg)
@@ -953,11 +1267,31 @@ def _mk_inline_plain(nodes):
             if nd[1] == 'deelsgelakt':
                 hidden = _REDACT_BLOCK if redact_enabled() else _mk_inline_plain(nd[3]).strip()
                 out.append(_mk_inline_plain(nd[2]).strip() + hidden)
+            elif nd[1] == 'link':
+                url = _mk_inline_plain(nd[2]).strip()
+                label = _mk_inline_plain(nd[3]).strip() or url
+                out.append(('%s (%s)' % (label, url)) if url and label != url else (label or url))
+            elif nd[1] == 'tekstkleur':
+                out.append(_mk_inline_plain(nd[3]))
             else:
                 out.append(_mk_inline_plain(nd[2]) + _mk_inline_plain(nd[3]))
         elif t == 'img':
             cap = _mk_inline_plain(nd[3]).strip()
             out.append(('[afbeelding: %s]' % cap) if cap else '[afbeelding]')
+        elif t == 'http':
+            _lbl = 'Request' if nd[1] == 'request' else 'Response'
+            _cap = _mk_inline_plain(nd[2]).strip()
+            _seg = []
+            for _b in nd[3]:
+                if _b[0] == 'cmd' and _b[1] in ('hl', 'highlight', 'hlrood', 'hlgroen'):
+                    _seg.append('\u00ab%s\u00bb' % _mk_inline_plain(_b[2]))
+                elif _b[0] == 'cmd' and _b[1] in ('lakken', 'codelakken'):
+                    _seg.append(_REDACT_BLOCK if redact_enabled()
+                                else _mk_inline_plain(_b[2]))
+                else:
+                    _seg.append(_mk_inline_plain([_b]))
+            out.append(' %s%s: %s ' % (_lbl, (' ' + _cap) if _cap else '',
+                                       ''.join(_seg).strip()))
         elif t == 'env':
             parts = []
             for _it, label, body in nd[2]:

@@ -102,6 +102,12 @@ def plaatje(plaatje):
 
 _SCREENSHOT_DIR = Path('raw/screenshots')
 _LAKKEN_DIR = _SCREENSHOT_DIR / 'lakken'
+# Annotaties (rode aandachtskaders, transparante binnenkant): in ALLE
+# rapportversies zichtbaar (anders dan lakken, dat alleen in de gelakte build geldt).
+_ANNOT_DIR = _SCREENSHOT_DIR / 'annot'
+# Lak-LAAG (alleen de zwarte vlakken, transparant): apart bewaard zodat we
+# 'm over de geannoteerde basis kunnen compositen (volgorde-onafhankelijk).
+_LAK_LAYER_DIR = _LAKKEN_DIR / '_layer'
 _IMAGE_SUFFIXES = {'.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp', '.svg'}
 # Formaten die we niet rasterend kunnen lakken (canvas levert pixels, geen vector).
 _NO_REDACT_SUFFIXES = {'.svg'}
@@ -119,7 +125,8 @@ def api_screenshots():
                     'url': '/dashboard/raw/screenshots/' + p.name,
                     # Projectafbeelding heeft een gelakte kopie in lakken/<naam>.
                     'has_lakken': (_LAKKEN_DIR / p.name).exists(),
-                    # svg kan niet rasterend worden gelakt (vectorformaat).
+                    'has_annot': (_ANNOT_DIR / p.name).exists(),
+                    # svg kan niet rasterend worden gelakt/geannoteerd (vectorformaat).
                     'redactable': p.suffix.lower() not in _NO_REDACT_SUFFIXES,
                 })
     return jsonify(items)
@@ -149,6 +156,37 @@ def _safe_screenshot_path(name):
     return safe, src
 
 
+def _lak_layer_path(safe):
+    return _LAK_LAYER_DIR / (safe + '.png')
+
+
+def _composite_lakken(safe, src):
+    """Render raw/screenshots/lakken/<safe> = (geannoteerde basis OF origineel)
+    met de opgeslagen lak-laag eroverheen. Zo komen aandachtskaders altijd mee,
+    ongeacht of eerst gelakt of eerst geannoteerd is. Geeft True bij succes (of
+    als er niets te doen is)."""
+    layer_path = _lak_layer_path(safe)
+    if not layer_path.exists():
+        return True
+    try:
+        import io as _io  # noqa: F401
+        from PIL import Image
+        annot = _ANNOT_DIR / safe
+        base_path = annot if annot.exists() else src
+        base = Image.open(base_path).convert('RGBA')
+        layer = Image.open(str(layer_path)).convert('RGBA')
+        if layer.size != base.size:
+            layer = layer.resize(base.size)
+        out = Image.alpha_composite(base, layer)
+        _LAKKEN_DIR.mkdir(parents=True, exist_ok=True)
+        if src.suffix.lower() in ('.jpg', '.jpeg', '.bmp'):
+            out = out.convert('RGB')
+        out.save(str(_LAKKEN_DIR / safe))
+        return True
+    except Exception:  # noqa: BLE001 — PIL mag de UI nooit breken
+        return False
+
+
 @index_bp.route('/api/screenshots/<name>/redact', methods=['POST', 'DELETE'])
 def api_screenshot_redact(name):
     """Beheer de gelakte kopie van een projectafbeelding (screenshot).
@@ -166,11 +204,14 @@ def api_screenshot_redact(name):
         return jsonify({'error': 'svg kan niet gelakt worden (vectorformaat)'}), 400
 
     lak_path = _LAKKEN_DIR / safe
+    layer_path = _lak_layer_path(safe)
 
     if request.method == 'DELETE':
         try:
             if lak_path.exists():
                 lak_path.unlink()
+            if layer_path.exists():
+                layer_path.unlink()
         except OSError:
             return jsonify({'error': 'verwijderen mislukt'}), 500
         return jsonify({'ok': True, 'has_lakken': False})
@@ -188,20 +229,77 @@ def api_screenshot_redact(name):
     if len(raw) > _MAX_SCREENSHOT_SIZE:
         return jsonify({'error': 'afbeelding te groot'}), 413
 
-    # Her-encodeer naar het formaat van het origineel: de LaTeX-include kiest de
-    # driver op de bestandsextensie, dus die moet bij de inhoud passen.
-    _LAKKEN_DIR.mkdir(parents=True, exist_ok=True)
+    # De client stuurt de lak-LAAG (zwarte vlakken op transparant). Die bewaren
+    # we los en compositen we over de geannoteerde basis (of het origineel),
+    # zodat rode aandachtskaders altijd meekomen, ongeacht de volgorde.
+    _LAK_LAYER_DIR.mkdir(parents=True, exist_ok=True)
     try:
         import io
         from PIL import Image
-        im = Image.open(io.BytesIO(raw))
-        if im.mode in ('RGBA', 'P', 'LA') and src.suffix.lower() in ('.jpg', '.jpeg', '.bmp'):
-            im = im.convert('RGB')
-        im.save(str(lak_path))
+        layer = Image.open(io.BytesIO(raw)).convert('RGBA')
+        layer.save(str(layer_path))
     except Exception:  # noqa: BLE001 — PIL mag de UI nooit breken
+        return jsonify({'error': 'afbeelding kon niet worden opgeslagen'}), 400
+    if not _composite_lakken(safe, src):
         return jsonify({'error': 'afbeelding kon niet worden opgeslagen'}), 400
 
     return jsonify({'ok': True, 'has_lakken': True})
+
+
+@index_bp.route('/api/screenshots/<name>/annotate', methods=['POST', 'DELETE'])
+def api_screenshot_annotate(name):
+    """Beheer de geannoteerde kopie van een projectafbeelding (aandachtskaders).
+
+    POST: ontvangt de in de browser met rode kaders gemarkeerde afbeelding (PNG
+    data-URL) en bewaart die als raw/screenshots/annot/<naam>. Die wordt door de
+    \\plaatje{..}-macro in ALLE rapportversies als basis geladen (ook ongelakt),
+    zodat aandachtspunten altijd zichtbaar zijn.
+    DELETE: verwijdert de geannoteerde kopie weer.
+    """
+    require_dashboard_access()
+    safe, src = _safe_screenshot_path(name)
+    if not safe:
+        return jsonify({'error': 'afbeelding niet gevonden'}), 404
+    if src.suffix.lower() in _NO_REDACT_SUFFIXES:
+        return jsonify({'error': 'svg kan niet geannoteerd worden (vectorformaat)'}), 400
+
+    annot_path = _ANNOT_DIR / safe
+
+    if request.method == 'DELETE':
+        try:
+            if annot_path.exists():
+                annot_path.unlink()
+        except OSError:
+            return jsonify({'error': 'verwijderen mislukt'}), 500
+        _composite_lakken(safe, src)  # lak opnieuw over het origineel
+        return jsonify({'ok': True, 'has_annot': False})
+
+    data = request.get_json(silent=True) or {}
+    img = data.get('image') or ''
+    import re as _re
+    m = _re.match(r'^data:image/(?:png|jpeg);base64,(.+)$', img, _re.S)
+    if not m:
+        return jsonify({'error': 'geen geldige afbeelding (data-URL verwacht)'}), 400
+    try:
+        raw = base64.b64decode(m.group(1), validate=True)
+    except Exception:  # noqa: BLE001
+        return jsonify({'error': 'kon afbeelding niet decoderen'}), 400
+    if len(raw) > _MAX_SCREENSHOT_SIZE:
+        return jsonify({'error': 'afbeelding te groot'}), 413
+
+    _ANNOT_DIR.mkdir(parents=True, exist_ok=True)
+    try:
+        import io as _io
+        from PIL import Image
+        im = Image.open(_io.BytesIO(raw))
+        if im.mode in ('RGBA', 'P', 'LA') and src.suffix.lower() in ('.jpg', '.jpeg', '.bmp'):
+            im = im.convert('RGB')
+        im.save(str(annot_path))
+    except Exception:  # noqa: BLE001 — PIL mag de UI nooit breken
+        return jsonify({'error': 'afbeelding kon niet worden opgeslagen'}), 400
+
+    _composite_lakken(safe, src)  # lak (indien aanwezig) over de nieuwe annot-basis
+    return jsonify({'ok': True, 'has_annot': True})
 
 
 _MAX_SCREENSHOT_SIZE = 15 * 1024 * 1024  # 15 MB

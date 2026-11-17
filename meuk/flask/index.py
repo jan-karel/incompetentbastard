@@ -549,6 +549,7 @@ def api_settings():
         'rapport_scenarios': json.loads(getattr(p, 'rapport_scenarios', '[]') or '[]'),
         'rapport_begrippen': json.loads(getattr(p, 'rapport_begrippen', '[]') or '[]'),
         'rapport_bijlagen': json.loads(getattr(p, 'rapport_bijlagen', '[]') or '[]'),
+        'rapport_vrije_secties': json.loads(getattr(p, 'rapport_vrije_secties', '[]') or '[]'),
         'rapport_overrides': json.loads(getattr(p, 'rapport_overrides', '{}') or '{}'),
         'rapport_section_toggles': json.loads(getattr(p, 'rapport_section_toggles', '{}') or '{}'),
         'rapport_scope_targets': json.loads(getattr(p, 'rapport_scope_targets', '[]') or '[]'),
@@ -663,6 +664,39 @@ def api_settings_update():
                 clean_bij.append({'titel': str(b.get('titel', ''))[:200],
                                   'tekst': str(b.get('tekst', ''))[:50000]})
         p.rapport_bijlagen = json.dumps(clean_bij)
+    if 'rapport_vrije_secties' in data and isinstance(data['rapport_vrije_secties'], list):
+        # Eigen vrije tekstblokken in de hoofdtekst: lijst van
+        # {id, niveau, titel, tekst, na}. id = [a-z]{1,16} (markersleutel wordt
+        # 'vrij_<id>'); niveau in section/subsection/subsubsection; na = de
+        # sectiesleutel of 'vrij_<id>' waar het blok direct achter komt.
+        import re as _re_vs
+        import random as _rnd_vs
+        _vs_niveaus = ('section', 'subsection', 'subsubsection')
+        clean_vs, _seen_vs = [], set()
+        for v in data['rapport_vrije_secties'][:100]:
+            if not isinstance(v, dict):
+                continue
+            titel = str(v.get('titel', ''))[:200]
+            tekst = str(v.get('tekst', ''))[:50000]
+            if not (titel.strip() or tekst.strip()):
+                continue
+            vid = str(v.get('id', ''))
+            if not _re_vs.fullmatch(r'[a-z]{1,16}', vid) or vid in _seen_vs:
+                while True:
+                    vid = ''.join(_rnd_vs.choice('abcdefghijklmnopqrstuvwxyz')
+                                  for _ in range(6))
+                    if vid not in _seen_vs:
+                        break
+            _seen_vs.add(vid)
+            niveau = str(v.get('niveau', 'section'))
+            if niveau not in _vs_niveaus:
+                niveau = 'section'
+            na = str(v.get('na', ''))[:60]
+            if not _re_vs.fullmatch(r'[a-z_]+', na):
+                na = ''
+            clean_vs.append({'id': vid, 'niveau': niveau, 'titel': titel,
+                             'tekst': tekst, 'na': na})
+        p.rapport_vrije_secties = json.dumps(clean_vs)
     if 'rapport_section_toggles' in data and isinstance(data['rapport_section_toggles'], dict):
         # Per-opdracht sectie aan/uit: afwijkingen t.o.v. de template. Volledige
         # vervanging met gevalideerde {sectiesleutel: bool}-paren.

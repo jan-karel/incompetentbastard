@@ -882,6 +882,16 @@ De volgende bevindingen waren niet (volledig) detecteerbaar. Versterking van mon
 \end{xltabular}
 
 [% endif %]
+[# Eigen vrije tekstblokken (section/subsection/subsubsection). Ze krijgen een
+   %SEC:vrij_<id>%-marker en worden door _reorder_marked op hun ankerpositie
+   tussen de standaardsecties geplaatst. #]
+[% for v in vrije_secties | default([]) %]
+%SEC:[[ v.key ]]%
+[[ v.cmd ]]{[[ v.titel ]]}
+
+[[ v.tekst ]]
+
+[% endfor %]
 %SEC-END%
 
 % --- Bijlagen (via \appendix; elk bijlage-item wordt A, B, C ...) ---

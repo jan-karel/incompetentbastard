@@ -1796,6 +1796,34 @@ def gen_rapport():
         for b in rapport_bijlagen
         if isinstance(b, dict) and (str(b.get('titel', '')).strip() or str(b.get('tekst', '')).strip())
     ]
+    # Eigen vrije tekstblokken in de hoofdtekst (section/subsection/subsubsection).
+    try:
+        rapport_vrije_secties = json.loads(
+            (getattr(s, 'rapport_vrije_secties', '[]') if s else '[]') or '[]')
+        if not isinstance(rapport_vrije_secties, list):
+            rapport_vrije_secties = []
+    except (json.JSONDecodeError, TypeError):
+        rapport_vrije_secties = []
+    _vs_clean = []
+    for _v in rapport_vrije_secties:
+        if not isinstance(_v, dict):
+            continue
+        _vid = str(_v.get('id', ''))
+        if not _re.fullmatch(r'[a-z]{1,16}', _vid):
+            continue
+        _tit = str(_v.get('titel', ''))
+        _tek = str(_v.get('tekst', ''))
+        if not (_tit.strip() or _tek.strip()):
+            continue
+        _niv = str(_v.get('niveau', 'section'))
+        if _niv not in ('section', 'subsection', 'subsubsection'):
+            _niv = 'section'
+        _na = str(_v.get('na', ''))
+        if not _re.fullmatch(r'[a-z_]+', _na):
+            _na = ''
+        _vs_clean.append({'id': _vid, 'niveau': _niv, 'titel': _tit,
+                          'tekst': _tek, 'na': _na})
+    rapport_vrije_secties = _vs_clean
     try:
         _overrides = json.loads((getattr(s, 'rapport_overrides', '{}') if s else '{}') or '{}')
         if not isinstance(_overrides, dict):
@@ -1835,6 +1863,7 @@ def gen_rapport():
         rapport_distributie=rapport_distributie,
         rapport_begrippen=rapport_begrippen,
         rapport_bijlagen=rapport_bijlagen,
+        rapport_vrije_secties=rapport_vrije_secties,
         rapport_inleiding=ov_inleiding,
         rapport_methodologie=ov_methodologie,
         rapport_tools=ov_tools,
@@ -1945,6 +1974,12 @@ def gen_rapport():
                         for r in _begrippen_rows(taal, rapport_begrippen)],
         bijlagen=[{'titel': _latex_escape(b['titel']), 'tekst': _vrij_latex_pdf(b['tekst'])}
                   for b in rapport_bijlagen],
+        vrije_secties=[{'key': 'vrij_' + v['id'],
+                        'cmd': {'section': r'\section', 'subsection': r'\subsection',
+                                'subsubsection': r'\subsubsection'}[v['niveau']],
+                        'titel': _latex_escape(v['titel']),
+                        'tekst': _vrij_latex_pdf(v['tekst'])}
+                       for v in rapport_vrije_secties],
         beperkingen_lines=[_latex_escape(x) for x in _beperkingen_lines(
             taal, testtype=testtype, testscope=testscope, test_start=test_start_str,
             test_end=test_end_str, rapport_omgeving=rapport_omgeving)],
@@ -1970,7 +2005,9 @@ def gen_rapport():
     # LaTeX-commentaar (%SEC:..%), dus onschadelijk als ze onverhoopt blijven
     # staan; bij een eigen .tex zonder markers is dit een no-op.
     tex_content = _reorder_marked(
-        tex_content, _rtpl.get('section_order') or [], '%SEC:{k}%', '%SEC-END%')
+        tex_content,
+        _order_with_custom(_rtpl.get('section_order') or [], rapport_vrije_secties),
+        '%SEC:{k}%', '%SEC-END%')
 
     # --- PDF-beveiliging: versleuteling tijdens de xelatex-build (xdvipdfmx) ---
     # Los lezer-/eigenaarwachtwoord + permissiebits via \special{pdf:encrypt}.
@@ -3465,6 +3502,42 @@ def _normalize_order(order):
     return out
 
 
+def _order_with_custom(base_order, vrije):
+    """Bouw een volledige sectievolgorde waarin de eigen vrije tekstblokken
+    (sleutel 'vrij_<id>') op hun ankerpositie tussen de standaardsecties staan.
+
+    Elk blok heeft 'na' = de sectiesleutel (of een andere 'vrij_<id>') waar het
+    direct achter komt. Blokken met een leeg/onbekend anker komen achteraan."""
+    base = _normalize_order(base_order)
+    after = {}
+    for v in (vrije or []):
+        vid = v.get('id')
+        if not vid:
+            continue
+        na = v.get('na') or ''
+        after.setdefault(na, []).append('vrij_' + vid)
+    out, placed = [], set()
+
+    def _emit(anchor):
+        for ck in after.get(anchor, []):
+            if ck in placed:
+                continue
+            placed.add(ck)
+            out.append(ck)
+            _emit(ck)  # blokken die achter dít blok verankerd zijn
+
+    for sk in base:
+        out.append(sk)
+        _emit(sk)
+    # Eigen blokken met leeg/onbekend anker: achteraan de hoofdtekst.
+    for v in (vrije or []):
+        ck = 'vrij_' + v.get('id', '')
+        if v.get('id') and ck not in placed:
+            placed.add(ck)
+            out.append(ck)
+    return out
+
+
 def _reorder_marked(text, order, mk_fmt, end_tok, wrap_edit=False, sections_state=None):
     """Herorden sectieblokken die met open-markers (mk_fmt met '{k}') zijn
     gemarkeerd en begrensd door end_tok. Het gebied van de eerste marker t/m
@@ -3485,15 +3558,32 @@ def _reorder_marked(text, order, mk_fmt, end_tok, wrap_edit=False, sections_stat
         b_end = matches[i + 1].start() if i + 1 < len(matches) else len(region)
         blocks[key] = region[m.end():b_end]
         seen.append(key)
-    norm = _normalize_order(order)
-    keys = [k for k in norm if k in blocks] + [k for k in seen if k not in norm]
+    # De meegegeven volgorde mag ook eigen 'vrij_*'-sleutels bevatten (vrije
+    # tekstblokken); standaardsecties die er niet in staan, vullen we in de
+    # canonieke volgorde aan.
+    want, placed = [], set()
+    for k in (order or []):
+        if k in blocks and k not in placed:
+            placed.add(k)
+            want.append(k)
+    for k in _normalize_order(order):
+        if k in blocks and k not in placed:
+            placed.add(k)
+            want.append(k)
+    keys = want + [k for k in seen if k not in placed]
     if wrap_edit:
-        def _scls(k):
+        def _wrapone(k):
+            inner = blocks[k]
+            if k.startswith('vrij_'):
+                # Eigen tekstblok: klikbaar om te bewerken (eigen editor,
+                # geen sectie-toggle).
+                return ('<div data-ed-type="vrijsectie" data-ed-key="%s" '
+                        'class="rb-vrijsectie">%s</div>' % (k[len('vrij_'):], inner))
             off = isinstance(sections_state, dict) and sections_state.get(k, True) is False
-            return 'rb-section rb-off' if off else 'rb-section'
-        new_region = ''.join(
-            '<div data-ed-type="section" data-ed-key="%s" class="%s">%s</div>'
-            % (k, _scls(k), blocks[k]) for k in keys)
+            cls = 'rb-section rb-off' if off else 'rb-section'
+            return ('<div data-ed-type="section" data-ed-key="%s" class="%s">%s</div>'
+                    % (k, cls, inner))
+        new_region = ''.join(_wrapone(k) for k in keys)
     else:
         new_region = ''.join(blocks[k] for k in keys)
     return (text[:first.start()] + new_region + text[end_idx:]).replace(end_tok, '')
@@ -4637,7 +4727,7 @@ def _retest_progress_md_lines(findings, taal='nl'):
 
 def _generate_html_preview(findings, grouped, counts, titel, auteur, subtitel, datum, classificatie, is_draft, notes=None, tlp_bg='#FF2B2B', tlp_fg='#ffffff', management_samenvatting='', testtype='pentest', testscope='blackbox', testscopes=None, legsup_startpunt='', legsup_privileges='', legsup_informatie='', scenarios=None, taal='nl', rapport_roe='', test_start='', test_end='', variant='detailed', rapport_versie='', rapport_versie_status='concept', scope_targets=None, checklists=None, digid_knockout=None, key_findings=None, algeheel_beeld='', modus_operandi='', kritieke_functies='', blueteam='', purpleteam='', verklaring='', sections=None, findings_scope=None, rapport_omgeving='', section_order=None, rapport_project='', rapport_contact='', rapport_revisies=None, rapport_distributie=None, rapport_begrippen=None,
                             rapport_inleiding='', rapport_methodologie='', rapport_tools='',
-                            rapport_bijlagen=None,
+                            rapport_bijlagen=None, rapport_vrije_secties=None,
                             edit_mode=False, show_disabled=True):
     """Genereer HTML preview van het rapport."""
     t = _T.get(taal, _T['nl'])
@@ -4877,7 +4967,19 @@ def _generate_html_preview(findings, grouped, counts, titel, auteur, subtitel, d
             parts.append('<h3 style="margin-top:14px">{}</h3>'.format('Overall assessment' if _en else 'Algeheel beeld'))
             parts.append(_ed(_vrij_latex_naar_opmaak(algeheel_beeld, "html"),
                              'field', 'rapport_algeheel_beeld'))
-        if _sec('top_risk_gauge'):
+        # Hoogste risico (risicometer): eigen geneste sectie binnen de
+        # managementsamenvatting, zodat hij in de bewerk-preview een eigen
+        # ⊖-toggle krijgt en grijs wordt wanneer uitgeschakeld.
+        _tr_real = sections.get('top_risk_gauge', True)
+        if edit_mode and show_disabled:
+            _trbuf = []
+            _append_top_risk_gauge_html(_trbuf, findings, taal)
+            if _trbuf:
+                parts.append('<div data-ed-type="section" data-ed-key="top_risk_gauge" class="%s">'
+                             % ('rb-section rb-off' if not _tr_real else 'rb-section'))
+                parts.extend(_trbuf)
+                parts.append('</div>')
+        elif _tr_real:
             _append_top_risk_gauge_html(parts, findings, taal)
         if key_findings:
             parts.append(_key_findings_html(key_findings, taal, edit_mode))
@@ -5161,6 +5263,16 @@ def _generate_html_preview(findings, grouped, counts, titel, auteur, subtitel, d
         parts.append('<h2>{}</h2>'.format(t['purpleteam']))
         parts.append(_ed(_vrij_latex_naar_opmaak(purpleteam, 'html'), 'field', 'rapport_purpleteam'))
 
+    # Eigen vrije tekstblokken (section/subsection/subsubsection): emit met een
+    # <!--SEC:vrij_<id>--> marker; _reorder_marked plaatst ze op hun ankerpositie
+    # en wrapt ze in de bewerk-modus als klikbaar 'vrijsectie'-blok.
+    _vs_tag = {'section': 'h2', 'subsection': 'h3', 'subsubsection': 'h4'}
+    for _v in (rapport_vrije_secties or []):
+        parts.append('<!--SEC:vrij_%s-->' % _v['id'])
+        _tag = _vs_tag.get(_v.get('niveau'), 'h2')
+        parts.append('<%s>%s</%s>' % (_tag, html_escape(_v.get('titel', '')), _tag))
+        parts.append(_vrij_latex_naar_opmaak(_v.get('tekst', ''), 'html'))
+
     # Einde herordenbaar gebied; appendix-groep blijft vast achteraan
     parts.append('<!--SEC-END-->')
 
@@ -5261,7 +5373,9 @@ def _generate_html_preview(findings, grouped, counts, titel, auteur, subtitel, d
         parts.append('<script src="/static/js/rb-edit-frame.js"></script>')
     parts.append('<!--APX-END-->')
     html = ''.join(parts)
-    html = _reorder_marked(html, section_order or [], '<!--SEC:{k}-->', '<!--SEC-END-->',
+    html = _reorder_marked(html,
+                           _order_with_custom(section_order or [], rapport_vrije_secties),
+                           '<!--SEC:{k}-->', '<!--SEC-END-->',
                            wrap_edit=edit_mode, sections_state=sections)
     if edit_mode:
         html = _wrap_sections_only(html, '<!--APX:{k}-->', '<!--APX-END-->', sections)
@@ -5404,7 +5518,7 @@ def _generate_docx_markdown(findings, grouped, counts, titel, auteur, subtitel,
                             rapport_contact='', rapport_revisies=None,
                             rapport_distributie=None, rapport_begrippen=None,
                             rapport_inleiding='', rapport_methodologie='', rapport_tools='',
-                            rapport_bijlagen=None):
+                            rapport_bijlagen=None, rapport_vrije_secties=None):
     """Genereer pandoc-Markdown dat de LaTeX template 1:1 spiegelt."""
     t = _T.get(taal, _T['nl'])
     sev_labels = _SEVERITY_LABELS_EN if taal == 'en' else _SEVERITY_LABELS
@@ -5940,6 +6054,17 @@ def _generate_docx_markdown(findings, grouped, counts, titel, auteur, subtitel,
         lines.append(_vrij_latex_naar_opmaak(purpleteam, 'md'))
         lines.append('')
 
+    # Eigen vrije tekstblokken (section/subsection/subsubsection): emit met een
+    # %%SEC:vrij_<id>%%-marker; _reorder_marked plaatst ze op hun ankerpositie.
+    _vs_hash = {'section': '#', 'subsection': '##', 'subsubsection': '###'}
+    for _v in (rapport_vrije_secties or []):
+        lines.append('%%SEC:vrij_{}%%'.format(_v['id']))
+        lines.append('{} {}'.format(_vs_hash.get(_v.get('niveau'), '#'),
+                                    u((_v.get('titel') or '').strip())))
+        lines.append('')
+        lines.append(_vrij_latex_naar_opmaak(_v.get('tekst', ''), 'md'))
+        lines.append('')
+
     # Einde herordenbaar gebied; appendix-groep blijft vast achteraan
     lines.append('%%SEC-END%%')
 
@@ -6040,7 +6165,9 @@ def _generate_docx_markdown(findings, grouped, counts, titel, auteur, subtitel,
         lines.append(_vrij_latex_naar_opmaak(_b.get('tekst', ''), 'md'))
         lines.append('')
 
-    return _reorder_marked('\n'.join(lines), section_order or [], '%%SEC:{k}%%', '%%SEC-END%%')
+    return _reorder_marked('\n'.join(lines),
+                           _order_with_custom(section_order or [], rapport_vrije_secties),
+                           '%%SEC:{k}%%', '%%SEC-END%%')
 
 
 # ---------------------------------------------------------------------------

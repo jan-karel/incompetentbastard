@@ -2038,6 +2038,12 @@ def gen_rapport():
         **_build_rapport_appendices(findings, taal=taal),
     )
 
+    # Actieve huisstijl ook afdwingen op templates die de huisstijl-wiring missen
+    # (eigen/oudere .tex op schijf): vervang het ingebouwde voorblad door het
+    # bundel-voorblad en definieer het macro-contract + logo. No-op als er geen
+    # huisstijl actief is of het template de wiring al heeft.
+    tex_content = _apply_huisstijl_voorblad(tex_content, _hs_kwargs)
+
     # Herorden sectieblokken volgens de gekozen sectievolgorde. Markers zijn
     # LaTeX-commentaar (%SEC:..%), dus onschadelijk als ze onverhoopt blijven
     # staan; bij een eigen .tex zonder markers is dit een no-op.
@@ -8450,6 +8456,68 @@ def _stage_huisstijl(row, override_tex=''):
         shutil.copyfile(kl, os.path.join(_RAPPORT_DIR, 'huisstijl_kleuren.sty'))
         kwargs['huisstijl_kleuren'] = True
     return kwargs
+
+
+# Macro-contract waar een huisstijl-voorblad op mag bouwen. Templates definiëren
+# deze met echte waarden; ontbrekende macro's krijgen een lege default zodat een
+# bundel-voorblad nooit op een "undefined control sequence" strandt.
+_HS_VOORBLAD_CONTRACT = (
+    'rapporttitel', 'rapportsubtitel', 'rapportauteur', 'rapportproject',
+    'rapportdatum', 'rapportclassificatie', 'rapportomgeving', 'rapportversie',
+)
+
+
+def _apply_huisstijl_voorblad(tex, hs):
+    """Dwing de actieve huisstijl (voorblad + logo + kleuren) af op de gerenderde
+    .tex, OOK als het gekozen template de ``[% if huisstijl_voorblad %]``-wiring
+    mist (eigen of oudere ``.tex``-templates op schijf).
+
+    Templates die de wiring al bevatten hebben ``\\input{huisstijl_voorblad.tex}``
+    in de tekst staan en blijven ongemoeid (geen dubbel voorblad)."""
+    if not hs.get('huisstijl_voorblad'):
+        return tex
+    if 'huisstijl_voorblad.tex' in tex:
+        return tex  # template regelt de huisstijl zelf al
+    logo = hs.get('huisstijl_logo') or ''
+    pre = ['% --- Huisstijlbundel (afgedwongen op template zonder wiring) ---']
+    for _m in _HS_VOORBLAD_CONTRACT:
+        pre.append('\\providecommand{\\%s}{}' % _m)
+    pre.append('\\providecommand{\\rapporttlpkleur}{rijkblauw}')
+    # Logo expliciet zetten vóór het voorblad: de bundel-voorpagina doet zelf
+    # \providecommand{\huisstijllogo}{} en zou het anders op leeg laten.
+    pre.append('\\providecommand{\\huisstijllogo}{%s}' % logo)
+    if hs.get('huisstijl_kleuren'):
+        pre.append('\\input{huisstijl_kleuren.sty}')
+    block = '\n'.join(pre) + '\n'
+    if '\\begin{document}' in tex:
+        tex = tex.replace('\\begin{document}', block + '\\begin{document}', 1)
+    else:
+        tex = block + tex
+
+    # graphicspath uitbreiden met ./ zodat huisstijl_logo.<ext> (naast rapport.tex)
+    # door \includegraphics gevonden wordt.
+    def _extend_gp(m):
+        inner = m.group(1)
+        if '{./}' in inner or '{.}' in inner:
+            return m.group(0)
+        return '\\graphicspath{' + inner + '{./}}'
+
+    if '\\graphicspath' in tex:
+        tex = _re.sub(r'\\graphicspath\{((?:\{[^}]*\})+)\}', _extend_gp, tex, count=1)
+    else:
+        tex = tex.replace('\\begin{document}',
+                          '\\graphicspath{{./}{evidence/}}\n\\begin{document}', 1)
+
+    # Ingebouwd voorblad vervangen door het bundel-voorblad.
+    inp = '\\input{huisstijl_voorblad.tex}'
+    if '\\begin{titlepage}' in tex and '\\end{titlepage}' in tex:
+        tex = _re.sub(r'\\begin\{titlepage\}.*?\\end\{titlepage\}',
+                      lambda _m: inp, tex, count=1, flags=_re.S)
+    elif '\\maketitle' in tex:
+        tex = tex.replace('\\maketitle', inp, 1)
+    else:
+        tex = tex.replace('\\begin{document}', '\\begin{document}\n' + inp, 1)
+    return tex
 
 
 @rapport_bp.route('/api/report/huisstijl', methods=['GET'])

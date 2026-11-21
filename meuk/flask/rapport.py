@@ -388,7 +388,25 @@ _HANDBOEK_DIR = os.path.join(os.path.dirname(__file__), '..', '..', 'handboek')
 # templates en opmaak/packages/rapport.sty (projectmacro's/kaders/lakken).
 # Staat in TEXINPUTS zodat \usepackage{opmaak/packages/rapport} hier resolvet.
 _LAYOUT_DIR = os.path.join(os.path.dirname(__file__), 'html')
+# Projectopmaak (rapport.sty e.d.) binnen de layout-tree. Deze wordt bij elke
+# build naar de build-dir gekopieerd zodat \usepackage{opmaak/packages/rapport}
+# ook resolvet wanneer er buiten de volledige app-broncode gecompileerd wordt
+# (kale/publieke clone, losse .tex-export, andere machine, Overleaf).
+_OPMAAK_SRC = os.path.join(_LAYOUT_DIR, 'opmaak')
 _EVIDENCE_SRC = os.path.join(os.path.dirname(__file__), 'db', 'evidence')
+
+
+def _stage_opmaak(dest_dir):
+    """Kopieer de opmaak-tree (incl. opmaak/packages/rapport.sty) naar dest_dir,
+    zodat de build zelfstandig is. Idempotent; stil bij ontbreken."""
+    try:
+        if not os.path.isdir(_OPMAAK_SRC):
+            return False
+        dst = os.path.join(dest_dir, 'opmaak')
+        shutil.copytree(_OPMAAK_SRC, dst, dirs_exist_ok=True)
+        return True
+    except (OSError, shutil.Error):
+        return False
 # Uploadbare huisstijl-/voorbladbundels leven BUITEN de broncode (gitignored),
 # zodat logo's en layouts niet in de repo belanden: raw/huisstijl/<id>/.
 _HUISSTIJL_DIR = os.path.join(os.path.dirname(__file__), '..', '..', 'raw', 'huisstijl')
@@ -2073,6 +2091,9 @@ def gen_rapport():
     schrijven(os.path.join(_RAPPORT_DIR, 'findings_nl.tex'), tex_content)
 
     # --- PDF compilatie (optioneel) ---
+    # Opmaak-tree (rapport.sty) naar de build-dir zetten: zo is de build
+    # zelfstandig en hangt hij niet af van de source-tree via TEXINPUTS.
+    _stage_opmaak(_RAPPORT_DIR)
     handboek_abs = os.path.abspath(_HANDBOEK_DIR)
     try:
         env = os.environ.copy()
@@ -6763,6 +6784,34 @@ def rapport_download(fmt):
         return jsonify({'error': 'Ongeldig formaat'}), 400
     filename, mimetype = FORMATS[fmt]
     path = os.path.join(_RAPPORT_DIR, filename)
+    # .tex-download als zelfstandige zip: rapport.tex + de opmaak-tree
+    # (opmaak/packages/rapport.sty), zodat \usepackage{opmaak/packages/rapport}
+    # ook buiten de app-broncode compileert (andere machine, Overleaf, ...).
+    if fmt == 'tex':
+        if not os.path.exists(path):
+            return jsonify({'error': 'Genereer eerst het rapport'}), 404
+        import io
+        import zipfile
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as zf:
+            zf.write(path, 'rapport.tex')
+            if os.path.isdir(_OPMAAK_SRC):
+                for _root, _dirs, _files in os.walk(_OPMAAK_SRC):
+                    for _fn in _files:
+                        _full = os.path.join(_root, _fn)
+                        _arc = os.path.join('opmaak', os.path.relpath(_full, _OPMAAK_SRC))
+                        zf.write(_full, _arc)
+            zf.writestr(
+                'LEESMIJ.txt',
+                'Bouw het rapport met:  xelatex rapport.tex\n\n'
+                'De map opmaak/ bevat de benodigde LaTeX-opmaak '
+                '(opmaak/packages/rapport.sty).\n'
+                'Let op: afbeeldingen/evidence en een eventueel huisstijllogo '
+                'zitten NIET in deze zip; plaats die zelf naast rapport.tex als '
+                'het rapport ernaar verwijst.\n')
+        buf.seek(0)
+        return send_file(buf, mimetype='application/zip', as_attachment=True,
+                         download_name='rapport_latex.zip')
     if fmt in _LAZY_PANDOC_FORMATS:
         _ensure_lazy_format(path)  # on-demand genereren bij eerste download
     if not os.path.exists(path):

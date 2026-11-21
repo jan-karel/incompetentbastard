@@ -165,7 +165,33 @@ install_whatweb_git() {
 		fi
 	fi
 
-	# whatweb is Ruby; macOS heeft een systeem-ruby. Symlink het script op PATH.
+	# whatweb is Ruby en heeft gems nodig (addressable, etc.) → bundle install
+	if command -v ruby &>/dev/null && [ -f "$dest/Gemfile" ]; then
+		if ! command -v bundle &>/dev/null; then
+			log_info "whatweb: bundler installeren..."
+			gem install --user-install bundler &>/dev/null \
+				|| sudo gem install bundler &>/dev/null \
+				|| log_warn "whatweb: bundler installeren mislukt"
+		fi
+		if command -v bundle &>/dev/null; then
+			log_info "whatweb: Ruby-gems installeren (bundle install)..."
+			# Naar de standaard gem-locatie zodat ./whatweb (zonder bundle exec) de
+			# gems vindt. Eerst user-gems (geen sudo), anders systeembreed.
+			if (cd "$dest" && GEM_HOME="$HOME/.gem" bundle install &>/dev/null) \
+				|| (cd "$dest" && sudo bundle install &>/dev/null); then
+				log_ok "whatweb-gems (bundle)"
+			else
+				# Fallback: de kern-gems die whatweb nodig heeft los installeren
+				gem install --user-install addressable json &>/dev/null \
+					|| sudo gem install addressable json &>/dev/null \
+					|| log_warn "whatweb: gems installeren mislukt; draai handmatig 'bundle install' in $dest"
+			fi
+		fi
+	else
+		log_warn "whatweb: ruby/Gemfile niet gevonden; gems niet geinstalleerd"
+	fi
+
+	# Symlink het script op PATH.
 	if ! ln -sf "$dest/whatweb" "$bindir/whatweb" 2>/dev/null; then
 		sudo ln -sf "$dest/whatweb" "$bindir/whatweb" 2>/dev/null \
 			|| log_warn "whatweb: kon geen symlink in $bindir maken; voeg $dest aan PATH toe"

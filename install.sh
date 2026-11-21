@@ -257,6 +257,30 @@ install_macos() {
 	log_info "=== Rapportage ==="
 	install_brew pandoc "pandoc"
 
+	# xelatex + LaTeX-pakketten (PDF-rapportage via LaTeX)
+	if ! command -v xelatex &>/dev/null; then
+		install_brew_cask basictex "BasicTeX (xelatex)"
+		# BasicTeX zet texbin pas na een nieuwe shell op PATH; nu alvast toevoegen
+		[ -d /Library/TeX/texbin ] && export PATH="/Library/TeX/texbin:$PATH"
+	fi
+	if command -v xelatex &>/dev/null; then
+		log_ok "xelatex"
+		# De rapport-template vereist pakketten die niet in de kale BasicTeX zitten
+		if command -v tlmgr &>/dev/null; then
+			log_info "Benodigde LaTeX-pakketten installeren via tlmgr..."
+			sudo tlmgr update --self &>/dev/null || log_warn "tlmgr update overgeslagen"
+			sudo tlmgr install \
+				collection-fontsrecommended fontspec \
+				booktabs caption colortbl draftwatermark fancyhdr geometry \
+				hyperref listings soul tabularx tools titlesec xcolor \
+				xltabular ltablex pgf babel-dutch lm &>/dev/null \
+				|| log_warn "Sommige LaTeX-pakketten konden niet via tlmgr worden geinstalleerd"
+			log_ok "LaTeX-pakketten"
+		fi
+	else
+		log_warn "xelatex niet op PATH; herstart je shell of installeer MacTeX handmatig"
+	fi
+
 	# --- Fuzzing ---
 	log_info "=== Web fuzzing ==="
 	if ! command -v wfuzz &>/dev/null; then
@@ -421,6 +445,18 @@ install_linux() {
 	log_info "=== Rapportage ==="
 	install_apt pandoc "pandoc"
 
+	# xelatex + LaTeX-pakketten (PDF-rapportage via LaTeX)
+	if ! command -v xelatex &>/dev/null; then
+		install_apt texlive-xetex "TeX Live XeTeX (xelatex)"
+		install_apt texlive-latex-extra "texlive-latex-extra (soul, xltabular, draftwatermark, titlesec)"
+		install_apt texlive-fonts-recommended "texlive-fonts-recommended (lmodern)"
+		install_apt texlive-fonts-extra "texlive-fonts-extra"
+		install_apt texlive-pictures "texlive-pictures (tikz/pgf)"
+		install_apt texlive-lang-european "texlive-lang-european (babel-dutch)"
+	else
+		log_ok "xelatex"
+	fi
+
 	# --- Fuzzing ---
 	log_info "=== Web fuzzing ==="
 	if ! command -v wfuzz &>/dev/null; then
@@ -445,7 +481,7 @@ verify_tools() {
 	log_info "=== Verificatie ==="
 	local tools=(
 		python3 screen nmap curl wget gawk asciinema
-		sshuttle pandoc msfvenom msfconsole
+		sshuttle pandoc xelatex msfvenom msfconsole
 	)
 	local ok=0
 	local fail=0

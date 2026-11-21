@@ -281,10 +281,74 @@ def create_app():
                 except Exception:
                     pass
 
+            # Auto-migrate: inhoud-hash op dd-sync (change-detectie bij export)
+            try:
+                conn.execute(db.text(
+                    "ALTER TABLE db_defectdojo_sync ADD COLUMN content_hash VARCHAR(64) DEFAULT ''"))
+                conn.commit()
+            except Exception:
+                pass
+
+            # Auto-migrate: gekozen DefectDojo-verbindingsprofiel per opdracht
+            try:
+                conn.execute(db.text(
+                    "ALTER TABLE db_opdracht_config ADD COLUMN dd_connection_id INTEGER"))
+                conn.commit()
+            except Exception:
+                pass
+
+            # Auto-migrate: DefectDojo user-id (reporter) op verbindingsprofiel
+            try:
+                conn.execute(db.text(
+                    "ALTER TABLE db_defectdojo_connection ADD COLUMN dd_user_id INTEGER"))
+                conn.commit()
+            except Exception:
+                pass
+
+            # Auto-migrate: asciinema-opnames gekoppeld aan opdracht (bewijs)
+            try:
+                conn.execute(db.text(
+                    "ALTER TABLE db_opdracht_config ADD COLUMN screen_recordings TEXT DEFAULT '[]'"))
+                conn.commit()
+            except Exception:
+                pass
+
             # Auto-migrate: gekozen eigen rapport-template per project
             try:
                 conn.execute(db.text(
                     "ALTER TABLE db_opdracht_config ADD COLUMN rapport_template_id INTEGER"))
+                conn.commit()
+            except Exception:
+                pass
+
+            # Auto-migrate: gekozen huisstijl-/voorbladbundel per opdracht
+            try:
+                conn.execute(db.text(
+                    "ALTER TABLE db_opdracht_config ADD COLUMN huisstijl_id INTEGER"))
+                conn.commit()
+            except Exception:
+                pass
+
+            # Auto-migrate: per-opdracht aangepast huisstijl-voorblad (LaTeX)
+            try:
+                conn.execute(db.text(
+                    "ALTER TABLE db_opdracht_config ADD COLUMN huisstijl_voorblad_override TEXT DEFAULT ''"))
+                conn.commit()
+            except Exception:
+                pass
+
+            # Auto-migrate: evidence-selectie voor de Bewijsregister-bijlage
+            try:
+                conn.execute(db.text(
+                    "ALTER TABLE db_opdracht_config ADD COLUMN evidence_report_selection TEXT DEFAULT '[]'"))
+                conn.commit()
+            except Exception:
+                pass
+
+            # Auto-migrate: verzegelde SHA-256-baseline voor evidence-integriteit
+            try:
+                conn.execute(db.text(
+                    "ALTER TABLE db_opdracht_config ADD COLUMN evidence_hash_baseline TEXT DEFAULT '{}'"))
                 conn.commit()
             except Exception:
                 pass

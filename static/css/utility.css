@@ -130,3 +130,7 @@
 .flash-error, .flash-danger { background: #7f1d1d; color: #fca5a5; border: 1px solid #991b1b; }
 .flash-warning { background: #78350f; color: #fde68a; border: 1px solid #92400e; }
 .flash-info { background: #1e3a5f; color: #93c5fd; border: 1px solid #1d4ed8; }
+
+/* Huisstijl-bundel (rapport-voorblad) */
+.mw220 { max-width: 220px; }
+.huisstijl-thumb { height: 28px; width: auto; border-radius: 3px; background: #fff; padding: 2px; }

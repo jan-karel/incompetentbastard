@@ -6,6 +6,7 @@
       <button type="button" class="ftab-btn is-active" data-ftab="algemeen">Naam, host &amp; CVSS</button>
       <button type="button" class="ftab-btn" data-ftab="uitwerking">Uitwerking</button>
       <button type="button" class="ftab-btn" data-ftab="standaard">Standaardbevinding</button>
+      {% if evidence_tab %}<button type="button" class="ftab-btn" data-ftab="bewijs">📎 Bewijs</button>{% endif %}
     </div>
 
     {# Tab 1: Naam, host, CVSS, status + geavanceerde metadata #}
@@ -221,6 +222,49 @@
         </div>
       </div>
     </div>
+
+    {% if evidence_tab %}
+    {# Tab 4: Bewijs (alleen op de volledige edit-pagina) #}
+    <div class="ftab-panel bewijs-panel" data-ftab-panel="bewijs" id="evidence-card" tabindex="0">
+      <div class="bewijs-sec">
+        <div class="bewijs-subhead">Bewijsbestanden</div>
+        <div class="evidence-gallery" id="evidence-gallery"></div>
+        <div class="bewijs-row">
+          <input type="text" id="evidence-description" class="form-control grow200" placeholder="Beschrijving (optioneel)" />
+          <input type="text" id="evidence-tool" class="form-control w140" placeholder="Tool (bijv. nmap)" />
+          <select id="evidence-category" class="form-control w140">
+            <option value="">Categorie…</option>
+            <option value="screenshot">Screenshot</option>
+            <option value="log">Log</option>
+            <option value="output">Tool output</option>
+            <option value="network">Netwerk capture</option>
+            <option value="other">Overig</option>
+          </select>
+        </div>
+        <div class="bewijs-row">
+          <input type="file" id="evidence-file" class="bewijs-file" accept="image/*,.pdf,.txt,.csv,.json,.xml,.zip" multiple />
+          <button class="btn btn-sm" id="btn-upload-evidence" type="button">Uploaden</button>
+        </div>
+        <p class="help" id="evidence-hint">📎 Plak (Ctrl/Cmd+V), sleep bestanden hierheen of kies een bestand.</p>
+      </div>
+
+      <div class="bewijs-sec">
+        <div class="bewijs-subhead">Screen-sessie — commando uitvoeren &amp; output vastleggen</div>
+        <div class="bewijs-row">
+          <select id="sc-screen-select" class="form-control grow200" title="Screen-sessie"></select>
+          <button class="btn btn-sm" id="sc-refresh" type="button" title="Sessies vernieuwen">&#x21bb;</button>
+          <input id="sc-new" class="form-control w140" type="text" placeholder="nieuwe sessie" title="Naam voor een nieuwe sessie" />
+          <button class="btn btn-sm" id="sc-start" type="button" title="Start een nieuwe screen-sessie">Start</button>
+        </div>
+        <div class="bewijs-row">
+          <input id="sc-cmd" class="form-control grow200" type="text" placeholder="Commando naar de sessie…" title="Commando dat in de gekozen sessie wordt uitgevoerd" />
+          <button class="btn btn-sm" id="sc-run" type="button" title="Voer het commando uit in de gekozen sessie">&#9654; Uitvoeren</button>
+          <button class="btn btn-sm" id="sc-capture" type="button" title="Leg de output slim vast (scope, titel, voorbeeld)">&#128221; Vastleggen…</button>
+          <span id="sc-status" class="help sc-status"></span>
+        </div>
+      </div>
+    </div>
+    {% endif %}
   </div>
 
   <div class="form-actions">

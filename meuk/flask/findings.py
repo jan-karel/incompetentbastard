@@ -9,6 +9,7 @@ import hashlib
 import json
 import os
 import re as _re
+import shutil
 import uuid
 
 
@@ -1908,10 +1909,20 @@ def bevindingen_overzicht():
     notes = _project.apply_scope(
         db_notes.query, db_notes.opdracht_id, _project.current_opdracht_id()
     ).order_by(db_notes.volgorde.asc(), db_notes.id.desc()).all()
+    # DefectDojo-koppeling per bevinding (zichtbare link in het overzicht).
+    dd_links = {}
+    for _r in (db_defectdojo_sync.query
+               .filter(db_defectdojo_sync.dd_finding_id.isnot(None))
+               .order_by(db_defectdojo_sync.id.asc()).all()):
+        dd_links[_r.finding_id] = _r.dd_finding_id
+    from meuk.flask.defectdojo import _dd_config as _ddcfg
+    _ddc = _ddcfg()
+    dd_base = (_ddc['url'] if _ddc else '')
     return render_template('findings_index.html', findings=findings, templates=templates,
                            template_groups=template_groups, deleted_count=deleted_count,
                            deleted_findings=deleted_findings, overdue_ids=overdue_ids,
-                           template_map=template_map, notes=notes)
+                           template_map=template_map, notes=notes,
+                           dd_links=dd_links, dd_base=dd_base)
 
 
 @findings_bp.route('/dashboard/findings/edit/<bevinding_id>', methods=['GET', 'POST'])
@@ -2495,6 +2506,462 @@ def list_evidence(finding_id):
     ]})
 
 
+_SCANEV_SENTINEL = '%%SCANEV%%'
+_LSTLISTING_RE = _re.compile(
+    r'\\begin\{lstlisting\}(\[[^\]]*\])?\n?(.*?)\\end\{lstlisting\}', _re.S)
+_LST_CAPTION_RE = _re.compile(r'caption\s*=\s*(?:\{([^}]*)\}|([^,\]]+))')
+_LST_LANG_RE = _re.compile(r'language\s*=\s*([A-Za-z0-9_+-]+)')
+_LST_MAX = 50000
+
+
+def _parse_lst_opts(opts):
+    """Haal caption + language uit de [opts] van een lstlisting."""
+    opts = opts or ''
+    cap = _LST_CAPTION_RE.search(opts)
+    caption = ((cap.group(1) or cap.group(2)) if cap else '') or ''
+    lang = _LST_LANG_RE.search(opts)
+    return caption.strip(), (lang.group(1) if lang else '')
+
+
+def _extract_listings_from(text):
+    """Vind alle lstlisting-blokken in vrije tekst → [{caption, taal, content, truncated}]."""
+    res = []
+    if not text:
+        return res
+    for m in _LSTLISTING_RE.finditer(text):
+        caption, lang = _parse_lst_opts(m.group(1))
+        body = (m.group(2) or '').strip('\n')
+        res.append({'caption': caption, 'taal': lang,
+                    'content': body[:_LST_MAX], 'truncated': len(body) > _LST_MAX})
+    return res
+
+
+_RECORDINGS_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'logs'))
+
+
+def _opdracht_recordings():
+    """(filename, pad) van de aan de actieve opdracht gekoppelde asciinema-opnames
+    die nog op schijf bestaan (meuk/logs/*.rec)."""
+    from meuk.flask import project as _project
+    cfg = _project.current_config()
+    try:
+        recs = json.loads(getattr(cfg, 'screen_recordings', '') or '[]')
+    except (ValueError, TypeError):
+        recs = []
+    res = []
+    if isinstance(recs, list):
+        for fn in recs:
+            if isinstance(fn, str) and '/' not in fn and '\\' not in fn:
+                p = os.path.join(_RECORDINGS_DIR, fn)
+                if os.path.isfile(p):
+                    res.append((fn, p))
+    return res
+
+
+def _lst_filename(pfx, caption):
+    """Bestandsnaam voor een lstlisting (voorvoegsel + caption), consistent met de
+    export. Gebruikt in het Bewijsregister en de zip-naamgeving."""
+    cap = _safe_arcname(caption or '')
+    if not cap or cap.lower() == pfx.lower():
+        return pfx + '.txt'
+    return '{}_{}.txt'.format(pfx, cap)
+
+
+def _report_selection(cfg=None):
+    """De per-opdracht geselecteerde evidence-item-id's voor de Bewijsregister-bijlage."""
+    from meuk.flask import project as _project
+    if cfg is None:
+        cfg = _project.current_config()
+    try:
+        sel = json.loads(getattr(cfg, 'evidence_report_selection', '') or '[]')
+        return [str(x) for x in sel] if isinstance(sel, list) else []
+    except (ValueError, TypeError):
+        return []
+
+
+def _report_evidence_rows(selection):
+    """Rijen voor het Bewijsregister op basis van geselecteerde item-id's:
+    {filename, format, sha256, sha_fmt, bron}. Hashes worden alleen voor de
+    selectie (her)berekend."""
+    import hashlib
+    from meuk.flask import project as _project
+    from meuk.flask.rapport import _collect_plaatjes, _SCREENSHOT_SRC
+    sel = set(str(x) for x in (selection or []))
+    if not sel:
+        return []
+    rows = []
+
+    def _add(filename, sha, bron):
+        if not sha:
+            return
+        ext = os.path.splitext(filename)[1].lstrip('.').upper() or '—'
+        rows.append({'filename': filename, 'format': ext, 'sha256': sha,
+                     'sha_fmt': ' '.join(sha[i:i + 16] for i in range(0, len(sha), 16)),
+                     'bron': bron})
+
+    oid = _project.resolve_opdracht_id(None)
+    findings = _active_findings().all()
+    fids = [f.id for f in findings]
+    # db_evidence
+    for ev in (db_evidence.query.filter(db_evidence.finding_id.in_(fids)).all() if fids else []):
+        if str(ev.id) in sel:
+            src = os.path.join(_evidence_path(ev.finding_id), ev.filename)
+            sha = ev.sha256 or (_sha256_file(src) if os.path.exists(src) else '')
+            _add(ev.original_filename or ev.filename, sha, 'bevinding %s' % ev.finding_id)
+    # screenshots
+    for img in _collect_plaatjes(oid):
+        if ('shot-' + img['name']) in sel and img.get('exists'):
+            src = os.path.join(os.path.abspath(_SCREENSHOT_SRC), img['name'])
+            _add(img['name'], _sha256_file(src) if os.path.exists(src) else '', 'screenshot')
+    # asciinema-opnames
+    for fn, p in _opdracht_recordings():
+        if ('rec-' + fn) in sel:
+            _add(fn, _sha256_file(p), 'opname')
+    # lstlistings (bevindingen)
+    for f in findings:
+        pfx = _safe_arcname((getattr(f, 'naam', '') or '').strip() or 'bevinding')
+        for i, b in enumerate(_finding_listings(f)):
+            if ('bl-%d-%d' % (f.id, i)) in sel:
+                _add(_lst_filename(pfx, b['caption']),
+                     hashlib.sha256((b['content'] or '').encode('utf-8')).hexdigest(),
+                     'bevinding %s' % f.id)
+    # lstlistings (notities)
+    notes = _project.apply_scope(db_notes.query, db_notes.opdracht_id, oid).all()
+    for n in notes:
+        pfx = _safe_arcname((getattr(n, 'naam', '') or '').strip() or 'notitie')
+        for i, b in enumerate(_extract_listings_from(getattr(n, 'uitwerken', '') or '')):
+            if ('nl-%d-%d' % (n.id, i)) in sel:
+                _add(_lst_filename(pfx, b['caption']),
+                     hashlib.sha256((b['content'] or '').encode('utf-8')).hexdigest(),
+                     'notitie %s' % n.id)
+    return rows
+
+
+@findings_bp.route('/api/findings/evidence/report-selection', methods=['GET'])
+def report_selection_get():
+    return jsonify({'ok': True, 'selection': _report_selection()})
+
+
+@findings_bp.route('/api/findings/evidence/report-selection', methods=['POST'])
+def report_selection_set():
+    """Zet een item in/uit de Bewijsregister-selectie. Body: {id, selected}."""
+    from meuk.flask import project as _project
+    cfg = _project.current_config()
+    if cfg is None:
+        return jsonify({'ok': False, 'error': 'geen actief project'}), 400
+    data = request.get_json(silent=True) or {}
+    iid = str(data.get('id') or '').strip()
+    if not iid:
+        return jsonify({'ok': False, 'error': 'geen id'}), 400
+    sel = _report_selection(cfg)
+    if data.get('selected'):
+        if iid not in sel:
+            sel.append(iid)
+    else:
+        sel = [x for x in sel if x != iid]
+    cfg.evidence_report_selection = json.dumps(sel)
+    db.session.commit()
+    return jsonify({'ok': True, 'selection': sel, 'count': len(sel)})
+
+
+def _all_evidence_hashes():
+    """SHA-256 van elk evidence-item (db_evidence uit opslag, screenshots/opnames
+    van schijf, listings uit de inhoud): {item_id: sha of ''}."""
+    import hashlib
+    from meuk.flask import project as _project
+    from meuk.flask.rapport import _collect_plaatjes, _SCREENSHOT_SRC
+    oid = _project.resolve_opdracht_id(None)
+    findings = _active_findings().all()
+    fids = [f.id for f in findings]
+    res = {}
+    for ev in (db_evidence.query.filter(db_evidence.finding_id.in_(fids)).all() if fids else []):
+        src = os.path.join(_evidence_path(ev.finding_id), ev.filename)
+        res[str(ev.id)] = _sha256_file(src) if os.path.exists(src) else ''
+    shots = os.path.abspath(_SCREENSHOT_SRC)
+    for img in _collect_plaatjes(oid):
+        if img.get('exists'):
+            src = os.path.join(shots, img['name'])
+            res['shot-' + img['name']] = _sha256_file(src) if os.path.exists(src) else ''
+        else:
+            res['shot-' + img['name']] = ''
+    for fn, p in _opdracht_recordings():
+        res['rec-' + fn] = _sha256_file(p)
+    for f in findings:
+        for i, b in enumerate(_finding_listings(f)):
+            res['bl-%d-%d' % (f.id, i)] = hashlib.sha256((b['content'] or '').encode('utf-8')).hexdigest()
+    notes = _project.apply_scope(db_notes.query, db_notes.opdracht_id, oid).all()
+    for n in notes:
+        for i, b in enumerate(_extract_listings_from(getattr(n, 'uitwerken', '') or '')):
+            res['nl-%d-%d' % (n.id, i)] = hashlib.sha256((b['content'] or '').encode('utf-8')).hexdigest()
+    return res
+
+
+def _db_evidence_baseline(fids):
+    """Baseline-hashes van db_evidence (vastgelegd bij upload)."""
+    out = {}
+    for ev in (db_evidence.query.filter(db_evidence.finding_id.in_(fids)).all() if fids else []):
+        out[str(ev.id)] = ev.sha256 or ''
+    return out
+
+
+@findings_bp.route('/api/findings/evidence/integrity', methods=['GET'])
+def evidence_integrity():
+    """Verifieer de integriteit van álle evidence-items en detecteer duplicaten.
+    Status per id: match | mismatch | missing_file | no_baseline."""
+    from meuk.flask import project as _project
+    cfg = _project.current_config()
+    cur = _all_evidence_hashes()
+    findings = _active_findings().all()
+    base = {}
+    try:
+        base.update(json.loads(getattr(cfg, 'evidence_hash_baseline', '') or '{}'))
+    except (ValueError, TypeError):
+        pass
+    base.update(_db_evidence_baseline([f.id for f in findings]))  # db_evidence: baseline = upload-hash
+    status = {}
+    for iid, sha in cur.items():
+        b = base.get(iid) or ''
+        if not sha:
+            status[iid] = 'missing_file'
+        elif not b:
+            status[iid] = 'no_baseline'
+        elif sha == b:
+            status[iid] = 'match'
+        else:
+            status[iid] = 'mismatch'
+    # Duplicaten: identieke SHA over meerdere items.
+    by_sha = {}
+    for iid, sha in cur.items():
+        if sha:
+            by_sha.setdefault(sha, []).append(iid)
+    duplicates = [ids for ids in by_sha.values() if len(ids) > 1]
+    return jsonify({'ok': True, 'status': status, 'hashes': cur, 'duplicates': duplicates,
+                    'sealed': bool((getattr(cfg, 'evidence_hash_baseline', '') or '').strip() not in ('', '{}'))})
+
+
+@findings_bp.route('/api/findings/evidence/seal', methods=['POST'])
+def evidence_seal():
+    """Leg de huidige SHA-256 van alle items vast als integriteits-baseline."""
+    from meuk.flask import project as _project
+    cfg = _project.current_config()
+    if cfg is None:
+        return jsonify({'ok': False, 'error': 'geen actief project'}), 400
+    hashes = _all_evidence_hashes()
+    cfg.evidence_hash_baseline = json.dumps({k: v for k, v in hashes.items() if v})
+    db.session.commit()
+    return jsonify({'ok': True, 'count': sum(1 for v in hashes.values() if v)})
+
+
+@findings_bp.route('/api/findings/evidence/recording/<path:fn>/transcript', methods=['GET'])
+def evidence_recording_transcript(fn):
+    """Uitgeschreven tekst-output van een asciinema-opname (voor auditoren die niet
+    kunnen afspelen)."""
+    fn = os.path.basename(fn)
+    p = os.path.join(_RECORDINGS_DIR, fn)
+    if '/' in fn or '\\' in fn or not os.path.isfile(p):
+        return jsonify({'ok': False, 'error': 'opname niet gevonden'}), 404
+    try:
+        from meuk.flask.macro import _asciicast_output
+        txt = _asciicast_output(p) or ''
+    except Exception:  # noqa: BLE001
+        txt = ''
+    return jsonify({'ok': True, 'name': fn, 'text': txt})
+
+
+@findings_bp.route('/api/findings/brief', methods=['GET'])
+def findings_brief():
+    """Beknopte lijst van bevindingen in het actieve project (voor herkoppelen)."""
+    out = [{'id': f.id, 'naam': (getattr(f, 'naam', '') or '').strip() or ('#%d' % f.id)}
+           for f in _active_findings().order_by(db_bevindingen.id).all()]
+    return jsonify({'ok': True, 'findings': out})
+
+
+@findings_bp.route('/api/findings/evidence/<int:evidence_id>/reassign', methods=['POST'])
+def reassign_evidence(evidence_id):
+    """Herkoppel een bewijsbestand aan een andere bevinding: verplaatst het bestand
+    (en de gelakte kopie) naar de evidence-map van de doelbevinding en werkt de
+    koppeling bij."""
+    ev = db.session.get(db_evidence, evidence_id)
+    if not ev:
+        return jsonify({'ok': False, 'error': 'evidence niet gevonden'}), 404
+    new_fid = (request.get_json(silent=True) or {}).get('finding_id')
+    try:
+        new_fid = int(new_fid)
+    except (TypeError, ValueError):
+        return jsonify({'ok': False, 'error': 'ongeldige bevinding'}), 400
+    if new_fid == ev.finding_id:
+        return jsonify({'ok': True, 'finding_id': new_fid})
+    if not db.session.get(db_bevindingen, new_fid):
+        return jsonify({'ok': False, 'error': 'doelbevinding bestaat niet'}), 404
+    old_dir = _evidence_path(ev.finding_id)
+    new_dir = _evidence_path(new_fid)
+    os.makedirs(new_dir, exist_ok=True)
+    # Unieke bestandsnaam in de doelmap.
+    fn = ev.filename
+    base, extn = os.path.splitext(fn)
+    k = 2
+    while os.path.exists(os.path.join(new_dir, fn)):
+        fn = '{}_{}{}'.format(base, k, extn)
+        k += 1
+    for sub in (None, 'lakken'):
+        src = os.path.join(old_dir, ev.filename) if sub is None else os.path.join(old_dir, sub, ev.filename)
+        if os.path.isfile(src):
+            dst_dir = new_dir if sub is None else os.path.join(new_dir, sub)
+            os.makedirs(dst_dir, exist_ok=True)
+            try:
+                shutil.move(src, os.path.join(dst_dir, fn))
+            except OSError:
+                pass
+    ev.finding_id = new_fid
+    ev.filename = fn
+    db.session.commit()
+    return jsonify({'ok': True, 'finding_id': new_fid, 'filename': fn})
+
+
+@findings_bp.route('/api/findings/evidence/all', methods=['GET'])
+def list_all_evidence():
+    """Opdracht-breed overzicht van alle evidence (voor de evidence-subtab):
+    een platte lijst over alle (niet-verwijderde) bevindingen van het actieve
+    project, met de bevinding erbij en de lak-/hash-status."""
+    findings = _active_findings().all()
+    by_id = {f.id: f for f in findings}
+    ids = list(by_id.keys())
+    items = (db_evidence.query
+             .filter(db_evidence.finding_id.in_(ids))
+             .order_by(db_evidence.finding_id, db_evidence.id).all()) if ids else []
+    out = []
+    for e in items:
+        f = by_id.get(e.finding_id)
+        ct = e.content_type or ''
+        lak_dir = os.path.join(_evidence_path(e.finding_id), 'lakken')
+        out.append({
+            'kind': 'file',
+            'id': e.id,
+            'finding_id': e.finding_id,
+            'finding_titel': (getattr(f, 'naam', '') or '').strip() or '(zonder titel)',
+            'finding_score': getattr(f, 'basescore', '') or '',
+            'filename': e.filename,
+            'original_filename': e.original_filename or e.filename,
+            'content_type': ct,
+            'is_image': ct.startswith('image/'),
+            'evidence_category': e.evidence_category or '',
+            'tool_name': e.tool_name or '',
+            'description': e.description or '',
+            'created_at': (e.created_at.isoformat() + 'Z') if e.created_at else None,
+            'has_sha': bool(e.sha256),
+            'has_lakken': os.path.exists(os.path.join(lak_dir, e.filename)),
+        })
+
+    # Tekstueel bewijs: lstlisting-blokken uit de uitwerking van bevindingen.
+    def _listing_item(kind_id, bron_type, fid, titel, score, created, b, idx):
+        return {
+            'kind': 'listing', 'id': kind_id,
+            'bron_type': bron_type, 'bron_id': fid, 'finding_id': fid,
+            'finding_titel': titel, 'finding_score': score,
+            'filename': '', 'original_filename': b['caption'] or ('listing %d' % (idx + 1)),
+            'content_type': 'text/x-listing', 'is_image': False,
+            'evidence_category': 'listing', 'tool_name': b['taal'], 'description': '',
+            'created_at': created, 'has_sha': False, 'has_lakken': False,
+            'content': b['content'], 'truncated': b['truncated'],
+        }
+
+    for f in findings:
+        uit = getattr(f, 'uitwerken', '') or ''
+        created = (f.created_at.isoformat() + 'Z') if getattr(f, 'created_at', None) else None
+        titel = (getattr(f, 'naam', '') or '').strip() or '(zonder titel)'
+        score = getattr(f, 'basescore', '') or ''
+        if uit.startswith(_SCANEV_SENTINEL):
+            try:
+                d = json.loads(uit[len(_SCANEV_SENTINEL):])
+                resp = d.get('resp') or ''
+                blk = {'caption': (d.get('cmd') or '').strip()[:120] or 'scan-output',
+                       'taal': '', 'content': resp[:_LST_MAX], 'truncated': len(resp) > _LST_MAX}
+                out.append(_listing_item('bl-%d-0' % f.id, 'bevinding', f.id, titel, score, created, blk, 0))
+            except (ValueError, TypeError):
+                pass
+        else:
+            for i, b in enumerate(_extract_listings_from(uit)):
+                out.append(_listing_item('bl-%d-%d' % (f.id, i), 'bevinding', f.id, titel, score, created, b, i))
+
+    # ...en uit notities van hetzelfde project.
+    from meuk.flask import project as _project
+    notes = _project.apply_scope(
+        db_notes.query, db_notes.opdracht_id, _project.current_opdracht_id()).all()
+    for n in notes:
+        ntitel = 'Notitie: ' + ((getattr(n, 'naam', '') or '').strip() or ('#%d' % n.id))
+        for i, b in enumerate(_extract_listings_from(getattr(n, 'uitwerken', '') or '')):
+            it = _listing_item('nl-%d-%d' % (n.id, i), 'notitie', None, ntitel, '', None, b, i)
+            it['bron_id'] = n.id
+            out.append(it)
+
+    # \plaatje{}-screenshots (ongelakte originelen) die in de opdracht gebruikt
+    # worden. Ook ontbrekende worden getoond (gemarkeerd), net als in de lak-galerij.
+    from meuk.flask.rapport import _collect_plaatjes, _SCREENSHOT_SRC
+    _img_exts = ('.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.svg')
+    for img in _collect_plaatjes(_project.resolve_opdracht_id(None)):
+        naam = img['name']
+        bestaat = bool(img.get('exists'))
+        ext = os.path.splitext(naam)[1].lower()
+        created = None
+        if bestaat:
+            try:
+                created = datetime.datetime.utcfromtimestamp(
+                    os.stat(os.path.join(_SCREENSHOT_SRC, naam)).st_mtime).isoformat() + 'Z'
+            except OSError:
+                pass
+        out.append({
+            'kind': 'screenshot', 'id': 'shot-' + naam,
+            'bron_type': 'screenshot', 'bron_id': None, 'finding_id': None,
+            'finding_titel': 'Screenshot', 'finding_score': '',
+            'filename': naam, 'original_filename': naam,
+            'content_type': 'image/' + ((ext[1:] if ext else 'png') or 'png'),
+            'is_image': bestaat and ext in _img_exts,
+            'evidence_category': 'screenshot', 'tool_name': '',
+            'description': ', '.join(img.get('used_in') or []),
+            'created_at': created, 'has_sha': False,
+            'has_lakken': bool(img.get('has_lakken')),
+            'redactable': bool(img.get('redactable')),
+            'exists': bestaat,
+            'download_url': (img.get('url') if bestaat else ''),
+        })
+
+    # Asciinema-opnames gekoppeld aan de opdracht (screen-bewijs).
+    for fn, p in _opdracht_recordings():
+        st = os.stat(p)
+        out.append({
+            'kind': 'recording', 'id': 'rec-' + fn,
+            'bron_type': 'opname', 'bron_id': None, 'finding_id': None,
+            'finding_titel': 'Asciinema-opname', 'finding_score': '',
+            'filename': fn, 'original_filename': fn,
+            'content_type': 'application/x-asciicast', 'is_image': False,
+            'evidence_category': 'opname', 'tool_name': 'asciinema', 'description': '',
+            'created_at': datetime.datetime.utcfromtimestamp(st.st_mtime).isoformat() + 'Z',
+            'has_sha': False, 'has_lakken': False,
+            'play_url': '/dashboard/recordings/' + fn,
+            'download_url': '/api/recordings/' + fn,
+        })
+
+    # Markeer welke items in de Bewijsregister-bijlage zijn geselecteerd.
+    sel = set(_report_selection())
+    for it in out:
+        it['in_report'] = str(it.get('id')) in sel
+
+    # Completeness: bevindingen zonder enig bewijs (geen db_evidence, geen
+    # \plaatje{}-afbeelding en geen lstlisting in de uitwerking).
+    db_fids = {e.finding_id for e in items}
+    zonder = []
+    for f in findings:
+        uit = getattr(f, 'uitwerken', '') or ''
+        has_txt = ('\\plaatje' in uit) or ('\\begin{lstlisting}' in uit) or uit.startswith(_SCANEV_SENTINEL)
+        if f.id not in db_fids and not has_txt:
+            zonder.append({'id': f.id, 'naam': (getattr(f, 'naam', '') or '').strip() or ('#%d' % f.id)})
+
+    cats = sorted({x['evidence_category'] for x in out if x['evidence_category']})
+    return jsonify({'ok': True, 'evidence': out, 'count': len(out), 'categories': cats,
+                    'report_selection': sorted(sel), 'report_count': len(sel),
+                    'findings_without_evidence': zonder})
+
+
 @findings_bp.route('/api/findings/<int:finding_id>/evidence', methods=['POST'])
 def upload_evidence(finding_id):
     bev = db.session.get(db_bevindingen, finding_id)
@@ -2542,6 +3009,56 @@ def upload_evidence(finding_id):
         'original_filename': original,
         'sha256': sha256,
     })
+
+
+@findings_bp.route('/api/findings/<int:finding_id>/screen-capture', methods=['POST'])
+def finding_screen_capture(finding_id):
+    """Leg de output van een screen-sessie (laatste opdracht) vast bij een
+    bevinding: in de uitwerking (lstlisting) of als tekst-bewijs.
+    Body: {screen_name, full?, target: 'uitwerking'|'bewijs'}."""
+    bev = db.session.get(db_bevindingen, finding_id)
+    if not bev:
+        return jsonify({'error': 'bevinding niet gevonden'}), 404
+    # Screen-helpers zitten in macro.py (ib-only); nette fout als afwezig.
+    try:
+        from meuk.flask.macro import _screen_output, _lst_note_body, _extract_command
+    except ImportError:
+        return jsonify({'error': 'screen-functionaliteit niet beschikbaar'}), 400
+    data = request.get_json(silent=True) or {}
+    screen_name = (data.get('screen_name') or '').strip()
+    # Scope: expliciete inhoud (gekozen in de dialoog) is leidend; anders de
+    # laatste opdracht (of volledige sessie bij full) uit de opname.
+    override = (data.get('inhoud') or '').strip()
+    inhoud = override or _screen_output(screen_name, bool(data.get('full')))
+    if not inhoud.strip():
+        return jsonify({'error': 'Geen/ongeldige sessie of geen output'}), 400
+    cmd = ((data.get('titel') or '').strip()
+           or _extract_command(inhoud) or 'screen-output')
+    target = (data.get('target') or 'uitwerking').strip()
+
+    if target == 'bewijs':
+        dest_dir = _evidence_path(finding_id)
+        stored_name = uuid.uuid4().hex + '.txt'
+        stored_path = os.path.join(dest_dir, stored_name)
+        with open(stored_path, 'w', encoding='utf-8') as fh:
+            fh.write(inhoud.rstrip() + '\n')
+        sha256 = _sha256_file(stored_path)
+        ev = db_evidence(
+            finding_id=finding_id, filename=stored_name,
+            original_filename=(cmd[:290] + '.txt'), content_type='text/plain',
+            description=cmd[:500], tool_name='screen',
+            evidence_category='log', sha256=sha256,
+        )
+        db.session.add(ev)
+        db.session.commit()
+        return jsonify({'ok': True, 'target': 'bewijs',
+                        'evidence_id': ev.id, 'commando': cmd})
+
+    # standaard: lstlisting-blok teruggeven; de client voegt het in het live
+    # uitwerken-veld in zodat het via het normale formulier wordt opgeslagen
+    # (server-side appenden zou bij opslaan overschreven worden).
+    body, _lr = _lst_note_body(inhoud, cmd, True)
+    return jsonify({'ok': True, 'target': 'uitwerking', 'commando': cmd, 'blok': body})
 
 
 _MAX_REDACT_BYTES = 20 * 1024 * 1024  # 20 MB gedecodeerde PNG
@@ -3499,19 +4016,169 @@ def delete_asset(asset_id):
 # Evidence: export all as ZIP
 # ---------------------------------------------------------------------------
 
+def _finding_listings(f):
+    """Lstlisting-blokken uit de uitwerking van een bevinding (incl. de
+    %%SCANEV%%-cmd/resp-vorm). Geeft [{caption, taal, content, truncated}]."""
+    uit = getattr(f, 'uitwerken', '') or ''
+    if uit.startswith(_SCANEV_SENTINEL):
+        try:
+            d = json.loads(uit[len(_SCANEV_SENTINEL):])
+            resp = d.get('resp') or ''
+            return [{'caption': (d.get('cmd') or '').strip()[:120] or 'scan-output',
+                     'taal': '', 'content': resp[:_LST_MAX], 'truncated': len(resp) > _LST_MAX}]
+        except (ValueError, TypeError):
+            return []
+    return _extract_listings_from(uit)
+
+
+def _safe_arcname(name):
+    return (_re.sub(r'[^\w.-]+', '_', (name or '').strip()) or 'listing')[:60]
+
+
 @findings_bp.route('/api/findings/evidence/export', methods=['GET'])
 def export_evidence_zip():
+    """Exporteer alle evidence van het actieve project als .zip: bestand-evidence
+    plus de lstlistings (uit bevinding-uitwerkingen en notities) als losse .txt."""
     import zipfile
     import io as _io
+    from meuk.flask import project as _project
+
+    findings = _active_findings().all()
+    by_id = {f.id: f for f in findings}
+    ids = list(by_id.keys())
+
+    # Deelexport: ?only=id1,id2,... beperkt tot die item-id's (leeg = alles).
+    _only_raw = (request.args.get('only') or '').strip()
+    only = set(x for x in _only_raw.split(',') if x) if _only_raw else None
+
+    def _want(iid):
+        return only is None or str(iid) in only
+
+    # Platte zip: puur de bewijsbestanden, zonder bevinding_/notitie_-mappen.
+    # Namen worden uniek gemaakt met een teller om botsingen te voorkomen.
+    _used = set()
+
+    def _uniq(name):
+        name = name or 'bestand'
+        base, ext = os.path.splitext(name)
+        cand, k = name, 2
+        while cand in _used:
+            cand = '{}_{}{}'.format(base, k, ext)
+            k += 1
+        _used.add(cand)
+        return cand
+
+    import hashlib
+    manifest = []  # [(sha256, arcname, bron)] voor het auditmanifest
+
+    def _lname(pfx, caption):
+        # Voorvoegsel (bevinding-/notitietitel), caption erachter tenzij leeg of
+        # samenvallend met het voorvoegsel (voorkomt date_date.txt).
+        cap = _safe_arcname(caption or '')
+        if not cap or cap.lower() == pfx.lower():
+            return pfx + '.txt'
+        return '{}_{}.txt'.format(pfx, cap)
 
     buf = _io.BytesIO()
     with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as zf:
-        all_ev = db_evidence.query.all()
-        for ev in all_ev:
+        def _add_listing(arc, content, bron):
+            data = content.encode('utf-8')
+            zf.writestr(arc, data)
+            manifest.append((hashlib.sha256(data).hexdigest(), arc, bron))
+
+        # 1) Bestand-evidence: de ONGELAKTE originelen (opdracht-gescoped).
+        evs = (db_evidence.query.filter(db_evidence.finding_id.in_(ids)).all()
+               if ids else [])
+        for ev in evs:
+            if not _want(ev.id):
+                continue
             src = os.path.join(_evidence_path(ev.finding_id), ev.filename)
             if os.path.exists(src):
-                arcname = '{}/{}'.format(ev.finding_id, ev.original_filename or ev.filename)
-                zf.write(src, arcname)
+                arc = _uniq(ev.original_filename or ev.filename)
+                zf.write(src, arc)
+                manifest.append((_sha256_file(src), arc, 'bevinding %s' % ev.finding_id))
+        # 1b) Ongelakte \plaatje{}-afbeeldingen (screenshots) van de opdracht.
+        from meuk.flask.rapport import _collect_plaatjes, _SCREENSHOT_SRC
+        _shots = os.path.abspath(_SCREENSHOT_SRC)
+        for img in _collect_plaatjes(_project.resolve_opdracht_id(None)):
+            if img.get('exists') and _want('shot-' + img['name']):
+                src = os.path.join(_shots, img['name'])
+                arc = _uniq(img['name'])
+                zf.write(src, arc)
+                manifest.append((_sha256_file(src), arc, 'screenshot ({})'.format(
+                    ', '.join(img.get('used_in') or []) or 'plaatje')))
+        # 2) Lstlistings uit bevinding-uitwerkingen → losse .txt, voorvoegsel = bevindingtitel.
+        for f in findings:
+            pfx = _safe_arcname((getattr(f, 'naam', '') or '').strip() or 'bevinding')
+            for i, b in enumerate(_finding_listings(f)):
+                if _want('bl-%d-%d' % (f.id, i)):
+                    _add_listing(_uniq(_lname(pfx, b['caption'])), b['content'], 'bevinding %s' % f.id)
+        # 3) Lstlistings uit notities → losse .txt, voorvoegsel = notitietitel.
+        notes = _project.apply_scope(
+            db_notes.query, db_notes.opdracht_id, _project.current_opdracht_id()).all()
+        for n in notes:
+            pfx = _safe_arcname((getattr(n, 'naam', '') or '').strip() or 'notitie')
+            for i, b in enumerate(_extract_listings_from(getattr(n, 'uitwerken', '') or '')):
+                if _want('nl-%d-%d' % (n.id, i)):
+                    _add_listing(_uniq(_lname(pfx, b['caption'])), b['content'], 'notitie %s' % n.id)
+
+        # 3b) Asciinema-opnames (.rec) + uitgeschreven transcript (.txt).
+        for fn, src in _opdracht_recordings():
+            if not _want('rec-' + fn):
+                continue
+            arc = _uniq(fn)
+            zf.write(src, arc)
+            manifest.append((_sha256_file(src), arc, 'asciinema-opname'))
+            try:
+                from meuk.flask.macro import _asciicast_output
+                txt = _asciicast_output(src) or ''
+            except Exception:  # noqa: BLE001
+                txt = ''
+            if txt.strip():
+                tarc = _uniq(os.path.splitext(arc)[0] + '_transcript.txt')
+                data = txt.encode('utf-8')
+                zf.writestr(tarc, data)
+                manifest.append((hashlib.sha256(data).hexdigest(), tarc, 'opname-transcript'))
+
+        # 4) Auditmanifest met kop (opdracht/datum/operator/aantallen) + export-info.
+        import datetime as _dt
+        _oid = _project.resolve_opdracht_id(None)
+        _opdr = db.session.get(db_opdracht, _oid) if _oid else None
+        _opdrnaam = (getattr(_opdr, 'naam', '') or '') if _opdr else ''
+        try:
+            from meuk.flask.auth import current_user as _cu
+            _u = _cu()
+            _operator = (getattr(_u, 'naam', None) or getattr(_u, 'email', None) or 'operator') if _u else 'operator'
+        except Exception:  # noqa: BLE001
+            _operator = os.environ.get('IB_ADMIN_USER') or 'operator'
+        _ts = _dt.datetime.utcnow().isoformat() + 'Z'
+        _info = ('Evidence-export\nOpdracht: {}\nOpdracht-id: {}\nDatum (UTC): {}\n'
+                 'Operator: {}\nBestanden: {}\nDeelexport: {}\n').format(
+                     _opdrnaam, _oid, _ts, _operator, len(manifest),
+                     'ja (selectie)' if only is not None else 'nee (alles)')
+        zf.writestr('export-info.txt', _info)
+        # SHA256SUMS.txt met commentaarkop (verifieerbaar met `sha256sum -c`).
+        _hdr = ('# Evidence-export {} | opdracht {} (#{}) | operator {} | {} bestanden\n'
+                .format(_ts, _opdrnaam, _oid, _operator, len(manifest)))
+        zf.writestr('SHA256SUMS.txt',
+                    _hdr + ''.join('{}  {}\n'.format(h, a) for h, a, _ in manifest))
+        import csv as _csv
+        _cs = _io.StringIO()
+        _w = _csv.writer(_cs)
+        _w.writerow(['# opdracht', _opdrnaam, 'id', _oid, 'datum', _ts, 'operator', _operator])
+        _w.writerow(['bestand', 'sha256', 'bron'])
+        for h, a, bron in manifest:
+            _w.writerow([a, h, bron])
+        zf.writestr('manifest.csv', _cs.getvalue())
+
+    # Export-logboek (audittrail: wie/wat/wanneer), append-only naast de opslag.
+    try:
+        logp = os.path.join(_RECORDINGS_DIR, '..', 'evidence_export.log')
+        with open(os.path.abspath(logp), 'a', encoding='utf-8') as _lf:
+            _lf.write('{}\topdracht={}\toperator={}\tbestanden={}\tdeelexport={}\n'.format(
+                _ts, _oid, _operator, len(manifest), bool(only is not None)))
+    except OSError:
+        pass
 
     buf.seek(0)
     return Response(

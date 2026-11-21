@@ -5,7 +5,7 @@ from flask import Blueprint, request, send_file, jsonify, render_template, Respo
 from jinja2 import Environment, FileSystemLoader, StrictUndefined
 from jinja2 import TemplateError, TemplateSyntaxError, UndefinedError
 from markupsafe import escape as html_escape
-from meuk.flask.models import db_bevindingen, db_bevindingen_templates, db_evidence, db_notes, db, db_finding_related, db_instellingen, db_checklist, db_rapport_template, db_opdracht_config, db_asset, db_asset_anchor, db_opdracht
+from meuk.flask.models import db_bevindingen, db_bevindingen_templates, db_evidence, db_notes, db, db_finding_related, db_instellingen, db_checklist, db_rapport_template, db_opdracht_config, db_asset, db_asset_anchor, db_opdracht, db_huisstijl
 from meuk.flask.findings import (_cvss_to_severity, _latex_escape, _latex_markup,
                                   http_to_latex_env,
                                   _html_markup, _md_markup, _plain_markup,
@@ -389,6 +389,11 @@ _HANDBOEK_DIR = os.path.join(os.path.dirname(__file__), '..', '..', 'handboek')
 # Staat in TEXINPUTS zodat \usepackage{opmaak/packages/rapport} hier resolvet.
 _LAYOUT_DIR = os.path.join(os.path.dirname(__file__), 'html')
 _EVIDENCE_SRC = os.path.join(os.path.dirname(__file__), 'db', 'evidence')
+# Uploadbare huisstijl-/voorbladbundels leven BUITEN de broncode (gitignored),
+# zodat logo's en layouts niet in de repo belanden: raw/huisstijl/<id>/.
+_HUISSTIJL_DIR = os.path.join(os.path.dirname(__file__), '..', '..', 'raw', 'huisstijl')
+# Toegestane logo-extensies (xelatex/graphicx leest png/jpg/pdf).
+_HUISSTIJL_LOGO_EXTS = ('.png', '.jpg', '.jpeg', '.pdf')
 # Pandoc-referentiedocument voor DOCX: rijksblauwe tabelkoppen + gekleurde
 # koppen, zodat de Word-uitvoer dichter bij de PDF ligt.
 _DOCX_REFERENCE = os.path.join(os.path.dirname(__file__), 'html', 'rapport_reference.docx')
@@ -1845,6 +1850,16 @@ def gen_rapport():
     _custom_tex = _rtpl['custom_tex_path']
     findings_scoped, grouped_scoped = _scope_findings(findings, grouped, _scope)
 
+    # Actieve huisstijl (voorblad + logo) resolven; gebruikt in preview én PDF.
+    _hs_row = _resolve_huisstijl(s)
+    # Huisstijl-cover info: ALLEEN voor de HTML-preview (niet voor docx/pptx, die
+    # ook **_extra_kwargs ontvangen en deze keys niet kennen).
+    _hs_preview = dict(
+        huisstijl_id=(_hs_row.id if _hs_row else None),
+        huisstijl_naam=(_hs_row.naam if _hs_row else ''),
+        huisstijl_has_logo=bool(_hs_row and _huisstijl_logo_abspath(_hs_row)),
+    )
+
     # Gemeenschappelijke extra kwargs
     _extra_kwargs = dict(
         rapport_roe=rapport_roe,
@@ -1885,7 +1900,7 @@ def gen_rapport():
             legsup_informatie=legsup_informatie, scenarios=scenarios, taal=taal,
             scope_targets=scope_targets, checklists=checklists_data,
             edit_mode=(request.args.get('edit') == '1'),
-            show_disabled=(request.args.get('showoff', '1') == '1'), **_extra_kwargs)
+            show_disabled=(request.args.get('showoff', '1') == '1'), **_hs_preview, **_extra_kwargs)
         return Response(html, mimetype='text/html')
 
     # --- Render LaTeX via Jinja2 met aangepaste delimiters ---
@@ -1913,7 +1928,11 @@ def gen_rapport():
         tmpl = latex_env.get_template('rapport_latex.tex')
 
     _rp_rows, _rp_open, _rp_ok = _retest_progress(findings_scoped, taal)
+    # Huisstijl (voorblad + logo) naast rapport.tex klaarzetten (al geresolved).
+    _hs_override = (getattr(s, 'huisstijl_voorblad_override', '') if s else '') or ''
+    _hs_kwargs = _stage_huisstijl(_hs_row, override_tex=_hs_override)
     tex_content = tmpl.render(
+        **_hs_kwargs,
         titel=_latex_escape(titel),
         subtitel=_latex_escape(subtitel),
         auteur=_latex_escape(auteur),
@@ -1983,11 +2002,11 @@ def gen_rapport():
         beperkingen_lines=[_latex_escape(x) for x in _beperkingen_lines(
             taal, testtype=testtype, testscope=testscope, test_start=test_start_str,
             test_end=test_end_str, rapport_omgeving=rapport_omgeving)],
-        evidence_register=[{'id': r['id'], 'caption': _latex_escape(r['caption']),
-                            'file': _latex_escape(r['file']), 'sha256': r['sha256'],
-                            'sha_fmt': ' '.join(r['sha256'][i:i + 16]
-                                                for i in range(0, len(r['sha256']), 16))}
-                           for r in _evidence_register(findings_scoped)],
+        evidence_register=[{'filename': _latex_escape(r['filename']),
+                            'format': _latex_escape(r['format']),
+                            'sha256': r['sha256'], 'sha_fmt': r['sha_fmt'],
+                            'bron': _latex_escape(r['bron'])}
+                           for r in _report_register_rows(s)],
         cvss_detail_rows=[{'id': r['id'], 'titel': _latex_escape(r['titel']),
                            'score': _latex_escape(r['score']),
                            'summary': _latex_escape(r['summary'])}
@@ -2191,7 +2210,7 @@ def gen_rapport():
     # Closure zodat de gelakte variant exact dezelfde invoer gebruikt (binnen
     # redact_mode vertaalt de markup \lakken{} dan naar zwarte blokken).
     def _gen_html():
-        return _generate_html_preview(findings, grouped, counts, titel, auteur, subtitel, datum, classificatie, is_draft, notes_data, tlp_html_bg, tlp_html_fg, management_samenvatting=management_samenvatting, testtype=testtype, testscope=testscope, testscopes=testscopes, legsup_startpunt=legsup_startpunt, legsup_privileges=legsup_privileges, legsup_informatie=legsup_informatie, scenarios=scenarios, taal=taal, scope_targets=scope_targets, checklists=checklists_data, digid_knockout=digid_ko, key_findings=key_findings, algeheel_beeld=algeheel_beeld, modus_operandi=modus_operandi, kritieke_functies=kritieke_functies, blueteam=blueteam, purpleteam=purpleteam, verklaring=verklaring, **_extra_kwargs)
+        return _generate_html_preview(findings, grouped, counts, titel, auteur, subtitel, datum, classificatie, is_draft, notes_data, tlp_html_bg, tlp_html_fg, management_samenvatting=management_samenvatting, testtype=testtype, testscope=testscope, testscopes=testscopes, legsup_startpunt=legsup_startpunt, legsup_privileges=legsup_privileges, legsup_informatie=legsup_informatie, scenarios=scenarios, taal=taal, scope_targets=scope_targets, checklists=checklists_data, digid_knockout=digid_ko, key_findings=key_findings, algeheel_beeld=algeheel_beeld, modus_operandi=modus_operandi, kritieke_functies=kritieke_functies, blueteam=blueteam, purpleteam=purpleteam, verklaring=verklaring, **_hs_preview, **_extra_kwargs)
     html = _gen_html()
     schrijven(os.path.join(_RAPPORT_DIR, 'tex.html'), html)
 
@@ -2219,6 +2238,8 @@ def gen_rapport():
             scope_targets=scope_targets,
             checklists=checklists_data, digid_knockout=digid_ko,
             key_findings=key_findings, algeheel_beeld=algeheel_beeld, modus_operandi=modus_operandi, kritieke_functies=kritieke_functies, blueteam=blueteam, purpleteam=purpleteam, verklaring=verklaring,
+            huisstijl_logo_path=(os.path.abspath(os.path.join(_RAPPORT_DIR, _hs_kwargs['huisstijl_logo']))
+                                 if _hs_kwargs.get('huisstijl_logo') else ''),
             **_extra_kwargs)
     docx_md = _gen_docx_md()
     docx_md_path = os.path.join(_RAPPORT_DIR, 'rapport_docx.md')
@@ -4244,8 +4265,15 @@ def _evidence_register(findings):
     return rows
 
 
+def _report_register_rows(cfg):
+    """Bewijsregister-rijen uit de per-opdracht evidence-selectie (vervangt het
+    automatische register). Elke rij: {filename, format, sha256, sha_fmt, bron}."""
+    from meuk.flask.findings import _report_selection, _report_evidence_rows
+    return _report_evidence_rows(_report_selection(cfg))
+
+
 def _append_bewijsregister_html(parts, findings, taal='nl'):
-    rows = _evidence_register(findings)
+    rows = _report_register_rows(None)
     if not rows:
         return
     en = (taal == 'en')
@@ -4255,18 +4283,18 @@ def _append_bewijsregister_html(parts, findings, taal='nl'):
         'can be independently verified.' if en else
         'Elk bewijsbestand is opgenomen met zijn SHA-256-hash, zodat de integriteit '
         'onafhankelijk geverifieerd kan worden.'))
-    parts.append('<table><tr><th>ID</th><th>{}</th><th>{}</th><th>SHA-256</th></tr>'.format(
-        'Evidence' if en else 'Bewijs', 'File' if en else 'Bestand'))
+    parts.append('<table><tr><th>{}</th><th>{}</th><th>SHA-256</th></tr>'.format(
+        'Filename' if en else 'Bestandsnaam', 'Format' if en else 'Formaat'))
     for r in rows:
-        parts.append('<tr><td><a href="#bev-{0}">{0}</a></td><td>{1}</td><td>{2}</td>'
-                     '<td style="font-family:monospace;font-size:11px;word-break:break-all">{3}</td></tr>'.format(
-                         r['id'], html_escape(r['caption']), html_escape(r['file']),
+        parts.append('<tr><td>{0}</td><td>{1}</td>'
+                     '<td style="font-family:monospace;font-size:11px;word-break:break-all">{2}</td></tr>'.format(
+                         html_escape(r['filename']), html_escape(r['format']),
                          html_escape(r['sha256'])))
     parts.append('</table>')
 
 
 def _bewijsregister_md_lines(findings, taal='nl'):
-    rows = _evidence_register(findings)
+    rows = _report_register_rows(None)
     if not rows:
         return []
     en = (taal == 'en')
@@ -4275,12 +4303,12 @@ def _bewijsregister_md_lines(findings, taal='nl'):
             'can be independently verified.' if en else
             'Elk bewijsbestand is opgenomen met zijn SHA-256-hash, zodat de integriteit '
             'onafhankelijk geverifieerd kan worden.'), '']
-    out.append('| ID | {} | {} | SHA-256 |'.format(
-        'Evidence' if en else 'Bewijs', 'File' if en else 'Bestand'))
-    out.append('| --- | --- | --- | --- |')
+    out.append('| {} | {} | SHA-256 |'.format(
+        'Filename' if en else 'Bestandsnaam', 'Format' if en else 'Formaat'))
+    out.append('| --- | --- | --- |')
     for r in rows:
-        out.append('| {} | {} | {} | `{}` |'.format(
-            r['id'], _md_escape_cell(r['caption']), _md_escape_cell(r['file']), r['sha256']))
+        out.append('| {} | {} | `{}` |'.format(
+            _md_escape_cell(r['filename']), _md_escape_cell(r['format']), r['sha256']))
     out.append('')
     return out
 
@@ -4728,6 +4756,7 @@ def _retest_progress_md_lines(findings, taal='nl'):
 def _generate_html_preview(findings, grouped, counts, titel, auteur, subtitel, datum, classificatie, is_draft, notes=None, tlp_bg='#FF2B2B', tlp_fg='#ffffff', management_samenvatting='', testtype='pentest', testscope='blackbox', testscopes=None, legsup_startpunt='', legsup_privileges='', legsup_informatie='', scenarios=None, taal='nl', rapport_roe='', test_start='', test_end='', variant='detailed', rapport_versie='', rapport_versie_status='concept', scope_targets=None, checklists=None, digid_knockout=None, key_findings=None, algeheel_beeld='', modus_operandi='', kritieke_functies='', blueteam='', purpleteam='', verklaring='', sections=None, findings_scope=None, rapport_omgeving='', section_order=None, rapport_project='', rapport_contact='', rapport_revisies=None, rapport_distributie=None, rapport_begrippen=None,
                             rapport_inleiding='', rapport_methodologie='', rapport_tools='',
                             rapport_bijlagen=None, rapport_vrije_secties=None,
+                            huisstijl_id=None, huisstijl_naam='', huisstijl_has_logo=False,
                             edit_mode=False, show_disabled=True):
     """Genereer HTML preview van het rapport."""
     t = _T.get(taal, _T['nl'])
@@ -4813,6 +4842,20 @@ def _generate_html_preview(findings, grouped, counts, titel, auteur, subtitel, d
     _wm = _watermark_text(rapport_versie_status, taal)
     if _wm:
         parts.append('<div class="rb-watermark">{}</div>'.format(html_escape(_wm)))
+
+    # Huisstijl (voorblad): toon logo + naam zodat de preview de gekozen
+    # huisstijl weerspiegelt. Het exacte voorblad is LaTeX (PDF); dit is de
+    # HTML-benadering ervan.
+    if huisstijl_id:
+        _hs_bits = []
+        if huisstijl_has_logo:
+            _hs_bits.append(
+                '<img src="/api/report/huisstijl/{}/logo" alt="logo" '
+                'style="max-height:70px;width:auto;margin-bottom:8px">'.format(int(huisstijl_id)))
+        _hs_lbl = 'House style' if taal == 'en' else 'Huisstijl'
+        _hs_bits.append('<p style="color:#64748b;font-size:.85em;margin:.2em 0">{}: {}</p>'.format(
+            _hs_lbl, html_escape(huisstijl_naam)))
+        parts.append('<div class="rb-huisstijl-cover">{}</div>'.format(''.join(_hs_bits)))
 
     # Titel + versie + TLP badge
     parts.append(_ed('<h1>{}</h1>'.format(html_escape(titel)), 'meta', 'rapport_titel'))
@@ -5518,7 +5561,8 @@ def _generate_docx_markdown(findings, grouped, counts, titel, auteur, subtitel,
                             rapport_contact='', rapport_revisies=None,
                             rapport_distributie=None, rapport_begrippen=None,
                             rapport_inleiding='', rapport_methodologie='', rapport_tools='',
-                            rapport_bijlagen=None, rapport_vrije_secties=None):
+                            rapport_bijlagen=None, rapport_vrije_secties=None,
+                            huisstijl_logo_path=''):
     """Genereer pandoc-Markdown dat de LaTeX template 1:1 spiegelt."""
     t = _T.get(taal, _T['nl'])
     sev_labels = _SEVERITY_LABELS_EN if taal == 'en' else _SEVERITY_LABELS
@@ -5549,6 +5593,12 @@ def _generate_docx_markdown(findings, grouped, counts, titel, auteur, subtitel,
     lines.append('date: "{}"'.format(datum))
     lines.append('---')
     lines.append('')
+
+    # Huisstijl-logo op de DOCX-cover (zelfde logo als de PDF-voorpagina).
+    # Absoluut pad, want pandoc draait niet met cwd=_RAPPORT_DIR.
+    if huisstijl_logo_path and os.path.exists(huisstijl_logo_path):
+        lines.append('![]({}){{width=60mm}}'.format(huisstijl_logo_path.replace('\\', '/')))
+        lines.append('')
 
     if rapport_versie:
         _vs_labels = {'concept': 'Concept', 'review': 'Ter review', 'herzien': 'Herzien', 'definitief': 'Definitief'}
@@ -7543,6 +7593,8 @@ def _sample_tex_context():
         # Metadata die gen_rapport via _extra_kwargs meegeeft (anders faalt de
         # StrictUndefined-validatie op templates die deze velden gebruiken).
         rapport_versie='1.0', rapport_versie_status='definitief',
+        # Huisstijl (voorblad) — via _stage_huisstijl meegegeven; defaults hier.
+        huisstijl_voorblad=False, huisstijl_logo='', huisstijl_kleuren=False,
         rapport_omgeving='Productie', test_start='01-01-2026', test_end='05-01-2026',
         rapport_contact='Contact', rapport_revisies=[], rapport_distributie=[],
         digid_knockout_tex='', key_findings_tex='',
@@ -7767,14 +7819,11 @@ def latex_preview():
 _PLAATJE_REF_RE = _re.compile(r'\\plaatje\s*\{([^{}]+)\}')
 
 
-@rapport_bp.route('/dashboard/report/images', methods=['GET'])
-def report_images():
-    """Alle \\plaatje{..}-afbeeldingen die in de HUIDIGE opdracht worden gebruikt
-    (bevindingen, notities en de vrije tekstvelden), met lak-status. Voedt de
-    lak-galerij in het rapportdashboard."""
+def _collect_plaatjes(oid):
+    """Alle \\plaatje{..}-afbeeldingen die in een opdracht worden gebruikt
+    (bevindingen + overrides, notities, vrije tekstvelden), met lak-/bestandsstatus.
+    De originelen staan in raw/screenshots/<naam>, gelakte kopieën in lakken/."""
     from meuk.flask import project as _project
-    _oid = _project.resolve_opdracht_id(request.args.get('opdracht_id', type=int))
-
     gebruikt = {}  # naam -> set(context-labels)
 
     def _scan(text, label):
@@ -7785,23 +7834,20 @@ def report_images():
             if naam:
                 gebruikt.setdefault(naam, set()).add(label)
 
-    # Bevindingen: uitwerking + per-bevinding overrides.
     for b in _project.apply_scope(
             db_bevindingen.query.filter(db_bevindingen.deleted_at.is_(None)),
-            db_bevindingen.opdracht_id, _oid).all():
+            db_bevindingen.opdracht_id, oid).all():
         lbl = (b.naam or 'bevinding')[:70]
         for fld in ('uitwerken', 'beschrijving_override', 'impact_override',
                     'aanbeveling_override', 'impact_kort_override',
                     'aanbeveling_kort_override'):
             _scan(getattr(b, fld, '') or '', lbl)
 
-    # Notities.
     for n in _project.apply_scope(
-            db_notes.query, db_notes.opdracht_id, _oid).all():
+            db_notes.query, db_notes.opdracht_id, oid).all():
         _scan(n.uitwerken or '', (n.naam or 'notitie')[:70])
 
-    # Vrije tekstvelden van de rapportconfig.
-    _opdr = db.session.get(db_opdracht, _oid) if _oid else None
+    _opdr = db.session.get(db_opdracht, oid) if oid else None
     _cfg = _opdr.config if _opdr is not None else None
     if _cfg is not None:
         for fld, lbl in (('rapport_management_samenvatting', 'Managementsamenvatting'),
@@ -7812,9 +7858,7 @@ def report_images():
                          ('rapport_legsup_informatie', 'Legs up')):
             _scan(getattr(_cfg, fld, '') or '', lbl)
 
-    # Als "gecontroleerd, geen lak nodig" gemarkeerde bestanden (per opdracht).
     gecontroleerd = set(_lak_gecontroleerd_set(_cfg))
-
     shots = os.path.abspath(_SCREENSHOT_SRC)
     lakdir = os.path.join(shots, 'lakken')
     annotdir = os.path.join(shots, 'annot')
@@ -7833,6 +7877,17 @@ def report_images():
             'redactable': bestaat and ext not in ('.svg',),
             'used_in': sorted(gebruikt[naam])[:6],
         })
+    return items
+
+
+@rapport_bp.route('/dashboard/report/images', methods=['GET'])
+def report_images():
+    """Alle \\plaatje{..}-afbeeldingen die in de HUIDIGE opdracht worden gebruikt
+    (bevindingen, notities en de vrije tekstvelden), met lak-status. Voedt de
+    lak-galerij in het rapportdashboard."""
+    from meuk.flask import project as _project
+    _oid = _project.resolve_opdracht_id(request.args.get('opdracht_id', type=int))
+    items = _collect_plaatjes(_oid)
     _gel = sum(1 for i in items if i['has_lakken'])
     _gec = sum(1 for i in items if i['gecontroleerd'] and not i['has_lakken'])
     return jsonify({
@@ -7846,6 +7901,167 @@ def report_images():
                               if not i['has_lakken'] and not i['gecontroleerd']),
         'ontbreekt': sum(1 for i in items if not i['exists']),
     })
+
+
+@rapport_bp.route('/api/report/screenshot/replace', methods=['POST'])
+def report_screenshot_replace():
+    """Herstel een ontbrekend \\plaatje{}-screenshot door een vervangende afbeelding
+    te uploaden (opgeslagen als raw/screenshots/<naam>). Alleen namen die in de
+    opdracht worden aangeroepen én nu ontbreken zijn toegestaan — geen willekeurige
+    writes of path-traversal."""
+    from meuk.flask import project as _project
+    naam = (request.form.get('name') or '').strip()
+    f = request.files.get('file')
+    if not naam or not f or not f.filename:
+        return jsonify({'ok': False, 'error': 'naam en bestand vereist'}), 400
+    if naam != os.path.basename(naam) or naam.startswith('.'):
+        return jsonify({'ok': False, 'error': 'ongeldige naam'}), 400
+    oid = _project.resolve_opdracht_id(request.form.get('opdracht_id', type=int))
+    # Elke in de opdracht aangeroepen \plaatje{}-naam mag (her)geüpload worden —
+    # zo kun je ook een verkeerd vervangen afbeelding weer corrigeren.
+    referenced = {i['name'] for i in _collect_plaatjes(oid)}
+    if naam not in referenced:
+        return jsonify({'ok': False, 'error': 'geen aangeroepen screenshot met deze naam'}), 400
+    raw = f.read()
+    if not raw:
+        return jsonify({'ok': False, 'error': 'leeg bestand'}), 400
+    if len(raw) > 25 * 1024 * 1024:
+        return jsonify({'ok': False, 'error': 'bestand te groot (max 25 MB)'}), 400
+    shots = os.path.abspath(_SCREENSHOT_SRC)
+    os.makedirs(shots, exist_ok=True)
+    dest = os.path.join(shots, naam)
+    target_ext = os.path.splitext(naam)[1].lower()
+    up_ext = os.path.splitext(f.filename)[1].lower()
+    img_exts = ('.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp')
+    ct = f.content_type or ''
+    if up_ext == target_ext:
+        # Extensie klopt → bytes letterlijk bewaren (geen her-codering).
+        if not (ct.startswith('image/') or target_ext in img_exts):
+            return jsonify({'ok': False, 'error': 'alleen afbeeldingen'}), 400
+        with open(dest, 'wb') as fh:
+            fh.write(raw)
+    elif target_ext in img_exts:
+        # Afwijkende extensie → her-coderen naar het doelformaat, zodat de
+        # bestandsextensie (die LaTeX gebruikt voor de driver) bij de inhoud past.
+        try:
+            import io as _io
+            from PIL import Image
+            im = Image.open(_io.BytesIO(raw))
+            if target_ext in ('.jpg', '.jpeg') and im.mode in ('RGBA', 'P', 'LA'):
+                im = im.convert('RGB')
+            im.save(dest)
+        except Exception:  # noqa: BLE001
+            return jsonify({'ok': False, 'error': 'kon niet converteren naar %s' % target_ext}), 400
+    else:
+        with open(dest, 'wb') as fh:
+            fh.write(raw)
+    import hashlib
+    with open(dest, 'rb') as fh:
+        sha = hashlib.sha256(fh.read()).hexdigest()
+    return jsonify({'ok': True, 'name': naam, 'sha256': sha})
+
+
+@rapport_bp.route('/api/report/screenshots/available', methods=['GET'])
+def report_screenshots_available():
+    """Bestaande afbeeldingsbestanden in raw/screenshots/ (voor koppelen van een
+    ontbrekende verwijzing aan een bestaand bestand)."""
+    shots = os.path.abspath(_SCREENSHOT_SRC)
+    exts = ('.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.svg', '.pdf')
+    names = []
+    if os.path.isdir(shots):
+        for fn in sorted(os.listdir(shots)):
+            p = os.path.join(shots, fn)
+            if os.path.isfile(p) and os.path.splitext(fn)[1].lower() in exts:
+                names.append(fn)
+    return jsonify({'ok': True, 'files': names})
+
+
+@rapport_bp.route('/api/report/screenshot/relink', methods=['POST'])
+def report_screenshot_relink():
+    """Koppel een ontbrekende \\plaatje{old} aan een bestaand bestand <new>: de
+    verwijzing wordt in de bevindingen/notities/vrije tekstvelden van de opdracht
+    herbenoemd naar <new>. Alleen een ontbrekende referentie (old) en een bestaand
+    doelbestand (new) zijn toegestaan."""
+    from meuk.flask import project as _project
+    data = request.get_json(silent=True) or {}
+    old = (data.get('old') or '').strip()
+    new = (data.get('new') or '').strip()
+    if not old or not new:
+        return jsonify({'ok': False, 'error': 'old en new vereist'}), 400
+    if old != os.path.basename(old) or new != os.path.basename(new) or new.startswith('.'):
+        return jsonify({'ok': False, 'error': 'ongeldige naam'}), 400
+    oid = _project.resolve_opdracht_id(data.get('opdracht_id'))
+    # Elke aangeroepen verwijzing mag opnieuw gekoppeld worden (ook om een
+    # verkeerde koppeling/vervanging te herstellen).
+    referenced = {i['name'] for i in _collect_plaatjes(oid)}
+    if old not in referenced:
+        return jsonify({'ok': False, 'error': 'geen aangeroepen verwijzing met deze naam'}), 400
+    shots = os.path.abspath(_SCREENSHOT_SRC)
+    if not os.path.isfile(os.path.join(shots, new)):
+        return jsonify({'ok': False, 'error': 'doelbestand bestaat niet'}), 400
+
+    pat = _re.compile(r'(\\plaatje\s*\{)' + _re.escape(old) + r'(\})')
+    _repl = lambda m: m.group(1) + new + m.group(2)  # noqa: E731
+    count = 0
+    for b in _project.apply_scope(
+            db_bevindingen.query.filter(db_bevindingen.deleted_at.is_(None)),
+            db_bevindingen.opdracht_id, oid).all():
+        for fld in ('uitwerken', 'beschrijving_override', 'impact_override',
+                    'aanbeveling_override', 'impact_kort_override', 'aanbeveling_kort_override'):
+            v = getattr(b, fld, None)
+            if v and old in v:
+                nv, n = pat.subn(_repl, v)
+                if n:
+                    setattr(b, fld, nv)
+                    count += n
+    for note in _project.apply_scope(db_notes.query, db_notes.opdracht_id, oid).all():
+        if note.uitwerken and old in note.uitwerken:
+            nv, n = pat.subn(_repl, note.uitwerken)
+            if n:
+                note.uitwerken = nv
+                count += n
+    _opdr = db.session.get(db_opdracht, oid) if oid else None
+    _cfg = _opdr.config if _opdr is not None else None
+    if _cfg is not None:
+        for fld in ('rapport_management_samenvatting', 'rapport_algeheel_beeld',
+                    'rapport_modus_operandi', 'rapport_legsup_startpunt',
+                    'rapport_legsup_privileges', 'rapport_legsup_informatie'):
+            v = getattr(_cfg, fld, None)
+            if v and old in v:
+                nv, n = pat.subn(_repl, v)
+                if n:
+                    setattr(_cfg, fld, nv)
+                    count += n
+    db.session.commit()
+    return jsonify({'ok': True, 'replaced': count, 'old': old, 'new': new})
+
+
+@rapport_bp.route('/api/report/screenshot/clear', methods=['POST'])
+def report_screenshot_clear():
+    """Zet een (verkeerd) vervangen screenshot terug naar 'ontbrekend' door het
+    bestand én eventuele gelakte/annot-kopie te verwijderen. Alleen namen die in
+    de opdracht worden aangeroepen; basename-only (geen traversal)."""
+    from meuk.flask import project as _project
+    data = request.get_json(silent=True) or {}
+    naam = (data.get('name') or '').strip()
+    if not naam or naam != os.path.basename(naam) or naam.startswith('.'):
+        return jsonify({'ok': False, 'error': 'ongeldige naam'}), 400
+    oid = _project.resolve_opdracht_id(data.get('opdracht_id'))
+    referenced = {i['name'] for i in _collect_plaatjes(oid)}
+    if naam not in referenced:
+        return jsonify({'ok': False, 'error': 'geen aangeroepen screenshot met deze naam'}), 400
+    shots = os.path.abspath(_SCREENSHOT_SRC)
+    removed = False
+    for sub in (None, 'lakken', 'annot'):
+        p = os.path.join(shots, naam) if sub is None else os.path.join(shots, sub, naam)
+        try:
+            if os.path.isfile(p):
+                os.remove(p)
+                if sub is None:
+                    removed = True
+        except OSError:
+            pass
+    return jsonify({'ok': True, 'removed': removed})
 
 
 def _lak_gecontroleerd_set(cfg):
@@ -8077,3 +8293,323 @@ def report_templates_select():
     return jsonify({'ok': True,
                     'template_id': cfg.rapport_template_id,
                     'variant': cfg.rapport_template_variant})
+
+
+# ===========================================================================
+# Rapport-huisstijl: uploadbare voorblad-/logobundels (BUITEN de broncode)
+# ---------------------------------------------------------------------------
+# Een huisstijlbundel is een .zip met een volledige voorpagina.tex (verplicht),
+# één logo (png/jpg/pdf, optioneel) en optioneel kleuren.sty. De bestanden leven
+# gitignored onder raw/huisstijl/<id>/; db_huisstijl houdt alleen metadata + de
+# keuze welke bundel app-breed standaard is. Per-opdracht afwijken via
+# db_opdracht_config.huisstijl_id. De voorpagina bouwt op het macro-contract van
+# rapport_latex.tex (\rapporttitel, \rapportproject, \rapportauteur,
+# \rapportdatum, \rapportclassificatie, kleur rijkblauw) + \huisstijllogo.
+# ===========================================================================
+
+_HUISSTIJL_MAX_ZIP = 20 * 1024 * 1024       # .zip zelf
+_HUISSTIJL_MAX_FILE = 10 * 1024 * 1024      # per bestand na uitpakken
+_HUISSTIJL_MAX_TEX = 1_000_000              # voorpagina.tex
+
+
+def _huisstijl_dir(hid):
+    return os.path.abspath(os.path.join(_HUISSTIJL_DIR, str(int(hid))))
+
+
+def _huisstijl_logo_abspath(row):
+    if not row or not row.logo_filename:
+        return None
+    p = os.path.join(_huisstijl_dir(row.id), row.logo_filename)
+    return p if os.path.exists(p) else None
+
+
+def _huisstijl_dict(row):
+    return {'id': row.id, 'naam': row.naam, 'taal': row.taal or '',
+            'has_voorpagina': bool(row.has_voorpagina),
+            'has_kleuren': bool(row.has_kleuren),
+            'has_logo': bool(_huisstijl_logo_abspath(row)),
+            'is_default': bool(row.is_default)}
+
+
+def _resolve_huisstijl(cfg):
+    """Bepaal de actieve huisstijlbundel: per-opdracht override
+    (cfg.huisstijl_id) > app-brede standaard (is_default) > geen (ingebouwd
+    rijksblauw voorblad)."""
+    hid = getattr(cfg, 'huisstijl_id', None) if cfg else None
+    if hid:
+        row = db.session.get(db_huisstijl, hid)
+        if row is not None:
+            return row
+    return db_huisstijl.query.filter_by(is_default=True).first()
+
+
+def _valideer_voorpagina(src):
+    """Lichtgewicht sanity-check voor een voorpagina.tex. Die wordt letterlijk
+    \\input'd (geen Jinja), dus hier alleen afweren wat overduidelijk kapot is;
+    de echte toets is de xelatex-build zelf."""
+    if '\x00' in (src or ''):
+        return {'ok': False, 'error': 'voorpagina.tex bevat ongeldige tekens'}
+    if not (src or '').strip():
+        return {'ok': False, 'error': 'voorpagina.tex is leeg'}
+    if '\\begin{titlepage}' not in src and '\\maketitle' not in src:
+        return {'ok': True, 'error': '',
+                'warning': 'Geen \\begin{titlepage} of \\maketitle gevonden; '
+                           'controleer of dit echt een voorpagina is.'}
+    return {'ok': True, 'error': '', 'warning': ''}
+
+
+def _stage_huisstijl(row, override_tex=''):
+    """Kopieer de bundelbestanden naar _RAPPORT_DIR zodat de xelatex-build ze
+    naast rapport.tex vindt. Ruimt eerst oude staging op (zodat een vorige
+    huisstijl niet blijft hangen) en geeft render-kwargs voor rapport_latex.tex
+    terug. Een per-opdracht `override_tex` vervangt de bundel-voorpagina."""
+    kwargs = {'huisstijl_voorblad': False, 'huisstijl_logo': '', 'huisstijl_kleuren': False}
+    for _f in ('huisstijl_voorblad.tex', 'huisstijl_kleuren.sty'):
+        try:
+            _p = os.path.join(_RAPPORT_DIR, _f)
+            if os.path.exists(_p):
+                os.remove(_p)
+        except OSError:
+            pass
+    try:
+        for _f in os.listdir(_RAPPORT_DIR):
+            if _f.startswith('huisstijl_logo.'):
+                os.remove(os.path.join(_RAPPORT_DIR, _f))
+    except OSError:
+        pass
+    if row is None:
+        return kwargs
+    src = _huisstijl_dir(row.id)
+    vp = os.path.join(src, 'voorpagina.tex')
+    _dest_vb = os.path.join(_RAPPORT_DIR, 'huisstijl_voorblad.tex')
+    if (override_tex or '').strip():
+        # Per-opdracht aangepast voorblad gaat voor op de bundel-voorpagina.
+        with open(_dest_vb, 'w', encoding='utf-8') as _fh:
+            _fh.write(override_tex)
+        kwargs['huisstijl_voorblad'] = True
+    elif row.has_voorpagina and os.path.exists(vp):
+        shutil.copyfile(vp, _dest_vb)
+        kwargs['huisstijl_voorblad'] = True
+    logo = _huisstijl_logo_abspath(row)
+    if logo:
+        ext = os.path.splitext(logo)[1].lower()
+        dest = 'huisstijl_logo' + ext
+        shutil.copyfile(logo, os.path.join(_RAPPORT_DIR, dest))
+        kwargs['huisstijl_logo'] = dest
+    kl = os.path.join(src, 'kleuren.sty')
+    if row.has_kleuren and os.path.exists(kl):
+        shutil.copyfile(kl, os.path.join(_RAPPORT_DIR, 'huisstijl_kleuren.sty'))
+        kwargs['huisstijl_kleuren'] = True
+    return kwargs
+
+
+@rapport_bp.route('/api/report/huisstijl', methods=['GET'])
+def huisstijl_list():
+    from meuk.flask import project as _project
+    cfg = _project.current_config()
+    rows = db_huisstijl.query.order_by(db_huisstijl.naam).all()
+    return jsonify({'ok': True,
+                    'huisstijlen': [_huisstijl_dict(r) for r in rows],
+                    'default_id': next((r.id for r in rows if r.is_default), None),
+                    'selected_id': getattr(cfg, 'huisstijl_id', None)})
+
+
+@rapport_bp.route('/api/report/huisstijl', methods=['POST'])
+def huisstijl_upload():
+    import io
+    import zipfile
+    from werkzeug.utils import secure_filename as _sf
+    up = request.files.get('zip') or request.files.get('file')
+    if not up or not up.filename:
+        return jsonify({'ok': False, 'error': 'geen bestand'}), 400
+    if not up.filename.lower().endswith('.zip'):
+        return jsonify({'ok': False, 'error': 'alleen .zip-bundels toegestaan'}), 400
+    naam = (request.form.get('naam')
+            or os.path.splitext(os.path.basename(up.filename))[0]).strip()
+    if not naam:
+        return jsonify({'ok': False, 'error': 'naam is verplicht'}), 400
+    if db_huisstijl.query.filter_by(naam=naam[:200]).first():
+        return jsonify({'ok': False, 'error': 'naam bestaat al'}), 409
+    raw = up.read()
+    if len(raw) > _HUISSTIJL_MAX_ZIP:
+        return jsonify({'ok': False, 'error': 'bundel te groot (max 20 MB)'}), 400
+    try:
+        zf = zipfile.ZipFile(io.BytesIO(raw))
+    except zipfile.BadZipFile:
+        return jsonify({'ok': False, 'error': 'ongeldig .zip-bestand'}), 400
+    # Zip-slip-veilig: we gebruiken uitsluitend de basename, nooit het pad.
+    voorpagina = kleuren = logo_bytes = logo_name = None
+    for info in zf.infolist():
+        if info.is_dir():
+            continue
+        base = os.path.basename(info.filename)
+        if not base or base.startswith('.'):
+            continue
+        if info.file_size > _HUISSTIJL_MAX_FILE:
+            return jsonify({'ok': False, 'error': 'bestand te groot: %s' % base}), 400
+        low = base.lower()
+        data = zf.read(info)
+        if low == 'voorpagina.tex':
+            voorpagina = data
+        elif low == 'kleuren.sty':
+            kleuren = data
+        elif os.path.splitext(low)[1] in _HUISSTIJL_LOGO_EXTS and logo_bytes is None:
+            logo_name, logo_bytes = _sf(base), data
+    if voorpagina is None:
+        return jsonify({'ok': False, 'error': 'voorpagina.tex ontbreekt in de bundel'}), 400
+    if len(voorpagina) > _HUISSTIJL_MAX_TEX:
+        return jsonify({'ok': False, 'error': 'voorpagina.tex te groot'}), 400
+    try:
+        vp_src = voorpagina.decode('utf-8')
+    except UnicodeDecodeError:
+        return jsonify({'ok': False, 'error': 'voorpagina.tex is geen geldige UTF-8'}), 400
+    chk = _valideer_voorpagina(vp_src)
+    if not chk['ok']:
+        return jsonify({'ok': False, 'error': chk['error']}), 400
+    row = db_huisstijl(naam=naam[:200], logo_filename=(logo_name or ''),
+                       has_voorpagina=True, has_kleuren=bool(kleuren),
+                       taal=(request.form.get('taal') or '')[:5])
+    db.session.add(row)
+    db.session.flush()  # id toekennen
+    dest = _huisstijl_dir(row.id)
+    os.makedirs(dest, exist_ok=True)
+    with open(os.path.join(dest, 'voorpagina.tex'), 'w', encoding='utf-8') as fh:
+        fh.write(vp_src)
+    if kleuren is not None:
+        with open(os.path.join(dest, 'kleuren.sty'), 'wb') as fh:
+            fh.write(kleuren)
+    if logo_bytes is not None and logo_name:
+        with open(os.path.join(dest, logo_name), 'wb') as fh:
+            fh.write(logo_bytes)
+    db.session.commit()
+    return jsonify({'ok': True, 'huisstijl': _huisstijl_dict(row),
+                    'warning': chk.get('warning', '')})
+
+
+@rapport_bp.route('/api/report/huisstijl/<int:hid>/default', methods=['POST'])
+def huisstijl_set_default(hid):
+    row = db.session.get(db_huisstijl, hid)
+    if not row:
+        return jsonify({'ok': False, 'error': 'niet gevonden'}), 404
+    make = (request.get_json(silent=True) or {}).get('default', True)
+    db_huisstijl.query.update({db_huisstijl.is_default: False})
+    if make:
+        row.is_default = True
+    db.session.commit()
+    return jsonify({'ok': True, 'default_id': row.id if make else None})
+
+
+@rapport_bp.route('/api/report/huisstijl/select', methods=['POST'])
+def huisstijl_select():
+    """Kies de huisstijl voor het actieve project: {huisstijl_id} of null
+    (terug naar de app-brede standaard)."""
+    from meuk.flask import project as _project
+    cfg = _project.current_config()
+    if cfg is None:
+        return jsonify({'ok': False, 'error': 'geen actief project'}), 400
+    hid = (request.get_json(silent=True) or {}).get('huisstijl_id')
+    if hid:
+        if not db.session.get(db_huisstijl, int(hid)):
+            return jsonify({'ok': False, 'error': 'onbekende huisstijl'}), 404
+        cfg.huisstijl_id = int(hid)
+    else:
+        cfg.huisstijl_id = None
+    db.session.commit()
+    return jsonify({'ok': True, 'selected_id': cfg.huisstijl_id})
+
+
+@rapport_bp.route('/api/report/huisstijl/<int:hid>', methods=['DELETE'])
+def huisstijl_delete(hid):
+    row = db.session.get(db_huisstijl, hid)
+    if not row:
+        return jsonify({'ok': False, 'error': 'niet gevonden'}), 404
+    db_opdracht_config.query.filter_by(huisstijl_id=hid).update(
+        {db_opdracht_config.huisstijl_id: None})
+    d = _huisstijl_dir(hid)
+    db.session.delete(row)
+    db.session.commit()
+    try:
+        if os.path.isdir(d):
+            shutil.rmtree(d)
+    except OSError:
+        pass
+    return jsonify({'ok': True})
+
+
+@rapport_bp.route('/api/report/huisstijl/<int:hid>/logo', methods=['GET'])
+def huisstijl_logo(hid):
+    row = db.session.get(db_huisstijl, hid)
+    if not row:
+        return ('', 404)
+    p = _huisstijl_logo_abspath(row)
+    if not p:
+        return ('', 404)
+    return send_file(p)
+
+
+def _huisstijl_effectief_voorblad(cfg, row):
+    """Het effectieve voorblad-LaTeX voor deze opdracht: de per-opdracht override
+    als die er is, anders de voorpagina.tex uit de bundel."""
+    ov = (getattr(cfg, 'huisstijl_voorblad_override', '') if cfg else '') or ''
+    if ov.strip():
+        return ov, True
+    if row is not None:
+        vp = os.path.join(_huisstijl_dir(row.id), 'voorpagina.tex')
+        if os.path.exists(vp):
+            try:
+                with open(vp, 'r', encoding='utf-8') as fh:
+                    return fh.read(), False
+            except OSError:
+                pass
+    return '', False
+
+
+@rapport_bp.route('/api/report/huisstijl/voorblad', methods=['GET'])
+def huisstijl_voorblad_get():
+    """Haal het (bewerkbare) voorblad-LaTeX voor het actieve project op."""
+    from meuk.flask import project as _project
+    cfg = _project.current_config()
+    row = _resolve_huisstijl(cfg)
+    tex, is_override = _huisstijl_effectief_voorblad(cfg, row)
+    return jsonify({'ok': True,
+                    'actief': row is not None,
+                    'naam': (row.naam if row else ''),
+                    'tex': tex,
+                    'is_override': is_override})
+
+
+@rapport_bp.route('/api/report/huisstijl/voorblad', methods=['POST'])
+def huisstijl_voorblad_save():
+    """Sla een per-opdracht aangepast voorblad op (leeg = terug naar de bundel)."""
+    from meuk.flask import project as _project
+    cfg = _project.current_config()
+    if cfg is None:
+        return jsonify({'ok': False, 'error': 'geen actief project'}), 400
+    tex = (request.get_json(silent=True) or {}).get('tex', '')
+    if not isinstance(tex, str):
+        return jsonify({'ok': False, 'error': 'ongeldige invoer'}), 400
+    if len(tex.encode('utf-8')) > _HUISSTIJL_MAX_TEX:
+        return jsonify({'ok': False, 'error': 'voorblad te groot'}), 400
+    warning = ''
+    if tex.strip():
+        chk = _valideer_voorpagina(tex)
+        if not chk['ok']:
+            return jsonify({'ok': False, 'error': chk['error']}), 400
+        warning = chk.get('warning', '')
+    cfg.huisstijl_voorblad_override = tex
+    db.session.commit()
+    return jsonify({'ok': True, 'is_override': bool(tex.strip()), 'warning': warning})
+
+
+@rapport_bp.route('/api/report/huisstijl/voorblad', methods=['DELETE'])
+def huisstijl_voorblad_reset():
+    """Verwijder de per-opdracht override → terug naar de voorpagina uit de bundel."""
+    from meuk.flask import project as _project
+    cfg = _project.current_config()
+    if cfg is None:
+        return jsonify({'ok': False, 'error': 'geen actief project'}), 400
+    cfg.huisstijl_voorblad_override = ''
+    db.session.commit()
+    row = _resolve_huisstijl(cfg)
+    tex, is_override = _huisstijl_effectief_voorblad(cfg, row)
+    return jsonify({'ok': True, 'tex': tex, 'is_override': is_override})

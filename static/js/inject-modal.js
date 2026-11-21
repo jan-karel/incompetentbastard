@@ -42,6 +42,63 @@
   var currentOpts = null;
   var rawContent = '';    // ongewijzigde content van disk
 
+  function clearCaptureOffer() {
+    var old = document.getElementById('inject-capture-btn');
+    if (old) old.remove();
+  }
+
+  // Bied na een screen-inject aan om de output (laatste opdracht) als notitie in
+  // de actieve opdracht vast te leggen; de gebruiker klikt zodra de output er is.
+  function offerCaptureAfterInject() {
+    if (!currentOpts || currentOpts.mode !== 'screen' || !currentOpts.screenName) return;
+    clearCaptureOffer();
+    var wrap = document.createElement('span');
+    wrap.id = 'inject-capture-btn';
+
+    var sel = document.createElement('select');
+    sel.className = 'btn btn-sm';
+    [['notitie', 'Notitie'], ['bevinding', 'Bevinding'], ['bijlage', 'Bijlage']].forEach(function (o) {
+      var opt = document.createElement('option');
+      opt.value = o[0]; opt.textContent = o[1];
+      sel.appendChild(opt);
+    });
+
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'btn btn-sm';
+    btn.textContent = '📝 Leg output vast';
+    btn.title = 'Zet de output van deze sessie (laatste opdracht) als notitie, bevinding of bijlage in de actieve opdracht';
+    btn.addEventListener('click', function () {
+      var prev = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = '…';
+      var xhr = new XMLHttpRequest();
+      xhr.open('POST', '/api/screen/' + encodeURIComponent(currentOpts.screenName) + '/save-note');
+      xhr.setRequestHeader('Content-Type', 'application/json');
+      xhr.onload = function () {
+        var d;
+        try { d = JSON.parse(xhr.responseText); } catch (e) { d = {}; }
+        if (xhr.status === 200 && d.ok) {
+          btn.textContent = '✓ ' + (d.doel || 'notitie') + (d.id ? ' #' + d.id : '');
+        } else {
+          btn.disabled = false;
+          btn.textContent = prev;
+          setStatus((d && d.error) || 'Vastleggen mislukt', 'fail');
+        }
+      };
+      xhr.onerror = function () {
+        btn.disabled = false;
+        btn.textContent = prev;
+        setStatus('Verbindingsfout', 'fail');
+      };
+      xhr.send(JSON.stringify({ doel: sel.value }));
+    });
+
+    wrap.appendChild(sel);
+    wrap.appendChild(btn);
+    if (statusEl && statusEl.parentNode) statusEl.parentNode.appendChild(wrap);
+  }
+
   function setStatus(text, cls) {
     statusEl.textContent = text;
     statusEl.className = 'status' + (cls ? ' ' + cls : '');
@@ -102,6 +159,7 @@
         if (typeof currentOpts.onSuccess === 'function') {
           currentOpts.onSuccess();
         }
+        offerCaptureAfterInject();
       } else {
         setStatus(data.error || 'Inject mislukt', 'fail');
         btn.disabled = false;
@@ -217,6 +275,7 @@
 
     renderContent();
     setStatus('', '');
+    clearCaptureOffer();
     confirmBtn.disabled = false;
     overlay.classList.remove('d-none');
 
@@ -233,6 +292,7 @@
     currentOpts = null;
     rawContent = '';
     setStatus('', '');
+    clearCaptureOffer();
   }
 
   // ── Inject alles handler ─────────────────────────────────

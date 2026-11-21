@@ -434,7 +434,7 @@ body.latex-editor-fullscreen-active{
   gap:0;
 }
 .latex-editor-wrapper.is-fullscreen.has-preview .latex-toolbar{ grid-area:toolbar; }
-.latex-editor-wrapper.is-fullscreen.has-preview textarea{
+.latex-editor-wrapper.is-fullscreen.has-preview .lx-ed-wrap{
   grid-area:editor;
   min-height:0;
   height:100%;
@@ -812,7 +812,7 @@ body.latex-editor-fullscreen-active{
 .tk-brace{ color:#b45309; }
 .tk-com{ color:#6b7785; font-style:italic; }
 .tk-math{ color:#7c3aed; }
-.latex-editor-wrapper.is-fullscreen .lx-ed-wrap{ border:none; flex:1; }
+.latex-editor-wrapper.is-fullscreen .lx-ed-wrap{ border:none; flex:1; min-height:0; }
 @media (prefers-color-scheme: dark){
   .tk-cmd{ color:#7cb3ff; }
   .tk-brace{ color:#e0a85a; }

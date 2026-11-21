@@ -251,3 +251,11 @@
 }
 
 #obf-technique-select { max-width: 180px; }
+
+/* Sub-tabs op het hoofddashboard */
+.dash-subtabs { display:flex; flex-wrap:wrap; gap:6px; margin:4px 0 14px; }
+.dash-subtab { padding:7px 16px; cursor:pointer; border:1px solid var(--border,#2a2f3a); border-radius:999px; font-weight:600; font-size:13px; color:var(--muted,#94a3b8); background:var(--card,#161a22); }
+.dash-subtab.active { background:var(--accent-blue,#3b82f6); border-color:var(--accent-blue,#3b82f6); color:#fff; }
+.dash-subtab:hover:not(.active) { color:var(--fg,#e2e8f0); border-color:var(--muted,#64748b); }
+.dash-subtab-badge { display:inline-block; min-width:18px; padding:0 5px; border-radius:9px; background:rgba(255,255,255,.18); font-size:11px; line-height:16px; text-align:center; }
+.dtab-off { display:none !important; }

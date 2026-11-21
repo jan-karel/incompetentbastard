@@ -59,6 +59,8 @@ def _opdracht_dict(o):
         'status': o.status or 'gepland',
         'aantal_bevindingen': len(actief_findings),
         'dagen_resterend': dagen_resterend,
+        'dd_product_id': getattr(o.config, 'dd_product_id', None) if o.config else None,
+        'dd_engagement_id': getattr(o.config, 'dd_engagement_id', None) if o.config else None,
         'archived': getattr(o, 'archived_at', None) is not None,
         'archived_at': o.archived_at.isoformat() if getattr(o, 'archived_at', None) else '',
     }

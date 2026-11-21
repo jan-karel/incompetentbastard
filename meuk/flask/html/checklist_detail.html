@@ -85,6 +85,13 @@
   <input id="cl-screen-new" class="cl-screen-new" placeholder="nieuwe sessie" title="Naam voor nieuwe screen sessie" />
   <button id="cl-screen-create" class="btn btn-sm cl-screen-btn" type="button" title="Start nieuwe screen sessie">Start</button>
   <button id="cl-screen-refresh" class="btn btn-sm cl-screen-btn" type="button" title="Sessies vernieuwen">&#x21bb;</button>
+  <span class="cl-vars-sep"></span>
+  <span class="cl-vars-label">Vastleggen als:</span>
+  <select id="cl-screen-doel" class="cl-screen-select" title="Bestemming voor 'Output' per item">
+    <option value="notitie">Notitie</option>
+    <option value="bevinding">Bevinding</option>
+    <option value="bijlage">Bijlage</option>
+  </select>
   <span id="cl-screen-status" class="cl-screen-status"></span>
 </div>
 
@@ -150,6 +157,7 @@
         {% endif %}
         <div class="cl-item-actions">
           <button class="btn cl-create-note" data-ref="{{ entry.tpl.id }}" {% if entry.note_id %}disabled{% endif %}>+Notitie</button>
+          <button class="btn cl-screen-note" data-ref="{{ entry.tpl.id }}" title="Leg de output van de laatste opdracht in de geselecteerde screen-sessie vast (kies bestemming bovenaan: notitie/bevinding/bijlage)">Output&#8594;Vastleggen</button>
           <button class="btn cl-create-finding" data-ref="{{ entry.tpl.id }}" {% if entry.finding_id %}disabled{% endif %}>+Bevinding</button>
         </div>
       </div>

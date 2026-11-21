@@ -1,49 +1,108 @@
-.rec-list { display: grid; gap: 8px; margin-top: 10px; }
+/* ── Toolbar ─────────────────────────────────────────────── */
+.rec-toolbar {
+  display: flex; flex-direction: column; gap: 10px;
+  padding: 12px 14px; border-bottom: 1px solid var(--border);
+}
+.rec-toolbar-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.rec-search-wrap { position: relative; flex: 1 1 220px; min-width: 180px; }
+.rec-search-ico {
+  position: absolute; left: 10px; top: 50%; transform: translateY(-50%);
+  color: var(--muted); font-size: 14px; pointer-events: none;
+}
+.rec-search {
+  width: 100%; padding: 7px 10px 7px 30px; font-size: 13px;
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--surface); color: inherit;
+}
+.rec-search:focus { outline: none; border-color: var(--primary); }
+.rec-target { display: flex; align-items: center; gap: 6px; }
+.rec-target label { font-size: 12px; color: var(--muted); }
+.rec-target .input { min-width: 170px; padding: 6px 10px; font-size: 12px; }
+
+/* ── Snelfilters (chips) ─────────────────────────────────── */
+.rec-filters { display: flex; flex-wrap: wrap; gap: 6px; }
+.rec-fchip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 12px; border-radius: 999px; font-size: 12px; font-weight: 600;
+  background: var(--surface); color: var(--muted);
+  border: 1px solid var(--border); cursor: pointer; transition: all .12s ease;
+}
+.rec-fchip:hover { border-color: var(--primary); color: inherit; }
+.rec-fchip.active {
+  background: var(--primary); color: #fff; border-color: var(--primary);
+}
+.rec-fcount {
+  font-size: 11px; font-weight: 700; padding: 0 6px; border-radius: 999px;
+  background: color-mix(in oklab, currentColor 18%, transparent);
+}
+
+/* ── Lijst + groep-koppen ────────────────────────────────── */
+.rec-list { display: flex; flex-direction: column; gap: 6px; margin-top: 4px; }
+.rec-group {
+  font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+  color: var(--muted); padding: 10px 2px 2px;
+}
+.rec-group:first-child { padding-top: 2px; }
+.rec-empty { color: var(--muted); padding: 16px 2px; }
+
+/* ── Rij ─────────────────────────────────────────────────── */
 .rec-item {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm);
-  background: var(--surface); font-size: 13px;
+  display: flex; align-items: center; gap: 12px; cursor: pointer;
+  padding: 9px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--surface); font-size: 13px; transition: border-color .12s ease, background .12s ease;
 }
 .rec-item:hover { border-color: var(--primary); }
-.rec-name { font-weight: 700; font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace; }
-.rec-meta { color: var(--muted); font-size: 12px; }
-.player-wrap { margin-top: 14px; }
 .rec-item.active { border-color: var(--primary); background: color-mix(in oklab, var(--primary) 8%, var(--surface)); }
 
-/* Fullscreen mode */
+.rec-ico {
+  flex: 0 0 auto; width: 30px; height: 30px; border-radius: 8px;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 15px; font-weight: 700;
+}
+.rec-ico.screen { color: var(--primary); background: color-mix(in oklab, var(--primary) 14%, var(--surface)); }
+.rec-ico.agent  { color: #7a5bd0; background: color-mix(in oklab, #7a5bd0 16%, var(--surface)); }
+
+.rec-info { display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: 1 1 auto; }
+.rec-name {
+  font-weight: 700; font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.rec-sub { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.rec-meta { color: var(--muted); font-size: 12px; white-space: nowrap; }
+.rec-chip {
+  display: inline-flex; align-items: center;
+  padding: 1px 8px; border-radius: 999px; font-size: 11px; font-weight: 600;
+  color: var(--primary);
+  background: color-mix(in oklab, var(--primary) 14%, var(--surface));
+  border: 1px solid color-mix(in oklab, var(--primary) 35%, transparent);
+}
+
+/* ── Acties ──────────────────────────────────────────────── */
+.rec-actions { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; }
+.rec-item .rec-actions .rec-play { opacity: .55; transition: opacity .12s ease; }
+.rec-item:hover .rec-actions .rec-play, .rec-item.active .rec-play { opacity: 1; }
+
+/* ── Speler ──────────────────────────────────────────────── */
+.player-wrap { margin-top: 14px; }
+
 #player-card.fullscreen {
-  position: fixed;
-  inset: 0;
-  z-index: 9999;
-  margin: 0;
-  border-radius: 0;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
+  position: fixed; inset: 0; z-index: 9999; margin: 0; border-radius: 0;
+  display: flex; flex-direction: column; overflow: hidden;
 }
 #player-card.fullscreen .card-body {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  padding: 8px;
+  flex: 1; display: flex; flex-direction: column; overflow: hidden; padding: 8px;
 }
 #player-card.fullscreen .player-wrap {
-  flex: 1;
-  margin-top: 0;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
+  flex: 1; margin-top: 0; display: flex; flex-direction: column; overflow: hidden;
 }
-#player-card.fullscreen .player-wrap > div {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-}
-#player-card.fullscreen .ap-wrapper {
-  flex: 1;
-}
-.btn-fullscreen {
-  margin-left: auto;
-  font-size: 12px;
+#player-card.fullscreen .player-wrap > div { flex: 1; display: flex; flex-direction: column; }
+#player-card.fullscreen .ap-wrapper { flex: 1; }
+.btn-fullscreen { margin-left: auto; font-size: 12px; }
+
+/* ── Smal scherm ─────────────────────────────────────────── */
+@media (max-width: 640px) {
+  .rec-item { flex-wrap: wrap; }
+  .rec-actions { width: 100%; justify-content: flex-end; }
+  .rec-target { flex: 1 1 100%; }
+  .rec-target .input { flex: 1; }
 }

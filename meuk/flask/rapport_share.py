@@ -65,6 +65,9 @@ _MAX_MEMBERS = 5000
 _SCREENSHOT_DIR = Path('raw/screenshots')
 _LAKKEN_DIR = _SCREENSHOT_DIR / 'lakken'
 _EVIDENCE_DIR = Path(os.path.join(os.path.dirname(__file__), 'db', 'evidence'))
+# Asciinema screen-opnames (.rec); gekoppeld per opdracht via
+# db_opdracht_config.screen_recordings (JSON-lijst van bestandsnamen).
+_LOGS_DIR = Path('meuk/logs')
 # Koud-archief: hierheen worden de bestanden van een gearchiveerde opdracht
 # verplaatst (en bij terugzetten weer terug).
 _ARCHIVE_DIR = Path('raw/archief')
@@ -78,6 +81,7 @@ _EVIDENCE_SUFFIXES = {
     '.png', '.jpg', '.jpeg', '.gif', '.webp', '.pdf', '.txt', '.html',
     '.csv', '.json', '.xml', '.zip', '.log', '.bin',
 }
+_REC_SUFFIXES = {'.rec'}
 
 # Geheimen die nooit in een deelbare bundel horen.
 _SECRET_CONFIG_FIELDS = {
@@ -197,6 +201,32 @@ def _lak_src(name, oid):
         return p
     a = _archive_base(oid) / 'lakken' / name
     return a if a.is_file() else None
+
+
+def _recording_src(name, oid):
+    p = _LOGS_DIR / name
+    if p.is_file():
+        return p
+    a = _archive_base(oid) / 'recordings' / name
+    return a if a.is_file() else None
+
+
+def _opdracht_recording_names(opdracht_id):
+    """Bestandsnamen van de aan deze opdracht gekoppelde asciinema-opnames."""
+    cfg = _project.config_for(opdracht_id)
+    if cfg is None:
+        return []
+    try:
+        recs = json.loads(getattr(cfg, 'screen_recordings', '[]') or '[]')
+    except (ValueError, TypeError):
+        return []
+    if not isinstance(recs, list):
+        return []
+    out = []
+    for r in recs:
+        if isinstance(r, str) and r and os.path.basename(r) == r:
+            out.append(r)
+    return out
 
 
 def _opdracht_plaatje_names(opdracht_id):
@@ -344,6 +374,7 @@ def _build_bundle(opdracht):
         'findings': [],
         'notes': [],
         'screenshots': [],
+        'recordings': [],
     }
 
     # Config (zonder geheimen).
@@ -440,7 +471,92 @@ def _build_bundle(opdracht):
                 pass
         manifest['screenshots'].append(entry)
 
+    # Asciinema screen-opnames die aan deze opdracht gekoppeld zijn.
+    for name in _opdracht_recording_names(opdracht.id):
+        safe = os.path.basename(name)
+        if safe != name or not safe:
+            continue
+        src = _recording_src(safe, opdracht.id)
+        if src is None:
+            continue
+        try:
+            with open(src, 'rb') as fh:
+                blob = fh.read()
+        except OSError:
+            continue
+        files.append(('recordings/' + safe, blob))
+        manifest['recordings'].append({
+            'name': safe, 'sha256': _sha_bytes(blob), 'size': len(blob),
+        })
+
     return manifest, files
+
+
+# ── Audit-/integriteitszegel (laag 1: zelf-verifieerbaar, nul infrastructuur) ─
+# Doel: de bundel moet door een auditor met standaardgereedschap te verifiëren
+# zijn, ZONDER Incompetent Bastard. Daarom twee leesbare zijbestanden:
+#   * MANIFEST.sha256  — standaard `sha256sum`-formaat over alle bundelbestanden
+#     (behalve zichzelf); auditor draait `sha256sum -c MANIFEST.sha256`.
+#   * AUDIT.json       — herkomst (export-tijd UTC, tool, opdracht, operator) +
+#     één `bundle_digest` (sha256 over de gesorteerde per-bestand-hashes van de
+#     payload) als beknopte vingerafdruk van het bewijsmateriaal.
+# Niet-circulair: bundle_digest dekt alléén de payload (niet AUDIT.json/
+# MANIFEST.sha256); MANIFEST.sha256 dekt daarná óók AUDIT.json.
+
+AUDIT_ALGORITHM = 'sha256'
+
+
+def _sha_lines(hash_by_arc):
+    """Canonieke, gesorteerde `sha256sum`-regels: '<hex>  <pad>\\n'."""
+    return ''.join('{}  {}\n'.format(hash_by_arc[a], a) for a in sorted(hash_by_arc))
+
+
+def _operator_identity(cfg):
+    """Best-effort, niet-gevoelige operator-aanduiding voor de herkomst.
+    Rapport-auteur (bewust ingevuld) > IB_ADMIN_USER; nooit automatisch e-mail
+    of andere persoonsgegevens toevoegen."""
+    if cfg is not None:
+        auteur = (getattr(cfg, 'rapport_auteur', '') or '').strip()
+        if auteur:
+            return auteur
+    return os.environ.get('IB_ADMIN_USER') or None
+
+
+def _build_audit_seal(payload, opdracht, cfg):
+    """payload = [(arcname, bytes)] van álle inhoudsbestanden (incl.
+    manifest.json en README.txt), maar zónder AUDIT.json/MANIFEST.sha256.
+    Retourneert (audit_bytes, manifest_sha_bytes, bundle_digest)."""
+    payload_hashes = {arc: _sha_bytes(blob) for arc, blob in payload}
+    total_bytes = sum(len(blob) for _, blob in payload)
+    bundle_digest = hashlib.sha256(_sha_lines(payload_hashes).encode('utf-8')).hexdigest()
+
+    audit = {
+        'format': BUNDLE_FORMAT,
+        'version': BUNDLE_VERSION,
+        'tool': 'incompetentbastard',
+        'exported_at': _dt.datetime.now(_dt.timezone.utc).isoformat(),
+        'opdracht': {
+            'id': opdracht.id,
+            'naam': opdracht.naam,
+            'klant': opdracht.klant,
+        },
+        'operator': _operator_identity(cfg),
+        'algorithm': AUDIT_ALGORITHM,
+        'file_count': len(payload),
+        'total_bytes': total_bytes,
+        'bundle_digest': bundle_digest,
+        'notice': ('Verifieer met: sha256sum -c MANIFEST.sha256 . '
+                   'bundle_digest is de sha256 over de gesorteerde per-bestand-'
+                   'hashes van de payload (zie README.txt).'),
+    }
+    audit_bytes = json.dumps(audit, ensure_ascii=False, indent=2,
+                             sort_keys=True).encode('utf-8')
+
+    # MANIFEST.sha256 dekt de payload én AUDIT.json (niet zichzelf).
+    all_hashes = dict(payload_hashes)
+    all_hashes['AUDIT.json'] = _sha_bytes(audit_bytes)
+    manifest_sha_bytes = _sha_lines(all_hashes).encode('utf-8')
+    return audit_bytes, manifest_sha_bytes, bundle_digest
 
 
 @share_bp.route('/dashboard/report/export', methods=['GET'])
@@ -457,18 +573,35 @@ def export_opdracht():
         'Incompetent Bastard — rapportbundel\n'
         '===================================\n\n'
         'Dit bestand bevat één engagement/opdracht (teksten, bevindingen,\n'
-        'evidence, screenshots en notities) om op een andere installatie verder\n'
-        'aan het rapport te werken. Importeer via het tabblad Delen.\n\n'
+        'evidence, screenshots, notities en asciinema screen-opnames) om op een\n'
+        'andere installatie verder aan het rapport te werken. Importeer via het\n'
+        'tabblad Delen.\n\n'
         'LET OP: dit materiaal kan vertrouwelijke bevindingen bevatten. Deel het\n'
-        'alleen via vertrouwde kanalen met gemachtigde ontvangers.\n'
+        'alleen via vertrouwde kanalen met gemachtigde ontvangers.\n\n'
+        'Integriteit controleren (auditor, zonder Incompetent Bastard)\n'
+        '-------------------------------------------------------------\n'
+        'Pak de bundel uit en draai in de uitpakmap:\n\n'
+        '    sha256sum -c MANIFEST.sha256\n\n'
+        '(op macOS: `shasum -a 256 -c MANIFEST.sha256`). Elk bestand moet "OK"\n'
+        'geven; één gewijzigde byte valt op. AUDIT.json bevat de herkomst\n'
+        '(export-tijd UTC, tool, opdracht, operator) en bundle_digest: de\n'
+        'sha256 over de gesorteerde per-bestand-hashes van de payload, als\n'
+        'beknopte vingerafdruk van het bewijsmateriaal.\n'
     )
+
+    # Payload = álles behalve de zegelbestanden; de zegel dekt dit.
+    manifest_bytes = json.dumps(manifest, ensure_ascii=False, indent=2).encode('utf-8')
+    readme_bytes = readme.encode('utf-8')
+    payload = [('manifest.json', manifest_bytes), ('README.txt', readme_bytes)] + list(files)
+    cfg = _project.config_for(opdracht.id)
+    audit_bytes, manifest_sha_bytes, _digest = _build_audit_seal(payload, opdracht, cfg)
 
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as zf:
-        zf.writestr('manifest.json', json.dumps(manifest, ensure_ascii=False, indent=2))
-        zf.writestr('README.txt', readme)
-        for arc, blob in files:
+        for arc, blob in payload:
             zf.writestr(arc, blob)
+        zf.writestr('AUDIT.json', audit_bytes)
+        zf.writestr('MANIFEST.sha256', manifest_sha_bytes)
     buf.seek(0)
 
     klant = re.sub(r'[^A-Za-z0-9_-]+', '-', (opdracht.klant or opdracht.naam or 'rapport')).strip('-') or 'rapport'
@@ -521,6 +654,54 @@ def _read_member(zf, arcname, budget):
     return data, budget - len(data)
 
 
+_SHA_LINE_RE = re.compile(r'^([0-9a-fA-F]{64})[ *]+(.+?)\s*$')
+
+
+def _verify_manifest_sha(zf):
+    """Controleer de bundel tegen MANIFEST.sha256 (indien aanwezig).
+
+    Retourneert 'absent' (legacy-bundel zonder zegel → toegestaan), 'ok', of
+    ('mismatch', reden). Elk lid behalve MANIFEST.sha256 moet vermeld staan én
+    overeenkomen (zo valt zowel wijziging als een toegevoegd bestand op)."""
+    try:
+        raw = zf.read('MANIFEST.sha256')
+    except KeyError:
+        return 'absent'
+    try:
+        text = raw.decode('utf-8')
+    except UnicodeDecodeError:
+        return ('mismatch', 'MANIFEST.sha256 onleesbaar')
+
+    expected = {}
+    for line in text.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        m = _SHA_LINE_RE.match(line)
+        if not m:
+            return ('mismatch', 'MANIFEST.sha256 heeft een ongeldige regel')
+        expected[m.group(2)] = m.group(1).lower()
+
+    members = {i.filename for i in zf.infolist()
+               if not i.filename.endswith('/') and i.filename != 'MANIFEST.sha256'}
+    budget = _MAX_UNCOMPRESSED
+    for name in members:
+        if name not in expected:
+            return ('mismatch', 'onverwacht bestand in bundel: ' + name)
+    for name, want in expected.items():
+        try:
+            info = zf.getinfo(name)
+        except KeyError:
+            return ('mismatch', 'ontbrekend bestand: ' + name)
+        if info.file_size > _MAX_MEMBER_SIZE or info.file_size > budget:
+            return ('mismatch', 'bestand te groot: ' + name)
+        data = zf.read(name)
+        budget -= len(data)
+        if _sha_bytes(data).lower() != want:
+            return ('mismatch', 'hash komt niet overeen: ' + name)
+    return 'ok'
+
+
 @share_bp.route('/dashboard/report/import', methods=['POST'])
 def import_opdracht():
     require_dashboard_access()
@@ -555,6 +736,14 @@ def import_opdracht():
         if int(manifest.get('version', 0)) > BUNDLE_VERSION:
             return jsonify({'error': 'bundel is van een nieuwere versie'}), 400
 
+        # Integriteitszegel: een aanwezige MANIFEST.sha256 móét kloppen; een
+        # gewijzigde of aangevulde bundel wordt geweigerd. Oude bundels zonder
+        # zegel blijven toegestaan (absent).
+        integriteit = _verify_manifest_sha(zf)
+        if isinstance(integriteit, tuple):
+            return jsonify({'error': 'integriteitscontrole mislukt: ' + integriteit[1]}), 400
+        integriteit_status = integriteit  # 'ok' | 'absent'
+
         if mode == 'merge':
             target_id = request.form.get('target_opdracht_id', type=int)
             opdracht = db.session.get(db_opdracht, target_id) if target_id else None
@@ -574,7 +763,8 @@ def import_opdracht():
             db.session.add(opdracht)
             db.session.flush()  # id beschikbaar
 
-        counts = {'findings': 0, 'notes': 0, 'evidence': 0, 'screenshots': 0, 'templates': 0}
+        counts = {'findings': 0, 'notes': 0, 'evidence': 0, 'screenshots': 0,
+                  'templates': 0, 'recordings': 0}
         budget = _MAX_UNCOMPRESSED
 
         try:
@@ -712,6 +902,49 @@ def import_opdracht():
                 ))
                 counts['notes'] += 1
 
+            # 6) Asciinema screen-opnames → meuk/logs/ + koppeling op config.
+            #    Alléén wanneer dit model de koppel-kolom kent (ib; op teamserver
+            #    ontbreekt screen_recordings → recordings worden overgeslagen).
+            rec_names = []
+            _has_rec_col = 'screen_recordings' in db_opdracht_config.__table__.columns
+            for r in (manifest.get('recordings', []) if _has_rec_col else []):
+                orig = str(r.get('name') or '')
+                safe = _safe_media_name(orig, _REC_SUFFIXES)
+                if not safe:
+                    continue
+                data, budget = _read_member(zf, 'recordings/' + orig, budget)
+                if data is None:
+                    continue
+                _LOGS_DIR.mkdir(parents=True, exist_ok=True)
+                dest = _LOGS_DIR / safe
+                final = safe
+                if dest.is_file():
+                    if _sha_file(dest) != _sha_bytes(data):
+                        # Naam-botsing met andere inhoud → hernoem (uuid-suffix).
+                        stem, ext = os.path.splitext(safe)
+                        final = '{}_{}{}'.format(stem[:40].strip('._-') or 'rec',
+                                                 uuid.uuid4().hex[:8], ext)
+                        with open(_LOGS_DIR / final, 'wb') as out:
+                            out.write(data)
+                        counts['recordings'] += 1
+                    # identiek: hergebruik bestaand bestand
+                else:
+                    with open(dest, 'wb') as out:
+                        out.write(data)
+                    counts['recordings'] += 1
+                rec_names.append(final)
+            if cfg is not None and rec_names:
+                try:
+                    cur = json.loads(cfg.screen_recordings or '[]') if mode == 'merge' else []
+                    if not isinstance(cur, list):
+                        cur = []
+                except (ValueError, TypeError):
+                    cur = []
+                for nm in rec_names:
+                    if nm not in cur:
+                        cur.append(nm)
+                cfg.screen_recordings = json.dumps(cur)
+
             db.session.commit()
         except ValueError as exc:
             db.session.rollback()
@@ -726,4 +959,5 @@ def import_opdracht():
         'opdracht_id': opdracht.id,
         'naam': opdracht.naam,
         'counts': counts,
+        'integriteit': integriteit_status,
     })

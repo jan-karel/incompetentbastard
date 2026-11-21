@@ -16,12 +16,16 @@ dd_engagement_id, dd_verify_ssl, dd_auto_push).
 
 import datetime
 import os
+import re
+import threading
+import uuid as _uuid
 
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, current_app
 
 from meuk.flask.models import (
     db, db_bevindingen, db_bevindingen_templates, db_evidence,
-    db_defectdojo_sync, db_asset, db_asset_anchor, nu_utc,
+    db_defectdojo_sync, db_defectdojo_connection, db_opdracht_config,
+    db_asset, db_asset_anchor, db_opdracht, nu_utc,
 )
 from meuk.flask.findings import _cvss_to_severity, _get_appdata
 from meuk.flask.security import require_dashboard_access
@@ -57,48 +61,205 @@ def _check_dashboard_access():
 # HTTP helpers
 # ---------------------------------------------------------------------------
 
-def _dd_config():
-    """Haal DefectDojo-config op uit het actieve project; None indien niet geconfigureerd."""
-    from meuk.flask import project as _project
-    s = _project.current_config() or _get_appdata()
-    if not s:
+def _to_int_or_none(v):
+    try:
+        return int(v) if v not in (None, '') else None
+    except (ValueError, TypeError):
         return None
-    url = (getattr(s, 'dd_url', '') or '').rstrip('/')
-    key = getattr(s, 'dd_api_key', '') or ''
-    if not url or not key:
+
+
+def _ensure_default_connection():
+    """Seed eenmalig een standaardprofiel uit de legacy globale verbinding."""
+    if db_defectdojo_connection.query.first() is not None:
+        return
+    g = _get_appdata()
+    url = (getattr(g, 'dd_url', '') or '').strip()
+    key = (getattr(g, 'dd_api_key', '') or '').strip()
+    if url and key:
+        c = db_defectdojo_connection(
+            naam='Standaard', dd_url=url.rstrip('/'), dd_api_key=key,
+            dd_verify_ssl=bool(getattr(g, 'dd_verify_ssl', True)), is_default=True)
+        db.session.add(c)
+        db.session.commit()
+
+
+def _set_default_connection(cid):
+    db_defectdojo_connection.query.update({'is_default': False})
+    c = db.session.get(db_defectdojo_connection, cid)
+    if c is not None:
+        c.is_default = True
+
+
+def _resolve_connection(p, connection_id=None):
+    """Kies de DefectDojo-verbinding: expliciet profiel > opdracht-profiel >
+    standaardprofiel > legacy globaal. Retourneert {url,key,verify} of None."""
+    _ensure_default_connection()
+    c = None
+    if connection_id not in (None, '') and str(connection_id).isdigit():
+        c = db.session.get(db_defectdojo_connection, int(connection_id))
+    if c is None and p is not None and getattr(p, 'dd_connection_id', None):
+        c = db.session.get(db_defectdojo_connection, p.dd_connection_id)
+    if c is None:
+        c = (db_defectdojo_connection.query.filter_by(is_default=True).first()
+             or db_defectdojo_connection.query.order_by(
+                 db_defectdojo_connection.id.asc()).first())
+    if c is not None and (c.dd_url or '').strip() and (c.dd_api_key or '').strip():
+        return {'url': (c.dd_url or '').rstrip('/'), 'key': c.dd_api_key or '',
+                'verify': bool(c.dd_verify_ssl),
+                'user_id': getattr(c, 'dd_user_id', None)}
+    # Legacy fallback (nog geen profielen): globale/per-opdracht velden.
+    g = _get_appdata()
+    url = (getattr(g, 'dd_url', '') or (getattr(p, 'dd_url', '') if p else '') or '').rstrip('/')
+    key = getattr(g, 'dd_api_key', '') or (getattr(p, 'dd_api_key', '') if p else '') or ''
+    if url and key:
+        return {'url': url, 'key': key,
+                'verify': bool(getattr(g, 'dd_verify_ssl', True)), 'user_id': None}
+    return None
+
+
+def _dd_config(connection_id=None):
+    """Haal DefectDojo-config op; None indien niet geconfigureerd. De verbinding
+    komt uit een verbindingsprofiel (expliciet > per-opdracht > standaard >
+    legacy globaal); product/engagement zijn per opdracht."""
+    from meuk.flask import project as _project
+    p = _project.current_config()
+    conn = _resolve_connection(p, connection_id)
+    if not conn:
         return None
     return {
-        'url': url,
-        'key': key,
-        'product_id': getattr(s, 'dd_product_id', None),
-        'engagement_id': getattr(s, 'dd_engagement_id', None),
-        'verify_ssl': bool(getattr(s, 'dd_verify_ssl', True)),
+        'url': conn['url'], 'key': conn['key'], 'verify_ssl': conn['verify'],
+        'user_id': conn.get('user_id'),
+        'product_id': getattr(p, 'dd_product_id', None) if p is not None else None,
+        'engagement_id': getattr(p, 'dd_engagement_id', None) if p is not None else None,
     }
 
 
-def _dd_request(cfg, method, path, *, json_body=None, params=None, files=None, data=None):
-    """Voer een DefectDojo API-call uit. Retourneert (ok, status_code, payload|error)."""
+# ---------------------------------------------------------------------------
+# Verbindingsprofielen (meerdere DefectDojo-instances)
+# ---------------------------------------------------------------------------
+
+@defectdojo_bp.route('/api/defectdojo/connections', methods=['GET'])
+def dd_connections_list():
+    """Lijst van verbindingsprofielen (API-sleutel gemaskeerd)."""
+    _ensure_default_connection()
+    rows = db_defectdojo_connection.query.order_by(db_defectdojo_connection.id.asc()).all()
+    return jsonify({'ok': True, 'connections': [{
+        'id': c.id, 'naam': c.naam or '', 'url': c.dd_url or '',
+        'api_key_set': bool(c.dd_api_key or ''),
+        'verify_ssl': bool(c.dd_verify_ssl), 'user_id': c.dd_user_id,
+        'is_default': bool(c.is_default),
+    } for c in rows]})
+
+
+@defectdojo_bp.route('/api/defectdojo/connections', methods=['POST'])
+def dd_connections_create():
+    data = request.get_json(silent=True) or {}
+    c = db_defectdojo_connection(
+        naam=((data.get('naam') or '').strip()[:120] or 'DefectDojo'),
+        dd_url=(data.get('dd_url') or '').strip().rstrip('/')[:300],
+        dd_api_key=(data.get('dd_api_key') or '').strip()[:300],
+        dd_verify_ssl=bool(data.get('dd_verify_ssl', True)),
+        dd_user_id=_to_int_or_none(data.get('dd_user_id')))
+    db.session.add(c)
+    db.session.flush()
+    if data.get('is_default') or db_defectdojo_connection.query.count() == 1:
+        _set_default_connection(c.id)
+    db.session.commit()
+    return jsonify({'ok': True, 'id': c.id})
+
+
+@defectdojo_bp.route('/api/defectdojo/connections/<int:cid>', methods=['POST'])
+def dd_connections_update(cid):
+    c = db.session.get(db_defectdojo_connection, cid)
+    if c is None:
+        return jsonify({'ok': False, 'error': 'Profiel niet gevonden'}), 404
+    data = request.get_json(silent=True) or {}
+    if 'naam' in data:
+        c.naam = (data['naam'] or '').strip()[:120]
+    if 'dd_url' in data:
+        c.dd_url = (data['dd_url'] or '').strip().rstrip('/')[:300]
+    if 'dd_api_key' in data and (data['dd_api_key'] or '').strip():
+        c.dd_api_key = data['dd_api_key'].strip()[:300]  # leeg = ongewijzigd
+    if 'dd_verify_ssl' in data:
+        c.dd_verify_ssl = bool(data['dd_verify_ssl'])
+    if 'dd_user_id' in data:
+        c.dd_user_id = _to_int_or_none(data.get('dd_user_id'))
+    if data.get('is_default'):
+        _set_default_connection(cid)
+    db.session.commit()
+    return jsonify({'ok': True})
+
+
+@defectdojo_bp.route('/api/defectdojo/connections/<int:cid>', methods=['DELETE'])
+def dd_connections_delete(cid):
+    c = db.session.get(db_defectdojo_connection, cid)
+    if c is None:
+        return jsonify({'ok': False, 'error': 'Profiel niet gevonden'}), 404
+    was_default = bool(c.is_default)
+    db_opdracht_config.query.filter_by(dd_connection_id=cid).update(
+        {'dd_connection_id': None})
+    db.session.delete(c)
+    db.session.flush()
+    if was_default:
+        nxt = db_defectdojo_connection.query.order_by(
+            db_defectdojo_connection.id.asc()).first()
+        if nxt is not None:
+            _set_default_connection(nxt.id)
+    db.session.commit()
+    return jsonify({'ok': True})
+
+
+@defectdojo_bp.route('/api/defectdojo/connections/<int:cid>/test', methods=['POST'])
+def dd_connections_test(cid):
+    cfg = _dd_config(connection_id=cid)
+    if not cfg:
+        return jsonify({'ok': False, 'error': 'Profiel onvolledig'}), 400
+    ok, code, body = _dd_request(cfg, 'GET', '/api/v2/products/', params={'limit': 1})
+    if not ok:
+        return jsonify({'ok': False, 'status': code, 'error': body}), 502
+    return jsonify({'ok': True, 'status': code})
+
+
+def _dd_request(cfg, method, path, *, json_body=None, params=None, files=None,
+                data=None, retries=2):
+    """Voer een DefectDojo API-call uit. Retourneert (ok, status_code, payload|error).
+
+    Transiënte fouten (netwerk, 429/5xx) worden met backoff opnieuw geprobeerd,
+    behalve bij multipart-uploads (file-handles zijn na een poging verbruikt).
+    """
     import requests
+    import time as _time
     url = cfg['url'] + path
     headers = {'Authorization': 'Token ' + cfg['key']}
     if json_body is not None:
         headers['Content-Type'] = 'application/json'
-    try:
-        resp = requests.request(
-            method, url, headers=headers, json=json_body, params=params,
-            files=files, data=data, verify=cfg['verify_ssl'], timeout=30,
-        )
-    except requests.exceptions.RequestException as exc:
-        return False, 0, str(exc)
-    if resp.status_code >= 400:
+    attempt = 0
+    while True:
         try:
-            return False, resp.status_code, resp.json()
+            resp = requests.request(
+                method, url, headers=headers, json=json_body, params=params,
+                files=files, data=data, verify=cfg['verify_ssl'], timeout=30,
+            )
+        except requests.exceptions.RequestException as exc:
+            if files is None and attempt < retries:
+                _time.sleep(0.5 * (2 ** attempt))
+                attempt += 1
+                continue
+            return False, 0, str(exc)
+        if (resp.status_code in (429, 500, 502, 503, 504)
+                and files is None and attempt < retries):
+            _time.sleep(0.5 * (2 ** attempt))
+            attempt += 1
+            continue
+        if resp.status_code >= 400:
+            try:
+                return False, resp.status_code, resp.json()
+            except ValueError:
+                return False, resp.status_code, resp.text[:500]
+        try:
+            return True, resp.status_code, resp.json()
         except ValueError:
-            return False, resp.status_code, resp.text[:500]
-    try:
-        return True, resp.status_code, resp.json()
-    except ValueError:
-        return True, resp.status_code, {}
+            return True, resp.status_code, {}
 
 
 # ---------------------------------------------------------------------------
@@ -109,12 +270,14 @@ def _status_flags(bev):
     """Bepaal DefectDojo status-vlaggen uit de IB remediation/finding status."""
     rem = (getattr(bev, 'remediation_status', '') or 'open').lower()
     flags = {
-        'active': True, 'verified': True, 'false_p': False,
+        'active': True, 'verified': False, 'false_p': False,
         'is_mitigated': False, 'risk_accepted': False, 'out_of_scope': False,
     }
     if rem in ('fixed', 'verified'):
         flags['active'] = False
         flags['is_mitigated'] = True
+        if rem == 'verified':
+            flags['verified'] = True
     elif rem == 'accepted':
         flags['active'] = False
         flags['risk_accepted'] = True
@@ -188,7 +351,77 @@ def _endpoints_for_finding(cfg, bev):
     return ids
 
 
-def _finding_payload(bev, template, test_id, endpoint_ids=None):
+def _dd_md(text):
+    r"""Render IB-bevindingtekst (semantische LaTeX-macro's) naar Markdown voor
+    DefectDojo. \plaatje{bestand}{bijschrift} wordt ![bijschrift](bestand) met
+    alleen de bestandsnaam, zodat import het weer als \plaatje herkent."""
+    if not text:
+        return ''
+    from meuk.flask.rapport import _vrij_latex_naar_opmaak
+    md = _vrij_latex_naar_opmaak(text, 'md')
+
+    # \plaatje levert hier ![cap](bestand). De inline access_file-URL is pas
+    # bekend na het uploaden van de bijlage, dus coderen we naam+bijschrift in
+    # een token dat _push_findings na upload vervangt.
+    import base64 as _b64
+
+    def _imgref(m):
+        cap = (m.group(1) or '').strip()
+        bestand = os.path.basename(m.group(2))
+        tb = _b64.urlsafe_b64encode(bestand.encode('utf-8')).decode('ascii')
+        tc = _b64.urlsafe_b64encode(cap.encode('utf-8')).decode('ascii')
+        return '@@IMG@@%s@@%s@@' % (tb, tc)
+    md = re.sub(r'!\[([^\]]*)\]\(([^)]+)\)', _imgref, md)
+    return md.strip()
+
+
+def _md_naar_latex(md):
+    r"""Best-effort Markdown -> semantische LaTeX-macro's bij import. Dekt vet,
+    cursief, code, koppen en ![..](..)->\plaatje. Footnotes/haakjes/kruis-
+    verwijzingen/tabellen hebben geen betrouwbare inverse en blijven as-is."""
+    if not md:
+        return ''
+    s = md.replace('\r\n', '\n')
+    prot = []
+
+    def _p(txt):
+        prot.append(txt)
+        return '\x00P%d\x00' % (len(prot) - 1)
+
+    # Code-spans en afbeeldingen eerst beschermen (bestandsnaam kan _ bevatten).
+    s = re.sub(r'`([^`]+)`', lambda m: _p('\\texttt{%s}' % m.group(1)), s)
+    def _img_to_plaatje(m):
+        alt = m.group(1)
+        ref = m.group(2)
+        # Onze inline-export: ![caption :: bestand.png](url) -> \plaatje{bestand}{caption}.
+        if ' :: ' in alt:
+            cap, _sep, bestand = alt.rpartition(' :: ')
+            bestand = os.path.basename(bestand.strip())
+            if bestand:
+                return _p('\\plaatje{%s}{%s}' % (bestand, cap.strip()))
+        # Kale bestandsnaam (geen pad/URL) -> \plaatje.
+        if '://' not in ref and '/' not in ref:
+            return _p('\\plaatje{%s}{%s}' % (os.path.basename(ref), alt))
+        # Externe/inline-URL zonder herleidbare naam: laat de markdown staan.
+        return m.group(0)
+    s = re.sub(r'!\[([^\]]*)\]\(([^)]+)\)', _img_to_plaatje, s)
+    # Onze eigen export-tekstvorm van afbeeldingen terug naar \plaatje.
+    s = re.sub(r'\*Afbeelding(?: \u2014 (.*?))?\s*\(zie bijlage:\s*([^)]+)\)\*',
+               lambda m: _p('\\plaatje{%s}{%s}' % (os.path.basename(m.group(2)), (m.group(1) or '').strip())), s)
+    # Vet voor cursief (anders pakt de cursief-regex de losse *).
+    s = re.sub(r'\*\*([^*]+)\*\*', r'\\textbf{\1}', s)
+    s = re.sub(r'__([^_]+)__', r'\\textbf{\1}', s)
+    s = re.sub(r'(?<!\*)\*([^*\n]+)\*(?!\*)', r'\\textit{\1}', s)
+    s = re.sub(r'(?<!\w)_([^_\n]+)_(?!\w)', r'\\textit{\1}', s)
+    # Koppen -> vette regel.
+    s = re.sub(r'(?m)^#{1,6}\s*(.+?)\s*$', r'\\textbf{\1}', s)
+    # Beschermde fragmenten terugzetten.
+    s = re.sub(r'\x00P(\d+)\x00', lambda m: prot[int(m.group(1))], s)
+    return s
+
+
+def _finding_payload(bev, template, test_id, endpoint_ids=None, found_by=None,
+                     reporter=None):
     """Bouw een DefectDojo-finding payload voor een IB-bevinding."""
     basescore = bev.basescore or (template.basescore if template else '') or '0'
     sev, _ = _cvss_to_severity(basescore)
@@ -204,21 +437,21 @@ def _finding_payload(bev, template, test_id, endpoint_ids=None):
         refs = template.referenties or ''
     descr_parts = []
     if beschrijving:
-        descr_parts.append(beschrijving)
-    if bev.uitwerken:
-        descr_parts.append('## Uitwerking\n\n' + bev.uitwerken)
+        descr_parts.append(_dd_md(beschrijving))
     if getattr(bev, 'control_ref', ''):
         descr_parts.append('**Controle-referentie:** ' + bev.control_ref)
-    description = '\n\n'.join(descr_parts) or (bev.naam or 'Geen beschrijving')
+    description = '\n\n'.join([_p for _p in descr_parts if _p]) or (bev.naam or 'Geen beschrijving')
+    steps = _dd_md(bev.uitwerken) if bev.uitwerken else ''  
 
     payload = {
         'title': bev.naam or 'Bevinding #{}'.format(bev.id),
         'test': test_id,
         'severity': dd_sev,
         'description': description,
-        'mitigation': aanbeveling,
-        'impact': impact,
-        'references': refs,
+        'steps_to_reproduce': steps,
+        'mitigation': _dd_md(aanbeveling),
+        'impact': _dd_md(impact),
+        'references': _dd_md(refs),
         'date': (bev.discovered_at or bev.created_at or nu_utc()).strftime('%Y-%m-%d'),
         'numerical_severity': _DD_NUM_SEVERITY.get(dd_sev, 'S4'),
     }
@@ -236,6 +469,28 @@ def _finding_payload(bev, template, test_id, endpoint_ids=None):
         payload['endpoints'] = endpoint_ids
     elif bev.locatie:
         payload['description'] += '\n\n**Locatie:** ' + bev.locatie
+    # found_by (test-type) is in sommige DefectDojo-versies verplicht.
+    if found_by:
+        payload['found_by'] = found_by
+    # reporter = DefectDojo user-id uit het verbindingsprofiel (wie meldt).
+    if reporter:
+        payload['reporter'] = reporter
+    # Stabiele sleutel + tags voor dedup/herkenning in DefectDojo.
+    payload['unique_id_from_tool'] = 'ib-%s-%s' % (bev.opdracht_id or 0, bev.id)
+    payload['tags'] = ['incompetent-bastard', 'ib-opdracht-%s' % (bev.opdracht_id or 0)]
+    # Geplande hersteldatum (expliciet of afgeleide SLA-doeldatum).
+    _target = getattr(bev, 'remediation_target_date', None)
+    if _target is None:
+        try:
+            from meuk.flask.findings import _sla_doeldatum
+            _target = _sla_doeldatum(bev, template)
+        except Exception:
+            _target = None
+    if _target is not None:
+        try:
+            payload['planned_remediation_date'] = _target.strftime('%Y-%m-%d')
+        except Exception:
+            pass
     payload.update(_status_flags(bev))
     return payload
 
@@ -275,31 +530,170 @@ def _ensure_test(cfg, engagement_id):
     return False, body
 
 
-def _upload_evidence(cfg, dd_finding_id, finding_id):
-    """Upload screenshot-bewijs als attachments bij een DefectDojo-finding."""
+# DefectDojo accepteert alleen bepaalde beeldextensies voor finding-bijlagen
+# (o.a. .png en .jpeg — let op: NIET .jpg). Overige formaten converteren we
+# naar PNG zodat screenshots altijd meekomen.
+_DD_IMAGE_EXTS = {'.png', '.jpeg'}
+_DD_EXT_ALIAS = {'.jpg': '.jpeg', '.jpe': '.jpeg'}
+_DD_UP_MIME = {'.png': 'image/png', '.jpeg': 'image/jpeg'}
+# Eerste accolade-argument van \plaatje{bestand}{caption}.
+_PLAATJE_NAAM_RE = re.compile(r'\\plaatje\s*\{([^{}]+)\}')
+# Token dat _dd_md voor een afbeelding plaatst; na upload vervangen door de
+# inline access_file-URL (of tekstvorm als de bijlage ontbreekt).
+_IMG_TOKEN_RE = re.compile(r'@@IMG@@([^@]*)@@([^@]*)@@')
+
+
+def _resolve_img_tokens(text, cfg, dd_finding_id, img_map):
+    """Vervang @@IMG@@-tokens door ![cap](<dd-url>/access_file/<id>/<finding>/Finding).
+    img_map = {bestandsnaam: file-id}. Zonder bijlage -> leesbare tekstvorm."""
+    if not text or '@@IMG@@' not in text:
+        return text
+    import base64 as _b64
+    base = (cfg.get('url') or '').rstrip('/')
+
+    def _sub(m):
+        try:
+            bestand = _b64.urlsafe_b64decode(m.group(1).encode('ascii')).decode('utf-8')
+            cap = _b64.urlsafe_b64decode(m.group(2).encode('ascii')).decode('utf-8')
+        except Exception:
+            return ''
+        fid = img_map.get(bestand)
+        if fid:
+            # Bestandsnaam in de alt-tekst zodat import \plaatje{naam} kan
+            # reconstrueren: ![caption :: bestand.png](url).
+            alt = '%s :: %s' % (cap, bestand)
+            return '![%s](%s/access_file/%s/%s/Finding)' % (alt, base, fid, dd_finding_id)
+        if cap:
+            return '*Afbeelding \u2014 %s (zie bijlage: %s)*' % (cap, bestand)
+        return '*Afbeelding (zie bijlage: %s)*' % bestand
+    return _IMG_TOKEN_RE.sub(_sub, text)
+
+
+def _convert_to_png(src):
+    """Converteer een afbeelding naar PNG-bytes; None als dat niet lukt."""
+    try:
+        import io
+        from PIL import Image
+        with Image.open(src) as im:
+            if im.mode not in ('RGB', 'RGBA'):
+                im = im.convert('RGBA')
+            buf = io.BytesIO()
+            im.save(buf, format='PNG')
+            return buf.getvalue()
+    except Exception:
+        return None
+
+
+def _upload_image_file(cfg, dd_finding_id, src, titel):
+    """Upload één afbeeldingsbestand als DefectDojo-finding-bijlage.
+
+    Normaliseert de extensie (.jpg -> .jpeg) en converteert onbekende
+    beeldformaten naar PNG. Retourneert de file-id, of None.
+    """
+    import io
+    if not src or not os.path.exists(src):
+        return None
+    root = os.path.splitext(os.path.basename(src))[0] or 'afbeelding'
+    ext = _DD_EXT_ALIAS.get(os.path.splitext(src)[1].lower(),
+                           os.path.splitext(src)[1].lower())
+    try:
+        if ext in _DD_IMAGE_EXTS:
+            with open(src, 'rb') as fh:
+                r_ok, _c, _b = _dd_request(
+                    cfg, 'POST', '/api/v2/findings/{}/files/'.format(dd_finding_id),
+                    files={'file': (root + ext, fh, _DD_UP_MIME.get(ext, 'application/octet-stream'))},
+                    data={'title': titel or root},
+                )
+        else:
+            png = _convert_to_png(src)
+            if png is None:
+                return None
+            r_ok, _c, _b = _dd_request(
+                cfg, 'POST', '/api/v2/findings/{}/files/'.format(dd_finding_id),
+                files={'file': (root + '.png', io.BytesIO(png), 'image/png')},
+                data={'title': titel or root},
+            )
+        return _b.get('id') if (r_ok and isinstance(_b, dict)) else None
+    except OSError:
+        return None
+
+
+def _existing_files(cfg, dd_finding_id):
+    """{titel: file-id} van reeds aanwezige bijlagen (dedup + inline-URL)."""
+    ok, _c, body = _dd_request(cfg, 'GET', '/api/v2/findings/{}/files/'.format(dd_finding_id))
+    out = {}
+    if ok and isinstance(body, dict):
+        for f in body.get('files', []):
+            t = (f.get('title') or '').strip()
+            if t and f.get('id') is not None:
+                out.setdefault(t, f['id'])
+    return out
+
+
+def _upload_evidence(cfg, dd_finding_id, finding_id, existing=None, fails=None):
+    """Upload screenshot-bewijs (db_evidence, image/*) als DefectDojo-bijlagen.
+    `existing` = reeds aanwezige bijlage-titels (dedup); `fails` verzamelt
+    mislukte uploads."""
+    existing = existing if existing is not None else {}
     uploaded = 0
     for ev in db_evidence.query.filter_by(finding_id=finding_id).all():
-        ct = ev.content_type or ''
-        if not ct.startswith('image/'):
+        if not (ev.content_type or '').startswith('image/'):
+            continue
+        titel = ev.description or ev.original_filename or ev.filename
+        if titel in existing:
             continue
         src = os.path.join(_EVIDENCE_SRC, str(finding_id), ev.filename)
         if not os.path.exists(src):
             continue
-        try:
-            with open(src, 'rb') as fh:
-                ok, _code, _body = _dd_request(
-                    cfg, 'POST', '/api/v2/findings/{}/files/'.format(dd_finding_id),
-                    files={'file': (ev.original_filename or ev.filename, fh, ct)},
-                    data={'title': ev.description or ev.original_filename or ev.filename},
-                )
-            if ok:
-                uploaded += 1
-        except OSError:
-            continue
+        fid = _upload_image_file(cfg, dd_finding_id, src, titel)
+        if fid:
+            existing[titel] = fid
+            uploaded += 1
+        elif fails is not None:
+            fails.append('evidence: %s' % titel)
     return uploaded
 
 
-def _log_sync(finding_id, dd_finding_id, engagement_id, action, status, message):
+def _upload_plaatjes(cfg, dd_finding_id, bev, template, existing=None, fails=None):
+    r"""Upload de \plaatje{..}-afbeeldingen uit de bevindingtekst als bijlagen.
+
+    Respecteert lakken/redactie via _plaatje_bronpad (gelakt of niet-gevonden
+    materiaal wordt niet meegestuurd). Retourneert {bestandsnaam: file-id}.
+    """
+    from meuk.flask.findings import _plaatje_bronpad
+    existing = existing if existing is not None else {}
+    teksten = [getattr(bev, 'uitwerken', '') or '']
+    if template is not None:
+        for f in ('nlbeschrijving', 'enbeschrijving', 'nlimpact', 'enimpact',
+                  'nlaanbeveling', 'enaanbeveling'):
+            teksten.append(getattr(template, f, '') or '')
+    seen = set()
+    img_map = {}
+    for tekst in teksten:
+        if not tekst or '\\plaatje' not in tekst:
+            continue
+        for m in _PLAATJE_NAAM_RE.findall(tekst):
+            base = os.path.basename((m or '').strip())
+            if not base or base in seen:
+                continue
+            seen.add(base)
+            if base in existing:            # al aanwezig -> hergebruik file-id
+                img_map[base] = existing[base]
+                continue
+            pad, _gelakt = _plaatje_bronpad(base)
+            if not pad:
+                continue
+            fid = _upload_image_file(cfg, dd_finding_id, pad, base)
+            if fid:
+                existing[base] = fid
+                img_map[base] = fid
+            elif fails is not None:
+                fails.append('plaatje: %s' % base)
+    return img_map
+
+
+def _log_sync(finding_id, dd_finding_id, engagement_id, action, status, message,
+              content_hash=None):
     """Schrijf/actualiseer de sync-historie voor een bevinding."""
     row = db_defectdojo_sync.query.filter_by(finding_id=finding_id).order_by(
         db_defectdojo_sync.id.desc()).first()
@@ -315,6 +709,8 @@ def _log_sync(finding_id, dd_finding_id, engagement_id, action, status, message)
     row.last_action = action
     row.last_status = status
     row.last_message = (message or '')[:2000]
+    if content_hash is not None:
+        row.content_hash = content_hash
     row.synced_at = nu_utc()
 
 
@@ -344,20 +740,53 @@ def dd_test_connection():
     return jsonify(info)
 
 
-@defectdojo_bp.route('/api/defectdojo/push', methods=['POST'])
-def dd_push():
-    """Push bevindingen naar DefectDojo. Body: {finding_ids?: [int], only_final?: bool}."""
-    cfg = _dd_config()
-    if not cfg:
-        return jsonify({'ok': False, 'error': 'DefectDojo is niet geconfigureerd'}), 400
-    engagement_id = cfg.get('engagement_id')
-    if not engagement_id:
-        return jsonify({'ok': False, 'error': 'Geen engagement-ID geconfigureerd'}), 400
+def _find_by_unique_id(cfg, uid):
+    """Vind een bestaande DefectDojo-finding op onze stabiele sleutel."""
+    if not uid:
+        return None
+    ok, _c, body = _dd_request(cfg, 'GET', '/api/v2/findings/',
+                               params={'unique_id_from_tool': uid, 'limit': 1})
+    if ok and isinstance(body, dict) and body.get('results'):
+        return body['results'][0].get('id')
+    return None
 
-    data = request.get_json(silent=True) or {}
-    finding_ids = data.get('finding_ids')
-    only_final = data.get('only_final', True)
 
+def _finding_image_names(bev, template):
+    r"""Alle afbeeldingsnamen van een bevinding (evidence image/* + \plaatje)."""
+    namen = set()
+    for ev in db_evidence.query.filter_by(finding_id=bev.id).all():
+        if (ev.content_type or '').startswith('image/'):
+            namen.add(ev.original_filename or ev.filename)
+    teksten = [getattr(bev, 'uitwerken', '') or '']
+    if template is not None:
+        for f in ('nlbeschrijving', 'enbeschrijving', 'nlimpact', 'enimpact',
+                  'nlaanbeveling', 'enaanbeveling'):
+            teksten.append(getattr(template, f, '') or '')
+    for tekst in teksten:
+        if tekst and '\\plaatje' in tekst:
+            for m in _PLAATJE_NAAM_RE.findall(tekst):
+                namen.add(os.path.basename((m or '').strip()))
+    return namen
+
+
+def _finding_hash(bev, payload, img_names):
+    """Inhoud-hash voor change-detectie bij export."""
+    import hashlib
+    parts = [str(payload.get(k, '')) for k in (
+        'title', 'severity', 'description', 'steps_to_reproduce',
+        'mitigation', 'impact', 'references', 'cwe', 'cvssv3_score', 'reporter')]
+    parts.append(str(sorted(payload.get('endpoints') or [])))
+    parts.append(str(_status_flags(bev)))
+    parts.append('|'.join(sorted(img_names)))
+    return hashlib.sha256('\x00'.join(parts).encode('utf-8', 'replace')).hexdigest()
+
+
+def _push_findings(cfg, engagement_id, *, only_final=True, finding_ids=None):
+    """Push de bevindingen van het actieve project naar een engagement.
+
+    Retourneert (payload, http_status). Scope't op het actieve project
+    (zet eventueel vooraf een override voor een specifieke opdracht).
+    """
     from meuk.flask import project as _project
     query = _project.apply_scope(
         db_bevindingen.query.filter(db_bevindingen.deleted_at.is_(None)),
@@ -367,35 +796,69 @@ def dd_push():
     elif only_final:
         query = query.filter(db_bevindingen.status == 'final')
     bevindingen = query.all()
-    if not bevindingen:
-        return jsonify({'ok': False, 'error': 'Geen bevindingen om te pushen'}), 400
+    # Lege expliciete selectie -> fout; lege volledige export mag door naar de
+    # lifecycle-close (verwijderde findings sluiten).
+    if not bevindingen and finding_ids:
+        return {'ok': False, 'error': 'Geen bevindingen om te pushen'}, 400
 
-    ok, test_or_err = _ensure_test(cfg, engagement_id)
-    if not ok:
-        return jsonify({'ok': False, 'error': 'Kon geen test aanmaken', 'detail': test_or_err}), 502
-    test_id = test_or_err
+    test_id = None
+    found_by = None
+    if bevindingen:
+        ok, test_or_err = _ensure_test(cfg, engagement_id)
+        if not ok:
+            return {'ok': False, 'error': 'Kon geen test aanmaken', 'detail': test_or_err}, 502
+        test_id = test_or_err
+        # Haal de test-type op voor het verplichte found_by-veld.
+        _tt_ok, _c, _tbody = _dd_request(cfg, 'GET', '/api/v2/tests/{}/'.format(test_id))
+        found_by = ([_tbody.get('test_type')]
+                    if _tt_ok and isinstance(_tbody, dict) and _tbody.get('test_type')
+                    else None)
 
     templates = {str(t.id): t for t in db_bevindingen_templates.query.all()}
     results = []
-    created = updated = failed = 0
+    created = updated = failed = unchanged = images = 0
+    img_fails = []
     for bev in bevindingen:
         template = templates.get(str(bev.ref))
         endpoint_ids = _endpoints_for_finding(cfg, bev)
-        payload = _finding_payload(bev, template, test_id, endpoint_ids=endpoint_ids)
-        # Bestaat er al een DD-finding voor deze bevinding?
+        payload = _finding_payload(bev, template, test_id, endpoint_ids=endpoint_ids,
+                                   found_by=found_by, reporter=cfg.get('user_id'))
+        img_names = _finding_image_names(bev, template)
+        new_hash = _finding_hash(bev, payload, img_names)
+
+        # Bestaande koppeling: lokaal, anders via stabiele sleutel in DefectDojo.
         existing = db_defectdojo_sync.query.filter_by(finding_id=bev.id).order_by(
             db_defectdojo_sync.id.desc()).first()
         dd_id = existing.dd_finding_id if existing else None
+        if not dd_id:
+            dd_id = _find_by_unique_id(cfg, payload.get('unique_id_from_tool'))
+
+        # Ongewijzigd en vorige sync gelukt? -> overslaan.
+        if (dd_id and existing and existing.last_status == 'ok'
+                and existing.last_action != 'close'
+                and getattr(existing, 'content_hash', '') == new_hash):
+            unchanged += 1
+            results.append({'finding_id': bev.id, 'dd_finding_id': dd_id, 'action': 'unchanged'})
+            continue
 
         if dd_id:
-            # Update bestaande finding (test niet meesturen bij PATCH)
+            img_map = {}
+            if img_names:
+                _files = _existing_files(cfg, dd_id)
+                _before = set(_files)
+                images += _upload_evidence(cfg, dd_id, bev.id, existing=_files, fails=img_fails)
+                img_map = _upload_plaatjes(cfg, dd_id, bev, template, existing=_files, fails=img_fails)
+                images += len(set(img_map) - _before)
             patch = {k: v for k, v in payload.items() if k != 'test'}
+            if img_names:
+                for _f in ('description', 'steps_to_reproduce', 'mitigation', 'impact'):
+                    if _f in patch:
+                        patch[_f] = _resolve_img_tokens(patch[_f], cfg, dd_id, img_map)
             r_ok, _code, r_body = _dd_request(
                 cfg, 'PATCH', '/api/v2/findings/{}/'.format(dd_id), json_body=patch)
             if r_ok:
                 updated += 1
-                _upload_evidence(cfg, dd_id, bev.id)
-                _log_sync(bev.id, dd_id, engagement_id, 'update', 'ok', '')
+                _log_sync(bev.id, dd_id, engagement_id, 'update', 'ok', '', content_hash=new_hash)
                 results.append({'finding_id': bev.id, 'dd_finding_id': dd_id, 'action': 'update'})
             else:
                 failed += 1
@@ -407,20 +870,146 @@ def dd_push():
             if r_ok and isinstance(r_body, dict) and r_body.get('id'):
                 new_id = r_body['id']
                 created += 1
-                _upload_evidence(cfg, new_id, bev.id)
-                _log_sync(bev.id, new_id, engagement_id, 'create', 'ok', '')
+                if img_names:
+                    _files = _existing_files(cfg, new_id)
+                    _before = set(_files)
+                    images += _upload_evidence(cfg, new_id, bev.id, existing=_files, fails=img_fails)
+                    img_map = _upload_plaatjes(cfg, new_id, bev, template, existing=_files, fails=img_fails)
+                    images += len(set(img_map) - _before)
+                    _patch = {}
+                    for _f in ('description', 'steps_to_reproduce', 'mitigation', 'impact'):
+                        if payload.get(_f) and '@@IMG@@' in payload[_f]:
+                            _patch[_f] = _resolve_img_tokens(payload[_f], cfg, new_id, img_map)
+                    if _patch:
+                        _dd_request(cfg, 'PATCH', '/api/v2/findings/{}/'.format(new_id), json_body=_patch)
+                _log_sync(bev.id, new_id, engagement_id, 'create', 'ok', '', content_hash=new_hash)
                 results.append({'finding_id': bev.id, 'dd_finding_id': new_id, 'action': 'create'})
             else:
                 failed += 1
                 _log_sync(bev.id, None, engagement_id, 'create', 'error', str(r_body))
                 results.append({'finding_id': bev.id, 'action': 'create', 'error': r_body})
 
+    # Lifecycle: sluit eerder gesyncte findings waarvan de IB-bevinding is
+    # verwijderd (alleen bij een volledige export, niet bij een selectie).
+    closed = 0
+    if not finding_ids:
+        from meuk.flask import project as _project2
+        _q = _project2.apply_scope(
+            db_defectdojo_sync.query.filter(
+                db_defectdojo_sync.dd_finding_id.isnot(None),
+                db_defectdojo_sync.dd_engagement_id == engagement_id),
+            db_defectdojo_sync.opdracht_id, _project2.current_opdracht_id())
+        _seen = set()
+        for _row in _q.order_by(db_defectdojo_sync.id.desc()).all():
+            if _row.finding_id in _seen:
+                continue
+            _seen.add(_row.finding_id)
+            if _row.last_action == 'close':
+                continue
+            _b = db.session.get(db_bevindingen, _row.finding_id)
+            if _b is not None and _b.deleted_at is None:
+                continue
+            r_ok, _c, _b2 = _dd_request(
+                cfg, 'PATCH', '/api/v2/findings/{}/'.format(_row.dd_finding_id),
+                json_body={'active': False, 'is_mitigated': True, 'out_of_scope': True})
+            if r_ok:
+                closed += 1
+                _log_sync(_row.finding_id, _row.dd_finding_id, engagement_id,
+                          'close', 'ok', 'IB-bevinding verwijderd')
+
     db.session.commit()
-    return jsonify({
+    return {
         'ok': failed == 0,
-        'created': created, 'updated': updated, 'failed': failed,
+        'created': created, 'updated': updated, 'unchanged': unchanged,
+        'closed': closed, 'failed': failed,
+        'images_uploaded': images, 'images_failed': len(img_fails),
+        'image_errors': img_fails[:10],
         'results': results,
-    })
+    }, 200
+
+
+@defectdojo_bp.route('/api/defectdojo/push', methods=['POST'])
+def dd_push():
+    """Push bevindingen naar DefectDojo. Body: {finding_ids?: [int], only_final?: bool}."""
+    cfg = _dd_config()
+    if not cfg:
+        return jsonify({'ok': False, 'error': 'DefectDojo is niet geconfigureerd'}), 400
+    engagement_id = cfg.get('engagement_id')
+    if not engagement_id:
+        return jsonify({'ok': False, 'error': 'Geen engagement-ID geconfigureerd'}), 400
+
+    data = request.get_json(silent=True) or {}
+    payload, status = _push_findings(
+        cfg, engagement_id,
+        only_final=data.get('only_final', True),
+        finding_ids=data.get('finding_ids'),
+    )
+    return jsonify(payload), status
+
+
+# ---------------------------------------------------------------------------
+# Asynchrone taken (export/import kunnen bij grote engagements lang duren)
+# ---------------------------------------------------------------------------
+_dd_runs = {}
+_dd_lock = threading.Lock()
+_DD_JOB_VIEWS = {}  # kind -> (viewfunc, needs_opdracht)
+
+
+def _dd_job_worker(run_id, app, kind, opdracht_id, data):
+    with _dd_lock:
+        _dd_runs[run_id]['status'] = 'running'
+    try:
+        view, needs_opdracht = _DD_JOB_VIEWS[kind]
+        with app.test_request_context(json=data, method='POST'):
+            resp = view(opdracht_id) if needs_opdracht else view()
+            body, status = resp if isinstance(resp, tuple) else (resp, 200)
+            payload = body.get_json()
+        with _dd_lock:
+            _dd_runs[run_id].update(
+                status='done', result=payload, http_status=status,
+                finished_at=datetime.datetime.now().isoformat())
+    except Exception as exc:  # noqa: BLE001
+        with _dd_lock:
+            _dd_runs[run_id].update(
+                status='failed', error=str(exc),
+                finished_at=datetime.datetime.now().isoformat())
+
+
+@defectdojo_bp.route('/api/defectdojo/jobs', methods=['POST'])
+def dd_start_job():
+    """Start een achtergrondtaak. Body: {kind: export|import|create-import,
+    opdracht_id?, ...}. Retourneert {run_id} om te pollen."""
+    data = request.get_json(silent=True) or {}
+    kind = data.get('kind')
+    if kind not in _DD_JOB_VIEWS:
+        return jsonify({'ok': False, 'error': 'Onbekende taak'}), 400
+    _, needs_opdracht = _DD_JOB_VIEWS[kind]
+    opdracht_id = data.get('opdracht_id')
+    if needs_opdracht and not opdracht_id:
+        return jsonify({'ok': False, 'error': 'opdracht_id vereist'}), 400
+    run_id = str(_uuid.uuid4())
+    with _dd_lock:
+        _dd_runs[run_id] = {
+            'id': run_id, 'kind': kind, 'status': 'queued', 'result': None,
+            'error': None, 'started_at': datetime.datetime.now().isoformat(),
+            'finished_at': None,
+        }
+    thread = threading.Thread(
+        target=_dd_job_worker,
+        args=(run_id, current_app._get_current_object(), kind, opdracht_id, data),
+        daemon=True)
+    thread.start()
+    return jsonify({'ok': True, 'run_id': run_id})
+
+
+@defectdojo_bp.route('/api/defectdojo/jobs/<run_id>', methods=['GET'])
+def dd_job_status(run_id):
+    """Poll de status van een achtergrondtaak."""
+    with _dd_lock:
+        run = _dd_runs.get(run_id)
+    if not run:
+        return jsonify({'error': 'Taak niet gevonden'}), 404
+    return jsonify(run)
 
 
 @defectdojo_bp.route('/api/defectdojo/status', methods=['GET'])
@@ -455,7 +1044,7 @@ def _reverse_remediation_status(dd):
     if dd.get('risk_accepted'):
         return 'accepted'
     if dd.get('is_mitigated') or dd.get('mitigated'):
-        return 'fixed'
+        return 'verified' if dd.get('verified') else 'fixed'
     return 'open'
 
 
@@ -470,7 +1059,7 @@ def _dd_to_bev_fields(dd):
     fields = {
         'naam': (dd.get('title') or 'DefectDojo-finding').strip()[:255],
         'basescore': basescore[:10],
-        'uitwerken': dd.get('description') or '',
+        'uitwerken': _md_naar_latex(dd.get('steps_to_reproduce') or dd.get('description') or ''),
         'remediation_status': _reverse_remediation_status(dd),
     }
     vector = dd.get('cvssv3') or ''
@@ -479,7 +1068,14 @@ def _dd_to_bev_fields(dd):
     mitigation = dd.get('mitigation') or ''
     if mitigation:
         fields['uitwerken'] = (fields['uitwerken'] +
-                               '\n\n## Mitigatie (DefectDojo)\n\n' + mitigation).strip()
+                               '\n\n\\textbf{Mitigatie (DefectDojo)}\n\n' +
+                               _md_naar_latex(mitigation)).strip()
+    prd = dd.get('planned_remediation_date')
+    if prd:
+        try:
+            fields['remediation_target_date'] = datetime.date.fromisoformat(str(prd)[:10])
+        except (ValueError, TypeError):
+            pass
     return fields
 
 
@@ -492,51 +1088,162 @@ def _linked_dd_ids():
     return out
 
 
-@defectdojo_bp.route('/api/defectdojo/import', methods=['POST'])
-def dd_import():
-    """Haal bevindingen op uit DefectDojo en maak nieuwe IB-bevindingen aan.
+# \plaatje{bestand}{bijschrift} — eerste arg is de bestandsnaam, tweede optioneel.
+_PLAATJE_REF_RE = re.compile(r'\\plaatje\s*\{([^{}]+)\}(\s*\{[^{}]*\})?')
 
-    Body: {only_open?: bool (default True), limit?: int (default 100),
-           test_id?: int, engagement_id?: int}. Al gekoppelde DD-findings
-    worden overgeslagen (gebruik /pull om die bij te werken).
-    """
-    cfg = _dd_config()
-    if not cfg:
-        return jsonify({'ok': False, 'error': 'DefectDojo is niet geconfigureerd'}), 400
 
-    data = request.get_json(silent=True) or {}
-    only_open = data.get('only_open', True)
+def _list_local_screenshots():
+    """Bestandsnamen in raw/screenshots (+ annot-submap) voor naam-matching."""
     try:
-        limit = max(1, min(int(data.get('limit', 100)), 500))
+        from meuk.flask.findings import _SCREENSHOT_DIR_REPORT as _dir
+    except Exception:
+        return set()
+    names = set()
+    for root in (_dir, os.path.join(_dir, 'annot')):
+        try:
+            if os.path.isdir(root):
+                names.update(os.listdir(root))
+        except OSError:
+            pass
+    return names
+
+
+def _match_screenshot_name(naam, candidates):
+    r"""Slimme match voor een \plaatje-naam onder bestandsnamen (case-insensitief):
+    exact > numeriek-prefix (<cijfers>-naam, bv. 4864-bmc1.png) > suffix (..-naam).
+    Retourneert de gematchte naam of None."""
+    nl = (naam or '').lower()
+    if not nl:
+        return None
+    for c in candidates:
+        if c.lower() == nl:
+            return c
+    pat = re.compile(r'^\d+-' + re.escape(naam) + r'$', re.IGNORECASE)
+    for c in candidates:
+        if pat.match(c):
+            return c
+    for c in candidates:
+        if c.lower().endswith('-' + nl):
+            return c
+    return None
+
+
+def _normalize_plaatje_refs(uitwerken, cfg, dd_finding_id):
+    r"""Herschrijf \plaatje{X} naar een bestaande lokale screenshot als X slim
+    matcht (numeriek-prefix e.d.), zodat de afbeelding rendert. Meldt waar de
+    bijlage alleen in DefectDojo bestaat of ontbreekt. Retourneert
+    (nieuwe_tekst, meldingen)."""
+    if not uitwerken or '\\plaatje' not in uitwerken:
+        return uitwerken, []
+    locals_ = _list_local_screenshots()
+    att_titles = []
+    ok, _c, body = _dd_request(cfg, 'GET', '/api/v2/findings/{}/files/'.format(dd_finding_id))
+    if ok and isinstance(body, dict):
+        att_titles = [os.path.basename((f.get('title') or '').strip())
+                      for f in body.get('files', []) if (f.get('title') or '').strip()]
+    meldingen = []
+
+    def _fix(m):
+        X = os.path.basename((m.group(1) or '').strip())
+        rest = m.group(2) or ''
+        if not X or X in locals_:
+            return m.group(0)
+        lm = _match_screenshot_name(X, locals_)
+        if lm:
+            meldingen.append({'ref': X, 'resolved': lm, 'bron': 'lokaal'})
+            return '\\plaatje{%s}%s' % (lm, rest)
+        am = _match_screenshot_name(X, att_titles) or (X if X in att_titles else None)
+        if am:
+            meldingen.append({'ref': X, 'resolved': am, 'bron': 'defectdojo-bijlage'})
+        else:
+            meldingen.append({'ref': X, 'resolved': None, 'bron': None})
+        return m.group(0)
+
+    return _PLAATJE_REF_RE.sub(_fix, uitwerken), meldingen
+
+
+def _import_findings(cfg, *, only_open=True, limit=100, test_id=None,
+                     engagement_id=None, product_id=None, opdracht_id=None):
+    """Kern van de import: haal DefectDojo-findings op en maak IB-bevindingen aan.
+
+    Retourneert (ok, payload). Als `opdracht_id` is opgegeven worden de nieuwe
+    bevindingen expliciet aan die opdracht gekoppeld (anders stempelt het
+    before_insert-event ze op basis van het actieve project).
+    """
+    try:
+        limit = max(1, min(int(limit), 500))
     except (TypeError, ValueError):
         limit = 100
-    test_id = data.get('test_id')
-    engagement_id = data.get('engagement_id') or cfg.get('engagement_id')
 
-    params = {'limit': limit, 'offset': 0}
+    base_params = {'limit': limit}
     if test_id:
-        params['test'] = test_id
+        base_params['test'] = test_id
     elif engagement_id:
-        params['test__engagement'] = engagement_id
+        base_params['test__engagement'] = engagement_id
+    elif product_id:
+        base_params['test__engagement__product'] = product_id
     if only_open:
-        params['active'] = 'true'
+        base_params['active'] = 'true'
 
-    ok, code, body = _dd_request(cfg, 'GET', '/api/v2/findings/', params=params)
-    if not ok:
-        return jsonify({'ok': False, 'error': 'Ophalen mislukt', 'detail': body,
-                        'status': code}), 502
-    dd_findings = body.get('results', []) if isinstance(body, dict) else []
+    # Paginering: haal alle pagina's op (met veiligheidscap).
+    dd_findings = []
+    offset = 0
+    total = None
+    while True:
+        ok, code, body = _dd_request(cfg, 'GET', '/api/v2/findings/',
+                                     params=dict(base_params, offset=offset))
+        if not ok:
+            return False, {'ok': False, 'error': 'Ophalen mislukt', 'detail': body,
+                           'status': code}
+        page = body.get('results', []) if isinstance(body, dict) else []
+        dd_findings.extend(page)
+        if total is None and isinstance(body, dict):
+            total = body.get('count')
+        offset += limit
+        if len(page) < limit:
+            break
+        if total is not None and offset >= total:
+            break
+        if offset >= 5000:  # veiligheidscap
+            break
 
     linked = _linked_dd_ids()
-    imported = skipped = 0
+    imported = skipped = relinked = 0
+    plaatje_hersteld = plaatje_alleen_dd = plaatje_ontbreekt = 0
+    plaatje_meldingen = []
     results = []
     for dd in dd_findings:
         dd_id = dd.get('id')
         if dd_id in linked:
             skipped += 1
             continue
+        # Komt deze finding uit IB (stabiele sleutel ib-<opdracht>-<id>)? Dan
+        # koppelen i.p.v. dupliceren.
+        m = re.match(r'^ib-\d+-(\d+)$', dd.get('unique_id_from_tool') or '')
+        if m:
+            _bid = int(m.group(1))
+            _b = db.session.get(db_bevindingen, _bid)
+            if _b is not None and _b.deleted_at is None:
+                _log_sync(_bid, dd_id, engagement_id, 'link', 'ok', '')
+                linked[dd_id] = _bid
+                relinked += 1
+                continue
         fields = _dd_to_bev_fields(dd)
+        if '\\plaatje' in (fields.get('uitwerken') or ''):
+            fields['uitwerken'], _prep = _normalize_plaatje_refs(
+                fields['uitwerken'], cfg, dd_id)
+            for _r in _prep:
+                if _r.get('bron') == 'lokaal':
+                    plaatje_hersteld += 1
+                elif _r.get('bron') == 'defectdojo-bijlage':
+                    plaatje_alleen_dd += 1
+                else:
+                    plaatje_ontbreekt += 1
+                if len(plaatje_meldingen) < 50:
+                    plaatje_meldingen.append(dict(_r, dd_finding_id=dd_id))
         bev = db_bevindingen(status='draft', **fields)
+        if opdracht_id is not None:
+            bev.opdracht_id = opdracht_id
         db.session.add(bev)
         db.session.flush()
         _log_sync(bev.id, dd_id, engagement_id, 'import', 'ok', '')
@@ -545,8 +1252,324 @@ def dd_import():
                         'naam': bev.naam})
 
     db.session.commit()
-    return jsonify({'ok': True, 'imported': imported, 'skipped': skipped,
-                    'total': len(dd_findings), 'results': results})
+    return True, {'ok': True, 'imported': imported, 'skipped': skipped,
+                  'relinked': relinked, 'total': len(dd_findings),
+                  'plaatje_hersteld': plaatje_hersteld,
+                  'plaatje_alleen_dd': plaatje_alleen_dd,
+                  'plaatje_ontbreekt': plaatje_ontbreekt,
+                  'plaatje_meldingen': plaatje_meldingen, 'results': results}
+
+
+@defectdojo_bp.route('/api/defectdojo/import', methods=['POST'])
+def dd_import():
+    """Haal bevindingen op uit DefectDojo en maak nieuwe IB-bevindingen aan.
+
+    Body: {only_open?: bool (default True), limit?: int (default 100),
+           test_id?: int, engagement_id?: int}. Al gekoppelde DD-findings
+    worden overgeslagen (gebruik /pull om die bij te werken). De bevindingen
+    komen in het actieve project.
+    """
+    cfg = _dd_config()
+    if not cfg:
+        return jsonify({'ok': False, 'error': 'DefectDojo is niet geconfigureerd'}), 400
+
+    data = request.get_json(silent=True) or {}
+    ok, payload = _import_findings(
+        cfg,
+        only_open=data.get('only_open', True),
+        limit=data.get('limit', 100),
+        test_id=data.get('test_id'),
+        engagement_id=data.get('engagement_id') or cfg.get('engagement_id'),
+    )
+    return jsonify(payload), (200 if ok else 502)
+
+
+@defectdojo_bp.route('/api/opdrachten/<int:opdracht_id>/defectdojo/import', methods=['POST'])
+def dd_import_opdracht(opdracht_id):
+    """Importeer DefectDojo-bevindingen rechtstreeks in één opdracht.
+
+    Body: {engagement_id?: int, only_open?: bool (default True), limit?: int}.
+    De verbinding is server-breed; het engagement komt uit de body of uit de
+    opdracht-config. Een expliciet opgegeven engagement wordt onthouden in de
+    opdracht-config. De nieuwe bevindingen worden aan deze opdracht gekoppeld.
+    """
+    from meuk.flask import project as _project
+    o = db.session.get(db_opdracht, opdracht_id)
+    if o is None:
+        return jsonify({'ok': False, 'error': 'Opdracht niet gevonden'}), 404
+
+    # Richt config-resolutie (engagement/product + sync-logging) op deze opdracht.
+    _project.set_override(opdracht_id)
+
+    data = request.get_json(silent=True) or {}
+    # Een expliciet engagement/product onthouden in de opdracht-config.
+    expliciet = data.get('engagement_id')
+    if (expliciet not in (None, '') or data.get('product_id') not in (None, '')
+            or data.get('connection_id') not in (None, '')):
+        try:
+            cfg_row = _project.get_or_create_config(o)
+            if expliciet not in (None, ''):
+                cfg_row.dd_engagement_id = int(expliciet)
+            if data.get('product_id') not in (None, ''):
+                cfg_row.dd_product_id = int(data['product_id'])
+            if data.get('connection_id') not in (None, ''):
+                cfg_row.dd_connection_id = int(data['connection_id'])
+            db.session.commit()
+        except (ValueError, TypeError):
+            db.session.rollback()
+
+    cfg = _dd_config()
+    if not cfg:
+        return jsonify({'ok': False, 'error': 'DefectDojo is niet geconfigureerd'}), 400
+
+    engagement_id = expliciet or cfg.get('engagement_id')
+    ok, payload = _import_findings(
+        cfg,
+        only_open=data.get('only_open', True),
+        limit=data.get('limit', 100),
+        test_id=data.get('test_id'),
+        engagement_id=engagement_id,
+        opdracht_id=opdracht_id,
+    )
+    return jsonify(payload), (200 if ok else 502)
+
+
+# ---------------------------------------------------------------------------
+# Producten/engagements doorzoeken en (bij export) aanmaken
+# ---------------------------------------------------------------------------
+
+@defectdojo_bp.route('/api/defectdojo/products', methods=['GET'])
+def dd_products():
+    """Doorzoek DefectDojo-producten. Query: ?q=<naam>&limit=<n>&connection=<id>."""
+    cfg = _dd_config(request.args.get('connection'))
+    if not cfg:
+        return jsonify({'ok': False, 'error': 'DefectDojo is niet geconfigureerd'}), 400
+    q = (request.args.get('q') or '').strip()
+    try:
+        limit = max(1, min(int(request.args.get('limit', 50)), 200))
+    except (TypeError, ValueError):
+        limit = 50
+    params = {'limit': limit}
+    if q:
+        params['name__icontains'] = q
+    ok, code, body = _dd_request(cfg, 'GET', '/api/v2/products/', params=params)
+    if not ok:
+        return jsonify({'ok': False, 'error': 'Ophalen mislukt', 'detail': body}), 502
+    rows = body.get('results', []) if isinstance(body, dict) else []
+    items = [{'id': r.get('id'), 'name': r.get('name')} for r in rows]
+    return jsonify({'ok': True, 'results': items,
+                    'count': body.get('count') if isinstance(body, dict) else len(items)})
+
+
+@defectdojo_bp.route('/api/defectdojo/engagements', methods=['GET'])
+def dd_engagements():
+    """Doorzoek DefectDojo-engagements. Query: ?q=&product=&limit=&connection=<id>."""
+    cfg = _dd_config(request.args.get('connection'))
+    if not cfg:
+        return jsonify({'ok': False, 'error': 'DefectDojo is niet geconfigureerd'}), 400
+    q = (request.args.get('q') or '').strip()
+    product = request.args.get('product')
+    try:
+        limit = max(1, min(int(request.args.get('limit', 50)), 200))
+    except (TypeError, ValueError):
+        limit = 50
+    params = {'limit': limit}
+    if q:
+        params['name__icontains'] = q
+    if product and str(product).isdigit():
+        params['product'] = int(product)
+    ok, code, body = _dd_request(cfg, 'GET', '/api/v2/engagements/', params=params)
+    if not ok:
+        return jsonify({'ok': False, 'error': 'Ophalen mislukt', 'detail': body}), 502
+    rows = body.get('results', []) if isinstance(body, dict) else []
+    items = [{'id': r.get('id'), 'name': r.get('name'), 'product': r.get('product')}
+             for r in rows]
+    return jsonify({'ok': True, 'results': items,
+                    'count': body.get('count') if isinstance(body, dict) else len(items)})
+
+
+def _first_product_type(cfg):
+    ok, _c, body = _dd_request(cfg, 'GET', '/api/v2/product_types/', params={'limit': 1})
+    if ok and isinstance(body, dict) and body.get('results'):
+        return body['results'][0].get('id')
+    return None
+
+
+def _find_or_create_product(cfg, name):
+    """Vind een product op exacte naam of maak het aan. Retourneert (ok, id|error)."""
+    name = (name or '').strip()
+    if not name:
+        return False, 'Lege productnaam'
+    ok, _c, body = _dd_request(cfg, 'GET', '/api/v2/products/',
+                               params={'name': name, 'limit': 20})
+    if ok and isinstance(body, dict):
+        for r in body.get('results', []):
+            if (r.get('name') or '').strip().lower() == name.lower():
+                return True, r['id']
+    prod_type = _first_product_type(cfg)
+    if prod_type is None:
+        return False, 'Geen product_type beschikbaar in DefectDojo'
+    ok, _c, body = _dd_request(cfg, 'POST', '/api/v2/products/', json_body={
+        'name': name, 'description': name, 'prod_type': prod_type,
+    })
+    if ok and isinstance(body, dict) and body.get('id'):
+        return True, body['id']
+    return False, body
+
+
+def _find_or_create_engagement(cfg, product_id, name):
+    """Vind een engagement op naam binnen het product of maak het aan."""
+    name = (name or '').strip()
+    if not name:
+        return False, 'Lege engagementnaam'
+    ok, _c, body = _dd_request(cfg, 'GET', '/api/v2/engagements/',
+                               params={'product': product_id, 'name': name, 'limit': 20})
+    if ok and isinstance(body, dict):
+        for r in body.get('results', []):
+            if (r.get('name') or '').strip().lower() == name.lower():
+                return True, r['id']
+    today = datetime.date.today().isoformat()
+    ok, _c, body = _dd_request(cfg, 'POST', '/api/v2/engagements/', json_body={
+        'name': name, 'product': product_id,
+        'target_start': today, 'target_end': today,
+        'status': 'In Progress', 'engagement_type': 'Interactive',
+    })
+    if ok and isinstance(body, dict) and body.get('id'):
+        return True, body['id']
+    return False, body
+
+
+@defectdojo_bp.route('/api/opdrachten/<int:opdracht_id>/defectdojo/export', methods=['POST'])
+def dd_export_opdracht(opdracht_id):
+    """Exporteer de bevindingen van één opdracht naar DefectDojo.
+
+    Body: {product_id?, product_name?, engagement_id?, engagement_name?,
+           only_final?, finding_ids?}. Ontbrekend product/engagement wordt
+    aangemaakt (standaard op de opdrachtnaam). De gekozen/gemaakte ids worden
+    onthouden in de opdracht-config.
+    """
+    from meuk.flask import project as _project
+    o = db.session.get(db_opdracht, opdracht_id)
+    if o is None:
+        return jsonify({'ok': False, 'error': 'Opdracht niet gevonden'}), 404
+
+    _project.set_override(opdracht_id)
+    data = request.get_json(silent=True) or {}
+    if data.get('connection_id') not in (None, ''):
+        try:
+            _cr = _project.get_or_create_config(o)
+            _cr.dd_connection_id = int(data['connection_id'])
+            db.session.commit()
+        except (ValueError, TypeError):
+            db.session.rollback()
+    cfg = _dd_config()
+    if not cfg:
+        return jsonify({'ok': False, 'error': 'DefectDojo is niet geconfigureerd'}), 400
+
+    fallback_naam = (o.naam or '').strip() or ('Opdracht %d' % opdracht_id)
+
+    # Product bepalen (gekozen id > gekozen naam > config > opdrachtnaam-aanmaak).
+    product_id = data.get('product_id') or cfg.get('product_id')
+    if not product_id:
+        naam = (data.get('product_name') or '').strip() or fallback_naam
+        ok, res = _find_or_create_product(cfg, naam)
+        if not ok:
+            return jsonify({'ok': False, 'error': 'Kon product niet aanmaken',
+                            'detail': res}), 502
+        product_id = res
+
+    # Engagement bepalen (gekozen id > gekozen naam-aanmaak > config > aanmaak).
+    engagement_id = data.get('engagement_id')
+    if not engagement_id:
+        naam = (data.get('engagement_name') or '').strip() or fallback_naam
+        ok, res = _find_or_create_engagement(cfg, product_id, naam)
+        if not ok:
+            return jsonify({'ok': False, 'error': 'Kon engagement niet aanmaken',
+                            'detail': res}), 502
+        engagement_id = res
+
+    # Onthoud de koppeling in de opdracht-config.
+    try:
+        cfg_row = _project.get_or_create_config(o)
+        cfg_row.dd_product_id = int(product_id)
+        cfg_row.dd_engagement_id = int(engagement_id)
+        db.session.commit()
+    except (ValueError, TypeError):
+        db.session.rollback()
+
+    # Zorg dat endpoint-koppeling het juiste product gebruikt.
+    cfg['product_id'] = int(product_id)
+    cfg['engagement_id'] = int(engagement_id)
+
+    payload, status = _push_findings(
+        cfg, engagement_id,
+        only_final=data.get('only_final', True),
+        finding_ids=data.get('finding_ids'),
+    )
+    payload['product_id'] = int(product_id)
+    payload['engagement_id'] = int(engagement_id)
+    return jsonify(payload), status
+
+
+def _dd_object_name(cfg, path, obj_id):
+    """Naam van een DefectDojo-object (products/engagements), of leeg."""
+    ok, _c, body = _dd_request(cfg, 'GET', '/api/v2/%s/%s/' % (path, obj_id))
+    if ok and isinstance(body, dict):
+        return (body.get('name') or '').strip()
+    return ''
+
+
+@defectdojo_bp.route('/api/opdrachten/defectdojo-import', methods=['POST'])
+def dd_create_opdracht_from_import():
+    """Maak een nieuwe opdracht uit een DefectDojo-product/engagement en
+    importeer meteen de bevindingen.
+
+    Body: {product_id?, engagement_id?, naam?, only_open?}. Zonder engagement
+    wordt op productniveau geimporteerd.
+    """
+    from meuk.flask import project as _project
+    data = request.get_json(silent=True) or {}
+    cfg = _dd_config(data.get('connection_id'))
+    if not cfg:
+        return jsonify({'ok': False, 'error': 'DefectDojo is niet geconfigureerd'}), 400
+    product_id = data.get('product_id') or None
+    engagement_id = data.get('engagement_id') or None
+    if not product_id and not engagement_id:
+        return jsonify({'ok': False, 'error': 'Kies een product of engagement'}), 400
+
+    naam = (data.get('naam') or '').strip()
+    if not naam and engagement_id:
+        naam = _dd_object_name(cfg, 'engagements', engagement_id)
+    if not naam and product_id:
+        naam = _dd_object_name(cfg, 'products', product_id)
+    naam = (naam or 'DefectDojo-import')[:255]
+
+    o = db_opdracht(naam=naam, status='actief')
+    db.session.add(o)
+    db.session.commit()
+    cfg_row = _project.get_or_create_config(o)
+    try:
+        if product_id:
+            cfg_row.dd_product_id = int(product_id)
+        if engagement_id:
+            cfg_row.dd_engagement_id = int(engagement_id)
+        if data.get('connection_id') not in (None, ''):
+            cfg_row.dd_connection_id = int(data['connection_id'])
+        db.session.commit()
+    except (ValueError, TypeError):
+        db.session.rollback()
+
+    _project.set_override(o.id)
+    ok, payload = _import_findings(
+        _dd_config() or cfg,
+        only_open=data.get('only_open', True),
+        engagement_id=int(engagement_id) if engagement_id else None,
+        product_id=int(product_id) if (product_id and not engagement_id) else None,
+        opdracht_id=o.id,
+    )
+    payload['opdracht_id'] = o.id
+    payload['naam'] = naam
+    return jsonify(payload), (200 if ok else 502)
 
 
 @defectdojo_bp.route('/api/defectdojo/pull', methods=['POST'])
@@ -604,3 +1627,10 @@ def dd_pull():
     db.session.commit()
     return jsonify({'ok': failed == 0, 'updated': updated, 'failed': failed,
                     'missing': missing, 'results': results})
+
+
+_DD_JOB_VIEWS.update({
+    'export': (dd_export_opdracht, True),
+    'import': (dd_import_opdracht, True),
+    'create-import': (dd_create_opdracht_from_import, False),
+})

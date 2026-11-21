@@ -24,10 +24,41 @@
   var cmdInput = document.getElementById('screen-cmd');
   var sendBtn = document.getElementById('send-cmd');
   var recordingLink = document.getElementById('recording-link');
+  var historyBtn = document.getElementById('btn-screen-history');
 
   if (!outputEl) return;
 
   var pollTimer = null;
+  var lastContent = null;    // laatst gerenderde output (skip bij ongewijzigd)
+  var historyMode = false;   // true = volledige historie geladen, live gepauzeerd
+
+  // Historie-modus: pauzeer de live-tail en laad de volledige scrollback, zodat
+  // je ongestoord kunt terugscrollen. Nog eens klikken = terug naar live.
+  function enterHistory() {
+    var name = getScreenName();
+    if (!name) { setStatus('Selecteer eerst een sessie', 'fail'); return; }
+    historyMode = true;
+    if (historyBtn) historyBtn.textContent = '▶ Live';
+    setStatus('Historie (gepauzeerd) — scroll vrij; klik Live om te hervatten', 'polling');
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', '/api/screen/' + encodeURIComponent(name) + '/content?full=1');
+    xhr.onload = function () {
+      if (xhr.status === 200) {
+        try { outputEl.textContent = (JSON.parse(xhr.responseText).content || ''); } catch (e) {}
+        outputEl.scrollTop = 0;
+      }
+    };
+    xhr.send();
+  }
+  function exitHistory() {
+    historyMode = false;
+    lastContent = null;
+    if (historyBtn) historyBtn.textContent = '⏸ Historie';
+    if (polling) { setStatus('Polling actief', 'polling'); fetchContent(); }
+  }
+  if (historyBtn) historyBtn.addEventListener('click', function () {
+    if (historyMode) { exitHistory(); } else { enterHistory(); }
+  });
 
   function updateRecordingLink() {
     if (!recordingLink) return;
@@ -187,19 +218,23 @@
   // -----------------------------------------------------------------------
 
   function fetchContent() {
+    if (historyMode) return;  // in historie-modus niet live overschrijven
     var name = getScreenName();
     if (!name) return;
 
     var xhr = new XMLHttpRequest();
+    // Live-tail = alleen het zichtbare venster (klein en stabiel -> soepel, geen
+    // sprong). De volledige historie laad je met de Historie-knop.
     xhr.open('GET', '/api/screen/' + encodeURIComponent(name) + '/content');
     xhr.onload = function () {
       if (xhr.status === 200) {
         var data = JSON.parse(xhr.responseText);
-        var wasAtBottom = outputEl.scrollHeight - outputEl.scrollTop - outputEl.clientHeight < 30;
-        outputEl.innerHTML = escapeHtml(data.content || '');
-        if (wasAtBottom) {
-          outputEl.scrollTop = outputEl.scrollHeight;
-        }
+        var content = data.content || '';
+        if (content === lastContent) return;  // geen wijziging -> niets doen
+        lastContent = content;
+        var wasAtBottom = outputEl.scrollHeight - outputEl.scrollTop - outputEl.clientHeight < 40;
+        outputEl.textContent = content;
+        if (wasAtBottom) { outputEl.scrollTop = outputEl.scrollHeight; }
       } else {
         var err;
         try { err = JSON.parse(xhr.responseText).error; } catch (e) { err = 'Fout bij ophalen'; }
@@ -224,6 +259,9 @@
     }
 
     polling = true;
+    lastContent = null;  // forceer een eerste render (ook bij sessiewissel)
+    historyMode = false;
+    if (historyBtn) historyBtn.textContent = '⏸ Historie';
     startBtn.disabled = true;
     stopBtn.disabled = false;
     cmdInput.disabled = false;
@@ -689,6 +727,22 @@
     document.addEventListener('fullscreenchange', onFsChange);
     document.addEventListener('webkitfullscreenchange', onFsChange);
   }
+
+  // Output opslaan als notitie (LaTeX) in het rapport van de actieve opdracht
+  var noteBtn = document.getElementById('btn-screen-note');
+  if (noteBtn) noteBtn.addEventListener('click', function () {
+    var name = getScreenName();
+    if (!name) { setStatus('Selecteer eerst een sessie', 'fail'); return; }
+    if (!window.CaptureDialog) { setStatus('Capture-dialoog niet geladen', 'fail'); return; }
+    window.CaptureDialog.open({
+      title: name,
+      previewUrl: '/api/recordings/' + encodeURIComponent(name) + '.rec/preview',
+      submitUrl: '/api/screen/' + encodeURIComponent(name) + '/save-note',
+      onDone: function (d) {
+        setStatus('Vastgelegd als ' + d.doel + (d.id ? ' #' + d.id : '') + ' (in rapport)', 'ok');
+      }
+    });
+  });
 
   // Init
   loadScreens();

@@ -1,0 +1,48 @@
+/* Herbruikbare capture-dialoog (recordings + screen). */
+.capd-modal {
+  position: fixed; inset: 0; z-index: 9998;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(0, 0, 0, 0.45); padding: 16px;
+}
+.capd-modal[hidden] { display: none; }
+.capd-box {
+  width: 100%; max-width: 620px; max-height: 88vh; display: flex; flex-direction: column;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.35); overflow: hidden;
+}
+.capd-head {
+  display: flex; align-items: center; gap: 10px;
+  padding: 14px 16px; border-bottom: 1px solid var(--border);
+}
+.capd-head h3 { margin: 0; font-size: 15px; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.capd-x { background: none; border: none; font-size: 22px; line-height: 1; cursor: pointer; color: var(--muted); }
+.capd-x:hover { color: inherit; }
+.capd-body { padding: 14px 16px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; }
+.capd-foot {
+  display: flex; align-items: center; gap: 10px; justify-content: flex-end;
+  padding: 12px 16px; border-top: 1px solid var(--border);
+}
+.capd-status { margin-right: auto; font-size: 12px; color: var(--muted); }
+
+.capd-row { display: flex; flex-direction: column; gap: 6px; }
+.capd-row > label { font-size: 12px; font-weight: 600; color: var(--muted); }
+.capd-row .input { padding: 7px 10px; font-size: 13px; }
+.capd-prevmeta { font-weight: 400; margin-left: 6px; }
+
+.capd-seg { display: inline-flex; flex-wrap: wrap; gap: 4px; }
+.capd-seg button {
+  padding: 6px 12px; font-size: 12px; font-weight: 600; cursor: pointer;
+  background: var(--surface); color: var(--muted);
+  border: 1px solid var(--border); border-radius: 999px;
+}
+.capd-seg button:hover:not(:disabled) { border-color: var(--primary); color: inherit; }
+.capd-seg button.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+.capd-seg button:disabled { opacity: .4; cursor: not-allowed; }
+
+.capd-preview {
+  margin: 0; max-height: 240px; overflow: auto; white-space: pre-wrap; word-break: break-word;
+  padding: 10px 12px; font-size: 12px; line-height: 1.45;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  background: color-mix(in oklab, var(--primary) 5%, var(--surface));
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+}

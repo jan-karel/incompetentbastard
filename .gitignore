@@ -21,7 +21,9 @@ meuk/logs/
 raw/loot/
 raw/screenshots/
 raw/archief/
+raw/huisstijl/
 rapport/
 
 # Handboek (LaTeX-bronnen) bewust buiten versiebeheer
 handboek/
+src/

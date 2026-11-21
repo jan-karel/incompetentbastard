@@ -5,6 +5,7 @@
 <link rel="stylesheet" href="{{ url_for('static', filename='css/generator.css') }}" />
 <link rel="stylesheet" href="{{ url_for('static', filename='css/asciinema-player.css') }}" />
 <link rel="stylesheet" href="{{ url_for('static', filename='css/recordings.css') }}" />
+<link rel="stylesheet" href="{{ url_for('static', filename='css/capture-dialog.css') }}" />
 {% endblock %}
 
 {% block content %}
@@ -15,14 +16,23 @@
 </div>
 
 <section class="card">
-  <div class="card-head">
-    <h2>Opnames</h2>
-    <input type="text" id="rec-filter" class="input" placeholder="Zoek opnames..." style="margin-left:auto;min-width:200px;padding:4px 10px;font-size:12px" />
-    <button type="button" id="refresh-btn" class="btn" style="font-size:12px">Vernieuwen</button>
+  <div class="rec-toolbar">
+    <div class="rec-toolbar-row">
+      <div class="rec-search-wrap">
+        <span class="rec-search-ico" aria-hidden="true">⌕</span>
+        <input type="search" id="rec-filter" class="rec-search" placeholder="Zoek in opnames…" autocomplete="off" />
+      </div>
+      <div class="rec-target">
+        <label for="rec-opdracht">Verwerk in</label>
+        <select id="rec-opdracht" class="input" title="Doel-opdracht voor 'Vastleggen'"></select>
+      </div>
+      <button type="button" id="refresh-btn" class="btn btn-sm">↻ Vernieuwen</button>
+    </div>
+    <div class="rec-filters" id="rec-filters"></div>
   </div>
   <div class="card-body">
     <div id="rec-list" class="rec-list">
-      <p style="color:var(--muted)">Laden...</p>
+      <p class="rec-empty">Laden…</p>
     </div>
   </div>
 </section>
@@ -42,5 +52,6 @@
 
 {% block scripts %}
 <script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='js/asciinema-player.min.js') }}"></script>
+<script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='js/capture-dialog.js') }}"></script>
 <script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='js/recordings.js') }}"></script>
 {% endblock %}

@@ -2,6 +2,7 @@
 {% block title %}Rapport dashboard{% endblock %}
 
 {% block styles %}
+<meta name="csrf-token" content="{{ csrf_token() }}" />
 <link rel="stylesheet" href="{{ url_for('static', filename='css/safe-overview.css') }}" />
 <link rel="stylesheet" href="{{ url_for('static', filename='css/notes-overview.css') }}" />
 <link rel="stylesheet" href="{{ url_for('static', filename='css/finding-form.css') }}" />
@@ -24,7 +25,6 @@
 <div class="rapport-tabs">
   <button class="rapport-tab active" data-tab="tab-instellingen">Instellingen</button>
   <button class="rapport-tab" data-tab="tab-findings">Bevindingen &amp; notities</button>
-  <button class="rapport-tab" data-tab="tab-lakken">Afbeeldingen lakken</button>
   <button class="rapport-tab" data-tab="tab-bewerken">Bewerken</button>
   <button class="rapport-tab" data-tab="tab-genereer">Genereer &amp; download</button>
   <button class="rapport-tab" data-tab="tab-delen">Delen</button>
@@ -35,8 +35,18 @@
 {# ══════════════════════════════════════════════════════ #}
 <div class="rapport-tab-content active" id="tab-instellingen">
 
+{# Sub-tabs binnen Instellingen (groepeert de kaarten; JS in script hieronder) #}
+<div class="rapport-subtabs" id="instellingen-subtabs">
+  <button type="button" class="rapport-subtab active" data-ibsub-btn="gegevens">Gegevens</button>
+  <button type="button" class="rapport-subtab" data-ibsub-btn="teksten">Teksten</button>
+  <button type="button" class="rapport-subtab" data-ibsub-btn="huisstijl">Huisstijl</button>
+  <button type="button" class="rapport-subtab" data-ibsub-btn="redteam" hidden>Red Team</button>
+  <button type="button" class="rapport-subtab" data-ibsub-btn="integraties">Integraties</button>
+  <button type="button" class="rapport-subtab" data-ibsub-btn="debrief">Debrief</button>
+</div>
+
 {# Standaardteksten: boilerplate-profielen (per testtype, nl+en, met tokens) #}
-<section class="card mb-14" id="rap-boiler-card">
+<section data-ibsub="teksten" class="card mb-14" id="rap-boiler-card">
   <div class="card-head collapsed"><h2>Standaardteksten &amp; profielen</h2></div>
   <div class="card-body">
     <p class="help">Herbruikbare boilerplate per <strong>profiel</strong> (bijv. Pentest of Red team), in NL en EN, met <strong>{{tokens}}</strong> die automatisch de opdrachtgegevens invullen. Per opdracht voeg je ze in met <strong>&#8595; Vul met standaard</strong> naast elk veld, of in één keer met <strong>Vul alle lege velden</strong>.</p>
@@ -82,7 +92,7 @@
 </section>
 
 {# Snippet-bibliotheek: herbruikbare tekstblokken #}
-<section class="card mb-14" id="rap-snippets-card">
+<section data-ibsub="teksten" class="card mb-14" id="rap-snippets-card">
   <div class="card-head collapsed"><h2>Snippet-bibliotheek</h2></div>
   <div class="card-body">
     <p class="help">Herbruikbare tekstblokken (RoE-clausules, methodologie-alinea's, verklaring-formules) die je in elk vrije-tekstveld invoegt via <strong>Invoegen &#9662;</strong>. Tokens worden bij invoegen ingevuld.</p>
@@ -114,7 +124,7 @@
 </section>
 
 {# Versie #}
-<section class="card mb-14">
+<section data-ibsub="gegevens" class="card mb-14">
   <div class="card-head"><h2>Versie</h2></div>
   <div class="card-body">
     <div class="grid cols-2 gap-16">
@@ -136,7 +146,7 @@
 </section>
 
 {# Colofon: contactgegevens + revisiehistorie #}
-<section class="card mb-14">
+<section data-ibsub="gegevens" class="card mb-14">
   <div class="card-head"><h2>Colofon</h2></div>
   <div class="card-body">
     <label class="form-label" for="rap-contact">Contactgegevens</label>
@@ -151,7 +161,7 @@
 </section>
 
 {# Managementsamenvatting — prominent #}
-<section class="card mb-14">
+<section data-ibsub="teksten" class="card mb-14">
   <div class="card-head"><h2>Managementsamenvatting</h2></div>
   <div class="card-body">
     <textarea id="rap-samenvatting" class="form-control" data-rap="rapport_management_samenvatting" rows="8" placeholder="Vrije tekst voor de managementsamenvatting in het rapport..."></textarea>
@@ -166,7 +176,7 @@
 </section>
 
 {# Basisgegevens #}
-<section class="card mb-14">
+<section data-ibsub="gegevens" class="card mb-14">
   <div class="card-head"><h2>Basisgegevens</h2></div>
   <div class="card-body">
     <div class="grid cols-2 gap-16">
@@ -205,7 +215,7 @@
 </section>
 
 {# Scope targets #}
-<section class="card mb-14">
+<section data-ibsub="gegevens" class="card mb-14">
   <div class="card-head"><h2>Scope Targets</h2></div>
   <div class="card-body">
     <div id="scope-targets-list"></div>
@@ -216,7 +226,7 @@
 </section>
 
 {# Test details #}
-<section class="card mb-14">
+<section data-ibsub="gegevens" class="card mb-14">
   <div class="card-head"><h2>Test details</h2></div>
   <div class="card-body">
     <div class="grid cols-2 gap-16">
@@ -304,7 +314,7 @@
 </section>
 
 {# Rules of Engagement #}
-<section class="card mb-14">
+<section data-ibsub="gegevens" class="card mb-14">
   <div class="card-head"><h2>Rules of Engagement</h2></div>
   <div class="card-body">
     <textarea id="rap-roe" class="form-control" data-rap="rapport_roe" rows="4" placeholder="Beschrijf de Rules of Engagement..."></textarea>
@@ -312,7 +322,7 @@
 </section>
 
 {# Logo upload #}
-<section class="card mb-14">
+<section data-ibsub="huisstijl" class="card mb-14">
   <div class="card-head"><h2>Logo</h2></div>
   <div class="card-body">
     <form id="logo-upload-form" class="d-flex gap-8 items-center">
@@ -323,8 +333,34 @@
   </div>
 </section>
 
+{# Huisstijl (voorblad) — uploadbare bundel: voorpagina + logo #}
+<section data-ibsub="huisstijl" class="card mb-14">
+  <div class="card-head"><h2>Huisstijl (voorblad)</h2></div>
+  <div class="card-body">
+    <div class="d-flex gap-8 items-center flex-wrap mb-8">
+      <label class="form-label m-0" for="rap-huisstijl-select">Voor deze opdracht</label>
+      <select id="rap-huisstijl-select" class="form-control mw360"></select>
+      <span id="huisstijl-select-msg" class="help"></span>
+    </div>
+    <p class="help m-0 mb-8">
+      Een huisstijlbundel is een <code>.zip</code> met een volledige
+      <code>voorpagina.tex</code> (verplicht), één logo (png/jpg/pdf, optioneel)
+      en optioneel <code>kleuren.sty</code>. De bundels leven buiten de broncode;
+      kies er één als app-brede standaard of wijk per opdracht af. Zonder bundel
+      gebruikt het rapport het ingebouwde rijksblauwe voorblad.
+    </p>
+    <div id="huisstijl-list" class="mb-8"></div>
+    <form id="huisstijl-upload-form" class="d-flex gap-8 items-center flex-wrap">
+      <input type="text" id="huisstijl-naam" class="form-control mw220" placeholder="Naam van de huisstijl" />
+      <input type="file" id="huisstijl-zip" accept=".zip" class="fs13" />
+      <button type="submit" class="btn btn-sm">Upload bundel</button>
+      <span id="huisstijl-upload-status" class="help"></span>
+    </form>
+  </div>
+</section>
+
 {# Red Team sectie (conditioneel) #}
-<div id="redteam-fields" class="d-none">
+<div id="redteam-fields" data-ibsub="redteam" class="d-none">
   <section class="card mb-14">
     <div class="card-head"><h2>Red Team — Legs Up</h2></div>
     <div class="card-body">
@@ -385,7 +421,7 @@
   </section>
 </div>{# /redteam-fields — PDF/DefectDojo/Debrief vallen hier bewust buiten #}
 
-  <section class="card mb-14">
+  <section data-ibsub="integraties" class="card mb-14">
     <div class="card-head"><h2>PDF-beveiliging</h2></div>
     <div class="card-body">
       <p class="help">Versleutel het PDF-rapport met AES-256. Het <strong>lezer-wachtwoord</strong> is nodig om het document te openen; het <strong>eigenaar-wachtwoord</strong> geeft volledige rechten (en valt terug op het lezer-wachtwoord indien leeg). Na het genereren is de beveiligde versie beschikbaar als download "PDF (beveiligd)".</p>
@@ -407,10 +443,11 @@
     </div>
   </section>
 
-  <section class="card mb-14">
+  <section data-ibsub="integraties" class="card mb-14">
     <div class="card-head"><h2>DefectDojo-integratie</h2></div>
     <div class="card-body">
       <p class="help">Push bevindingen naar een DefectDojo-engagement. CWE, CVSS en screenshots worden meegestuurd; status wordt gesynchroniseerd op basis van de herstelstatus.</p>
+      <h3 class="form-label mt-4">Verbinding <span class="help">— server-breed, geldt voor álle projecten; eenmalig instellen</span></h3>
       <div class="form-row">
         <div class="form-group">
           <label class="form-label" for="dd-url">DefectDojo URL</label>
@@ -423,6 +460,10 @@
                  placeholder="Leeg = ongewijzigd" autocomplete="new-password" />
         </div>
       </div>
+      <label class="label-check mt-4">
+        <input type="checkbox" id="dd-verify" data-rap="dd_verify_ssl" /> TLS-certificaat verifiëren
+      </label>
+      <h3 class="form-label mt-8">Doel <span class="help">— per project; kies product/engagement voor deze rapportage</span></h3>
       <div class="form-row">
         <div class="form-group">
           <label class="form-label" for="dd-product">Product-ID</label>
@@ -433,18 +474,18 @@
           <input id="dd-engagement" type="number" class="form-control" data-rap="dd_engagement_id" />
         </div>
       </div>
-      <label class="label-check mt-4">
-        <input type="checkbox" id="dd-verify" data-rap="dd_verify_ssl" /> TLS-certificaat verifiëren
-      </label>
       <div class="mt-8">
         <button type="button" id="btn-dd-test" class="btn">Verbinding testen</button>
         <button type="button" id="btn-dd-push" class="btn">Bevindingen pushen (definitief)</button>
+        <button type="button" id="btn-dd-import" class="btn">Importeren uit DefectDojo</button>
+        <button type="button" id="btn-dd-pull" class="btn">Gekoppelde bijwerken</button>
         <span id="dd-status" class="help ml-8"></span>
       </div>
+      <p class="help mt-4">Importeren haalt openstaande bevindingen uit het geconfigureerde engagement en maakt er concept-bevindingen in dit project van (al gekoppelde worden overgeslagen). Bijwerken trekt de huidige stand van reeds gekoppelde bevindingen terug uit DefectDojo.</p>
     </div>
   </section>
 
-  <section class="card mb-14">
+  <section data-ibsub="debrief" class="card mb-14">
     <div class="card-head"><h2>Debrief — Lessons Learned</h2></div>
     <div class="card-body">
       <p class="help">Vrije tekst voor de debrief. Het gegenereerde debrief-rapport vult hieronder automatisch de kerncijfers aan (top-faalmodi, detectieprestatie, MITRE-technieken).</p>
@@ -483,10 +524,16 @@
 {# TAB 2: Bevindingen & notities                          #}
 {# ══════════════════════════════════════════════════════ #}
 <div class="rapport-tab-content" id="tab-findings">
+<div class="rapport-subtabs">
+  <button type="button" class="rapport-subtab active" data-ibsub-btn="bevindingen">Bevindingen</button>
+  <button type="button" class="rapport-subtab" data-ibsub-btn="notities">Notities</button>
+  <button type="button" class="rapport-subtab" data-ibsub-btn="lakken">Afbeeldingen lakken</button>
+  <button type="button" class="rapport-subtab" data-ibsub-btn="scan">Scan-import</button>
+</div>
 
 {# ── Findings tabel ────────────────────────────────── #}
 {% set final_count = findings|selectattr('status','equalto','final')|list|length %}
-<section class="card mb-14">
+<section data-ibsub="bevindingen" class="card mb-14">
   <div class="card-head">
     <h2>Bevindingen</h2>
     <span class="help" id="findings-counter">{{ final_count }} definitief van {{ findings|length }}</span>
@@ -529,7 +576,7 @@
 
 {# ── Notes lijst ───────────────────────────────────── #}
 {% set notes_in_rapport = notes|selectattr('rapport')|list|length %}
-<section class="card mb-14">
+<section data-ibsub="notities" class="card mb-14">
   <div class="card-head">
     <h2>Notities</h2>
     <span class="help" id="notes-counter">{{ notes_in_rapport }} in rapport</span>
@@ -562,7 +609,7 @@
 </section>
 
 {# ── Scan-run importeren als notitie ── #}
-<section class="card mb-14">
+<section data-ibsub="scan" class="card mb-14">
   <div class="card-head"><h2>Scan-run importeren</h2></div>
   <div class="card-body">
     <p class="help">Genereer uit een scan-run-map (bijv. <code>apm2/raw/&lt;run&gt;</code>) een LaTeX-samenvatting (stappen + DigiD-normkoppeling + bevindingen) en voeg die toe als rauwe-LaTeX notitie in het rapport.</p>
@@ -579,6 +626,31 @@
   </div>
 </section>
 
+<section data-ibsub="lakken" class="card mb-14" data-lak-galerij>
+  <div class="card-head"><h2>Afbeeldingen lakken</h2></div>
+  <div class="card-body">
+    <p class="help">Alle afbeeldingen die via <code>\plaatje{}</code> in de bevindingen,
+      notities en vrije tekstvelden van deze opdracht gebruikt worden. Een
+      <span class="lak-badge lak-badge-inline">GELAKT</span>-markering betekent dat er een
+      gelakte kopie bestaat; die wordt in de <strong>gelakte</strong> rapportbuild gebruikt
+      i.p.v. het origineel. Klik een afbeelding aan om 'm groot te bekijken (←/→ bladeren,
+      L lakken, G gecontroleerd), of "Lakken" om zwarte vlakken over gevoelige delen te trekken.</p>
+    <div class="lak-bar">
+      <label class="lak-filter-label">Toon:
+        <select data-lak-filter class="form-control lak-filter-select">
+          <option value="alle">Alle</option>
+          <option value="todo">Te controleren</option>
+          <option value="gelakt">Gelakt</option>
+          <option value="gecontroleerd">Gecontroleerd</option>
+          <option value="niet">Niet gelakt</option>
+        </select>
+      </label>
+      <span data-lak-status class="lak-status"></span>
+      <button type="button" data-lak-refresh class="btn btn-sm">Vernieuwen</button>
+    </div>
+    <div data-lak-grid class="lak-grid"></div>
+  </div>
+</section>
 {# ── Finding edit modal ── #}
 <div id="rap-finding-modal" class="modal-overlay d-none">
   <div class="modal-box modal-md">
@@ -623,33 +695,6 @@
 {# ══════════════════════════════════════════════════════ #}
 {# TAB: Afbeeldingen lakken                               #}
 {# ══════════════════════════════════════════════════════ #}
-<div class="rapport-tab-content" id="tab-lakken">
-<section class="card mb-14" data-lak-galerij>
-  <div class="card-head"><h2>Afbeeldingen lakken</h2></div>
-  <div class="card-body">
-    <p class="help">Alle afbeeldingen die via <code>\plaatje{}</code> in de bevindingen,
-      notities en vrije tekstvelden van deze opdracht gebruikt worden. Een
-      <span class="lak-badge lak-badge-inline">GELAKT</span>-markering betekent dat er een
-      gelakte kopie bestaat; die wordt in de <strong>gelakte</strong> rapportbuild gebruikt
-      i.p.v. het origineel. Klik een afbeelding aan om 'm groot te bekijken (←/→ bladeren,
-      L lakken, G gecontroleerd), of "Lakken" om zwarte vlakken over gevoelige delen te trekken.</p>
-    <div class="lak-bar">
-      <label class="lak-filter-label">Toon:
-        <select data-lak-filter class="form-control lak-filter-select">
-          <option value="alle">Alle</option>
-          <option value="todo">Te controleren</option>
-          <option value="gelakt">Gelakt</option>
-          <option value="gecontroleerd">Gecontroleerd</option>
-          <option value="niet">Niet gelakt</option>
-        </select>
-      </label>
-      <span data-lak-status class="lak-status"></span>
-      <button type="button" data-lak-refresh class="btn btn-sm">Vernieuwen</button>
-    </div>
-    <div data-lak-grid class="lak-grid"></div>
-  </div>
-</section>
-</div>{# /tab-lakken #}
 
 {# ══════════════════════════════════════════════════════ #}
 {# TAB 3: Genereer & download                            #}
@@ -662,6 +707,8 @@
       <div class="rb-toolbar">
         <button type="button" class="btn btn-sm" id="rb-reload">&#8635; Preview herladen</button>
         <button type="button" class="btn btn-sm" id="rb-sections-toggle">&#9776; Secties (aan/uit &amp; volgorde)</button>
+        <button type="button" class="btn btn-sm" id="rb-voorblad-toggle" hidden>&#9632; Voorblad bewerken</button>
+        <button type="button" class="btn btn-sm" id="rb-evreg-toggle">&#9776; Evidence-bijlage</button>
         <button type="button" class="btn btn-sm" id="rb-validate">&#10003; Controleren</button>
         <button type="button" class="btn btn-sm" id="rb-toc-toggle">&#9776; Inhoud</button>
         <button type="button" class="btn btn-sm" id="rb-add-note">+ Notitie</button>
@@ -682,6 +729,26 @@
       <div id="rb-sections" class="rb-sections" hidden>
         <p class="help m-0 mb-8" id="rb-sections-hint">Vink secties aan/uit; dit wijzigt de gekozen rapport-template en ververst de preview.</p>
         <div id="rb-sections-list" class="rb-sections-list"></div>
+      </div>
+      <div id="rb-voorblad" class="rb-sections" hidden>
+        <p class="help m-0 mb-8" id="rb-voorblad-hint">Pas het voorblad (LaTeX) voor <strong>dít</strong> rapport aan. Beschikbare macro&#39;s: <code>\rapporttitel</code>, <code>\rapportsubtitel</code>, <code>\rapportproject</code>, <code>\rapportauteur</code>, <code>\rapportdatum</code>, <code>\rapportclassificatie</code>, <code>\rapportversie</code>, <code>\huisstijllogo</code>. Herstellen gebruikt weer de voorpagina uit de bundel.</p>
+        <textarea id="rb-voorblad-tex" class="form-control" rows="16" spellcheck="false"></textarea>
+        <div class="d-flex gap-8 items-center flex-wrap mt-8">
+          <button type="button" class="btn btn-primary btn-sm" id="rb-voorblad-save">Opslaan &amp; verversen</button>
+          <button type="button" class="btn btn-sm" id="rb-voorblad-reset">&#8634; Herstel bundel-voorblad</button>
+          <span id="rb-voorblad-status" class="help"></span>
+        </div>
+      </div>
+      <div id="rb-evreg" class="rb-sections" hidden>
+        <p class="help m-0 mb-8">Vink aan welk bewijs in het <strong>Bewijsregister</strong> (bijlage) komt
+          &mdash; de longtable met bestandsnaam, formaat en SHA-256. Dezelfde selectie als op
+          het tabblad Delen &rarr; Evidence.</p>
+        <div class="d-flex gap-8 items-center flex-wrap mb-8">
+          <span id="rb-evreg-status" class="help"></span>
+          <button type="button" class="btn btn-sm" id="rb-evreg-reload">&#8635; Vernieuwen</button>
+          <a class="btn btn-sm" href="/dashboard/report?tab=delen" target="_blank" rel="noopener">Open Evidence-tab</a>
+        </div>
+        <div id="rb-evreg-list" class="rb-evreg-list"></div>
       </div>
       <div id="rb-validation" class="rb-validation" hidden></div>
       <div id="rb-toc" class="rb-toc" hidden></div>
@@ -760,6 +827,13 @@
 </div>{# /tab-bewerken #}
 
 <div class="rapport-tab-content" id="tab-genereer">
+<div class="rapport-subtabs">
+  <button type="button" class="rapport-subtab active" data-ibsub-btn="genereren">Genereren</button>
+  <button type="button" class="rapport-subtab" data-ibsub-btn="metrics">Metrics</button>
+  <button type="button" class="rapport-subtab" data-ibsub-btn="retest">Retest</button>
+  <button type="button" class="rapport-subtab" data-ibsub-btn="debrief">Debrief</button>
+  <button type="button" class="rapport-subtab" data-ibsub-btn="versies">Versies</button>
+</div>
 
 {# KPI rij #}
 <div class="grid cols-4 mb-14">
@@ -772,7 +846,7 @@
 </div>
 
 {# ── Validatie panel ──────────────────────────────── #}
-<section class="card mb-14">
+<section data-ibsub="genereren" class="card mb-14">
   <div class="card-head"><h2>Pre-generatie check</h2></div>
   <div class="card-body" id="validation-panel">
     <button class="btn" id="btn-validate" type="button">Valideer</button>
@@ -781,7 +855,7 @@
 </section>
 
 {# ── Metrics dashboard ───────────────────────────── #}
-<div class="grid cols-3 mb-14" id="metrics-section">
+<div data-ibsub="metrics" class="grid cols-3 mb-14" id="metrics-section">
   <section class="card"><div class="card-body"><div class="val" id="metric-total">-</div><div class="sub">Definitieve bevindingen</div></div></section>
   <section class="card"><div class="card-body">
     <h3 class="fs-14 m-0 mb-8">Ernst</h3>
@@ -794,7 +868,7 @@
 </div>
 
 {# ── Generate + Download ─────────────────────────── #}
-<section class="card mb-14">
+<section data-ibsub="genereren" class="card mb-14">
   <div class="card-head"><h2>Rapport genereren</h2></div>
   <div class="card-body">
     <button class="btn btn-primary" id="btn-generate-report" type="button">Rapport genereren</button>
@@ -848,7 +922,7 @@
 </section>
 
 {# ── Retestrapport ────────────────────────────────── #}
-<section class="card mb-14">
+<section data-ibsub="retest" class="card mb-14">
   <div class="card-head"><h2>Retestrapport</h2></div>
   <div class="card-body">
     <p class="help">Compact overzicht van de retestcyclus: welke bevindingen zijn opgelost, nog open of gepland voor retest.</p>
@@ -863,7 +937,7 @@
 </section>
 
 {# ── Debrief ──────────────────────────────────────── #}
-<section class="card mb-14">
+<section data-ibsub="debrief" class="card mb-14">
   <div class="card-head"><h2>Debrief genereren</h2></div>
   <div class="card-body">
     <p class="help">Genereert de debrief (lessons learned) met je vrije tekst plus automatische kerncijfers uit de definitieve bevindingen. Teksten stel je in op het tabblad Instellingen.</p>
@@ -878,7 +952,7 @@
 </section>
 
 {# ── Report versions ──────────────────────────────── #}
-<section class="card mb-14">
+<section data-ibsub="versies" class="card mb-14">
   <div class="card-head"><h2>Rapportversies</h2></div>
   <div class="card-body">
     <div id="versions-list" class="help">Laden...</div>
@@ -904,20 +978,30 @@
 </div>{# /tab-genereer #}
 
 <div class="rapport-tab-content" id="tab-delen">
-  <section class="card mb-14">
+<div class="rapport-subtabs">
+  <button type="button" class="rapport-subtab active" data-ibsub-btn="export">Exporteren</button>
+  <button type="button" class="rapport-subtab" data-ibsub-btn="import">Importeren</button>
+  <button type="button" class="rapport-subtab" data-ibsub-btn="evidence">Evidence</button>
+</div>
+  <section data-ibsub="export" class="card mb-14">
     <div class="card-head"><h2>Rapport exporteren</h2></div>
     <div class="card-body">
-      <p class="help">Pak dit rapport (teksten, bevindingen, evidence, screenshots en notities)
-        in één <code>.zip</code> zodat een collega er op zijn eigen pc verder aan kan werken.
-        PDF-wachtwoorden en DefectDojo-gegevens blijven er bewust buiten.</p>
+      <p class="help">Pak dit rapport (teksten, bevindingen, evidence, screenshots, notities
+        en screen-opnames) in één <code>.zip</code> zodat een collega er op zijn eigen pc verder
+        aan kan werken. PDF-wachtwoorden en DefectDojo-gegevens blijven er bewust buiten.</p>
       <a class="btn btn-primary" id="rb-export-link" href="/dashboard/report/export">
         &#8681; Exporteer dit rapport (.zip)</a>
+      <p class="help mt-8">&#128273; De bundel is <strong>tamper-evident</strong>: ze bevat
+        <code>MANIFEST.sha256</code> en <code>AUDIT.json</code> (herkomst + vingerafdruk). Een
+        auditor verifieert zonder deze tool met
+        <code>sha256sum -c MANIFEST.sha256</code> (macOS: <code>shasum -a 256 -c</code>).
+        Bij import weigert de tool een gewijzigde bundel.</p>
       <p class="help mt-8">&#9888; De bundel kan vertrouwelijke bevindingen bevatten — deel 'm alleen
         via vertrouwde kanalen met gemachtigde ontvangers.</p>
     </div>
   </section>
 
-  <section class="card mb-14">
+  <section data-ibsub="import" class="card mb-14">
     <div class="card-head"><h2>Rapport importeren</h2></div>
     <div class="card-body">
       <label class="form-label" for="rb-import-file">Bundel (.zip)</label>
@@ -940,6 +1024,50 @@
       <span id="rb-import-status" class="help ml-8"></span>
     </div>
   </section>
+{# ── Evidence-overzicht (opdracht-breed) ── #}
+<section data-ibsub="evidence" class="card mb-14">
+  <div class="card-head"><h2>Evidence</h2></div>
+  <div class="card-body">
+    <p class="help">Opdracht-breed overzicht van al het vastgelegde bewijs per bevinding,
+      met chain-of-custody (SHA-256). Uploaden doe je in de bevinding-editor; hier kun je
+      verifi&euml;ren, downloaden, lakken en verwijderen. Vink <strong>Bijlage</strong> aan om
+      een item op te nemen in het <em>Bewijsregister</em> (longtable met bestandsnaam,
+      formaat en SHA-256) in de rapportbijlage.</p>
+    <div class="lak-bar">
+      <label class="lak-filter-label">Categorie:
+        <select id="ev-filter-cat" class="form-control lak-filter-select"><option value="">Alle</option></select>
+      </label>
+      <input id="ev-filter-q" type="text" class="form-control ev-search" placeholder="zoek: bevinding / bestand / tool" />
+      <label class="lak-filter-label">Sorteer:
+        <select id="ev-sort" class="form-control lak-filter-select">
+          <option value="">Standaard</option>
+          <option value="naam">Bestandsnaam</option>
+          <option value="type">Type</option>
+          <option value="bevinding">Bevinding</option>
+          <option value="datum">Datum</option>
+        </select>
+      </label>
+      <span id="ev-status" class="lak-status"></span>
+      <span id="ev-report-count" class="lak-status"></span>
+      <button type="button" id="ev-refresh" class="btn btn-sm">Vernieuwen</button>
+      <button type="button" id="ev-verify-all" class="btn btn-sm">Verifieer alles</button>
+      <button type="button" id="ev-seal" class="btn btn-sm" title="Leg de huidige SHA-256 van alle bewijs vast als integriteits-baseline">Verzegelen</button>
+      <a id="ev-export" class="btn btn-sm" href="/api/findings/evidence/export">Export alles (.zip)</a>
+      <button type="button" id="ev-export-sel" class="btn btn-sm" title="Exporteer alleen de voor de bijlage aangevinkte items">Export selectie</button>
+    </div>
+    <div id="ev-complete" class="ev-complete" hidden></div>
+    <div class="ev-table-wrap">
+      <table class="ev-table">
+        <thead><tr>
+          <th title="In rapport-bijlage (Bewijsregister)">Bijlage</th>
+          <th></th><th>Bevinding</th><th>Bestand</th><th>Categorie</th><th>Tool</th>
+          <th>Datum</th><th>Integriteit</th><th>Acties</th>
+        </tr></thead>
+        <tbody id="ev-rows"></tbody>
+      </table>
+    </div>
+  </div>
+</section>
 </div>{# /tab-delen #}
 
 {% endblock %}
@@ -965,14 +1093,15 @@
     var panel = document.getElementById(tabId);
     if (btn) btn.classList.add("active");
     if (panel) panel.classList.add("active");
-    // Lak-galerij verversen bij openen (nieuwe afbeeldingen uit andere tabs).
-    if (tabId === "tab-lakken" && panel) {
-      var gal = panel.querySelector("[data-lak-galerij]");
+    // Lak-galerij verversen bij openen van Bevindingen als de lakken-sub-tab actief is.
+    if (tabId === "tab-findings" && panel) {
+      var gal = panel.querySelector("[data-lak-galerij]:not(.ibsub-off)");
       if (gal && typeof gal._lakReload === "function") gal._lakReload();
     }
     if (tabId === "tab-bewerken" && panel && typeof rbLoadPreview === "function") {
       rbLoadPreview();
       if (typeof rbLoadSections === "function") rbLoadSections();
+      if (typeof rbInitVoorblad === "function") rbInitVoorblad();
     }
     try { localStorage.setItem(LS_KEY, tabId); } catch(e) {}
   }
@@ -1598,7 +1727,9 @@
     } else if (type === "vrijsectie") {
       rbOpenVrijsectie(key);
     } else if (type === "image") {
-      activateRapportTab("tab-lakken");
+      activateRapportTab("tab-findings");
+      var _fp = document.getElementById("tab-findings");
+      if (_fp && typeof ibSubApply === "function") ibSubApply(_fp, "lakken");
       if (key && typeof window.rbOpenLakImage === "function") {
         setTimeout(function() { window.rbOpenLakImage(key); }, 150);
         rbStatus("Afbeelding geopend in de lak-editor", "ok");
@@ -1738,6 +1869,96 @@
       .then(function(d) { rbTplData = d; rbRenderSections(); })
       .catch(function() {});
   }
+  // ── Voorblad (huisstijl) per-opdracht bewerken ───────
+  function rbInitVoorblad() {
+    var btn = document.getElementById("rb-voorblad-toggle");
+    if (!btn) return;
+    fetch("/api/report/huisstijl/voorblad", { credentials: "same-origin" })
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        // Knop alleen tonen als er een huisstijl actief is (bundel of standaard).
+        btn.hidden = !(d && d.ok && d.actief);
+      })
+      .catch(function() { btn.hidden = true; });
+  }
+  function rbLoadVoorblad() {
+    var ta = document.getElementById("rb-voorblad-tex");
+    var st = document.getElementById("rb-voorblad-status");
+    if (!ta) return;
+    fetch("/api/report/huisstijl/voorblad", { credentials: "same-origin" })
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        if (!d || !d.ok) return;
+        ta.value = d.tex || "";
+        if (st) st.textContent = d.is_override
+          ? ("Aangepast voorblad (" + (d.naam || "") + ")")
+          : ("Bundel-voorblad" + (d.naam ? (" — " + d.naam) : ""));
+      });
+  }
+  function rbSaveVoorblad() {
+    var ta = document.getElementById("rb-voorblad-tex");
+    var st = document.getElementById("rb-voorblad-status");
+    if (!ta) return;
+    if (st) st.textContent = "Opslaan…";
+    fetch("/api/report/huisstijl/voorblad", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tex: ta.value })
+    }).then(function(r) { return r.json(); }).then(function(d) {
+      if (st) st.textContent = d.ok
+        ? ("Opgeslagen" + (d.warning ? (" — " + d.warning) : ""))
+        : (d.error || "Fout");
+      if (d.ok && typeof rbLoadPreview === "function") rbLoadPreview();
+    });
+  }
+  function rbResetVoorblad() {
+    var st = document.getElementById("rb-voorblad-status");
+    fetch("/api/report/huisstijl/voorblad", { method: "DELETE" })
+      .then(function(r) { return r.json(); }).then(function(d) {
+        if (d.ok) {
+          var ta = document.getElementById("rb-voorblad-tex");
+          if (ta) ta.value = d.tex || "";
+          if (st) st.textContent = "Teruggezet op bundel-voorblad";
+          if (typeof rbLoadPreview === "function") rbLoadPreview();
+        } else if (st) { st.textContent = d.error || "Fout"; }
+      });
+  }
+  // ── Evidence-bijlage (Bewijsregister) beheren vanuit Bewerken ────────
+  function rbEvregLabel(e) {
+    var t = { file: "bestand", screenshot: "screenshot", recording: "opname", listing: "listing" }[e.kind] || "bewijs";
+    return (e.original_filename || e.filename || e.id) + "  (" + t + ")";
+  }
+  function rbLoadEvreg() {
+    var box = document.getElementById("rb-evreg-list");
+    var st = document.getElementById("rb-evreg-status");
+    if (!box) return;
+    if (st) st.textContent = "Laden…";
+    fetch("/api/findings/evidence/all", { credentials: "same-origin" })
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        if (!d || !d.ok) { if (st) st.textContent = "Fout bij laden"; return; }
+        box.innerHTML = "";
+        (d.evidence || []).forEach(function(e) {
+          var lab = document.createElement("label");
+          lab.className = "rb-evreg-item";
+          var cb = document.createElement("input");
+          cb.type = "checkbox"; cb.checked = !!e.in_report;
+          cb.addEventListener("change", function() {
+            fetch("/api/findings/evidence/report-selection", {
+              method: "POST", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ id: e.id, selected: cb.checked })
+            }).then(function(r) { return r.json(); }).then(function(x) {
+              if (x && x.ok && st) st.textContent = x.count + " in bijlage";
+              else { cb.checked = !cb.checked; }
+            }).catch(function() { cb.checked = !cb.checked; });
+          });
+          lab.appendChild(cb);
+          lab.appendChild(document.createTextNode(" " + rbEvregLabel(e)));
+          box.appendChild(lab);
+        });
+        if (st) st.textContent = (d.report_count || 0) + " in bijlage";
+      })
+      .catch(function() { if (st) st.textContent = "Fout bij laden"; });
+  }
   function rbSecLabel(k) { return (typeof SEC_LABELS !== "undefined" && SEC_LABELS[k]) ? SEC_LABELS[k] : k; }
   function rbRenderSections() {
     var wrap = document.getElementById("rb-sections-list");
@@ -1853,6 +2074,21 @@
       p.hidden = !p.hidden;
       if (!p.hidden) rbLoadSections();
     });
+    bind("rb-voorblad-toggle", function() {
+      var p = document.getElementById("rb-voorblad");
+      if (!p) return;
+      p.hidden = !p.hidden;
+      if (!p.hidden) rbLoadVoorblad();
+    });
+    bind("rb-voorblad-save", rbSaveVoorblad);
+    bind("rb-voorblad-reset", rbResetVoorblad);
+    bind("rb-evreg-toggle", function() {
+      var p = document.getElementById("rb-evreg");
+      if (!p) return;
+      p.hidden = !p.hidden;
+      if (!p.hidden) rbLoadEvreg();
+    });
+    bind("rb-evreg-reload", rbLoadEvreg);
     bind("rb-save", rbSave);
     bind("rb-table-addrow", rbAddRow);
     bind("rb-override-reset", rbResetOverride);
@@ -2146,15 +2382,608 @@
   var testtypeSel = document.getElementById("rap-testtype");
   var redteamFields = document.getElementById("redteam-fields");
   function toggleRedteamFields() {
-    if (redteamFields && testtypeSel) {
-      if (testtypeSel.value === "redteam") {
-        redteamFields.classList.remove("d-none");
-      } else {
-        redteamFields.classList.add("d-none");
-      }
+    var isRt = !!(testtypeSel && testtypeSel.value === "redteam");
+    if (redteamFields) redteamFields.classList.toggle("d-none", !isRt);
+    // Red Team sub-tab-knop mee tonen/verbergen; val terug op Gegevens als die
+    // sub-tab actief was en het geen red team (meer) is.
+    var inst = document.getElementById("tab-instellingen");
+    var rtBtn = inst && inst.querySelector('[data-ibsub-btn="redteam"]');
+    if (rtBtn) {
+      rtBtn.hidden = !isRt;
+      if (!isRt && ibSubCurrentFor(inst) === "redteam") ibSubApply(inst, "gegevens");
     }
   }
   if (testtypeSel) testtypeSel.addEventListener("change", toggleRedteamFields);
+
+  // ── Generieke sub-tabs (Instellingen, Bevindingen, Genereer, Delen) ──
+  // Elke .rapport-subtabs-balk hoort bij zijn omringende .rapport-tab-content;
+  // knoppen tonen/verbergen de kaarten met data-ibsub binnen diezelfde tab.
+  function ibSubApply(panel, group) {
+    if (!panel) return;
+    panel.querySelectorAll("[data-ibsub]").forEach(function(el) {
+      el.classList.toggle("ibsub-off", el.getAttribute("data-ibsub") !== group);
+    });
+    var bar = panel.querySelector(".rapport-subtabs");
+    if (bar) bar.querySelectorAll("[data-ibsub-btn]").forEach(function(b) {
+      b.classList.toggle("active", b.getAttribute("data-ibsub-btn") === group);
+    });
+    // Lak-galerij verversen zodra die sub-tab zichtbaar wordt.
+    var gal = panel.querySelector("[data-lak-galerij]:not(.ibsub-off)");
+    if (gal && typeof gal._lakReload === "function") gal._lakReload();
+    // Evidence-overzicht laden zodra die sub-tab zichtbaar wordt.
+    if (group === "evidence" && typeof evLoad === "function") evLoad();
+    try { localStorage.setItem("ib-subtab-" + panel.id, group); } catch (e) {}
+  }
+  function ibSubCurrentFor(panel) {
+    var b = panel && panel.querySelector(".rapport-subtabs .rapport-subtab.active");
+    return b ? b.getAttribute("data-ibsub-btn") : null;
+  }
+  (function initAllSubtabs() {
+    document.querySelectorAll(".rapport-subtabs").forEach(function(bar) {
+      var panel = bar.closest(".rapport-tab-content");
+      if (!panel) return;
+      bar.querySelectorAll("[data-ibsub-btn]").forEach(function(b) {
+        b.addEventListener("click", function() { ibSubApply(panel, b.getAttribute("data-ibsub-btn")); });
+      });
+      var first = bar.querySelector("[data-ibsub-btn]:not([hidden])");
+      var start = first ? first.getAttribute("data-ibsub-btn") : null;
+      try {
+        var s = localStorage.getItem("ib-subtab-" + panel.id);
+        if (s) { var sb = bar.querySelector('[data-ibsub-btn="' + s + '"]'); if (sb && !sb.hidden) start = s; }
+      } catch (e) {}
+      if (start) ibSubApply(panel, start);
+    });
+  })();
+
+  // ── Evidence-overzicht (opdracht-breed, onder Bevindingen) ──────────
+  var evData = [];
+  var evIntegrity = null;        // {status:{id:..}, duplicates:[[id..]], sealed:bool}
+  var evFindingsNoEvidence = [];
+  function evCsrf() {
+    var m = document.querySelector('meta[name="csrf-token"]');
+    return m ? (m.getAttribute("content") || "") : "";
+  }
+  function evFmtDate(iso) {
+    if (!iso) return "";
+    var d = new Date(iso); if (isNaN(d)) return "";
+    return d.toLocaleDateString() + " " + d.toLocaleTimeString().slice(0, 5);
+  }
+  function evLoad() {
+    var st = document.getElementById("ev-status");
+    if (st) st.textContent = "Laden…";
+    fetch("/api/findings/evidence/all", { credentials: "same-origin" })
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        if (!d || !d.ok) { if (st) st.textContent = "Fout bij laden"; return; }
+        evData = d.evidence || [];
+        evIntegrity = null;  // bij herladen vervalt een eerdere verificatie
+        evFindingsNoEvidence = d.findings_without_evidence || [];
+        var sel = document.getElementById("ev-filter-cat");
+        if (sel) {
+          var cur = sel.value;
+          sel.innerHTML = '<option value="">Alle</option>';
+          (d.categories || []).forEach(function(c) {
+            var o = document.createElement("option"); o.value = c; o.textContent = c;
+            sel.appendChild(o);
+          });
+          sel.value = cur;
+        }
+        if (st) st.textContent = evSummary();
+        evRenderComplete();
+        evRender();
+      })
+      .catch(function() { if (st) st.textContent = "Fout bij laden"; });
+  }
+  function evSummary() {
+    var c = { file: 0, screenshot: 0, listing: 0, recording: 0 };
+    (evData || []).forEach(function(e) { if (c[e.kind] != null) c[e.kind]++; });
+    var parts = [];
+    if (c.file) parts.push(c.file + " bestanden");
+    if (c.screenshot) parts.push(c.screenshot + " screenshots");
+    if (c.listing) parts.push(c.listing + " listings");
+    if (c.recording) parts.push(c.recording + " opnames");
+    return (evData || []).length + " totaal" + (parts.length ? " (" + parts.join(" · ") + ")" : "");
+  }
+  function evRenderComplete() {
+    var el = document.getElementById("ev-complete");
+    if (!el) return;
+    if (!evFindingsNoEvidence.length) { el.hidden = true; el.innerHTML = ""; return; }
+    el.hidden = false;
+    var names = evFindingsNoEvidence.map(function(f) {
+      return '<a href="/dashboard/findings#f' + f.id + '" target="_blank" rel="noopener">#' + f.id + " " + evEsc(f.naam) + "</a>";
+    }).join(", ");
+    el.innerHTML = '⚠ ' + evFindingsNoEvidence.length + ' bevinding(en) zonder bewijs: ' + names;
+  }
+  function evRender() {
+    var tb = document.getElementById("ev-rows");
+    if (!tb) return;
+    evReportCount();
+    var cat = (document.getElementById("ev-filter-cat") || {}).value || "";
+    var q = ((document.getElementById("ev-filter-q") || {}).value || "").toLowerCase();
+    tb.innerHTML = "";
+    var rows = evData.filter(function(e) {
+      if (cat && e.evidence_category !== cat) return false;
+      if (q) {
+        var hay = (e.finding_titel + " " + e.original_filename + " " + e.tool_name + " " + e.evidence_category).toLowerCase();
+        if (hay.indexOf(q) === -1) return false;
+      }
+      return true;
+    });
+    var sortBy = (document.getElementById("ev-sort") || {}).value || "";
+    if (sortBy) {
+      rows = rows.slice().sort(function(a, b) {
+        function key(e) {
+          if (sortBy === "naam") return (e.original_filename || "").toLowerCase();
+          if (sortBy === "type") return e.kind || "";
+          if (sortBy === "bevinding") return (e.finding_titel || "").toLowerCase();
+          if (sortBy === "datum") return e.created_at || "";
+          return "";
+        }
+        var ka = key(a), kb = key(b);
+        return ka < kb ? -1 : (ka > kb ? 1 : 0);
+      });
+    }
+    if (!rows.length) {
+      var tr = document.createElement("tr");
+      tr.innerHTML = '<td colspan="9" class="help">Geen evidence gevonden.</td>';
+      tb.appendChild(tr);
+      return;
+    }
+    rows.forEach(function(e) {
+      var tr = document.createElement("tr");
+      tr.setAttribute("data-ev-id", e.id);
+      var isListing = e.kind === "listing";
+      var isRec = e.kind === "recording";
+      var isShot = e.kind === "screenshot";
+      var dl = e.download_url || ("/api/findings/evidence/" + e.id + "/download");
+      var thumb = e.is_image
+        ? '<img src="' + dl + '" alt="" class="ev-thumb" loading="lazy">'
+        : (isListing ? '<span class="ev-fileicon">&#9783;</span>'
+           : (isRec ? '<span class="ev-fileicon">&#127909;</span>'
+              : (isShot ? '<span class="ev-fileicon ev-bad" title="bestand ontbreekt">&#9888;</span>'
+                        : '<span class="ev-fileicon">&#128196;</span>')));
+      var lak = e.has_lakken ? ' <span class="lak-badge lak-badge-inline">GELAKT</span>' : "";
+      var dup = "";
+      if (evIntegrity && evIntegrity.duplicates) {
+        for (var gi = 0; gi < evIntegrity.duplicates.length; gi++) {
+          if (evIntegrity.duplicates[gi].indexOf(String(e.id)) !== -1) {
+            dup = ' <span class="ev-dup" title="identieke SHA-256 als ander bewijs">⧈ duplicaat</span>'; break;
+          }
+        }
+      }
+      // Bron: bevinding-link, of label voor listings/opnames/screenshots.
+      var bron = (isRec || isShot || (isListing && e.bron_type === "notitie"))
+        ? (evEsc(e.finding_titel) + (isShot && e.description ? ' <span class="help">(' + evEsc(e.description) + ')</span>' : ''))
+        : ('<a href="/dashboard/findings#f' + e.finding_id + '" target="_blank" rel="noopener">#' +
+            e.finding_id + ' ' + evEsc(e.finding_titel) + '</a>' +
+            (e.finding_score ? ' <span class="help">(' + evEsc(e.finding_score) + ')</span>' : ''));
+      var integ;
+      var est = (evIntegrity && evIntegrity.status) ? evIntegrity.status[e.id] : null;
+      if (est) {
+        var im = { match: ["✓ integer", "ev-ok"], mismatch: ["⚠ GEWIJZIGD", "ev-bad"],
+                   missing_file: ["⚠ weg", "ev-bad"], no_baseline: ["niet verzegeld", "ev-muted"] }[est] || ["?", "ev-muted"];
+        integ = '<span class="' + im[1] + '" title="' + est + '">' + im[0] + '</span>';
+      } else if (!isListing && !isRec && !isShot) {
+        integ = '<button type="button" class="btn btn-xs ev-verify">' + (e.has_sha ? "Verifieer" : "geen hash") + '</button>';
+      } else {
+        integ = '<span class="ev-muted">&mdash;</span>';
+      }
+      var cat = evEsc(e.evidence_category) + (isListing && e.truncated ? ' <span class="help">(ingekort)</span>' : '');
+      var tdActions = document.createElement("td");
+      if (isListing) {
+        var be = document.createElement("button");
+        be.type = "button"; be.className = "btn btn-xs"; be.textContent = "Bewerk";
+        be.title = "Open in de bevinding/notitie om in context te bewerken";
+        be.addEventListener("click", function() { evEditListing(e); });
+        tdActions.appendChild(be);
+        var bv = document.createElement("button");
+        bv.type = "button"; bv.className = "btn btn-xs"; bv.textContent = "Bekijk";
+        bv.addEventListener("click", function() { evToggleListing(tr, e); });
+        tdActions.appendChild(bv);
+        var bt = document.createElement("button");
+        bt.type = "button"; bt.className = "btn btn-xs"; bt.textContent = "Download .txt";
+        bt.addEventListener("click", function() { evDownloadText(e); });
+        tdActions.appendChild(bt);
+      } else if (isRec) {
+        var ap = document.createElement("a");
+        ap.href = e.play_url; ap.target = "_blank"; ap.rel = "noopener";
+        ap.className = "btn btn-xs"; ap.textContent = "Afspelen";
+        tdActions.appendChild(ap);
+        var ad = document.createElement("a");
+        ad.href = e.download_url; ad.className = "btn btn-xs"; ad.textContent = "Download";
+        tdActions.appendChild(ad);
+        var tb2 = document.createElement("button");
+        tb2.type = "button"; tb2.className = "btn btn-xs"; tb2.textContent = "Transcript";
+        tb2.title = "Uitgeschreven tekst-output van de opname";
+        tb2.addEventListener("click", function() { evTranscript(e.filename); });
+        tdActions.appendChild(tb2);
+      } else if (isShot) {
+        if (!e.exists) {
+          var miss = document.createElement("span");
+          miss.className = "ev-bad"; miss.textContent = "ontbreekt";
+          tdActions.appendChild(miss);
+        } else {
+          var sa = document.createElement("a");
+          sa.href = dl; sa.target = "_blank"; sa.rel = "noopener";
+          sa.className = "btn btn-xs"; sa.textContent = "Download";
+          tdActions.appendChild(sa);
+          if (e.redactable) {
+            var sl = document.createElement("button");
+            sl.type = "button"; sl.className = "btn btn-xs"; sl.textContent = "Lakken";
+            sl.addEventListener("click", function() {
+              if (typeof activateRapportTab === "function") activateRapportTab("tab-findings");
+              var fp = document.getElementById("tab-findings");
+              if (fp) ibSubApply(fp, "lakken");
+              if (typeof window.rbOpenLakImage === "function") {
+                setTimeout(function() { window.rbOpenLakImage(e.filename); }, 120);
+              }
+            });
+            tdActions.appendChild(sl);
+          }
+          // Terug naar ontbrekend: verwijder het (verkeerd vervangen) bestand.
+          var clr = document.createElement("button");
+          clr.type = "button"; clr.className = "btn btn-xs"; clr.textContent = "Naar ontbrekend";
+          clr.title = "Verwijder dit bestand zodat de verwijzing weer als ontbrekend geldt";
+          clr.addEventListener("click", function() {
+            if (!confirm("Dit screenshotbestand verwijderen (terug naar ontbrekend)?\n" + e.filename)) return;
+            fetch("/api/report/screenshot/clear", {
+              method: "POST", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ name: e.filename })
+            }).then(function(r) { return r.json(); }).then(function(d) {
+              if (d && d.ok) { evLoad(); } else { alert((d && d.error) || "Mislukt"); }
+            }).catch(function() {});
+          });
+          tdActions.appendChild(clr);
+        }
+        // Herstel/correctie — altijd beschikbaar (ook na een verkeerde vervanging):
+        // vervangen (nieuwe upload) of koppelen aan een bestaand bestand.
+        evReplaceBtns(e).forEach(function(el) { tdActions.appendChild(el); });
+        var rlk = document.createElement("button");
+        rlk.type = "button"; rlk.className = "btn btn-xs"; rlk.textContent = "Koppelen…";
+        rlk.title = "Koppel deze verwijzing aan een bestaand bestand (hernoemt de \\plaatje-verwijzing)";
+        rlk.addEventListener("click", function() { evRelink(e); });
+        tdActions.appendChild(rlk);
+      } else {
+        // Ge-uploade db_evidence-bestanden: geen lak-knop (lakken hoort bij de
+        // originele \plaatje{}-screenshots, niet bij losse evidence-uploads).
+        var a = document.createElement("a"); a.href = dl; a.className = "btn btn-xs"; a.textContent = "Download";
+        tdActions.appendChild(a);
+        var bh = document.createElement("button");
+        bh.type = "button"; bh.className = "btn btn-xs"; bh.textContent = "Herkoppel";
+        bh.title = "Koppel dit bewijs aan een andere bevinding";
+        bh.addEventListener("click", function() { evReassign(e, tdActions); });
+        tdActions.appendChild(bh);
+        var bd = document.createElement("button");
+        bd.type = "button"; bd.className = "btn btn-xs btn-danger"; bd.textContent = "Verwijder";
+        bd.addEventListener("click", function() {
+          if (!confirm("Dit bewijsstuk definitief verwijderen?\n" + e.original_filename)) return;
+          fetch("/api/findings/evidence/" + e.id, {
+            method: "DELETE", headers: { "X-CSRFToken": evCsrf() }, credentials: "same-origin"
+          }).then(function(r) { return r.json(); }).then(function(d) {
+            if (d && d.ok) { evData = evData.filter(function(x) { return x.id !== e.id; }); evRender(); }
+            else alert((d && d.error) || "Verwijderen mislukt");
+          });
+        });
+        tdActions.appendChild(bd);
+      }
+      tr.innerHTML =
+        '<td class="ev-rep-cell"><input type="checkbox" class="ev-rep"' + (e.in_report ? ' checked' : '') + '></td>' +
+        '<td class="ev-thumb-cell">' + thumb + '</td>' +
+        '<td>' + bron + '</td>' +
+        '<td>' + evEsc(e.original_filename) + lak + dup + '</td>' +
+        '<td>' + cat + '</td>' +
+        '<td>' + evEsc(e.tool_name) + '</td>' +
+        '<td class="nowrap">' + evFmtDate(e.created_at) + '</td>' +
+        '<td class="ev-integ">' + integ + '</td>';
+      tr.appendChild(tdActions);
+      var vb = tr.querySelector(".ev-verify");
+      if (vb && e.has_sha) vb.addEventListener("click", function() { evVerify(e.id, tr); });
+      var rep = tr.querySelector(".ev-rep");
+      if (rep) rep.addEventListener("change", function() { evToggleReport(e, rep.checked); });
+      var th = tr.querySelector("img.ev-thumb");
+      if (th) { th.style.cursor = "zoom-in"; th.addEventListener("click", function() { evLightbox(dl, e.original_filename); }); }
+      tb.appendChild(tr);
+    });
+  }
+  function evReportCount() {
+    var el = document.getElementById("ev-report-count");
+    if (!el) return;
+    var n = (evData || []).filter(function(x) { return x.in_report; }).length;
+    el.textContent = n ? (n + " in bijlage") : "";
+  }
+  function evToggleReport(e, on) {
+    e.in_report = on;
+    evReportCount();
+    fetch("/api/findings/evidence/report-selection", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: e.id, selected: !!on })
+    }).then(function(r) { return r.json(); }).then(function(d) {
+      if (!d || !d.ok) { e.in_report = !on; evRender(); }
+    }).catch(function() { e.in_report = !on; evRender(); });
+  }
+  function evToggleListing(tr, e) {
+    var nx = tr.nextSibling;
+    if (nx && nx.classList && nx.classList.contains("ev-detail")) { nx.parentNode.removeChild(nx); return; }
+    var dtr = document.createElement("tr");
+    dtr.className = "ev-detail";
+    var td = document.createElement("td"); td.colSpan = 8;
+    var pre = document.createElement("pre"); pre.className = "ev-listing-pre";
+    pre.textContent = e.content || "(leeg)";
+    td.appendChild(pre); dtr.appendChild(td);
+    tr.parentNode.insertBefore(dtr, tr.nextSibling);
+  }
+  function evListingIndex(id) {
+    var m = /(\d+)$/.exec(String(id || ""));
+    return m ? parseInt(m[1], 10) : 0;
+  }
+  function evScrollToNthLst(ta, idx) {
+    if (!ta) return;
+    var v = ta.value || "", from = 0, pos = -1, k;
+    for (k = 0; k <= idx; k++) {
+      pos = v.indexOf("\\begin{lstlisting}", from);
+      if (pos === -1) break;
+      from = pos + 18;
+    }
+    ta.focus();
+    if (pos === -1) return;  // o.a. %%SCANEV%%-opnames: geen letterlijk blok
+    var endTok = "\\end{lstlisting}";
+    var end = v.indexOf(endTok, pos);
+    end = end === -1 ? v.length : end + endTok.length;
+    try { ta.setSelectionRange(pos, end); } catch (err) {}
+    var line = v.slice(0, pos).split("\n").length;
+    var lh = parseFloat(getComputedStyle(ta).lineHeight);
+    if (!lh || isNaN(lh)) lh = 16;
+    ta.scrollTop = Math.max(0, (line - 2) * lh);
+    try { ta.scrollIntoView({ block: "center" }); } catch (err) {}
+  }
+  function evWaitScroll(getTa, idx, beforeScroll) {
+    var tries = 0;
+    (function poll() {
+      var ta = getTa();
+      if (ta && (ta.value || "").length) {
+        if (beforeScroll) beforeScroll();
+        setTimeout(function() { evScrollToNthLst(getTa() || ta, idx); }, 40);
+        return;
+      }
+      if (tries++ < 40) setTimeout(poll, 80);
+    })();
+  }
+  function evEditListing(e) {
+    // Open de bron (bevinding/notitie) in het Bewerken-tabblad en scroll/selecteer
+    // het juiste lstlisting-blok, zodat het in context bewerkt kan worden.
+    if (typeof activateRapportTab === "function") activateRapportTab("tab-bewerken");
+    var idx = evListingIndex(e.id);
+    if (e.bron_type === "notitie") {
+      if (typeof rbOpenNoteInline === "function") rbOpenNoteInline(e.bron_id);
+      evWaitScroll(function() { return document.getElementById("rb-note-text"); }, idx, null);
+    } else {
+      if (typeof rbOpenFindingInline === "function") rbOpenFindingInline(e.finding_id || e.bron_id);
+      evWaitScroll(function() { return document.querySelector("#rb-ed-finding #uitwerken"); }, idx,
+        function() {
+          var btn = document.querySelector('#rb-ed-finding [data-ftab="uitwerking"]');
+          if (btn) btn.click();
+        });
+    }
+  }
+  function evDownloadText(e) {
+    try {
+      var blob = new Blob([e.content || ""], { type: "text/plain;charset=utf-8" });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement("a");
+      a.href = url;
+      a.download = (String(e.original_filename || "listing").replace(/[^\w.-]+/g, "_")) + ".txt";
+      document.body.appendChild(a); a.click();
+      setTimeout(function() { URL.revokeObjectURL(url); a.remove(); }, 100);
+    } catch (err) {}
+  }
+  function evReplaceBtns(e) {
+    // [Vervangen-knop, verborgen file-input] voor het (her)uploaden van een screenshot.
+    var fin = document.createElement("input");
+    fin.type = "file"; fin.accept = "image/*"; fin.className = "d-none";
+    var rpl = document.createElement("button");
+    rpl.type = "button"; rpl.className = "btn btn-xs"; rpl.textContent = "Vervangen";
+    rpl.title = "Upload een (vervangende) afbeelding voor dit screenshot";
+    rpl.addEventListener("click", function() { fin.click(); });
+    fin.addEventListener("change", function() {
+      if (!fin.files.length) return;
+      var fd = new FormData();
+      fd.append("name", e.filename);
+      fd.append("file", fin.files[0]);
+      rpl.disabled = true; rpl.textContent = "Uploaden…";
+      fetch("/api/report/screenshot/replace", { method: "POST", body: fd })
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+          if (d && d.ok) { evLoad(); }
+          else { rpl.disabled = false; rpl.textContent = "Vervangen"; alert((d && d.error) || "Vervangen mislukt"); }
+        })
+        .catch(function() { rpl.disabled = false; rpl.textContent = "Vervangen"; });
+    });
+    return [rpl, fin];
+  }
+  function evRelink(e) {
+    // Visuele kiezer: toon thumbnails van bestaande bestanden; klik er één om de
+    // verwijzing daaraan te koppelen (hernoemen).
+    fetch("/api/report/screenshots/available", { credentials: "same-origin" })
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        if (!d || !d.ok) return;
+        var files = d.files || [];
+        var ov = document.createElement("div");
+        ov.className = "ev-relink-overlay";
+        var box = document.createElement("div");
+        box.className = "ev-relink-box";
+        var head = document.createElement("div");
+        head.className = "ev-relink-head";
+        var title = document.createElement("strong");
+        title.textContent = "Koppel “" + e.filename + "” aan een bestaand bestand";
+        var search = document.createElement("input");
+        search.type = "text"; search.className = "form-control ev-relink-search";
+        search.placeholder = "zoek bestand…";
+        var close = document.createElement("button");
+        close.type = "button"; close.className = "btn btn-xs"; close.textContent = "✕";
+        head.appendChild(title); head.appendChild(search); head.appendChild(close);
+        var grid = document.createElement("div");
+        grid.className = "ev-relink-grid";
+        var status = document.createElement("div");
+        status.className = "help ev-relink-status";
+        function dismiss() { if (ov.parentNode) ov.parentNode.removeChild(ov); document.removeEventListener("keydown", onKey); }
+        function onKey(ev) { if (ev.key === "Escape") dismiss(); }
+        function doRelink(newName, card) {
+          status.textContent = "Koppelen…";
+          fetch("/api/report/screenshot/relink", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ old: e.filename, new: newName })
+          }).then(function(r) { return r.json(); }).then(function(x) {
+            if (x && x.ok) { dismiss(); evLoad(); }
+            else { status.textContent = (x && x.error) || "Koppelen mislukt"; }
+          }).catch(function() { status.textContent = "Koppelen mislukt (netwerk)"; });
+        }
+        function renderGrid(filter) {
+          grid.innerHTML = "";
+          var f = (filter || "").toLowerCase();
+          var shown = 0;
+          files.forEach(function(fn) {
+            if (f && fn.toLowerCase().indexOf(f) === -1) return;
+            shown++;
+            var card = document.createElement("button");
+            card.type = "button"; card.className = "ev-relink-card";
+            card.title = fn;
+            var img = document.createElement("img");
+            img.loading = "lazy"; img.alt = fn;
+            img.src = "/dashboard/raw/screenshots/" + encodeURIComponent(fn);
+            var cap = document.createElement("span");
+            cap.className = "ev-relink-cap"; cap.textContent = fn;
+            card.appendChild(img); card.appendChild(cap);
+            card.addEventListener("click", function() { doRelink(fn, card); });
+            grid.appendChild(card);
+          });
+          status.textContent = shown + " van " + files.length + " bestanden";
+        }
+        search.addEventListener("input", function() { renderGrid(search.value); });
+        close.addEventListener("click", dismiss);
+        ov.addEventListener("click", function(ev) { if (ev.target === ov) dismiss(); });
+        document.addEventListener("keydown", onKey);
+        box.appendChild(head); box.appendChild(grid); box.appendChild(status);
+        ov.appendChild(box);
+        document.body.appendChild(ov);
+        renderGrid("");
+        search.focus();
+      });
+  }
+  function evEsc(s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function(c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+  function evVerify(id, tr) {
+    var cell = tr.querySelector(".ev-integ");
+    if (cell) cell.innerHTML = "…";
+    return fetch("/api/findings/evidence/" + id + "/verify", { credentials: "same-origin" })
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        if (!cell) return;
+        var map = {
+          match: ['&#10003; integer', 'ev-ok'],
+          mismatch: ['&#9888; GEWIJZIGD', 'ev-bad'],
+          no_hash: ['geen hash', 'ev-muted'],
+          missing_file: ['&#9888; bestand weg', 'ev-bad']
+        };
+        var m = map[d && d.status] || ['?', 'ev-muted'];
+        cell.innerHTML = '<span class="' + m[1] + '">' + m[0] + '</span>';
+      });
+  }
+  function evVerifyAll() {
+    var st = document.getElementById("ev-status");
+    if (st) st.textContent = "Verifiëren…";
+    fetch("/api/findings/evidence/integrity", { credentials: "same-origin" })
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        if (!d || !d.ok) { if (st) st.textContent = "Verificatie mislukt"; return; }
+        evIntegrity = d;
+        var vals = Object.keys(d.status || {}).map(function(k) { return d.status[k]; });
+        var mm = vals.filter(function(s) { return s === "mismatch" || s === "missing_file"; }).length;
+        var ok = vals.filter(function(s) { return s === "match"; }).length;
+        var ndup = (d.duplicates || []).length;
+        if (st) st.textContent = "Integriteit: " + ok + " integer" + (mm ? (" · " + mm + " GEWIJZIGD/weg") : "") +
+          (ndup ? (" · " + ndup + " duplicaatgroep(en)") : "") + (d.sealed ? "" : " (nog niet verzegeld)");
+        evRender();
+      })
+      .catch(function() { if (st) st.textContent = "Verificatie mislukt"; });
+  }
+  function evSeal() {
+    if (!confirm("De huidige SHA-256 van al het bewijs vastleggen als integriteits-baseline?")) return;
+    fetch("/api/findings/evidence/seal", { method: "POST" })
+      .then(function(r) { return r.json(); })
+      .then(function(d) { if (d && d.ok) { evVerifyAll(); } else { alert((d && d.error) || "Verzegelen mislukt"); } });
+  }
+  function evExportSelection() {
+    var ids = (evData || []).filter(function(x) { return x.in_report; }).map(function(x) { return x.id; });
+    if (!ids.length) { alert("Vink eerst items aan (kolom Bijlage) om een selectie te exporteren."); return; }
+    window.location = "/api/findings/evidence/export?only=" + encodeURIComponent(ids.join(","));
+  }
+  function evLightbox(src, caption) {
+    var ov = document.createElement("div"); ov.className = "ev-relink-overlay";
+    var box = document.createElement("div"); box.className = "ev-lightbox-box";
+    var img = document.createElement("img"); img.src = src; img.alt = caption || "";
+    var cap = document.createElement("div"); cap.className = "help ev-lightbox-cap"; cap.textContent = caption || "";
+    box.appendChild(img); box.appendChild(cap); ov.appendChild(box);
+    ov.addEventListener("click", function() { if (ov.parentNode) ov.parentNode.removeChild(ov); });
+    document.body.appendChild(ov);
+  }
+  function evTranscript(fn) {
+    fetch("/api/findings/evidence/recording/" + encodeURIComponent(fn) + "/transcript", { credentials: "same-origin" })
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        var ov = document.createElement("div"); ov.className = "ev-relink-overlay";
+        var box = document.createElement("div"); box.className = "ev-relink-box";
+        var head = document.createElement("div"); head.className = "ev-relink-head";
+        var t = document.createElement("strong"); t.textContent = "Transcript: " + fn;
+        var cl = document.createElement("button"); cl.type = "button"; cl.className = "btn btn-xs"; cl.textContent = "✕";
+        cl.addEventListener("click", function() { if (ov.parentNode) ov.parentNode.removeChild(ov); });
+        head.appendChild(t); head.appendChild(cl);
+        var pre = document.createElement("pre"); pre.className = "ev-listing-pre";
+        pre.textContent = (d && d.ok && d.text) ? d.text : "(geen output)";
+        box.appendChild(head); box.appendChild(pre); ov.appendChild(box);
+        ov.addEventListener("click", function(ev) { if (ev.target === ov) ov.parentNode.removeChild(ov); });
+        document.body.appendChild(ov);
+      });
+  }
+  function evReassign(e, cell) {
+    fetch("/api/findings/brief", { credentials: "same-origin" })
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        if (!d || !d.ok) return;
+        cell.innerHTML = "";
+        var sel = document.createElement("select"); sel.className = "form-control ev-relink-sel";
+        (d.findings || []).forEach(function(f) {
+          var o = document.createElement("option"); o.value = f.id; o.textContent = "#" + f.id + " " + f.naam;
+          if (f.id === e.finding_id) o.selected = true;
+          sel.appendChild(o);
+        });
+        var ok = document.createElement("button"); ok.type = "button"; ok.className = "btn btn-xs"; ok.textContent = "Herkoppel";
+        ok.addEventListener("click", function() {
+          ok.disabled = true;
+          fetch("/api/findings/evidence/" + e.id + "/reassign", {
+            method: "POST", headers: { "Content-Type": "application/json", "X-CSRFToken": evCsrf() },
+            body: JSON.stringify({ finding_id: parseInt(sel.value, 10) })
+          }).then(function(r) { return r.json(); }).then(function(x) {
+            if (x && x.ok) { evLoad(); } else { ok.disabled = false; alert((x && x.error) || "Herkoppelen mislukt"); }
+          }).catch(function() { ok.disabled = false; });
+        });
+        var cancel = document.createElement("button"); cancel.type = "button"; cancel.className = "btn btn-xs"; cancel.textContent = "Annuleer";
+        cancel.addEventListener("click", function() { evRender(); });
+        cell.appendChild(sel); cell.appendChild(ok); cell.appendChild(cancel);
+      });
+  }
+  (function initEvidence() {
+    var r = document.getElementById("ev-refresh"); if (r) r.addEventListener("click", evLoad);
+    var c = document.getElementById("ev-filter-cat"); if (c) c.addEventListener("change", evRender);
+    var q = document.getElementById("ev-filter-q"); if (q) q.addEventListener("input", evRender);
+    var so = document.getElementById("ev-sort"); if (so) so.addEventListener("change", evRender);
+    var va = document.getElementById("ev-verify-all"); if (va) va.addEventListener("click", evVerifyAll);
+    var se = document.getElementById("ev-seal"); if (se) se.addEventListener("click", evSeal);
+    var xs = document.getElementById("ev-export-sel"); if (xs) xs.addEventListener("click", evExportSelection);
+  })();
 
   // ── Versie KPI updaten ─────────────────────────
   function updateVersieKpi(versie, status) {
@@ -2956,6 +3785,123 @@
       });
   });
 
+  // ── Huisstijl (voorblad-bundel) ──────────────────
+  var hsSelect = document.getElementById("rap-huisstijl-select");
+  var hsListBox = document.getElementById("huisstijl-list");
+  var hsSelMsg = document.getElementById("huisstijl-select-msg");
+
+  function hsRenderSelect(data) {
+    if (!hsSelect) return;
+    hsSelect.innerHTML = "";
+    var defName = "";
+    (data.huisstijlen || []).forEach(function(h){ if (h.id === data.default_id) defName = h.naam; });
+    var opt0 = document.createElement("option");
+    opt0.value = "";
+    opt0.textContent = defName ? ("App-standaard (" + defName + ")") : "App-standaard (ingebouwd voorblad)";
+    hsSelect.appendChild(opt0);
+    (data.huisstijlen || []).forEach(function(h){
+      var o = document.createElement("option");
+      o.value = String(h.id);
+      o.textContent = h.naam + (h.id === data.default_id ? " ★" : "");
+      hsSelect.appendChild(o);
+    });
+    hsSelect.value = data.selected_id ? String(data.selected_id) : "";
+  }
+
+  function hsRenderList(data) {
+    if (!hsListBox) return;
+    hsListBox.innerHTML = "";
+    var rows = data.huisstijlen || [];
+    if (!rows.length) {
+      var p = document.createElement("p");
+      p.className = "help m-0";
+      p.textContent = "Nog geen huisstijlbundels geüpload.";
+      hsListBox.appendChild(p);
+      return;
+    }
+    rows.forEach(function(h){
+      var row = document.createElement("div");
+      row.className = "d-flex gap-8 items-center flex-wrap mb-8";
+      if (h.has_logo) {
+        var img = document.createElement("img");
+        img.src = "/api/report/huisstijl/" + h.id + "/logo";
+        img.alt = "logo";
+        img.className = "huisstijl-thumb";
+        row.appendChild(img);
+      }
+      var naam = document.createElement("strong");
+      naam.textContent = h.naam;
+      row.appendChild(naam);
+      var bits = [];
+      if (h.has_voorpagina) bits.push("voorblad");
+      if (h.has_logo) bits.push("logo");
+      if (h.has_kleuren) bits.push("kleuren");
+      if (h.taal) bits.push(h.taal);
+      var meta = document.createElement("span");
+      meta.className = "help";
+      meta.textContent = bits.join(" · ");
+      row.appendChild(meta);
+      var defLabel = document.createElement("label");
+      defLabel.className = "nowrap";
+      var defRadio = document.createElement("input");
+      defRadio.type = "radio"; defRadio.name = "hs-default"; defRadio.checked = !!h.is_default;
+      defRadio.addEventListener("change", function(){
+        fetch("/api/report/huisstijl/" + h.id + "/default", {
+          method: "POST", headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({default: true})
+        }).then(function(r){return r.json();}).then(function(){ hsLoad(); });
+      });
+      defLabel.appendChild(defRadio);
+      defLabel.appendChild(document.createTextNode(" standaard"));
+      row.appendChild(defLabel);
+      var del = document.createElement("button");
+      del.type = "button"; del.className = "btn btn-sm"; del.textContent = "Verwijder";
+      del.addEventListener("click", function(){
+        fetch("/api/report/huisstijl/" + h.id, {method: "DELETE"})
+          .then(function(r){return r.json();}).then(function(){ hsLoad(); });
+      });
+      row.appendChild(del);
+      hsListBox.appendChild(row);
+    });
+  }
+
+  function hsLoad() {
+    fetch("/api/report/huisstijl", {credentials: "same-origin"})
+      .then(function(r){return r.json();})
+      .then(function(d){ if (d.ok) { hsRenderSelect(d); hsRenderList(d); } });
+  }
+
+  if (hsSelect) hsSelect.addEventListener("change", function(){
+    var val = hsSelect.value;
+    fetch("/api/report/huisstijl/select", {
+      method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({huisstijl_id: val ? parseInt(val, 10) : null})
+    }).then(function(r){return r.json();}).then(function(d){
+      if (hsSelMsg) hsSelMsg.textContent = d.ok ? "Opgeslagen" : (d.error || "Fout");
+    });
+  });
+
+  var hsForm = document.getElementById("huisstijl-upload-form");
+  if (hsForm) hsForm.addEventListener("submit", function(e){
+    e.preventDefault();
+    var zip = document.getElementById("huisstijl-zip");
+    var naam = document.getElementById("huisstijl-naam");
+    var st = document.getElementById("huisstijl-upload-status");
+    if (!zip || !zip.files.length) { if (st) st.textContent = "Kies een .zip-bundel"; return; }
+    var fd = new FormData();
+    fd.append("zip", zip.files[0]);
+    if (naam && naam.value.trim()) fd.append("naam", naam.value.trim());
+    if (st) st.textContent = "Uploaden…";
+    fetch("/api/report/huisstijl", {method: "POST", body: fd})
+      .then(function(r){return r.json();})
+      .then(function(d){
+        if (st) st.textContent = d.ok ? ("Toegevoegd" + (d.warning ? (" — " + d.warning) : "")) : (d.error || "Fout");
+        if (d.ok) { if (naam) naam.value = ""; zip.value = ""; hsLoad(); }
+      });
+  });
+
+  hsLoad();
+
   // ── Retestrapport genereren ─────────────────────
   var btnRetest = document.getElementById("btn-generate-retest");
   if (btnRetest) btnRetest.addEventListener("click", function() {
@@ -3037,6 +3983,57 @@
       })
       .catch(function() { _ddMsg("Push mislukt", false); })
       .finally(function() { btnDdPush.disabled = false; });
+  });
+  var btnDdImport = document.getElementById("btn-dd-import");
+  if (btnDdImport) btnDdImport.addEventListener("click", function() {
+    var engEl = document.getElementById("dd-engagement");
+    var eng = engEl ? (engEl.value || "").trim() : "";
+    var vraag = eng
+      ? "Openstaande bevindingen uit engagement " + eng + " importeren als concept-bevindingen in dit project?"
+      : "Let op: er is geen engagement-ID ingesteld, dus ALLE openstaande bevindingen uit DefectDojo worden opgehaald. Doorgaan?";
+    if (!window.confirm(vraag)) return;
+    _ddMsg("Importeren…", true);
+    btnDdImport.disabled = true;
+    fetch("/api/defectdojo/import", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({only_open: true})
+    })
+      .then(function(r) { return r.json().then(function(j){ return {ok:r.ok, j:j}; }); })
+      .then(function(res) {
+        var j = res.j || {};
+        if (res.ok && j.ok) {
+          var msg = "Geïmporteerd: " + (j.imported||0) + " nieuw";
+          if (j.skipped) msg += ", " + j.skipped + " overgeslagen (al gekoppeld)";
+          _ddMsg(msg + ". Zie tabblad Bevindingen.", true);
+        } else {
+          _ddMsg("Import mislukt: " + (typeof j.error === "string" ? j.error : JSON.stringify(j.error || j.detail || "")), false);
+        }
+      })
+      .catch(function() { _ddMsg("Import mislukt", false); })
+      .finally(function() { btnDdImport.disabled = false; });
+  });
+  var btnDdPull = document.getElementById("btn-dd-pull");
+  if (btnDdPull) btnDdPull.addEventListener("click", function() {
+    if (!window.confirm("Reeds gekoppelde bevindingen bijwerken met de huidige stand in DefectDojo? Naam, score, CVSS, uitwerking en herstelstatus worden overschreven.")) return;
+    _ddMsg("Bijwerken…", true);
+    btnDdPull.disabled = true;
+    fetch("/api/defectdojo/pull", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({})
+    })
+      .then(function(r) { return r.json().then(function(j){ return {ok:r.ok, j:j}; }); })
+      .then(function(res) {
+        var j = res.j || {};
+        if (res.ok && j.ok) {
+          _ddMsg("Bijgewerkt: " + (j.updated||0) + (j.failed ? ", " + j.failed + " mislukt" : ""), true);
+        } else {
+          _ddMsg("Bijwerken klaar met fouten: " + (j.updated||0) + " bijgewerkt, " + (j.failed||0) + " mislukt", false);
+        }
+      })
+      .catch(function() { _ddMsg("Bijwerken mislukt", false); })
+      .finally(function() { btnDdPull.disabled = false; });
   });
 
   // ── Autosave: instellingen automatisch opslaan bij wijziging ────────
@@ -3151,9 +4148,12 @@
           return;
         }
         var c = res.j.counts || {};
+        var integr = res.j.integriteit === "ok" ? " ✓ integriteit geverifieerd"
+          : (res.j.integriteit === "absent" ? " (geen integriteitszegel)" : "");
         setDelenStatus("Geïmporteerd: " + (c.findings || 0) + " bevindingen, " +
           (c.notes || 0) + " notities, " + (c.evidence || 0) + " evidence, " +
-          (c.screenshots || 0) + " screenshots. Overschakelen…", "ok");
+          (c.screenshots || 0) + " screenshots, " + (c.recordings || 0) + " opnames." +
+          integr + " Overschakelen…", "ok");
         // Schakel naar de doel-opdracht en herlaad.
         fetch("/api/opdrachten/" + res.j.opdracht_id + "/activeer", {
           method: "POST", credentials: "same-origin" })

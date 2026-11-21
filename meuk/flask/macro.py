@@ -1954,8 +1954,26 @@ def recordings_play(filename):
 
 @macro_bp.route("/api/recordings", methods=["GET"])
 def recordings_list():
-    """Lijst alle .rec bestanden in meuk/logs/."""
+    """Lijst alle .rec bestanden in meuk/logs/, incl. waaraan ze gekoppeld zijn."""
     _ensure_access()
+    import json as _json
+    from meuk.flask.models import db, db_opdracht_config, db_opdracht
+    # Reverse-map: bestandsnaam -> [{id, naam}] van gekoppelde opdrachten.
+    rec_map = {}
+    for cfg in db_opdracht_config.query.all():
+        try:
+            fns = _json.loads(cfg.screen_recordings or "[]")
+        except (ValueError, TypeError):
+            fns = []
+        if not isinstance(fns, list) or not fns:
+            continue
+        o = db.session.get(db_opdracht, cfg.opdracht_id)
+        if o is None:
+            continue
+        for fn in fns:
+            rec_map.setdefault(fn, []).append(
+                {"id": o.id, "naam": o.naam or ("#%d" % o.id)})
+
     logs_dir = Path.cwd() / "meuk" / "logs"
     recordings = []
     if logs_dir.is_dir():
@@ -1966,8 +1984,36 @@ def recordings_list():
                     "name": f.name,
                     "size": stat.st_size,
                     "mtime": int(stat.st_mtime),
+                    "duration": _rec_duration(f),
+                    "agent": f.name.startswith("agent-"),
+                    "opdrachten": rec_map.get(f.name, []),
                 })
     return jsonify({"recordings": recordings})
+
+
+def _rec_duration(path, tail=16384):
+    """Best-effort duur (sec) van een asciicast-opname: het tijdstip van het
+    laatste event. Leest alleen de staart van het bestand."""
+    import json as _json
+    try:
+        size = path.stat().st_size
+        with open(path, "rb") as fh:
+            if size > tail:
+                fh.seek(-tail, 2)
+            chunk = fh.read()
+        for line in reversed(chunk.decode("utf-8", "ignore").splitlines()):
+            line = line.strip()
+            if not line.startswith("["):
+                continue
+            try:
+                ev = _json.loads(line)
+            except ValueError:
+                continue
+            if isinstance(ev, list) and ev and isinstance(ev[0], (int, float)):
+                return round(float(ev[0]), 1)
+    except OSError:
+        return None
+    return None
 
 
 @macro_bp.route("/api/recordings/<filename>", methods=["GET"])
@@ -2005,11 +2051,35 @@ def screen_content(name):
         return jsonify({"error": "Ongeldige screen sessie naam"}), 400
 
     hardcopy_path = f"/tmp/ib_screen_{name}.txt"
+    full = (request.args.get("full") or "").lower() in ("1", "true", "yes")
 
+    # Historie (?full=1): de VOLLEDIGE sessie-output staat in de asciinema-opname
+    # (vanaf sessiestart; screen's scrollback is begrensd). Lees die als die er is.
+    if full:
+        rec_path = Path.cwd() / "meuk" / "logs" / f"{name}.rec"
+        if rec_path.is_file():
+            full_out = _asciicast_output(str(rec_path), max_bytes=8000000)
+            if full_out:
+                return jsonify({"content": full_out})
+
+    # Grotere scrollback-buffer (best-effort) als fallback voor ?full=1.
+    try:
+        subprocess.run(
+            ["screen", "-S", name, "-X", "scrollback", "10000"],
+            capture_output=True, text=True, timeout=5,
+        )
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        pass
+
+    # Standaard: alleen het zichtbare venster (soepele live-tail). ?full=1 zonder
+    # opname valt terug op hardcopy -h (screen-scrollback).
+    hc_cmd = ["screen", "-S", name, "-p", "0", "-X", "hardcopy"]
+    if full:
+        hc_cmd.append("-h")
+    hc_cmd.append(hardcopy_path)
     try:
         result = subprocess.run(
-            ["screen", "-S", name, "-p", "0", "-X", "hardcopy", hardcopy_path],
-            capture_output=True, text=True, timeout=5,
+            hc_cmd, capture_output=True, text=True, timeout=5,
         )
         if result.returncode != 0:
             stderr = (result.stderr or "").strip()
@@ -2029,9 +2099,496 @@ def screen_content(name):
     lines = content.rstrip("\n").split("\n")
     while lines and not lines[-1].strip():
         lines.pop()
+    # Begrens de payload; behoud de laatste regels zodat terugscrollen kan.
+    if len(lines) > 5000:
+        lines = lines[-5000:]
     content = "\n".join(lines)
 
     return jsonify({"content": content})
+
+
+# Asciicast (.rec) -> opgeschoonde, volledige terminal-transcript.
+_ANSI_CSI_RE = _re.compile(r"\x1b\[[0-9;?]*[ -/]*[@-~]")
+_ANSI_OSC_RE = _re.compile(r"\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)")
+_CTRL_RE = _re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f]")
+
+
+_CSI_RE = _re.compile(r"\x1b\[([0-9;?]*)([ -/]*)([@-~])")
+
+
+def _clean_terminal(s):
+    """Render een terminal-stream naar platte tekst met een MINIMALE emulator:
+    verwerkt \\r (cursor->kolom 0, overschrijven), \\b, tab en de cursor-/wis-
+    CSI-sequences (K=erase-line, G=kolom, C/D=rechts/links); kleuren e.d. worden
+    genegeerd. Zo blijft een door zsh/readline hertekende commandoregel heel."""
+    s = _ANSI_OSC_RE.sub("", s)
+    lines = []
+    buf = []
+    col = 0
+
+    def flush():
+        nonlocal buf, col
+        lines.append("".join(buf).rstrip())
+        buf = []
+        col = 0
+
+    def put(ch):
+        nonlocal col
+        while len(buf) < col:
+            buf.append(" ")
+        if col < len(buf):
+            buf[col] = ch
+        else:
+            buf.append(ch)
+        col += 1
+
+    i, n = 0, len(s)
+    while i < n:
+        ch = s[i]
+        if ch == "\x1b":
+            m = _CSI_RE.match(s, i)
+            if m:
+                params, fin = m.group(1), m.group(3)
+                if fin == "K":
+                    mode = params or "0"
+                    if mode in ("0", ""):
+                        del buf[col:]
+                    elif mode == "1":
+                        for k in range(min(col, len(buf))):
+                            buf[k] = " "
+                    elif mode == "2":
+                        buf, col = [], 0
+                elif fin == "G":
+                    try:
+                        col = max(0, int(params or "1") - 1)
+                    except ValueError:
+                        pass
+                elif fin == "C":
+                    try:
+                        col += int(params or "1")
+                    except ValueError:
+                        pass
+                elif fin == "D":
+                    try:
+                        col = max(0, col - int(params or "1"))
+                    except ValueError:
+                        pass
+                i = m.end()
+                continue
+            i += 1  # losse ESC
+            continue
+        if ch == "\n":
+            flush()
+        elif ch == "\r":
+            col = 0
+        elif ch == "\x08":
+            col = max(0, col - 1)
+        elif ch == "\t":
+            for _ in range(8 - (col % 8)):
+                put(" ")
+        elif ord(ch) >= 32:
+            put(ch)
+        i += 1
+    if buf:
+        flush()
+    return "\n".join(lines)
+
+
+def _asciicast_output(rec_path, max_bytes=800000):
+    """Volledige, opgeschoonde terminal-output uit een asciicast (.rec)."""
+    import json as _json
+    parts, total, first = [], 0, True
+    try:
+        with open(rec_path, "r", errors="replace") as fh:
+            for line in fh:
+                line = line.strip()
+                if not line:
+                    continue
+                if first:
+                    first = False
+                    if line.startswith("{"):
+                        continue  # header
+                try:
+                    ev = _json.loads(line)
+                except ValueError:
+                    continue
+                if isinstance(ev, list) and len(ev) >= 3 and ev[1] == "o":
+                    parts.append(ev[2])
+                    total += len(ev[2])
+                    if total > max_bytes:
+                        break
+    except OSError:
+        return None
+    return _clean_terminal("".join(parts)).strip()
+
+
+def _lst_caption_escape(s):
+    """Minimale LaTeX-escape voor een lstlisting-caption."""
+    for a, b in (("\\", "\\textbackslash{}"), ("{", "\\{"), ("}", "\\}"),
+                 ("&", "\\&"), ("%", "\\%"), ("$", "\\$"), ("#", "\\#"),
+                 ("_", "\\_"), ("~", "\\textasciitilde{}"), ("^", "\\textasciicircum{}")):
+        s = s.replace(a, b)
+    return s
+
+
+# Shell-prompt met commando: 'user@host:pad$ cmd', of zsh '... % cmd', of los.
+_CMD_PROMPT_RE = _re.compile(r"[\w.\-]+@[\w.\-]+[^\n$#%]*[$#%]\s+(\S.*?)\s*$")
+_CMD_ANY_RE = _re.compile(r"(?:^|\s)[$#%>]\s+(\S.*?)\s*$")
+# Kale prompt (zonder commando), bv. 'user@host %' of 'bash-3.2$'.
+_BARE_PROMPT_RE = _re.compile(r"[$#%>]\s*$")
+
+
+def _extract_command(text):
+    """Haal het laatst uitgevoerde shell-commando uit de transcript (of '')."""
+    if not text:
+        return ""
+    cmds = []
+    for line in text.split("\n"):
+        m = _CMD_PROMPT_RE.search(line)
+        if m and m.group(1).strip():
+            cmds.append(m.group(1).strip())
+    if not cmds:
+        for line in text.split("\n"):
+            m = _CMD_ANY_RE.search(line)
+            if m and m.group(1).strip():
+                cmds.append(m.group(1).strip())
+    return cmds[-1][:255] if cmds else ""
+
+
+def _last_command_segment(text):
+    """Geef de LAATSTE commandoregel + de output ervan (tot de volgende prompt),
+    i.p.v. de hele sessie. Valt terug op de volledige tekst als er geen prompt is."""
+    if not text:
+        return text
+    lines = text.split("\n")
+    last_idx = None
+    for rx in (_CMD_PROMPT_RE, _CMD_ANY_RE):
+        for idx, line in enumerate(lines):
+            m = rx.search(line)
+            if m and m.group(1).strip():
+                last_idx = idx
+        if last_idx is not None:
+            break
+    if last_idx is None:
+        return text
+    seg = lines[last_idx:]
+    # Afsluitende kale prompt(en) weghalen; de commandoregel zelf blijft staan.
+    while len(seg) > 1 and _BARE_PROMPT_RE.search(seg[-1]):
+        seg.pop()
+    return "\n".join(seg).rstrip()
+
+
+def _screen_output(name, full=False):
+    """Terminal-output van een screen-sessie uit de asciinema-opname
+    (meuk/logs/<name>.rec). Standaard alleen de LAATSTE opdracht; full=True geeft
+    de hele sessie. Lege string als de sessie/opname niet bestaat of geen output
+    heeft. Herbruikbaar voor bevindingen, agents en de inject-modal."""
+    if not name or not _RE_SCREEN_NAME.match(name):
+        return ""
+    rec_path = Path.cwd() / "meuk" / "logs" / f"{name}.rec"
+    inhoud = _asciicast_output(str(rec_path)) if rec_path.is_file() else ""
+    inhoud = inhoud or ""
+    if not inhoud.strip():
+        return ""
+    return inhoud if full else _last_command_segment(inhoud)
+
+
+def _command_segments(text):
+    """Ontleed een transcript in segmenten: per shell-commando de commandoregel +
+    de output tot het volgende commando. Retourneert [{cmd, tekst}, ...]."""
+    if not text:
+        return []
+    lines = text.split("\n")
+    idxs = []
+    for i, line in enumerate(lines):
+        for rx in (_CMD_PROMPT_RE, _CMD_ANY_RE):
+            m = rx.search(line)
+            if m and m.group(1).strip():
+                idxs.append((i, m.group(1).strip()))
+                break
+    segs = []
+    for k, (i, cmd) in enumerate(idxs):
+        end = idxs[k + 1][0] if k + 1 < len(idxs) else len(lines)
+        segl = lines[i:end]
+        while len(segl) > 1 and _BARE_PROMPT_RE.search(segl[-1]):
+            segl.pop()
+        segs.append({"cmd": cmd, "tekst": "\n".join(segl).rstrip()})
+    return segs
+
+
+def _lst_note_body(inhoud, caption_text, latex=True):
+    """Bouw de notitie-inhoud: LaTeX lstlisting met caption (= de titel/commando),
+    of een markdown code-fence. Retourneert (body, latex_raw)."""
+    if latex:
+        veilig = inhoud.replace("\u00a7", "").replace(
+            "\\end{lstlisting}", "\\end {lstlisting}")
+        cap = _lst_caption_escape((caption_text or "")[:200])
+        opts = "[caption={%s}]" % cap if cap else ""
+        return "\\begin{lstlisting}%s\n%s\n\\end{lstlisting}" % (opts, veilig), True
+    return "```\n" + inhoud + "\n```", False
+
+
+def _capture_to_dest(doel, inhoud, titel, latex=True, opdracht_id=None, meta=None):
+    """Maak van terminal-output een notitie, bevinding of bijlage.
+
+    - notitie  -> db_notes (lstlisting, rapport=True)
+    - bevinding -> nieuwe db_bevindingen (uitwerking = lstlisting)
+    - bijlage  -> {titel, tekst} toegevoegd aan rapport_bijlagen (opdracht-config)
+
+    `opdracht_id` kiest de doel-opdracht expliciet (anders de actieve; het
+    before_insert-event overschrijft een expliciet gezette opdracht_id niet).
+    `meta` is een optionele LaTeX-kopregel (bv. opname-naam/tijd) die boven het
+    lstlisting-blok komt. Bij notitie/bevinding bevat het resultaat 'obj_id'."""
+    import json as _json
+    from meuk.flask.models import db, db_notes, db_bevindingen, db_opdracht
+    from meuk.flask import project as _project
+    titel = (titel or _extract_command(inhoud) or "Screen-output")[:255]
+    lst_body, latex_raw = _lst_note_body(inhoud, titel, latex)
+    body = (meta.rstrip() + "\n\n" + lst_body) if meta else lst_body
+    doel = (doel or "notitie").strip().lower()
+
+    if doel == "bevinding":
+        bev = db_bevindingen(naam=titel, uitwerken=body)
+        if opdracht_id:
+            bev.opdracht_id = opdracht_id
+        db.session.add(bev)
+        db.session.commit()
+        return {"ok": True, "doel": "bevinding", "obj_id": bev.id,
+                "id": bev.id, "naam": titel}, 200
+
+    if doel == "bijlage":
+        oid = opdracht_id or _project.current_opdracht_id()
+        o = db.session.get(db_opdracht, oid) if oid else None
+        if o is None:
+            return {"ok": False,
+                    "error": "Kies of activeer eerst een opdracht voor een bijlage"}, 400
+        cfg = _project.get_or_create_config(o)
+        try:
+            lst = _json.loads(cfg.rapport_bijlagen or "[]")
+        except (ValueError, TypeError):
+            lst = []
+        if not isinstance(lst, list):
+            lst = []
+        lst.append({"titel": titel, "tekst": body})
+        cfg.rapport_bijlagen = _json.dumps(lst)
+        db.session.commit()
+        return {"ok": True, "doel": "bijlage", "index": len(lst) - 1,
+                "naam": titel}, 200
+
+    # standaard: notitie
+    note = db_notes(naam=titel, uitwerken=body, latex_raw=latex_raw, rapport=True)
+    if opdracht_id:
+        note.opdracht_id = opdracht_id
+    db.session.add(note)
+    db.session.commit()
+    return {"ok": True, "doel": "notitie", "obj_id": note.id,
+            "id": note.id, "note_id": note.id, "naam": titel}, 200
+
+
+def _link_recording(opdracht, filename):
+    """Koppel een asciinema-opname als bewijs aan een opdracht (dedup)."""
+    import json as _json
+    from meuk.flask.models import db
+    from meuk.flask import project as _project
+    cfg = _project.get_or_create_config(opdracht)
+    try:
+        recs = _json.loads(getattr(cfg, "screen_recordings", "[]") or "[]")
+        if not isinstance(recs, list):
+            recs = []
+    except (ValueError, TypeError):
+        recs = []
+    if filename not in recs:
+        recs.append(filename)
+        cfg.screen_recordings = _json.dumps(recs)
+        db.session.commit()
+
+
+@macro_bp.route("/api/screen/<name>/save-note", methods=["POST"])
+def screen_save_note(name):
+    """Sla de screen-output op als notitie (LaTeX lstlisting-blok), gekoppeld aan
+    de actieve opdracht en opgenomen in de rapportage (rapport=True).
+
+    Body: {inhoud?, titel?, latex?}. De volledige output komt bij voorkeur uit de
+    asciinema-opname (meuk/logs/<name>.rec); anders uit `inhoud` (zichtbaar
+    scherm). De lstlisting krijgt een caption met de opdracht."""
+    _ensure_access()
+    if not _RE_SCREEN_NAME.match(name):
+        return jsonify({"error": "Ongeldige screen sessie naam"}), 400
+    data = request.get_json(silent=True) or {}
+    rec_path = Path.cwd() / "meuk" / "logs" / f"{name}.rec"
+
+    # Scope: expliciete inhoud (gekozen in de dialoog) is leidend; anders de
+    # asciinema-opname (scrollback-compleet), met val-terug op zichtbaar scherm.
+    override = (data.get("inhoud") or "").strip()
+    if override:
+        inhoud = override
+    else:
+        inhoud = _asciicast_output(str(rec_path)) if rec_path.is_file() else ""
+        inhoud = inhoud or ""
+        if not inhoud.strip():
+            return jsonify({"error": "Geen scherm-inhoud"}), 400
+        if not data.get("full"):
+            inhoud = _last_command_segment(inhoud)
+
+    # Titel én caption = het commando (of expliciete titel, of val terug op naam).
+    titel = ((data.get("titel") or "").strip()[:255]
+             or _extract_command(inhoud) or ("Screen: " + name))
+
+    # Doel-opdracht (expliciet of actief) + metadata-kop.
+    from meuk.flask import project as _project
+    from meuk.flask.models import db as _db, db_opdracht as _O
+    try:
+        oid = int(data.get("opdracht_id")) if data.get("opdracht_id") else None
+    except (TypeError, ValueError):
+        oid = None
+    import datetime as _dt
+    meta = ("\\textbf{Sessie:} \\texttt{%s} \\\\\n\\textbf{Tijdstip:} %s"
+            % (name, _dt.datetime.now().strftime("%Y-%m-%d %H:%M")))
+
+    result, status = _capture_to_dest(data.get("doel"), inhoud, titel,
+                                      latex=data.get("latex", True),
+                                      opdracht_id=oid, meta=meta)
+    # Koppel de asciinema-opname als bewijs aan de gekozen/actieve opdracht.
+    if result.get("ok") and rec_path.is_file():
+        _o = _db.session.get(_O, oid) if oid else _project.current_opdracht()
+        if _o is not None:
+            _link_recording(_o, f"{name}.rec")
+    if result.get("ok"):
+        result["bron"] = "asciinema" if rec_path.is_file() else "scherm"
+        result["lengte"] = len(inhoud)
+    return jsonify(result), status
+
+
+@macro_bp.route("/api/opdrachten/<int:oid>/recordings", methods=["GET"])
+def opdracht_recordings(oid):
+    """Aan de opdracht gekoppelde asciinema-opnames + beschikbare opnames."""
+    _ensure_access()
+    import json as _json
+    from meuk.flask.models import db_opdracht_config
+    cfg = db_opdracht_config.query.filter_by(opdracht_id=oid).first()
+    try:
+        linked = _json.loads(getattr(cfg, "screen_recordings", "[]") or "[]") if cfg else []
+        if not isinstance(linked, list):
+            linked = []
+    except (ValueError, TypeError):
+        linked = []
+    logs = Path.cwd() / "meuk" / "logs"
+    available = sorted(f.name for f in logs.glob("*.rec")) if logs.is_dir() else []
+    # Toon alleen gekoppelde opnames waarvan het bestand nog bestaat.
+    linked = [f for f in linked if f in available]
+    return jsonify({"ok": True, "linked": linked, "available": available})
+
+
+@macro_bp.route("/api/opdrachten/<int:oid>/recording-to-note", methods=["POST"])
+def opdracht_recording_to_note(oid):
+    """Extraheer de output van een asciinema-opname naar een notitie in deze
+    opdracht en koppel de opname als bewijs. Body: {filename, titel?, latex?}."""
+    _ensure_access()
+    from meuk.flask.models import db, db_notes, db_opdracht
+    o = db.session.get(db_opdracht, oid)
+    if o is None:
+        return jsonify({"error": "Opdracht niet gevonden"}), 404
+    data = request.get_json(silent=True) or {}
+    filename = (data.get("filename") or "").strip()
+    if not _RE_REC_NAME.match(filename):
+        return jsonify({"error": "Ongeldige opname-naam"}), 400
+    rec_path = Path.cwd() / "meuk" / "logs" / filename
+    if not rec_path.is_file():
+        return jsonify({"error": "Opname niet gevonden"}), 404
+    inhoud = _asciicast_output(str(rec_path)) or ""
+    if not inhoud.strip():
+        return jsonify({"error": "Opname bevat geen output"}), 400
+    titel = ((data.get("titel") or "").strip()[:255]
+             or _extract_command(inhoud) or ("Opname: " + filename))
+    body, latex_raw = _lst_note_body(inhoud, titel, data.get("latex", True))
+    note = db_notes(naam=titel, uitwerken=body, latex_raw=latex_raw, rapport=True,
+                    opdracht_id=oid)
+    db.session.add(note)
+    db.session.commit()
+    _link_recording(o, filename)
+    return jsonify({"ok": True, "note_id": note.id, "lengte": len(inhoud)})
+
+
+@macro_bp.route("/api/recordings/<filename>/to-note", methods=["POST"])
+def recording_to_note_active(filename):
+    """Extraheer een opname naar een notitie/bevinding/bijlage in een gekozen (of
+    de actieve) opdracht, inclusief opname-metadata (naam, tijdstip, grootte).
+    Body: {doel?, opdracht_id?, titel?, last?, latex?}. Standaard de volledige
+    opname; last=true pakt alleen de laatste opdracht."""
+    _ensure_access()
+    from meuk.flask import project as _project
+    from meuk.flask.models import db, db_opdracht
+    data = request.get_json(silent=True) or {}
+    # Doel-opdracht: expliciet gekozen of de actieve.
+    try:
+        oid = int(data.get("opdracht_id")) if data.get("opdracht_id") else None
+    except (TypeError, ValueError):
+        oid = None
+    oid = oid or _project.current_opdracht_id()
+    if not oid:
+        return jsonify({"error": "Kies of activeer eerst een opdracht"}), 400
+    o = db.session.get(db_opdracht, oid)
+    if o is None:
+        return jsonify({"error": "Opdracht niet gevonden"}), 404
+    if not _RE_REC_NAME.match(filename):
+        return jsonify({"error": "Ongeldige opname-naam"}), 400
+    rec_path = Path.cwd() / "meuk" / "logs" / filename
+    if not rec_path.is_file():
+        return jsonify({"error": "Opname niet gevonden"}), 404
+    inhoud = _asciicast_output(str(rec_path)) or ""
+    if not inhoud.strip():
+        return jsonify({"error": "Opname bevat geen output"}), 400
+    # Scope: expliciete inhoud (gekozen segment uit de dialoog) > laatste opdracht
+    # > volledige opname.
+    override = (data.get("inhoud") or "").strip()
+    if override:
+        inhoud = override
+    elif data.get("last"):
+        inhoud = _last_command_segment(inhoud)
+
+    # Metadata (buiten de lstlisting): opname-id, tijdstip, grootte.
+    import datetime as _dt
+    _st = rec_path.stat()
+    _tijd = _dt.datetime.fromtimestamp(_st.st_mtime).strftime("%Y-%m-%d %H:%M")
+    _grootte = ("%.1f KB" % (_st.st_size / 1024) if _st.st_size < 1048576
+                else "%.1f MB" % (_st.st_size / 1048576))
+    meta = ("\\textbf{Opname:} \\texttt{%s} \\\\\n"
+            "\\textbf{Tijdstip:} %s \\\\\n"
+            "\\textbf{Grootte:} %s" % (filename, _tijd, _grootte))
+
+    # Titel: expliciet > commando > opname-naam (zonder .rec) + tijdstip.
+    titel = ((data.get("titel") or "").strip()[:255]
+             or _extract_command(inhoud)
+             or ("%s · %s" % (filename[:-4] if filename.endswith(".rec") else filename, _tijd)))
+
+    result, status = _capture_to_dest(data.get("doel"), inhoud, titel,
+                                      latex=data.get("latex", True),
+                                      opdracht_id=oid, meta=meta)
+    if result.get("ok"):
+        _link_recording(o, filename)
+        result["opdracht"] = o.naam
+    return jsonify(result), status
+
+
+@macro_bp.route("/api/recordings/<filename>/preview", methods=["GET"])
+def recording_preview(filename):
+    """Voorbeeld voor de capture-dialoog: volledige output, de laatste opdracht,
+    het gedetecteerde commando en de losse commando-segmenten."""
+    _ensure_access()
+    if not _RE_REC_NAME.match(filename):
+        return jsonify({"error": "Ongeldige opname-naam"}), 400
+    rec_path = Path.cwd() / "meuk" / "logs" / filename
+    if not rec_path.is_file():
+        return jsonify({"error": "Opname niet gevonden"}), 404
+    inhoud = _asciicast_output(str(rec_path)) or ""
+    if not inhoud.strip():
+        return jsonify({"error": "Opname bevat geen output"}), 400
+    return jsonify({
+        "volledig": inhoud,
+        "laatste": _last_command_segment(inhoud),
+        "commando": _extract_command(inhoud),
+        "segments": _command_segments(inhoud),
+    })
 
 
 @macro_bp.route("/api/screen/<name>/input", methods=["POST"])
@@ -2134,7 +2691,21 @@ def screen_start():
     except subprocess.TimeoutExpired:
         return jsonify({"error": "Screen start timeout"}), 500
 
-    return jsonify({"ok": True, "name": name, "recording": f"{name}.rec"})
+    # Koppel de opname meteen aan de actieve opdracht (indien er één actief is),
+    # zodat een sessie die vanuit een opdracht-gescope checklist wordt gestart
+    # direct bij die opdracht in het opnames-dashboard verschijnt.
+    gekoppeld_aan = None
+    try:
+        from meuk.flask import project as _project
+        _o = _project.current_opdracht()
+        if _o is not None:
+            _link_recording(_o, f"{name}.rec")
+            gekoppeld_aan = _o.naam
+    except Exception:
+        pass
+
+    return jsonify({"ok": True, "name": name, "recording": f"{name}.rec",
+                    "gekoppeld_aan": gekoppeld_aan})
 
 
 @macro_bp.route("/api/screen/<name>/detach", methods=["POST"])

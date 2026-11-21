@@ -439,6 +439,66 @@ def create_note_from_item(checklist_id, item_ref):
 
 
 # ---------------------------------------------------------------------------
+# API: Screen-output (laatste opdracht) als notitie bij een checklist-item
+# ---------------------------------------------------------------------------
+
+@checklists_bp.route(
+    "/api/checklists/<int:checklist_id>/items/<item_ref>/screen-note", methods=["POST"]
+)
+def create_screen_note_from_item(checklist_id, item_ref):
+    """Leg de output van de geselecteerde screen-sessie (laatste opdracht) vast
+    als LaTeX-notitie, gekoppeld aan het checklist-item en de opdracht, en in het
+    rapport. Body: {screen_name, full?}."""
+    cl = db.session.get(db_checklist, checklist_id)
+    if not cl:
+        return jsonify({"ok": False, "error": "checklist niet gevonden"}), 404
+    item = db_checklist_item.query.filter_by(
+        checklist_id=checklist_id, item_ref=item_ref
+    ).first()
+    if not item:
+        return jsonify({"ok": False, "error": "item niet gevonden"}), 404
+
+    # Screen-helpers zitten in macro.py (ib-only); nette fout als afwezig.
+    try:
+        from meuk.flask.macro import (
+            _RE_SCREEN_NAME, _asciicast_output, _last_command_segment,
+            _extract_command, _capture_to_dest,
+        )
+    except ImportError:
+        return jsonify({"ok": False, "error": "screen-functionaliteit niet beschikbaar"}), 400
+
+    body = request.get_json(silent=True) or {}
+    screen_name = (body.get("screen_name") or "").strip()
+    if not screen_name or not _RE_SCREEN_NAME.match(screen_name):
+        return jsonify({"ok": False, "error": "Geen/ongeldige screen-sessie geselecteerd"}), 400
+
+    from pathlib import Path
+    rec_path = Path.cwd() / "meuk" / "logs" / (screen_name + ".rec")
+    inhoud = _asciicast_output(str(rec_path)) if rec_path.is_file() else ""
+    inhoud = inhoud or ""
+    if not inhoud.strip():
+        return jsonify({"ok": False, "error": "Geen opname/-inhoud voor deze sessie"}), 400
+    if not body.get("full"):
+        inhoud = _last_command_segment(inhoud)
+
+    tpl_item = _find_item_in_template(_load_templates(), cl.checklist_type, item_ref)
+    item_titel = tpl_item["title"] if tpl_item else item_ref
+    cmd = _extract_command(inhoud)
+    titel = (cmd or "[{}] {}".format(cl.naam, item_titel))[:255]
+
+    # Bestemming: notitie (koppel note_id), bevinding (koppel finding_id) of bijlage.
+    result, status = _capture_to_dest(body.get("doel"), inhoud, titel)
+    if result.get("ok"):
+        if result.get("doel") == "notitie":
+            item.note_id = result["obj_id"]
+            db.session.commit()
+        elif result.get("doel") == "bevinding":
+            item.finding_id = result["obj_id"]
+            db.session.commit()
+    return jsonify(result), status
+
+
+# ---------------------------------------------------------------------------
 # API: Create db_bevindingen from checklist item
 # ---------------------------------------------------------------------------
 

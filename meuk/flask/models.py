@@ -356,6 +356,18 @@ class db_opdracht_config(db.Model):
     dd_auto_push = db.Column(db.Boolean, default=False)
     # Gekozen eigen rapport-template (per project); leeg = ingebouwde variant
     rapport_template_id = db.Column(db.Integer, db.ForeignKey('db_rapport_template.id'), nullable=True)
+    # Gekozen huisstijl/voorblad-bundel (per opdracht); leeg = app-brede standaard
+    huisstijl_id = db.Column(db.Integer, db.ForeignKey('db_huisstijl.id'), nullable=True)
+    # Per-opdracht aangepast voorblad (LaTeX); leeg = gebruik de voorpagina uit de bundel
+    huisstijl_voorblad_override = db.Column(db.Text(), default='')
+    # Geselecteerde evidence-item-id's voor de Bewijsregister-bijlage (JSON-lijst)
+    evidence_report_selection = db.Column(db.Text(), default='[]')
+    # Verzegelde SHA-256-baseline per evidence-item (JSON {id: sha}) voor integriteit
+    evidence_hash_baseline = db.Column(db.Text(), default='{}')
+    # Gekozen DefectDojo-verbindingsprofiel (per opdracht; leeg = standaardprofiel)
+    dd_connection_id = db.Column(db.Integer, db.ForeignKey('db_defectdojo_connection.id'), nullable=True)
+    # Asciinema-opnames (screen) gekoppeld als bewijs aan deze opdracht (JSON-lijst van bestandsnamen)
+    screen_recordings = db.Column(db.Text(), default='[]')
 
 
 class db_rapport_template(db.Model):
@@ -369,6 +381,24 @@ class db_rapport_template(db.Model):
     section_order = db.Column(db.Text(), default='[]')  # JSON: [sectie_key, ...] (hoofdsecties)
     custom_tex_path = db.Column(db.String(300), default='')
     taal = db.Column(db.String(5), default='')  # leeg = volg projectinstelling
+    created_at = db.Column(db.DateTime, default=nu_utc)
+    updated_at = db.Column(db.DateTime, default=nu_utc, onupdate=nu_utc)
+
+
+class db_huisstijl(db.Model):
+    """Uploadbare rapport-huisstijl (voorblad + logo). De bestanden zelf leven
+    buiten de broncode onder raw/huisstijl/<id>/ (voorpagina.tex, logo.<ext>,
+    optioneel kleuren.sty); dit model houdt alleen de metadata + de keuze welke
+    bundel app-breed de standaard is. Per-opdracht afwijken kan via
+    db_opdracht_config.huisstijl_id."""
+    __tablename__ = 'db_huisstijl'
+    id = db.Column(db.Integer, primary_key=True)
+    naam = db.Column(db.String(200), unique=True, nullable=False)
+    logo_filename = db.Column(db.String(300), default='')   # bestandsnaam binnen de bundelmap
+    has_voorpagina = db.Column(db.Boolean, default=True)
+    has_kleuren = db.Column(db.Boolean, default=False)
+    taal = db.Column(db.String(5), default='')              # leeg = volg opdracht
+    is_default = db.Column(db.Boolean, default=False)       # app-brede standaard (max. 1)
     created_at = db.Column(db.DateTime, default=nu_utc)
     updated_at = db.Column(db.DateTime, default=nu_utc, onupdate=nu_utc)
 
@@ -577,7 +607,21 @@ class db_defectdojo_sync(db.Model):
     last_action = db.Column(db.String(20), default='')   # 'create', 'update', 'status'
     last_status = db.Column(db.String(20), default='')   # resultaat: 'ok', 'error'
     last_message = db.Column(db.Text(), default='')
+    content_hash = db.Column(db.String(64), default='')  # inhoud-hash voor change-detectie bij export
     synced_at = db.Column(db.DateTime, default=nu_utc)
+
+
+class db_defectdojo_connection(db.Model):
+    """Een DefectDojo-verbindingsprofiel (meerdere instances mogelijk)."""
+    __tablename__ = 'db_defectdojo_connection'
+    id = db.Column(db.Integer, primary_key=True)
+    naam = db.Column(db.String(120), default='')
+    dd_url = db.Column(db.String(300), default='')
+    dd_api_key = db.Column(db.String(300), default='')
+    dd_verify_ssl = db.Column(db.Boolean, default=True)
+    dd_user_id = db.Column(db.Integer)  # DefectDojo user-id -> reporter op findings
+    is_default = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=nu_utc)
 
 
 class db_asset(db.Model):

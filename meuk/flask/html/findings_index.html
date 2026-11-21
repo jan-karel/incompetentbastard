@@ -12,6 +12,9 @@
   .w90 { width: 90px; }
   .sla-overdue-badge { display: inline-block; padding: 1px 7px; border-radius: 999px;
     background: #b91c1c; color: #fff; font-size: 11px; font-weight: 600; vertical-align: middle; }
+  .dd-link-badge { display: inline-block; padding: 1px 7px; border-radius: 999px;
+    background: #0a7d33; color: #fff; font-size: 11px; font-weight: 600; vertical-align: middle;
+    text-decoration: none; }
 </style>
 {% endblock %}
 
@@ -113,7 +116,7 @@
           <tr data-name="{{ f.naam }}" data-host="{{ f.locatie }}" data-status="{{ f.status or 'draft' }}" data-remediation="{{ f.remediation_status or 'open' }}" data-severity="{{ f.basescore | cvss_severity }}">
             <td><input type="checkbox" class="batch-check" data-id="{{ f.id }}" /></td>
             <td>{{ f.id | nulvul }}</td>
-            <td>{{ f.naam }}{% if f.id in overdue_ids|default([]) %} <span class="sla-overdue-badge" title="Hersteltermijn (SLA) overschreden">SLA verlopen</span>{% endif %}</td>
+            <td>{{ f.naam }}{% if f.id in overdue_ids|default([]) %} <span class="sla-overdue-badge" title="Hersteltermijn (SLA) overschreden">SLA verlopen</span>{% endif %}{% if dd_links and f.id in dd_links %} <a class="dd-link-badge" href="{{ dd_base }}/finding/{{ dd_links[f.id] }}" target="_blank" rel="noopener" title="Gekoppeld aan DefectDojo-finding">DD&nbsp;#{{ dd_links[f.id] }}</a>{% endif %}</td>
             <td>{{ f.locatie }}</td>
             <td>{% if f.basescore %}<span class="cvss-badge cvss-badge-{{ f.basescore | cvss_severity }}" title="{{ f.basescore | cvss_severity | capitalize }}">{{ f.basescore }}</span>{% else %}<span class="cvss-badge cvss-badge-none">-</span>{% endif %}</td>
             {% set tmpl = template_map.get(f.ref | string) if f.ref else none %}

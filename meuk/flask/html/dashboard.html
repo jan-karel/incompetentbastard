@@ -13,7 +13,14 @@
   </div>
 </div>
 
-<div class="grid cols-6">
+<div class="dash-subtabs" id="dash-subtabs">
+  <button type="button" class="dash-subtab active" data-dtab-btn="metrics">Metrics</button>
+  <button type="button" class="dash-subtab" data-dtab-btn="acties">Acties</button>
+  <button type="button" class="dash-subtab" data-dtab-btn="bevindingen">Bevindingen &amp; notities <span class="dash-subtab-badge">{{ (bevindingen|length) + (notes|length) }}</span></button>
+  <button type="button" class="dash-subtab" data-dtab-btn="commandos">Commando&#39;s <span class="dash-subtab-badge">{{ commands|length }}</span></button>
+</div>
+
+<div class="grid cols-6" data-dtab="metrics">
   <section class="card">
     <div class="card-body">
       <a href="/dashboard/agents" class="kpi-link">
@@ -93,7 +100,7 @@
   </section>
 </div>
 
-<section class="card mt-14">
+<section class="card mt-14" data-dtab="metrics">
   <div class="card-head">
     <h2>Actieve agenten</h2>
     <a href="/dashboard/agents" class="btn btn-link ml-auto fs-12">Alle agenten &rarr;</a>
@@ -105,7 +112,7 @@
   </div>
 </section>
 
-<div class="grid cols-2 mt-14">
+<div class="grid cols-2 mt-14" data-dtab="acties">
   <section class="card">
     <div class="card-head">
       <h2>Snelkoppelingen</h2>
@@ -161,7 +168,7 @@
 </div>
 
 <div class="grid cols-2 mt-14">
-  <section class="card">
+  <section class="card" data-dtab="acties">
     <div class="card-head">
       <h2>Operator fragmenten</h2>
     </div>
@@ -192,7 +199,7 @@
     </div>
   </section>
 
-  <section class="card">
+  <section class="card" data-dtab="metrics">
     <div class="card-head">
       <h2>Web telemetrie</h2>
       <a href="/dashboard/xxs" class="btn btn-link ml-auto fs-12">XSS details &rarr;</a>
@@ -225,7 +232,7 @@
   </section>
 </div>
 
-<div class="grid cols-4 mt-14">
+<div class="grid cols-4 mt-14" data-dtab="metrics">
   <section class="card">
     <div class="card-head">
       <h2>XXE Lab</h2>
@@ -287,7 +294,7 @@
   </section>
 </div>
 
-<div class="grid cols-2 mt-14">
+<div class="grid cols-2 mt-14" data-dtab="bevindingen">
   <section class="card">
     <div class="card-head">
       <h2>Bevindingen (recent)</h2>
@@ -344,7 +351,7 @@
   </section>
 </div>
 
-<section class="card mt-14">
+<section class="card mt-14" data-dtab="commandos">
   <div class="card-head">
     <h2>Commando bibliotheek</h2>
     <a href="/dashboard/commands" class="btn btn-link ml-auto fs-12">Volledig overzicht</a>
@@ -466,6 +473,33 @@
   }
   pollMsfSessions();
   setInterval(pollMsfSessions, 30000);
+})();
+
+// Sub-tabs op het hoofddashboard (Metrics standaard eerst) — onthoudt de keuze
+// en ondersteunt deep-link via ?tab=.
+(function () {
+  var KEY = "ib-dash-subtab";
+  var bar = document.getElementById("dash-subtabs");
+  if (!bar) return;
+  function show(g) {
+    document.querySelectorAll("[data-dtab]").forEach(function (el) {
+      el.classList.toggle("dtab-off", el.getAttribute("data-dtab") !== g);
+    });
+    bar.querySelectorAll("[data-dtab-btn]").forEach(function (b) {
+      b.classList.toggle("active", b.getAttribute("data-dtab-btn") === g);
+    });
+    try { localStorage.setItem(KEY, g); } catch (e) {}
+  }
+  bar.querySelectorAll("[data-dtab-btn]").forEach(function (b) {
+    b.addEventListener("click", function () { show(b.getAttribute("data-dtab-btn")); });
+  });
+  var start = "metrics";
+  try { var sv = localStorage.getItem(KEY); if (sv && bar.querySelector('[data-dtab-btn="' + sv + '"]')) start = sv; } catch (e) {}
+  try {
+    var qp = new URLSearchParams(location.search).get("tab");
+    if (qp && bar.querySelector('[data-dtab-btn="' + qp + '"]')) start = qp;
+  } catch (e) {}
+  show(start);
 })();
 </script>
 {% endblock %}

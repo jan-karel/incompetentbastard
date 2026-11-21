@@ -90,9 +90,11 @@
      ================================================================== */
   function getScreenName() {
     if (!screenSelect) return "";
-    var custom = screenNewInput ? screenNewInput.value.trim() : "";
-    if (custom) return custom;
-    return screenSelect.value;
+    // Geselecteerde sessie heeft voorrang; alleen terugvallen op het
+    // nieuwe-sessie-naamveld als er niets gekozen is.
+    var sel = (screenSelect.value || "").trim();
+    if (sel) return sel;
+    return screenNewInput ? screenNewInput.value.trim() : "";
   }
 
   function loadScreens(selectName) {
@@ -595,6 +597,42 @@
             }
             self.disabled = true;
           }
+        });
+    });
+  });
+
+  /* ==================================================================
+     SCREEN-OUTPUT (laatste opdracht) -> NOTITIE bij item
+     ================================================================== */
+  document.querySelectorAll(".cl-screen-note").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var ref = this.dataset.ref;
+      var self = this;
+      var sn = getScreenName();
+      if (!sn) { toast("Selecteer eerst een screen-sessie bovenaan"); return; }
+      var doelEl = document.getElementById("cl-screen-doel");
+      var doel = doelEl ? doelEl.value : "notitie";
+      self.disabled = true;
+      api("POST", "/api/checklists/" + CL_ID + "/items/" + ref + "/screen-note", { screen_name: sn, doel: doel })
+        .then(function (d) {
+          if (d.ok) {
+            toast("Screen-output vastgelegd als " + d.doel + ": " + d.naam);
+            var linkedWrap = self.closest(".cl-item").querySelector(".cl-linked-wrap") ||
+                             self.closest(".cl-item-detail");
+            if (linkedWrap && (d.doel === "notitie" || d.doel === "bevinding")) {
+              var badge = document.createElement("span");
+              badge.className = "cl-linked";
+              if (d.doel === "bevinding") {
+                badge.innerHTML = '<a href="/dashboard/findings/edit/' + d.id + '">Bevinding #' + d.id + "</a>";
+              } else {
+                badge.innerHTML = '<a href="/dashboard/notes/edit/' + d.id + '">Notitie #' + d.id + "</a>";
+              }
+              linkedWrap.appendChild(badge);
+            }
+          } else {
+            toast(d.error || "Mislukt");
+          }
+          self.disabled = false;
         });
     });
   });

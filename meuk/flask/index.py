@@ -575,12 +575,17 @@ def api_settings():
         'rapport_pdf_owner_protected': bool(getattr(p, 'rapport_pdf_owner_password', '') or ''),
         'rapport_pdf_password': getattr(p, 'rapport_pdf_password', '') or '',
         'rapport_pdf_owner_password': getattr(p, 'rapport_pdf_owner_password', '') or '',
-        # DefectDojo: API-sleutel gemaskeerd
-        'dd_url': getattr(p, 'dd_url', '') or '',
-        'dd_api_key_set': bool(getattr(p, 'dd_api_key', '') or ''),
+        # DefectDojo: verbinding (URL/sleutel/TLS) is server-breed (db_instellingen),
+        # product/engagement per project. API-sleutel gemaskeerd. Verbinding valt
+        # terug op de per-opdracht-config voor bestaande (legacy) projecten.
+        'dd_url': (getattr(s, 'dd_url', '') or getattr(p, 'dd_url', '') or ''),
+        'dd_api_key_set': bool(getattr(s, 'dd_api_key', '') or getattr(p, 'dd_api_key', '') or ''),
         'dd_product_id': getattr(p, 'dd_product_id', None),
         'dd_engagement_id': getattr(p, 'dd_engagement_id', None),
-        'dd_verify_ssl': bool(getattr(p, 'dd_verify_ssl', True)),
+        'dd_verify_ssl': bool(
+            getattr(s, 'dd_verify_ssl', True)
+            if (getattr(s, 'dd_url', '') or getattr(s, 'dd_api_key', ''))
+            else getattr(p, 'dd_verify_ssl', True)),
         'dd_auto_push': bool(getattr(p, 'dd_auto_push', False)),
     })
 
@@ -783,12 +788,16 @@ def api_settings_update():
         p.rapport_pdf_password = data['rapport_pdf_password'][:200]
     if 'rapport_pdf_owner_password' in data and isinstance(data['rapport_pdf_owner_password'], str):
         p.rapport_pdf_owner_password = data['rapport_pdf_owner_password'][:200]
-    # DefectDojo-configuratie
+    # DefectDojo-configuratie. De verbinding (URL/sleutel/TLS) is server-breed en
+    # wordt naar db_instellingen (s) geschreven zodat ze eenmalig volstaat voor
+    # elke rapportage; product/engagement/auto-push blijven per project (p).
     if 'dd_url' in data and isinstance(data['dd_url'], str):
-        p.dd_url = data['dd_url'].strip().rstrip('/')[:300]
+        s.dd_url = data['dd_url'].strip().rstrip('/')[:300]
+        p.dd_url = ''  # legacy per-opdracht-waarde opruimen; globaal is leidend
     if 'dd_api_key' in data and isinstance(data['dd_api_key'], str):
         # Lege string wist de sleutel; anders overschrijven
-        p.dd_api_key = data['dd_api_key'].strip()[:300]
+        s.dd_api_key = data['dd_api_key'].strip()[:300]
+        p.dd_api_key = ''
     for key in ('dd_product_id', 'dd_engagement_id'):
         if key in data:
             val = data[key]
@@ -800,7 +809,7 @@ def api_settings_update():
                 except (ValueError, TypeError):
                     pass
     if 'dd_verify_ssl' in data:
-        p.dd_verify_ssl = bool(data['dd_verify_ssl'])
+        s.dd_verify_ssl = bool(data['dd_verify_ssl'])
     if 'dd_auto_push' in data:
         p.dd_auto_push = bool(data['dd_auto_push'])
     db.session.commit()

@@ -5,6 +5,7 @@
 <link rel="stylesheet" href="{{ url_for('static', filename='css/generator.css') }}" />
 <link rel="stylesheet" href="{{ url_for('static', filename='css/commands.css') }}" />
 <link rel="stylesheet" href="{{ url_for('static', filename='css/screen-terminal.css') }}" />
+<link rel="stylesheet" href="{{ url_for('static', filename='css/capture-dialog.css') }}" />
 <style nonce="{{ csp_nonce }}">
   .term-output { flex: 1; min-height: 300px; }
   .msf-panel { background: #050510; font-size: 12px; padding: 10px; margin: 0; max-height: 200px; overflow-y: auto; }
@@ -80,6 +81,8 @@
           <a id="recording-link" href="#" target="_blank" class="btn-fs d-none" title="Bekijk asciinema opname">&#9658; Opname</a>
           <span class="spacer"></span>
           <button type="button" id="toggle-cmd-sidebar" class="btn-fs" title="Commando bibliotheek sidebar">Commando's &#9654;</button>
+          <button type="button" id="btn-screen-history" class="btn-fs" title="Pauzeer live en toon de volledige historie om terug te scrollen; nog eens klikken = live">&#9208; Historie</button>
+          <button type="button" id="btn-screen-note" class="btn-fs" title="Leg de output vast — kies scope, titel en bestemming met voorbeeld">&#128221; Vastleggen…</button>
           <button type="button" id="btn-fullscreen" class="btn-fs" title="Volledig scherm">&#x26F6; Volledig scherm</button>
         </div>
         <div class="screen-terminal" id="screen-output"></div>
@@ -173,6 +176,7 @@
 <!-- ══════════════════════════════════════════════════════════════════════════ -->
 
 {% block scripts %}
+<script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='js/capture-dialog.js') }}"></script>
 <script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='js/screen-terminal.js') }}"></script>
 <script nonce="{{ csp_nonce }}">
 /* ── Metasploit Terminal ── */

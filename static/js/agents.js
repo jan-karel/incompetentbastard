@@ -18,6 +18,9 @@
   var clearBtn = document.getElementById('clear-shell');
   var deleteBtn = document.getElementById('delete-agent');
   var recordingLink = document.getElementById('recording-link');
+  var agentToNoteBtn = document.getElementById('agent-to-note');
+  var agentNoteDoel = document.getElementById('agent-note-doel');
+  var currentRecording = null;
   var kpiActive = document.getElementById('kpi-active');
   var kpiTotal = document.getElementById('kpi-total');
   var kpiDead = document.getElementById('kpi-dead');
@@ -103,6 +106,7 @@
     shellCmd.focus();
 
     // Recording link
+    currentRecording = agentData.recording || null;
     if (recordingLink) {
       if (agentData.recording) {
         recordingLink.href = '/dashboard/recordings/' + encodeURIComponent(agentData.recording);
@@ -110,6 +114,12 @@
       } else {
         recordingLink.style.display = 'none';
       }
+    }
+    if (agentToNoteBtn) {
+      agentToNoteBtn.style.display = agentData.recording ? '' : 'none';
+    }
+    if (agentNoteDoel) {
+      agentNoteDoel.style.display = agentData.recording ? '' : 'none';
     }
 
     var items = agentListEl.querySelectorAll('.agent-item');
@@ -191,6 +201,38 @@
   clearBtn.addEventListener('click', function () {
     shellOutput.innerHTML = '';
   });
+
+  // ── Agent-opname naar notitie (actieve opdracht) ────────────
+  if (agentToNoteBtn) {
+    agentToNoteBtn.addEventListener('click', function () {
+      if (!currentRecording) return;
+      var orig = agentToNoteBtn.textContent;
+      agentToNoteBtn.disabled = true;
+      agentToNoteBtn.textContent = '…';
+      var doel = agentNoteDoel ? agentNoteDoel.value : 'notitie';
+      fetch('/api/recordings/' + encodeURIComponent(currentRecording) + '/to-note', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ doel: doel })
+      })
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+          agentToNoteBtn.disabled = false;
+          if (d && d.ok) {
+            agentToNoteBtn.textContent = '✓ ' + (d.doel || 'notitie') + (d.id ? ' #' + d.id : '');
+            setTimeout(function () { agentToNoteBtn.textContent = orig; }, 2500);
+          } else {
+            agentToNoteBtn.textContent = orig;
+            alert((d && d.error) || 'Naar notitie mislukt');
+          }
+        })
+        .catch(function () {
+          agentToNoteBtn.disabled = false;
+          agentToNoteBtn.textContent = orig;
+          alert('Verbindingsfout');
+        });
+    });
+  }
 
   // ── Delete agent ────────────────────────────────────────────
   deleteBtn.addEventListener('click', function () {

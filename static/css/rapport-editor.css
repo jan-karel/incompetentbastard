@@ -340,3 +340,73 @@ tr.rapport-included td:first-child { border-left: 3px solid var(--success, #22c5
 .rb-editor.rb-finding-wide { width: 680px; max-width: 64vw; }
 .rb-editor.rb-finding-wide #rb-ed-finding { max-height: 72vh; overflow: auto; }
 @media (max-width: 1100px) { .rb-editor.rb-finding-wide { width: 100%; max-width: none; } }
+
+/* ── Sub-tabs binnen Instellingen ───────────────── */
+.rapport-subtabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 16px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border, #ddd);
+}
+.rapport-subtab {
+  padding: 6px 14px;
+  cursor: pointer;
+  border: 1px solid var(--border, #ddd);
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--muted, #64748b);
+  background: var(--card, #fff);
+}
+.rapport-subtab.active {
+  background: var(--primary, #3b82f6);
+  border-color: var(--primary, #3b82f6);
+  color: #fff;
+}
+.rapport-subtab:hover:not(.active) {
+  color: var(--fg, #1e293b);
+  border-color: var(--muted, #94a3b8);
+}
+/* Kaart verbergen als die niet in de actieve sub-tab zit */
+.ibsub-off { display: none !important; }
+
+/* ── Evidence-overzicht ─────────────────────────── */
+.ev-search { max-width: 240px; display: inline-block; }
+.ev-table-wrap { overflow-x: auto; }
+.ev-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.ev-table th, .ev-table td { padding: 6px 8px; border-bottom: 1px solid var(--border, #e2e8f0); text-align: left; vertical-align: middle; }
+.ev-table th { font-weight: 600; color: var(--muted, #64748b); white-space: nowrap; }
+.ev-thumb-cell { width: 54px; }
+.ev-thumb { height: 40px; width: 40px; object-fit: cover; border-radius: 4px; background: #fff; border: 1px solid var(--border, #e2e8f0); }
+.ev-fileicon { font-size: 22px; }
+.ev-table td .btn { margin-right: 4px; }
+.ev-ok { color: #16a34a; font-weight: 600; }
+.ev-bad { color: #dc2626; font-weight: 600; }
+.ev-muted { color: var(--muted, #94a3b8); }
+.btn-danger { background: #fee2e2; border-color: #fecaca; color: #b91c1c; }
+.ev-detail td { background: #0f172a; }
+.ev-listing-pre { margin: 0; padding: 10px 12px; max-height: 340px; overflow: auto; color: #e2e8f0; font-size: 12px; line-height: 1.45; white-space: pre-wrap; word-break: break-word; }
+.ev-rep-cell { text-align: center; width: 48px; }
+.ev-rep-cell input { cursor: pointer; }
+.rb-evreg-list { max-height: 260px; overflow:auto; border:1px solid var(--border,#e2e8f0); border-radius:4px; padding:6px 10px; }
+.rb-evreg-item { display:flex; gap:6px; align-items:center; padding:2px 0; font-size:13px; }
+
+/* Visuele koppel-kiezer (ontbrekend screenshot → bestaand bestand) */
+.ev-relink-overlay { position:fixed; inset:0; background:rgba(15,23,42,.55); display:flex; align-items:center; justify-content:center; z-index:1000; padding:20px; }
+.ev-relink-box { background:var(--card,#fff); color:var(--fg,#1e293b); border-radius:8px; width:min(900px,96vw); max-height:88vh; display:flex; flex-direction:column; box-shadow:0 10px 40px rgba(0,0,0,.35); }
+.ev-relink-head { display:flex; align-items:center; gap:10px; padding:12px 16px; border-bottom:1px solid var(--border,#e2e8f0); }
+.ev-relink-head strong { flex:1; font-size:14px; }
+.ev-relink-search { max-width:240px; }
+.ev-relink-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(130px,1fr)); gap:10px; padding:14px 16px; overflow:auto; }
+.ev-relink-card { display:flex; flex-direction:column; gap:4px; align-items:center; padding:6px; border:1px solid var(--border,#e2e8f0); border-radius:6px; background:var(--card,#fff); cursor:pointer; }
+.ev-relink-card:hover { border-color:var(--primary,#3b82f6); box-shadow:0 0 0 2px var(--primary,#3b82f6) inset; }
+.ev-relink-card img { width:100%; height:92px; object-fit:contain; background:#fff; border-radius:4px; }
+.ev-relink-cap { font-size:11px; word-break:break-all; text-align:center; color:var(--muted,#64748b); max-height:30px; overflow:hidden; }
+.ev-relink-status { padding:8px 16px; border-top:1px solid var(--border,#e2e8f0); }
+.ev-complete { background:#fff7ed; border:1px solid #fdba74; color:#9a3412; border-radius:6px; padding:8px 12px; margin-bottom:10px; font-size:13px; }
+.ev-dup { color:#b45309; font-size:11px; white-space:nowrap; }
+.ev-lightbox-box { background:#fff; border-radius:8px; padding:10px; max-width:94vw; max-height:92vh; display:flex; flex-direction:column; gap:6px; }
+.ev-lightbox-box img { max-width:90vw; max-height:84vh; object-fit:contain; }
+.ev-lightbox-cap { text-align:center; word-break:break-all; }

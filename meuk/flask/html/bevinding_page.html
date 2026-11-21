@@ -6,9 +6,11 @@
 <link rel="stylesheet" href="{{ url_for('static', filename='css/cvss4-calculator.css') }}" />
 <link rel="stylesheet" href="{{ url_for('static', filename='css/latexeditor.css') }}" />
 <link rel="stylesheet" href="{{ url_for('static', filename='css/evidence-gallery.css') }}" />
+<link rel="stylesheet" href="{{ url_for('static', filename='css/capture-dialog.css') }}" />
 {% endblock %}
 
 {% block content %}
+{% set evidence_tab = true %}
 <div class="page-title">
   <div>
     <h1>Bevindingseditor</h1>
@@ -26,30 +28,6 @@
 </section>
 
 {% if form.id.data %}
-{# Evidence gallery #}
-<section class="card mt-14" id="evidence-card" tabindex="0">
-  <div class="card-head"><h2>Bewijs</h2></div>
-  <div class="card-body">
-    <div class="evidence-gallery" id="evidence-gallery"></div>
-    <div class="mt-8">
-      <div class="d-flex gap-8 flex-wrap mb-8">
-        <input type="text" id="evidence-description" class="form-control grow200" placeholder="Beschrijving (optioneel)" />
-        <input type="text" id="evidence-tool" class="form-control w140" placeholder="Tool (bijv. nmap)" />
-        <select id="evidence-category" class="form-control w140">
-          <option value="">Categorie…</option>
-          <option value="screenshot">Screenshot</option>
-          <option value="log">Log</option>
-          <option value="output">Tool output</option>
-          <option value="network">Netwerk capture</option>
-          <option value="other">Overig</option>
-        </select>
-      </div>
-      <input type="file" id="evidence-file" accept="image/*,.pdf,.txt,.csv,.json,.xml,.zip" multiple />
-      <button class="btn" id="btn-upload-evidence" type="button">Uploaden</button>
-      <p class="help mt-6" id="evidence-hint">📎 Plak (Ctrl/Cmd+V), sleep bestanden hierheen, of kies een bestand — uploadt direct als bewijs.</p>
-    </div>
-  </div>
-</section>
 
 {# Opdracht/engagement koppeling #}
 <section class="card mt-14" data-advanced-fields>
@@ -113,6 +91,7 @@
 <script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='js/latexeditor.js') }}"></script>
 <script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='js/finding-template.js') }}"></script>
 <script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='js/finding-tabs.js') }}"></script>
+<script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='js/capture-dialog.js') }}"></script>
 <script nonce="{{ csp_nonce }}">
 (function() {
   "use strict";
@@ -539,6 +518,113 @@
       if (imgs.length) { e.preventDefault(); uploadFiles(imgs); }
     });
   }
+
+  // ── Screen-sessie: commando uitvoeren + slim vastleggen ──
+  (function() {
+    var scSel = document.getElementById("sc-screen-select");
+    var scRefresh = document.getElementById("sc-refresh");
+    var scNew = document.getElementById("sc-new");
+    var scStart = document.getElementById("sc-start");
+    var scCmd = document.getElementById("sc-cmd");
+    var scRun = document.getElementById("sc-run");
+    var scCapture = document.getElementById("sc-capture");
+    var scStatus = document.getElementById("sc-status");
+    if (!scSel) return;
+
+    function setStatus(msg) { if (scStatus) scStatus.textContent = msg || ""; }
+    function sessie() { return (scSel.value || "").trim(); }
+
+    function loadScreens(selectName) {
+      fetch("/api/commands/screens")
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+          var screens = (d && d.screens) || [];
+          scSel.innerHTML = "";
+          if (!screens.length) {
+            var o = document.createElement("option");
+            o.value = ""; o.textContent = "-- geen sessies --";
+            scSel.appendChild(o); return;
+          }
+          screens.forEach(function(s) {
+            var o = document.createElement("option");
+            o.value = s.name; o.textContent = s.name + " (" + s.status + ")";
+            if (s.name === selectName) o.selected = true;
+            scSel.appendChild(o);
+          });
+        })
+        .catch(function() { setStatus("sessies laden mislukt"); });
+    }
+
+    function startSessie() {
+      var naam = (scNew.value || "").trim();
+      if (!naam) { setStatus("Geef een sessienaam op"); return; }
+      setStatus("Starten…");
+      fetch("/api/screen/start", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: naam })
+      })
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+          if (d.ok) { scNew.value = ""; setStatus("Gestart: " + naam); loadScreens(naam); }
+          else { setStatus(d.error || "Kon sessie niet starten"); }
+        })
+        .catch(function() { setStatus("Verbindingsfout"); });
+    }
+
+    function runCmd() {
+      var name = sessie();
+      if (!name) { setStatus("Kies eerst een sessie"); return; }
+      var cmd = (scCmd.value || "").trim();
+      if (!cmd) { setStatus("Typ een commando"); return; }
+      setStatus("Uitvoeren…");
+      fetch("/api/screen/" + encodeURIComponent(name) + "/input", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ command: cmd })
+      })
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+          if (d.ok) { scCmd.value = ""; setStatus("Uitgevoerd in " + name); }
+          else { setStatus(d.error || "Uitvoeren mislukt"); }
+        })
+        .catch(function() { setStatus("Verbindingsfout"); });
+    }
+
+    function openCapture() {
+      var name = sessie();
+      if (!name) { setStatus("Kies eerst een sessie"); return; }
+      if (!window.CaptureDialog) { setStatus("Capture-dialoog niet geladen"); return; }
+      window.CaptureDialog.open({
+        title: name,
+        previewUrl: "/api/recordings/" + encodeURIComponent(name) + ".rec/preview",
+        submitUrl: "/api/findings/" + findingId + "/screen-capture",
+        showOpdracht: false,
+        destinations: [["uitwerking", "➕ In uitwerking"], ["bewijs", "📎 Als bewijs"]],
+        buildPayload: function(sel) {
+          return { screen_name: name, target: sel.dest, titel: sel.titel, inhoud: sel.inhoud };
+        },
+        onDone: function(d) {
+          if (d.target === "uitwerking") {
+            var ta = document.getElementById("uitwerken");
+            if (ta) {
+              ta.value = (ta.value.replace(/\s+$/, "") + "\n\n" + d.blok).replace(/^\s+/, "");
+              ta.dispatchEvent(new Event("input", { bubbles: true }));
+              setStatus("Toegevoegd aan uitwerking: " + d.commando + " (nog opslaan)");
+            }
+          } else {
+            setStatus("Opgeslagen als bewijs: " + d.commando);
+            loadEvidence();
+          }
+        }
+      });
+    }
+
+    if (scRefresh) scRefresh.addEventListener("click", function() { loadScreens(sessie()); });
+    if (scStart) scStart.addEventListener("click", startSessie);
+    if (scRun) scRun.addEventListener("click", runCmd);
+    if (scCmd) scCmd.addEventListener("keydown", function(e) { if (e.key === "Enter") { e.preventDefault(); runCmd(); } });
+    if (scCapture) scCapture.addEventListener("click", openCapture);
+    loadScreens();
+  })();
 
   // ── Relaties ──────────────────────────────────
   var relList = document.getElementById("relations-list");

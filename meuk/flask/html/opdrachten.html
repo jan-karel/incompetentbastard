@@ -5,6 +5,17 @@
 <link rel="stylesheet" href="{{ url_for('static', filename='css/safe-overview.css') }}" />
 <link rel="stylesheet" href="{{ url_for('static', filename='css/finding-form.css') }}" />
 <link rel="stylesheet" href="{{ url_for('static', filename='css/rapport-editor.css') }}" />
+<style nonce="{{ csp_nonce }}">
+.dojo-combo { position: relative; }
+.dojo-combo-list {
+  position: absolute; z-index: 20; left: 0; right: 0; top: 100%;
+  background: var(--card-bg, #fff); border: 1px solid var(--border, #cbd5e1);
+  border-radius: 6px; max-height: 14rem; overflow-y: auto; box-shadow: 0 6px 18px rgba(0,0,0,.12);
+}
+.dojo-combo-opt { padding: 6px 10px; cursor: pointer; }
+.dojo-combo-opt:hover, .dojo-combo-opt.active { background: var(--accent-soft, #eef2ff); }
+.dojo-combo-new { font-style: italic; }
+</style>
 {% endblock %}
 
 {% block content %}
@@ -18,6 +29,8 @@
 <div class="rapport-tabs">
   <button class="rapport-tab active" data-tab="tab-op-overzicht">Overzicht</button>
   <button class="rapport-tab" data-tab="tab-op-nieuw">Nieuwe opdracht</button>
+  <button class="rapport-tab" data-tab="tab-op-dojo">DefectDojo</button>
+  <button class="rapport-tab" data-tab="tab-op-opnames">Opnames</button>
 </div>
 
 <div class="rapport-tab-content" id="tab-op-nieuw">
@@ -66,6 +79,42 @@
     </div>
   </div>
 </section>
+<section class="card mb-14">
+  <div class="card-head"><h2>Importeren uit DefectDojo</h2></div>
+  <div class="card-body">
+    <p class="help">Maak een nieuwe opdracht op basis van een DefectDojo-product/engagement en importeer meteen de bevindingen.</p>
+    <div class="form-grid">
+      <div>
+        <label for="newimp-conn-select">DefectDojo-verbinding</label>
+        <select id="newimp-conn-select" class="form-control"></select>
+      </div>
+      <div></div>
+    </div>
+    <div class="form-grid">
+      <div class="dojo-combo">
+        <label for="newimp-product">Product</label>
+        <input id="newimp-product" type="text" class="form-control" autocomplete="off" placeholder="Zoek product…" />
+        <div id="newimp-product-list" class="dojo-combo-list" hidden></div>
+      </div>
+      <div class="dojo-combo">
+        <label for="newimp-engagement">Engagement <span class="help">(optioneel; leeg = heel product)</span></label>
+        <input id="newimp-engagement" type="text" class="form-control" autocomplete="off" placeholder="Zoek engagement…" />
+        <div id="newimp-engagement-list" class="dojo-combo-list" hidden></div>
+      </div>
+    </div>
+    <div class="form-grid">
+      <div>
+        <label for="newimp-naam">Opdrachtnaam <span class="help">(leeg = naam van engagement/product)</span></label>
+        <input id="newimp-naam" type="text" class="form-control" />
+      </div>
+      <label class="label-check"><input type="checkbox" id="newimp-only-open" checked /> Alleen openstaande bevindingen</label>
+    </div>
+    <div class="form-actions">
+      <button type="button" id="btn-newimp" class="btn btn-primary">Opdracht aanmaken + importeren</button>
+      <span id="newimp-msg" class="help ml-8"></span>
+    </div>
+  </div>
+</section>
 </div>{# /tab-op-nieuw #}
 
 <div class="rapport-tab-content active" id="tab-op-overzicht">
@@ -102,6 +151,108 @@
   </div>
 </section>
 </div>{# /tab-op-overzicht #}
+
+<div class="rapport-tab-content" id="tab-op-dojo">
+<section class="card mb-14">
+  <div class="card-head"><h2>DefectDojo — verbindingen</h2></div>
+  <div class="card-body">
+    <p class="help">Beheer meerdere DefectDojo-instances als profielen. Per opdracht kies je hieronder welk profiel gebruikt wordt (leeg = het standaardprofiel ★).</p>
+    <table class="table">
+      <thead><tr><th>Naam</th><th>URL</th><th>Standaard</th><th></th></tr></thead>
+      <tbody id="dojo-conn-tbody"><tr><td colspan="4" class="help">Laden…</td></tr></tbody>
+    </table>
+    <h3 class="form-label mt-8">Profiel toevoegen / bewerken</h3>
+    <input type="hidden" id="dojo-conn-id" value="" />
+    <div class="form-grid three">
+      <div><label for="dojo-conn-naam">Naam</label><input id="dojo-conn-naam" type="text" class="form-control" /></div>
+      <div><label for="dojo-conn-url">URL</label><input id="dojo-conn-url" type="text" class="form-control" placeholder="https://defectdojo.intern" /></div>
+      <div><label for="dojo-conn-key">API-sleutel</label><input id="dojo-conn-key" type="password" class="form-control" placeholder="Token" autocomplete="new-password" /></div>
+    </div>
+    <div class="form-grid">
+      <div><label for="dojo-conn-user">DefectDojo user-id <span class="help">(optioneel; wordt “reporter” op findings)</span></label><input id="dojo-conn-user" type="number" class="form-control" /></div>
+      <div></div>
+    </div>
+    <label class="label-check mt-4"><input type="checkbox" id="dojo-conn-verify" checked /> TLS-certificaat verifiëren</label>
+    <label class="label-check mt-4"><input type="checkbox" id="dojo-conn-default" /> Als standaardprofiel</label>
+    <div class="form-actions">
+      <button type="button" id="btn-dojo-conn-save" class="btn btn-primary">Opslaan</button>
+      <button type="button" id="btn-dojo-conn-new" class="btn">Nieuw</button>
+      <span id="dojo-conn-msg" class="help ml-8"></span>
+    </div>
+  </div>
+</section>
+
+<section class="card mb-14">
+  <div class="card-head"><h2>Importeren &amp; exporteren</h2></div>
+  <div class="card-body">
+    <p class="help">Kies een opdracht en zoek een product/engagement in DefectDojo. <strong>Importeren</strong> haalt bevindingen uit het engagement in de opdracht; <strong>exporteren</strong> pusht de bevindingen van de opdracht naar het engagement. Laat product/engagement leeg bij exporteren → ze worden automatisch aangemaakt op de opdrachtnaam. De keuze wordt onthouden bij de opdracht.</p>
+    <div class="form-grid">
+      <div>
+        <label for="dojo-opdracht">Opdracht</label>
+        <select id="dojo-opdracht" class="form-control"></select>
+        <div id="dojo-link-info" class="help"></div>
+      </div>
+      <div>
+        <label for="dojo-conn-select">DefectDojo-verbinding</label>
+        <select id="dojo-conn-select" class="form-control"></select>
+      </div>
+    </div>
+    <div class="form-grid">
+      <div class="dojo-combo">
+        <label for="dojo-product">Product <span class="help">(zoek of typ een nieuwe naam)</span></label>
+        <input id="dojo-product" type="text" class="form-control" autocomplete="off" placeholder="Zoek product…" />
+        <div id="dojo-product-list" class="dojo-combo-list" hidden></div>
+      </div>
+      <div class="dojo-combo">
+        <label for="dojo-engagement">Engagement <span class="help">(zoek of typ een nieuwe naam)</span></label>
+        <input id="dojo-engagement" type="text" class="form-control" autocomplete="off" placeholder="Zoek engagement…" />
+        <div id="dojo-engagement-list" class="dojo-combo-list" hidden></div>
+      </div>
+    </div>
+    <div class="form-grid">
+      <label class="label-check"><input type="checkbox" id="dojo-only-open" checked /> Import: alleen openstaande bevindingen</label>
+      <label class="label-check"><input type="checkbox" id="dojo-only-final" checked /> Export: alleen definitieve bevindingen</label>
+    </div>
+    <div class="form-actions">
+      <button type="button" id="btn-dojo-import" class="btn btn-primary">⇠ Importeren uit DefectDojo</button>
+      <button type="button" id="btn-dojo-export" class="btn">⇢ Exporteren naar DefectDojo</button>
+      <span id="dojo-imp-msg" class="help ml-8"></span>
+    </div>
+  </div>
+</section>
+<section class="card mb-14">
+  <div class="card-head"><h2>Sync-status</h2></div>
+  <div class="card-body">
+    <p class="help">Laatste synchronisatie per bevinding; fouten verschijnen hier.</p>
+    <div class="form-actions"><button type="button" id="btn-dojo-status" class="btn btn-sm">Vernieuwen</button></div>
+    <table class="table">
+      <thead><tr><th>Bevinding</th><th>DD #</th><th>Actie</th><th>Status</th><th>Bericht</th><th>Tijd</th></tr></thead>
+      <tbody id="dojo-status-tbody"><tr><td colspan="6" class="help">Laden…</td></tr></tbody>
+    </table>
+  </div>
+</section>
+</div>{# /tab-op-dojo #}
+
+<div class="rapport-tab-content" id="tab-op-opnames">
+<section class="card mb-14">
+  <div class="card-head"><h2>Asciinema-opnames (screen) als bewijs</h2></div>
+  <div class="card-body">
+    <p class="help">Koppel screen-opnames als bewijs aan een opdracht en extraheer de volledige terminal-output naar een notitie (LaTeX) die in het rapport meekomt.</p>
+    <div class="form-grid">
+      <div>
+        <label for="opn-opdracht">Opdracht</label>
+        <select id="opn-opdracht" class="form-control"></select>
+      </div>
+      <div></div>
+    </div>
+    <h3 class="form-label mt-8">Gekoppeld aan deze opdracht</h3>
+    <ul id="opn-linked" class="help"><li>Laden…</li></ul>
+    <h3 class="form-label mt-8">Beschikbare opnames</h3>
+    <table class="table"><thead><tr><th>Bestand</th><th></th></tr></thead><tbody id="opn-available"></tbody></table>
+    <span id="opn-msg" class="help"></span>
+  </div>
+</section>
+</div>{# /tab-op-opnames #}
 {% endblock %}
 
 {% block scripts %}
@@ -280,6 +431,463 @@
   });
 
   load();
+})();
+(function() {
+  "use strict";
+  // DefectDojo-tabblad: verbinding + zoekbare import/export
+  var connMsg = document.getElementById("dojo-conn-msg");
+  var impMsg = document.getElementById("dojo-imp-msg");
+  var opSel = document.getElementById("dojo-opdracht");
+  if (!opSel) return;
+
+  function setMsg(el, text, ok) {
+    if (!el) return;
+    el.textContent = text;
+    el.style.color = ok ? "var(--success, #22c55e)" : "var(--danger, #ef4444)";
+  }
+
+  var connSelect = document.getElementById("dojo-conn-select");
+  var connTbody = document.getElementById("dojo-conn-tbody");
+  function selectedConn() { return (connSelect && connSelect.value) ? connSelect.value : ""; }
+  function mkb(label){ var b=document.createElement("button"); b.type="button"; b.className="btn btn-sm"; b.textContent=label; return b; }
+  function connField(id){ return document.getElementById(id); }
+  function editConn(c){
+    connField("dojo-conn-id").value = c.id;
+    connField("dojo-conn-naam").value = c.naam || "";
+    connField("dojo-conn-url").value = c.url || "";
+    connField("dojo-conn-key").value = "";
+    connField("dojo-conn-key").placeholder = c.api_key_set ? "•••••• (leeg = ongewijzigd)" : "Token";
+    connField("dojo-conn-verify").checked = !!c.verify_ssl;
+    connField("dojo-conn-user").value = (c.user_id != null ? c.user_id : "");
+    connField("dojo-conn-default").checked = !!c.is_default;
+    setMsg(connMsg, "Profiel geladen: " + (c.naam||""), true);
+  }
+  function newConn(){
+    connField("dojo-conn-id").value = "";
+    connField("dojo-conn-naam").value = "";
+    connField("dojo-conn-url").value = "";
+    connField("dojo-conn-key").value = "";
+    connField("dojo-conn-key").placeholder = "Token";
+    connField("dojo-conn-verify").checked = true;
+    connField("dojo-conn-user").value = "";
+    connField("dojo-conn-default").checked = false;
+    setMsg(connMsg, "Nieuw profiel", true);
+  }
+  function testConn(id){
+    setMsg(connMsg, "Verbinding testen…", true);
+    fetch("/api/defectdojo/connections/" + id + "/test", {method:"POST"})
+      .then(function(r){ return r.json().then(function(j){ return {ok:r.ok, j:j}; }); })
+      .then(function(res){ setMsg(connMsg, (res.ok && res.j.ok) ? "Verbonden" : ("Fout: " + (typeof res.j.error==="string"?res.j.error:JSON.stringify(res.j.error||""))), !!(res.ok && res.j.ok)); })
+      .catch(function(){ setMsg(connMsg, "Test mislukt", false); });
+  }
+  function delConn(id){
+    if (!window.confirm("Profiel verwijderen? Opdrachten die het gebruiken vallen terug op het standaardprofiel.")) return;
+    fetch("/api/defectdojo/connections/" + id, {method:"DELETE"}).then(function(r){ return r.json(); })
+      .then(function(d){ setMsg(connMsg, d.ok ? "Verwijderd" : (d.error||"Mislukt"), !!d.ok); loadConns(); });
+  }
+  function loadConns() {
+    fetch("/api/defectdojo/connections").then(function(r){ return r.json(); }).then(function(d){
+      var rows = (d && d.connections) || [];
+      if (connSelect) {
+        var cur = connSelect.value;
+        connSelect.innerHTML = "";
+        var def = document.createElement("option"); def.value = ""; def.textContent = "(standaardprofiel)"; connSelect.appendChild(def);
+        rows.forEach(function(c){ var o=document.createElement("option"); o.value=c.id; o.textContent=c.naam + (c.is_default?" ★":""); connSelect.appendChild(o); });
+        connSelect.value = cur;
+      }
+      if (connTbody) {
+        connTbody.innerHTML = "";
+        if (!rows.length) connTbody.innerHTML = '<tr><td colspan="4" class="help">Nog geen profielen.</td></tr>';
+        rows.forEach(function(c){
+          var tr = document.createElement("tr");
+          function td(x){ var e=document.createElement("td"); e.textContent=x; return e; }
+          tr.appendChild(td(c.naam)); tr.appendChild(td(c.url)); tr.appendChild(td(c.is_default?"ja":""));
+          var act = document.createElement("td");
+          var eb = mkb("bewerken"); eb.addEventListener("click", function(){ editConn(c); }); act.appendChild(eb);
+          var tb = mkb("testen"); tb.addEventListener("click", function(){ testConn(c.id); }); act.appendChild(tb);
+          var rb = mkb("verwijderen"); rb.addEventListener("click", function(){ delConn(c.id); }); act.appendChild(rb);
+          tr.appendChild(act); connTbody.appendChild(tr);
+        });
+      }
+    }).catch(function(){});
+  }
+  var btnConnSave = document.getElementById("btn-dojo-conn-save");
+  if (btnConnSave) btnConnSave.addEventListener("click", function(){
+    var id = connField("dojo-conn-id").value;
+    var body = {
+      naam: connField("dojo-conn-naam").value.trim(),
+      dd_url: connField("dojo-conn-url").value.trim(),
+      dd_verify_ssl: connField("dojo-conn-verify").checked,
+      dd_user_id: connField("dojo-conn-user").value.trim(),
+      is_default: connField("dojo-conn-default").checked
+    };
+    var key = connField("dojo-conn-key").value.trim();
+    if (key) body.dd_api_key = key;
+    var url = id ? ("/api/defectdojo/connections/" + id) : "/api/defectdojo/connections";
+    setMsg(connMsg, "Opslaan…", true);
+    fetch(url, {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(body)})
+      .then(function(r){ return r.json(); })
+      .then(function(d){ setMsg(connMsg, d.ok ? "Opgeslagen" : (d.error||"Mislukt"), !!d.ok); if (d.ok) { newConn(); loadConns(); } })
+      .catch(function(){ setMsg(connMsg, "Opslaan mislukt", false); });
+  });
+  var btnConnNew = document.getElementById("btn-dojo-conn-new");
+  if (btnConnNew) btnConnNew.addEventListener("click", newConn);
+
+  // Combobox: zoek-als-je-typt; vrije tekst telt als nieuwe naam
+  function makeCombo(input, listEl, fetcher) {
+    var selId = null, timer = null;
+    function hide() { listEl.hidden = true; listEl.innerHTML = ""; }
+    function choose(it) { selId = it ? it.id : null; if (it) input.value = it.name; hide(); }
+    function render(rows) {
+      listEl.innerHTML = "";
+      if (!rows || !rows.length) { hide(); return; }
+      rows.forEach(function(it) {
+        var div = document.createElement("div");
+        div.className = "dojo-combo-opt";
+        div.textContent = it.name + " (#" + it.id + ")";
+        div.addEventListener("mousedown", function(e) { e.preventDefault(); choose(it); });
+        listEl.appendChild(div);
+      });
+      listEl.hidden = false;
+    }
+    input.addEventListener("input", function() {
+      selId = null;
+      clearTimeout(timer);
+      var q = input.value.trim();
+      timer = setTimeout(function() { fetcher(q).then(render).catch(function(){ hide(); }); }, 250);
+    });
+    input.addEventListener("focus", function() {
+      clearTimeout(timer);
+      timer = setTimeout(function() { fetcher(input.value.trim()).then(render).catch(function(){}); }, 150);
+    });
+    input.addEventListener("blur", function() { setTimeout(hide, 150); });
+    return {
+      getId: function() { return selId; },
+      getName: function() { return input.value.trim(); },
+      clear: function() { selId = null; input.value = ""; hide(); }
+    };
+  }
+
+  var productCombo = makeCombo(
+    document.getElementById("dojo-product"),
+    document.getElementById("dojo-product-list"),
+    function(q) {
+      return fetch("/api/defectdojo/products?limit=50&q=" + encodeURIComponent(q) + (selectedConn() ? "&connection=" + selectedConn() : ""))
+        .then(function(r){ return r.json(); })
+        .then(function(d){ return (d && d.ok) ? d.results : []; });
+    });
+  var engCombo = makeCombo(
+    document.getElementById("dojo-engagement"),
+    document.getElementById("dojo-engagement-list"),
+    function(q) {
+      var pid = productCombo.getId();
+      var url = "/api/defectdojo/engagements?limit=50&q=" + encodeURIComponent(q);
+      if (pid) url += "&product=" + pid;
+      if (selectedConn()) url += "&connection=" + selectedConn();
+      return fetch(url).then(function(r){ return r.json(); })
+        .then(function(d){ return (d && d.ok) ? d.results : []; });
+    });
+
+  var opdrachten = [];
+  function currentOpdracht() {
+    var id = parseInt(opSel.value, 10);
+    for (var i = 0; i < opdrachten.length; i++) if (opdrachten[i].id === id) return opdrachten[i];
+    return null;
+  }
+  function showLink() {
+    var o = currentOpdracht();
+    var el = document.getElementById("dojo-link-info");
+    if (!el) return;
+    if (o && (o.dd_product_id || o.dd_engagement_id)) {
+      el.textContent = "Gekoppeld: " + (o.dd_product_id ? "product #" + o.dd_product_id : "geen product") +
+        " · " + (o.dd_engagement_id ? "engagement #" + o.dd_engagement_id : "geen engagement");
+    } else {
+      el.textContent = "Nog niet gekoppeld aan DefectDojo.";
+    }
+  }
+  function fillOpdrachten() {
+    fetch("/api/opdrachten").then(function(r){ return r.json(); }).then(function(d){
+      opdrachten = (d.opdrachten || []).filter(function(o){ return !o.archived; });
+      opSel.innerHTML = "";
+      if (!opdrachten.length) {
+        var opt = document.createElement("option");
+        opt.textContent = "— geen opdrachten —"; opt.value = "";
+        opSel.appendChild(opt);
+      }
+      opdrachten.forEach(function(o) {
+        var opt = document.createElement("option");
+        opt.value = o.id; opt.textContent = o.naam + (o.klant ? " · " + o.klant : "");
+        opSel.appendChild(opt);
+      });
+      showLink();
+    }).catch(function(){});
+  }
+  opSel.addEventListener("change", function() { productCombo.clear(); engCombo.clear(); showLink(); });
+
+  var btnImport = document.getElementById("btn-dojo-import");
+  var btnExport = document.getElementById("btn-dojo-export");
+  function ddJob(payload) {
+    return fetch("/api/defectdojo/jobs", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(payload)})
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        if (!d || !d.run_id) return {ok:false, j:(d||{})};
+        return new Promise(function(resolve){
+          var tries = 0;
+          (function poll(){
+            fetch("/api/defectdojo/jobs/" + d.run_id).then(function(r){ return r.json(); }).then(function(s){
+              if (s.status === "done") resolve({ok: (s.http_status||200) < 400, j: s.result || {}});
+              else if (s.status === "failed") resolve({ok:false, j:{error: s.error || "Taak mislukt"}});
+              else if (tries++ > 900) resolve({ok:false, j:{error:"Time-out"}});
+              else setTimeout(poll, 1000);
+            }).catch(function(){ resolve({ok:false, j:{error:"Pollen mislukt"}}); });
+          })();
+        });
+      });
+  }
+
+  if (btnImport) btnImport.addEventListener("click", function() {
+    var o = currentOpdracht();
+    if (!o) { setMsg(impMsg, "Kies eerst een opdracht", false); return; }
+    var eid = engCombo.getId();
+    var vraag = eid
+      ? "Bevindingen uit engagement #" + eid + " importeren in “" + o.naam + "”?"
+      : "Geen engagement geselecteerd: de bij de opdracht opgeslagen engagement wordt gebruikt (of ALLE openstaande bevindingen als er geen is). Doorgaan?";
+    if (!window.confirm(vraag)) return;
+    btnImport.disabled = true;
+    setMsg(impMsg, "Importeren in “" + o.naam + "”…", true);
+    var b = {only_open: document.getElementById("dojo-only-open").checked};
+    var pid = productCombo.getId(); if (pid) b.product_id = pid;
+    if (eid) b.engagement_id = eid;
+    b.kind = "import"; b.opdracht_id = o.id;
+    if (selectedConn()) b.connection_id = selectedConn();
+    ddJob(b)
+      .then(function(res){
+        var j = res.j || {};
+        if (res.ok && j.ok) {
+          var m = "“" + o.naam + "”: " + (j.imported||0) + " geïmporteerd";
+          if (j.skipped) m += ", " + j.skipped + " overgeslagen";
+          setMsg(impMsg, m + ". Zie het dashboard Bevindingen.", true);
+        } else {
+          setMsg(impMsg, "Import mislukt: " + (typeof j.error === "string" ? j.error : JSON.stringify(j.error || j.detail || "")), false);
+        }
+      })
+      .catch(function(){ setMsg(impMsg, "Import mislukt", false); })
+      .finally(function(){ btnImport.disabled = false; fillOpdrachten(); });
+  });
+
+  if (btnExport) btnExport.addEventListener("click", function() {
+    var o = currentOpdracht();
+    if (!o) { setMsg(impMsg, "Kies eerst een opdracht", false); return; }
+    var pid = productCombo.getId(), eid = engCombo.getId();
+    var prodTxt = pid ? ("product #" + pid) : (productCombo.getName() ? ("nieuw product “" + productCombo.getName() + "”") : "een automatisch aangemaakt product");
+    var engTxt = eid ? ("engagement #" + eid) : (engCombo.getName() ? ("nieuw engagement “" + engCombo.getName() + "”") : "een automatisch aangemaakt engagement");
+    if (!window.confirm("Bevindingen van “" + o.naam + "” exporteren naar " + prodTxt + " / " + engTxt + "?")) return;
+    btnExport.disabled = true;
+    setMsg(impMsg, "Exporteren…", true);
+    var b = {only_final: document.getElementById("dojo-only-final").checked};
+    if (pid) b.product_id = pid; else if (productCombo.getName()) b.product_name = productCombo.getName();
+    if (eid) b.engagement_id = eid; else if (engCombo.getName()) b.engagement_name = engCombo.getName();
+    b.kind = "export"; b.opdracht_id = o.id;
+    if (selectedConn()) b.connection_id = selectedConn();
+    ddJob(b)
+      .then(function(res){
+        var j = res.j || {};
+        if (res.ok && j.ok) {
+          var det = (j.created||0) + " nieuw, " + (j.updated||0) + " bijgewerkt";
+          if (j.unchanged) det += ", " + j.unchanged + " ongewijzigd";
+          if (j.closed) det += ", " + j.closed + " gesloten";
+          if (j.images_uploaded) det += ", " + j.images_uploaded + " afbeeldingen";
+          if (j.images_failed) det += " (" + j.images_failed + " afbeeldingen mislukt)";
+          setMsg(impMsg, "Geëxporteerd naar product #" + j.product_id + " / engagement #" + j.engagement_id + ": " + det, true);
+        } else {
+          setMsg(impMsg, "Export mislukt: " + (typeof j.error === "string" ? j.error : JSON.stringify(j.error || j.detail || "")) + (j.failed ? " (" + j.failed + " mislukt)" : ""), false);
+        }
+      })
+      .catch(function(){ setMsg(impMsg, "Export mislukt", false); })
+      .finally(function(){ btnExport.disabled = false; fillOpdrachten(); });
+  });
+
+  var tbodySt = document.getElementById("dojo-status-tbody");
+  function loadStatus() {
+    if (!tbodySt) return;
+    fetch("/api/defectdojo/status").then(function(r){ return r.json(); }).then(function(d){
+      var rows = (d && d.synced) || [];
+      tbodySt.innerHTML = "";
+      if (!rows.length) { tbodySt.innerHTML = '<tr><td colspan="6" class="help">Nog geen sync.</td></tr>'; return; }
+      rows.slice(0, 200).forEach(function(r){
+        var tr = document.createElement("tr");
+        function td(x){ var e=document.createElement("td"); e.textContent = (x==null?"":String(x)); return e; }
+        tr.appendChild(td(r.finding_id));
+        tr.appendChild(td(r.dd_finding_id));
+        tr.appendChild(td(r.action));
+        var st = td(r.status); if (r.status === "error") st.style.color = "var(--danger, #ef4444)"; tr.appendChild(st);
+        tr.appendChild(td(r.message));
+        tr.appendChild(td((r.synced_at||"").replace("T"," ").slice(0,19)));
+        tbodySt.appendChild(tr);
+      });
+    }).catch(function(){ if (tbodySt) tbodySt.innerHTML = '<tr><td colspan="6" class="help">Laden mislukt.</td></tr>'; });
+  }
+  var btnSt = document.getElementById("btn-dojo-status");
+  if (btnSt) btnSt.addEventListener("click", loadStatus);
+  loadConns();
+  fillOpdrachten();
+  loadStatus();
+})();
+(function() {
+  "use strict";
+  // Nieuwe opdracht uit DefectDojo (product/engagement) + import
+  var msg = document.getElementById("newimp-msg");
+  var btn = document.getElementById("btn-newimp");
+  if (!btn) return;
+  function setMsg(text, ok) {
+    if (!msg) return;
+    msg.textContent = text;
+    msg.style.color = ok ? "var(--success, #22c55e)" : "var(--danger, #ef4444)";
+  }
+  function ddJob(payload) {
+    return fetch("/api/defectdojo/jobs", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(payload)})
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        if (!d || !d.run_id) return {ok:false, j:(d||{})};
+        return new Promise(function(resolve){
+          var tries = 0;
+          (function poll(){
+            fetch("/api/defectdojo/jobs/" + d.run_id).then(function(r){ return r.json(); }).then(function(s){
+              if (s.status === "done") resolve({ok: (s.http_status||200) < 400, j: s.result || {}});
+              else if (s.status === "failed") resolve({ok:false, j:{error: s.error || "Taak mislukt"}});
+              else if (tries++ > 900) resolve({ok:false, j:{error:"Time-out"}});
+              else setTimeout(poll, 1000);
+            }).catch(function(){ resolve({ok:false, j:{error:"Pollen mislukt"}}); });
+          })();
+        });
+      });
+  }
+  function makeCombo(input, listEl, fetcher) {
+    var selId = null, timer = null;
+    function hide() { listEl.hidden = true; listEl.innerHTML = ""; }
+    function choose(it) { selId = it ? it.id : null; if (it) input.value = it.name; hide(); }
+    function render(rows) {
+      listEl.innerHTML = "";
+      if (!rows || !rows.length) { hide(); return; }
+      rows.forEach(function(it) {
+        var div = document.createElement("div");
+        div.className = "dojo-combo-opt";
+        div.textContent = it.name + " (#" + it.id + ")";
+        div.addEventListener("mousedown", function(e) { e.preventDefault(); choose(it); });
+        listEl.appendChild(div);
+      });
+      listEl.hidden = false;
+    }
+    input.addEventListener("input", function() {
+      selId = null; clearTimeout(timer);
+      var q = input.value.trim();
+      timer = setTimeout(function() { fetcher(q).then(render).catch(function(){ hide(); }); }, 250);
+    });
+    input.addEventListener("focus", function() {
+      clearTimeout(timer);
+      timer = setTimeout(function() { fetcher(input.value.trim()).then(render).catch(function(){}); }, 150);
+    });
+    input.addEventListener("blur", function() { setTimeout(hide, 150); });
+    return { getId: function(){ return selId; }, getName: function(){ return input.value.trim(); } };
+  }
+  var niConn = document.getElementById("newimp-conn-select");
+  function niSelConn(){ return (niConn && niConn.value) ? niConn.value : ""; }
+  function niLoadConns(){
+    if (!niConn) return;
+    fetch("/api/defectdojo/connections").then(function(r){ return r.json(); }).then(function(d){
+      var rows = (d && d.connections) || [];
+      niConn.innerHTML = "";
+      var def = document.createElement("option"); def.value=""; def.textContent="(standaardprofiel)"; niConn.appendChild(def);
+      rows.forEach(function(c){ var o=document.createElement("option"); o.value=c.id; o.textContent=c.naam + (c.is_default?" ★":""); niConn.appendChild(o); });
+    }).catch(function(){});
+  }
+  niLoadConns();
+  var prod = makeCombo(
+    document.getElementById("newimp-product"),
+    document.getElementById("newimp-product-list"),
+    function(q) {
+      return fetch("/api/defectdojo/products?limit=50&q=" + encodeURIComponent(q) + (niSelConn() ? "&connection=" + niSelConn() : ""))
+        .then(function(r){ return r.json(); }).then(function(d){ return (d && d.ok) ? d.results : []; });
+    });
+  var eng = makeCombo(
+    document.getElementById("newimp-engagement"),
+    document.getElementById("newimp-engagement-list"),
+    function(q) {
+      var pid = prod.getId();
+      var url = "/api/defectdojo/engagements?limit=50&q=" + encodeURIComponent(q);
+      if (pid) url += "&product=" + pid;
+      if (niSelConn()) url += "&connection=" + niSelConn();
+      return fetch(url).then(function(r){ return r.json(); }).then(function(d){ return (d && d.ok) ? d.results : []; });
+    });
+  btn.addEventListener("click", function() {
+    var pid = prod.getId(), eid = eng.getId();
+    if (!pid && !eid) { setMsg("Kies een product of engagement", false); return; }
+    btn.disabled = true;
+    setMsg("Aanmaken + importeren…", true);
+    var body = {only_open: document.getElementById("newimp-only-open").checked};
+    if (pid) body.product_id = pid;
+    if (eid) body.engagement_id = eid;
+    var naam = document.getElementById("newimp-naam").value.trim();
+    if (naam) body.naam = naam;
+    body.kind = "create-import";
+    if (niSelConn()) body.connection_id = niSelConn();
+    ddJob(body)
+      .then(function(res){
+        var j = res.j || {};
+        if (res.ok && j.ok) {
+          setMsg("Opdracht “" + (j.naam||"") + "” aangemaakt: " + (j.imported||0) + " geïmporteerd" + (j.relinked ? ", " + j.relinked + " gekoppeld" : "") + ". Zie het tabblad Overzicht.", true);
+        } else {
+          setMsg("Mislukt: " + (typeof j.error === "string" ? j.error : JSON.stringify(j.error || j.detail || "")), false);
+        }
+      })
+      .catch(function(){ setMsg("Mislukt", false); })
+      .finally(function(){ btn.disabled = false; });
+  });
+})();
+(function() {
+  "use strict";
+  // Opnames (asciinema) als bewijs aan opdracht koppelen + naar notitie extraheren
+  var sel = document.getElementById("opn-opdracht");
+  if (!sel) return;
+  var msg = document.getElementById("opn-msg");
+  var linkedEl = document.getElementById("opn-linked");
+  var availEl = document.getElementById("opn-available");
+  function setMsg(t, ok){ if(!msg) return; msg.textContent=t; msg.style.color = ok ? "var(--success,#22c55e)" : "var(--danger,#ef4444)"; }
+  function loadRecs(){
+    var oid = sel.value; if(!oid){ return; }
+    fetch("/api/opdrachten/" + oid + "/recordings").then(function(r){ return r.json(); }).then(function(d){
+      linkedEl.innerHTML = "";
+      var linked = d.linked || [];
+      if(!linked.length){ linkedEl.innerHTML = '<li>Nog geen opnames gekoppeld.</li>'; }
+      linked.forEach(function(f){ var li=document.createElement("li"); var a=document.createElement("a"); a.href="/dashboard/recordings/"+encodeURIComponent(f); a.target="_blank"; a.rel="noopener"; a.textContent=f; li.appendChild(a); linkedEl.appendChild(li); });
+      availEl.innerHTML = "";
+      (d.available || []).forEach(function(f){
+        var tr=document.createElement("tr");
+        var td1=document.createElement("td"); var a=document.createElement("a"); a.href="/dashboard/recordings/"+encodeURIComponent(f); a.target="_blank"; a.rel="noopener"; a.textContent=f; td1.appendChild(a); tr.appendChild(td1);
+        var td2=document.createElement("td");
+        var btn=document.createElement("button"); btn.type="button"; btn.className="btn btn-sm btn-primary"; btn.textContent="Extraheer naar notitie";
+        btn.addEventListener("click", function(){
+          var titel = window.prompt("Notitietitel (leeg = het commando):", ""); if(titel === null) return;
+          btn.disabled = true; setMsg("Extraheren…", true);
+          fetch("/api/opdrachten/" + sel.value + "/recording-to-note", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({filename:f, titel:titel})})
+            .then(function(r){ return r.json().then(function(j){ return {ok:r.ok, j:j}; }); })
+            .then(function(res){ var j=res.j||{}; if(res.ok && j.ok){ setMsg("Notitie #"+j.note_id+" aangemaakt ("+j.lengte+" tekens) en opname gekoppeld.", true); loadRecs(); } else { setMsg("Fout: "+(j.error||"?"), false); } })
+            .catch(function(){ setMsg("Mislukt", false); }).finally(function(){ btn.disabled = false; });
+        });
+        td2.appendChild(btn); tr.appendChild(td2); availEl.appendChild(tr);
+      });
+    }).catch(function(){});
+  }
+  function loadOpdrachten(){
+    fetch("/api/opdrachten").then(function(r){ return r.json(); }).then(function(d){
+      var os = (d.opdrachten || []).filter(function(o){ return !o.archived; });
+      sel.innerHTML = "";
+      os.forEach(function(o){ var op=document.createElement("option"); op.value=o.id; op.textContent=o.naam + (o.klant?" · "+o.klant:""); sel.appendChild(op); });
+      loadRecs();
+    }).catch(function(){});
+  }
+  sel.addEventListener("change", loadRecs);
+  loadOpdrachten();
 })();
 </script>
 {% endblock %}

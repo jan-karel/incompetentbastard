@@ -1206,15 +1206,15 @@ De volgende bevindingen waren niet (volledig) detecteerbaar. Versterking van mon
 [% if sections.bewijsregister and evidence_register %]
 [% if taal == 'en' %]\section{Evidence Register}[% else %]\section{Bewijsregister}[% endif %]
 \footnotesize\emph{[% if taal == 'en' %]Each evidence file is listed with its SHA-256 hash so that its integrity can be independently verified.[% else %]Elk bewijsbestand is opgenomen met zijn SHA-256-hash, zodat de integriteit onafhankelijk geverifieerd kan worden.[% endif %]}\normalsize
-\begin{xltabular}{\textwidth}{|c|>{\raggedright\arraybackslash}X|l|}
+\begin{xltabular}{\textwidth}{|>{\raggedright\arraybackslash}X|l|l|}
   \hline
-  \rowcolor{rijkblauw}[% if taal == 'en' %]\textcolor{white}{\textbf{ID}} & \textcolor{white}{\textbf{Evidence}} & \textcolor{white}{\textbf{SHA-256}}[% else %]\textcolor{white}{\textbf{ID}} & \textcolor{white}{\textbf{Bewijs}} & \textcolor{white}{\textbf{SHA-256}}[% endif %] \\
+  \rowcolor{rijkblauw}[% if taal == 'en' %]\textcolor{white}{\textbf{Filename}} & \textcolor{white}{\textbf{Format}} & \textcolor{white}{\textbf{SHA-256}}[% else %]\textcolor{white}{\textbf{Bestandsnaam}} & \textcolor{white}{\textbf{Formaat}} & \textcolor{white}{\textbf{SHA-256}}[% endif %] \\
   \hline
   \endhead
 \ibvervolg{3}\endfoot
 \endlastfoot
 [% for r in evidence_register %]
-  \hyperref[bev:[[ r.id ]]]{[[ r.id ]]} & [[ r.caption ]][% if r.file %] {\footnotesize\itshape([[ r.file ]])}[% endif %] & {\ttfamily\scriptsize [[ r.sha_fmt ]]} \\
+  {\footnotesize [[ r.filename ]]} & [[ r.format ]] & {\ttfamily\scriptsize [[ r.sha_fmt ]]} \\
   \hline
 [% endfor %]
 \end{xltabular}

@@ -154,3 +154,28 @@
   font-style:italic;
   opacity:1;
 }
+
+/* ── Bewijs-tab: strak & consistent met de andere panels ── */
+.bewijs-panel.is-active { gap: 18px; }
+.bewijs-sec { display: flex; flex-direction: column; gap: 8px; }
+.bewijs-sec + .bewijs-sec { padding-top: 16px; border-top: 1px solid var(--border); }
+.bewijs-subhead {
+  font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+  color: var(--muted);
+}
+.bewijs-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+/* util-breedtes herstellen binnen het formulier (anders width:100% van .finding-form .form-control) */
+#evidence-card .form-control { width: auto; }
+#evidence-card .grow200 { flex: 1 1 220px; min-width: 200px; }
+#evidence-card .w140 { width: 150px; flex: 0 0 150px; }
+.bewijs-file {
+  flex: 1 1 240px; font-size: 12px; color: var(--muted);
+  border: 1px dashed var(--border); border-radius: 8px; padding: 8px;
+  background: var(--card);
+}
+.bewijs-panel .sc-status { flex-basis: 100%; margin: 0; }
+.evidence-gallery:empty { display: none; }
+
+/* Uitwerking-editor flink groter zodat 'ie de pagina beter vult */
+[data-ftab-panel="uitwerking"] .lx-ed-wrap { min-height: 62vh; }
+[data-ftab-panel="uitwerking"] #uitwerken { min-height: 62vh; }  /* fallback zonder editor */

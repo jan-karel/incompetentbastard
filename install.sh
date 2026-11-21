@@ -116,6 +116,40 @@ install_go() {
 }
 
 # ---------------------------------------------------------------------------
+# whatweb zit niet in Homebrew; via git clone + symlink op PATH
+# ---------------------------------------------------------------------------
+install_whatweb_git() {
+	local dest="${WHATWEB_DIR:-$HOME/.local/share/whatweb}"
+	local bindir
+	bindir="$(brew --prefix 2>/dev/null)/bin"
+	[ -d "$bindir" ] || bindir="/usr/local/bin"
+
+	if [ -d "$dest/.git" ]; then
+		log_info "whatweb: bestaande clone bijwerken..."
+		git -C "$dest" pull --ff-only &>/dev/null || log_warn "whatweb: git pull overgeslagen"
+	else
+		log_info "Installeren: whatweb via git clone..."
+		mkdir -p "$(dirname "$dest")"
+		if ! git clone --depth 1 https://github.com/urbanadventurer/WhatWeb.git "$dest" &>/dev/null; then
+			log_warn "whatweb: git clone mislukt (handmatig: git clone https://github.com/urbanadventurer/WhatWeb.git)"
+			return 1
+		fi
+	fi
+
+	# whatweb is Ruby; macOS heeft een systeem-ruby. Symlink het script op PATH.
+	if ! ln -sf "$dest/whatweb" "$bindir/whatweb" 2>/dev/null; then
+		sudo ln -sf "$dest/whatweb" "$bindir/whatweb" 2>/dev/null \
+			|| log_warn "whatweb: kon geen symlink in $bindir maken; voeg $dest aan PATH toe"
+	fi
+
+	if command -v whatweb &>/dev/null; then
+		log_ok "whatweb ($dest)"
+	else
+		log_warn "whatweb geinstalleerd in $dest maar niet op PATH"
+	fi
+}
+
+# ---------------------------------------------------------------------------
 # macOS installatie
 # ---------------------------------------------------------------------------
 install_macos() {
@@ -132,6 +166,7 @@ install_macos() {
 	# --- Core tools ---
 	log_info "=== Core tools ==="
 	install_brew python3 "Python 3"
+	install_brew git "git"
 	install_brew screen "GNU Screen"
 	install_brew curl "curl"
 	install_brew wget "wget"
@@ -170,8 +205,12 @@ install_macos() {
 	fi
 	log_ok "nmaptocsv"
 
-	# whatweb
-	install_brew whatweb "whatweb"
+	# whatweb (niet beschikbaar in brew → via git)
+	if ! command -v whatweb &>/dev/null; then
+		install_whatweb_git
+	else
+		log_ok "whatweb"
+	fi
 
 	# nuclei
 	if ! command -v nuclei &>/dev/null; then
@@ -207,11 +246,12 @@ install_macos() {
 	# --- Brute force ---
 	log_info "=== Brute Force ==="
 
-	# crowbar (pip)
-	if ! command -v crowbar &>/dev/null; then
-		pip install crowbar
+	# crowbar: alleen beschikbaar op Kali (Debian-pakket) → op macOS overslaan
+	if command -v crowbar &>/dev/null; then
+		log_ok "crowbar"
+	else
+		log_warn "crowbar: Kali-only, niet beschikbaar op macOS (gebruik hydra/medusa of draai vanuit Kali)"
 	fi
-	log_ok "crowbar"
 
 	# --- Tunneling ---
 	log_info "=== Tunneling & Remote ==="
@@ -233,9 +273,29 @@ install_macos() {
 	# --- Exploitation ---
 	log_info "=== Exploitation ==="
 
-	# Metasploit
+	# Metasploit: niet langer via brew; officiele Rapid7 omnibus-installer
 	if ! command -v msfconsole &>/dev/null; then
-		install_brew_cask metasploit "Metasploit Framework"
+		log_info "Installeren: Metasploit Framework via Rapid7 omnibus-installer..."
+		local msfinstall
+		msfinstall="$(mktemp -t msfinstall)"
+		if curl -fsSL https://raw.githubusercontent.com/rapid7/metasploit-omnibus/master/config/templates/metasploit-framework-wrappers/msfupdate.erb -o "$msfinstall"; then
+			chmod 755 "$msfinstall"
+			sudo "$msfinstall" || log_warn "Metasploit-installer gaf een fout"
+			rm -f "$msfinstall"
+			# Gatekeeper/quarantine opheffen zodat de binaries mogen draaien op macOS
+			if [ -d /opt/metasploit-framework ]; then
+				log_info "Gatekeeper-quarantine opheffen voor /opt/metasploit-framework..."
+				sudo xattr -dr com.apple.quarantine /opt/metasploit-framework 2>/dev/null \
+					|| log_warn "Kon quarantine-attribuut niet verwijderen"
+			fi
+			if command -v msfconsole &>/dev/null; then
+				log_ok "Metasploit Framework"
+			else
+				log_warn "Metasploit geinstalleerd; voeg /opt/metasploit-framework/bin aan PATH toe"
+			fi
+		else
+			log_warn "Metasploit: download mislukt. Zie https://docs.metasploit.com/docs/using-metasploit/getting-started/nightly-installers.html"
+		fi
 	else
 		log_ok "Metasploit Framework"
 	fi
@@ -273,7 +333,8 @@ install_macos() {
 				collection-fontsrecommended fontspec \
 				booktabs caption colortbl draftwatermark fancyhdr geometry \
 				hyperref listings soul tabularx tools titlesec xcolor \
-				xltabular ltablex pgf babel-dutch lm &>/dev/null \
+				xltabular ltablex pgf babel-dutch lm \
+				csquotes lastpage parskip tcolorbox environ trimspaces pdfcol &>/dev/null \
 				|| log_warn "Sommige LaTeX-pakketten konden niet via tlmgr worden geinstalleerd"
 			log_ok "LaTeX-pakketten"
 		fi

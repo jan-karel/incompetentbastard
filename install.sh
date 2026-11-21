@@ -116,6 +116,35 @@ install_go() {
 }
 
 # ---------------------------------------------------------------------------
+# Map blijvend aan PATH toevoegen (shell-profiel) + voor de huidige sessie
+# ---------------------------------------------------------------------------
+add_to_path() {
+	local dir="$1"
+	[ -d "$dir" ] || return 0
+
+	# Huidige sessie (zodat verificatie verderop werkt)
+	case ":$PATH:" in
+		*":$dir:"*) ;;
+		*) export PATH="$dir:$PATH" ;;
+	esac
+
+	# Blijvend: regel toevoegen aan het profiel van de actieve shell (idempotent)
+	local line="export PATH=\"$dir:\$PATH\""
+	local profile
+	case "${SHELL:-}" in
+		*zsh) profile="$HOME/.zprofile" ;;
+		*bash) profile="$HOME/.bash_profile" ;;
+		*) profile="$HOME/.profile" ;;
+	esac
+	if [ -f "$profile" ] && grep -qF "$dir" "$profile"; then
+		log_ok "PATH bevat al $dir ($profile)"
+	else
+		printf '\n# Toegevoegd door Incompetent Bastard installer\n%s\n' "$line" >>"$profile"
+		log_ok "$dir aan PATH toegevoegd in $profile (herstart je shell of 'source $profile')"
+	fi
+}
+
+# ---------------------------------------------------------------------------
 # whatweb zit niet in Homebrew; via git clone + symlink op PATH
 # ---------------------------------------------------------------------------
 install_whatweb_git() {
@@ -287,11 +316,13 @@ install_macos() {
 				log_info "Gatekeeper-quarantine opheffen voor /opt/metasploit-framework..."
 				sudo xattr -dr com.apple.quarantine /opt/metasploit-framework 2>/dev/null \
 					|| log_warn "Kon quarantine-attribuut niet verwijderen"
+				# /opt/metasploit-framework/bin blijvend aan PATH toevoegen (msfconsole/msfvenom)
+				add_to_path /opt/metasploit-framework/bin
 			fi
 			if command -v msfconsole &>/dev/null; then
 				log_ok "Metasploit Framework"
 			else
-				log_warn "Metasploit geinstalleerd; voeg /opt/metasploit-framework/bin aan PATH toe"
+				log_warn "Metasploit geinstalleerd; herstart je shell om /opt/metasploit-framework/bin te laden"
 			fi
 		else
 			log_warn "Metasploit: download mislukt. Zie https://docs.metasploit.com/docs/using-metasploit/getting-started/nightly-installers.html"

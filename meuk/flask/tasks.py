@@ -97,7 +97,7 @@ _TASKS = {
     "kerberos": {
         "label": "Kerberos enum",
         "group": "recon",
-        "desc": "Kerberos user enum + LDAP query via nmap/crackmapexec",
+        "desc": "Kerberos user enum + LDAP query via nmap/netexec",
         "cmd": ["bash", "kerberos.sh"],
         "args": [
             {"name": "scanfile", "label": "Scan naam", "placeholder": "engagement-name", "required": True, "pattern": "safe_name"},

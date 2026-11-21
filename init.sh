@@ -55,7 +55,12 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
 
 
 	#screen -dmS http sh -c "cd http && python3 -m http.server 80"
-	screen -dmS http sh -c ".venv/bin/flask --app app:create_app db migrate; .venv/bin/flask --app app:create_app db upgrade; .venv/bin/flask --app app:create_app run --host=0.0.0.0 --port=80 --debug > meuk/logs/http.log 2>&1"
+	# Het schema wordt bij startup door create_app() zelf aangemaakt (db.create_all
+	# + idempotente auto-migraties); Flask-Migrate wordt niet gebruikt en de
+	# migrations/-map staat niet in git. 'flask db migrate/upgrade' faalde daardoor
+	# op een verse macOS-setup ("Path doesn't exist: migrations"). 'db upgrade'
+	# draait nu alleen als er echt een migrations/-map is.
+	screen -dmS http sh -c "if [ -d migrations ]; then .venv/bin/flask --app app:create_app db upgrade; fi; .venv/bin/flask --app app:create_app run --host=0.0.0.0 --port=80 --debug > meuk/logs/http.log 2>&1"
 	#screen -dmS metasploit sh -c "stty sane; msfconsole"
 	screen -dmS tcpdump sh -c "stty sane; tcpdump -i any icmp -w raw/icmp.pcap"
 
@@ -68,7 +73,9 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
 else
 	screen -L -Logfile meuk/logs/smb.log -dmS smb sh -c ".venv/bin/impacket-smbserver share http -smb2support"
 	#screen -L -Logfile meuk/logs/http.log -dmS http sh -c "cd http && python3 -m http.server 80"
-	screen -L -Logfile meuk/logs/http.log -dmS http sh -c ".venv/bin/flask --app app:create_app db migrate; .venv/bin/flask --app app:create_app db upgrade; .venv/bin/flask --app app:create_app run --host=0.0.0.0 --port=80 --debug"
+	# Zie macOS-tak hierboven: schema komt van create_app(); 'db upgrade' alleen
+	# als er een migrations/-map is.
+	screen -L -Logfile meuk/logs/http.log -dmS http sh -c "if [ -d migrations ]; then .venv/bin/flask --app app:create_app db upgrade; fi; .venv/bin/flask --app app:create_app run --host=0.0.0.0 --port=80 --debug"
 	screen -L -Logfile meuk/logs/metasploit.log -t metasploit -dmS metasploit "$ASCIINEMA" rec meuk/logs/metasploit.rec --stdin -c "stty sane;msfconsole"
 	#screen -L -Logfile meuk/logs/metasploit.log -dmS metasploit sh -c "stty sane; msfconsole"
 	pkill -f "msfrpcd" 2>/dev/null || true

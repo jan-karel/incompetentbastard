@@ -92,14 +92,29 @@ install_pip() {
 }
 
 install_pipx() {
+	# Installeer een Python-CLI via pipx i.p.v. 'pip install'. In install_macos is
+	# de project-venv geactiveerd, dus 'pip install <tool>' zou de tool in
+	# .venv/bin zetten (na de installatie systeembreed onvindbaar) en bij een
+	# fout toch doorlopen. pipx isoleert de dependencies, zet een symlink in
+	# ~/.local/bin (globaal op PATH) en omzeilt PEP 668 op macOS. De status is
+	# eerlijk: log_ok alleen als de CLI daadwerkelijk op PATH staat.
 	local pkg="$1"
 	local cmd="${2:-$1}"
 	if command -v "$cmd" &>/dev/null; then
-		log_ok "$pkg (al beschikbaar)"
-	else
+		log_ok "$cmd (al beschikbaar)"
+		return 0
+	fi
+	command -v pipx &>/dev/null || install_brew pipx "pipx"
+	if command -v pipx &>/dev/null; then
 		log_info "Installeren: $pkg via pipx..."
-		pipx install "$pkg"
-		log_ok "$pkg geinstalleerd"
+		pipx install "$pkg" &>/dev/null || pipx install --force "$pkg" &>/dev/null || true
+		pipx ensurepath &>/dev/null || true
+		add_to_path "$HOME/.local/bin"
+	fi
+	if command -v "$cmd" &>/dev/null; then
+		log_ok "$cmd (pipx)"
+	else
+		log_warn "$pkg: installatie mislukt of nog niet op PATH (probeer: pipx install $pkg; herstart daarna je shell)"
 	fi
 }
 
@@ -253,12 +268,8 @@ install_macos() {
 	install_brew openvpn "OpenVPN"
 	install_brew tcpdump "tcpdump"
 
-	# nmaptocsv (pip)
-	if ! command -v nmaptocsv &>/dev/null; then
-		log_info "Installeren: nmaptocsv via pip..."
-		pip install nmaptocsv
-	fi
-	log_ok "nmaptocsv"
+	# nmaptocsv (Python-CLI via pipx)
+	install_pipx nmaptocsv
 
 	# whatweb (niet beschikbaar in brew → via git)
 	if ! command -v whatweb &>/dev/null; then
@@ -274,11 +285,8 @@ install_macos() {
 		log_ok "nuclei"
 	fi
 
-	# wafw00f (pip)
-	if ! command -v wafw00f &>/dev/null; then
-		pip install wafw00f
-	fi
-	log_ok "wafw00f"
+	# wafw00f (Python-CLI via pipx; zie install_pipx voor het waarom)
+	install_pipx wafw00f
 
 	# nikto
 	install_brew nikto "nikto"
@@ -286,11 +294,8 @@ install_macos() {
 	# sqlmap
 	install_brew sqlmap "sqlmap"
 
-	# dnsrecon (pip)
-	if ! command -v dnsrecon &>/dev/null; then
-		pip install dnsrecon
-	fi
-	log_ok "dnsrecon"
+	# dnsrecon (Python-CLI via pipx)
+	install_pipx dnsrecon
 
 	# sslscan
 	install_brew sslscan "sslscan"
@@ -357,11 +362,9 @@ install_macos() {
 		log_ok "Metasploit Framework"
 	fi
 
-	# crackmapexec / netexec
-	if ! command -v crackmapexec &>/dev/null && ! command -v netexec &>/dev/null; then
-		pip install crackmapexec 2>/dev/null || log_warn "crackmapexec: handmatig installeren"
-	fi
-	log_ok "crackmapexec"
+	# netexec (de onderhouden opvolger van crackmapexec; Python-CLI via pipx).
+	# Levert de commando's 'netexec' én 'nxc'; CLI-compatibel met crackmapexec.
+	install_pipx netexec
 
 	# Mono (msbuild/xbuild voor C# payloads)
 	if ! command -v msbuild &>/dev/null && ! command -v xbuild &>/dev/null; then
@@ -401,10 +404,8 @@ install_macos() {
 
 	# --- Fuzzing ---
 	log_info "=== Web fuzzing ==="
-	if ! command -v wfuzz &>/dev/null; then
-		pip install wfuzz
-	fi
-	log_ok "wfuzz"
+	# wfuzz (Python-CLI via pipx)
+	install_pipx wfuzz
 
 	if ! command -v dirb &>/dev/null; then
 		log_warn "dirb: niet beschikbaar via brew, handmatig installeren of gebruik feroxbuster/ffuf"
@@ -543,11 +544,17 @@ install_linux() {
 		log_ok "Metasploit Framework"
 	fi
 
-	# crackmapexec / netexec
-	if ! command -v crackmapexec &>/dev/null && ! command -v netexec &>/dev/null; then
-		install_apt crackmapexec "crackmapexec" 2>/dev/null || pip install crackmapexec 2>/dev/null || log_warn "crackmapexec: handmatig installeren"
+	# netexec (de onderhouden opvolger van crackmapexec; levert 'netexec'/'nxc')
+	if command -v netexec &>/dev/null; then
+		log_ok "netexec (al beschikbaar)"
+	else
+		install_apt netexec "netexec" 2>/dev/null \
+			|| pipx install netexec 2>/dev/null \
+			|| pip install netexec 2>/dev/null \
+			|| log_warn "netexec: handmatig installeren (pipx install netexec)"
+		command -v netexec &>/dev/null && log_ok "netexec" \
+			|| log_warn "netexec nog niet op PATH; herstart je shell of controleer ~/.local/bin"
 	fi
-	log_ok "crackmapexec"
 
 	# ldapsearch
 	install_apt ldap-utils "ldap-utils (ldapsearch)"

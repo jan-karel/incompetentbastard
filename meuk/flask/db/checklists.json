@@ -982,7 +982,7 @@
               "commands": [
                 "smbclient -L //TARGET -N",
                 "enum4linux -a TARGET",
-                "crackmapexec smb TARGET --shares"
+                "netexec smb TARGET --shares"
               ],
               "command_refs": [],
               "finding_refs": [
@@ -992,7 +992,7 @@
               "tools": [
                 "smbclient",
                 "enum4linux",
-                "crackmapexec"
+                "netexec"
               ],
               "mitre_attack": [
                 "T1021.002"
@@ -1198,7 +1198,7 @@
               "description": "Voer password spraying uit met veelgebruikte wachtwoorden tegen meerdere accounts.",
               "en_description": "Perform password spraying with common passwords against multiple accounts.",
               "commands": [
-                "crackmapexec smb TARGET -u users.txt -p 'PASSWORD' --no-bruteforce"
+                "netexec smb TARGET -u users.txt -p 'PASSWORD' --no-bruteforce"
               ],
               "command_refs": [
                 "passwd_spray"
@@ -1207,7 +1207,7 @@
                 "Weak Credentials"
               ],
               "tools": [
-                "crackmapexec",
+                "netexec",
                 "sprayhound"
               ],
               "mitre_attack": [
@@ -1464,7 +1464,7 @@
                 "Lateral Movement Possible"
               ],
               "tools": [
-                "crackmapexec",
+                "netexec",
                 "psexec"
               ],
               "mitre_attack": [
@@ -1692,7 +1692,7 @@
               "description": "Enumereer SMB-shares, null-sessies en SMB-signing status.",
               "en_description": "Enumerate SMB shares, null sessions and SMB signing status.",
               "commands": [
-                "crackmapexec smb SUBNET/24 --gen-relay-list targets.txt",
+                "netexec smb SUBNET/24 --gen-relay-list targets.txt",
                 "smbclient -L //TARGET -N",
                 "enum4linux -a TARGET"
               ],
@@ -1702,7 +1702,7 @@
                 "SMB Signing Not Required"
               ],
               "tools": [
-                "crackmapexec",
+                "netexec",
                 "smbclient",
                 "enum4linux"
               ],
@@ -1763,7 +1763,7 @@
               "en_description": "Discover and enumerate Microsoft SQL Server instances.",
               "commands": [
                 "nmap -p 1433 --script ms-sql-info SUBNET/24",
-                "crackmapexec mssql SUBNET/24"
+                "netexec mssql SUBNET/24"
               ],
               "command_refs": [
                 "mssql_enum"
@@ -1774,7 +1774,7 @@
               ],
               "tools": [
                 "nmap",
-                "crackmapexec"
+                "netexec"
               ],
               "mitre_attack": [
                 "T1046"
@@ -2140,7 +2140,7 @@
               "description": "Enumereer netwerkshares en zoek naar gevoelige bestanden.",
               "en_description": "Enumerate network shares and look for sensitive files.",
               "commands": [
-                "crackmapexec smb SUBNET/24 -u USER -p PASS --shares",
+                "netexec smb SUBNET/24 -u USER -p PASS --shares",
                 "Invoke-ShareFinder -Verbose"
               ],
               "command_refs": [
@@ -2150,7 +2150,7 @@
                 "Sensitive Data on Network Share"
               ],
               "tools": [
-                "crackmapexec",
+                "netexec",
                 "powerview"
               ],
               "mitre_attack": [
@@ -2306,7 +2306,7 @@
               "description": "Voer password spraying uit tegen domeinaccounts.",
               "en_description": "Perform password spraying against domain accounts.",
               "commands": [
-                "crackmapexec smb DC -u users.txt -p 'PASSWORD' --no-bruteforce",
+                "netexec smb DC -u users.txt -p 'PASSWORD' --no-bruteforce",
                 "Invoke-DomainPasswordSpray -Password 'PASSWORD'"
               ],
               "command_refs": [
@@ -2316,7 +2316,7 @@
                 "Weak Domain Credentials"
               ],
               "tools": [
-                "crackmapexec",
+                "netexec",
                 "kerbrute"
               ],
               "mitre_attack": [
@@ -2465,7 +2465,7 @@
               ],
               "tools": [
                 "powerview",
-                "crackmapexec"
+                "netexec"
               ],
               "mitre_attack": [
                 "T1552.006"
@@ -3136,7 +3136,7 @@
               ],
               "tools": [
                 "impacket",
-                "crackmapexec"
+                "netexec"
               ],
               "mitre_attack": [
                 "T1047"

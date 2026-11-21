@@ -343,6 +343,42 @@ def _mk_parse_nodes(s, i, mode, envname=None):
             j = m.end()
             if cmd == 'begin':
                 em = _MK_ENV_RE.match(s, j)
+                # lstlisting is een verbatim-codeblok: lees [opties] en de body
+                # rauw tot \end{lstlisting} (geen markup erin). Zonder deze tak
+                # faalt de parser op een codeblok en wordt het HELE veld letterlijk
+                # ge-escaped (zie _latex_markup-terugval).
+                if em and em.group(1) == 'lstlisting':
+                    k = em.end()
+                    opts = ''
+                    if k < n and s[k] == '[':
+                        depth = 0
+                        p = k + 1
+                        while p < n:
+                            c = s[p]
+                            if c == '{':
+                                depth += 1
+                            elif c == '}':
+                                depth -= 1
+                            elif c == ']' and depth == 0:
+                                break
+                            p += 1
+                        if p >= n:
+                            raise _MkFail()
+                        opts = s[k:p + 1]        # incl. de [ ]
+                        k = p + 1
+                    _end = r'\end{lstlisting}'
+                    e = s.find(_end, k)
+                    if e < 0:
+                        raise _MkFail()
+                    body = s[k:e]
+                    if body.startswith('\n'):
+                        body = body[1:]
+                    if body.endswith('\n'):
+                        body = body[:-1]
+                    flush()
+                    nodes.append(('lst', opts, body))
+                    i = e + len(_end)
+                    continue
                 if not em or em.group(1) not in _MK_ENVS:
                     raise _MkFail()
                 flush()
@@ -485,6 +521,9 @@ def _mk_blocks(nodes):
         elif nd[0] == 'http':
             flush()
             blocks.append(('http', nd))
+        elif nd[0] == 'lst':
+            flush()
+            blocks.append(('lst', nd))
         else:
             buf.append(nd)
     flush()
@@ -523,6 +562,9 @@ def _mk_to_latex(nodes):
             out.append('\\%s{%s}{%s}' % (nd[1], _mk_to_latex(nd[2]), _mk_to_latex(nd[3])))
         elif t == 'http':
             out.append(_http_latex(nd))
+        elif t == 'lst':
+            # Verbatim codeblok: opties + body ongewijzigd terug.
+            out.append('\\begin{lstlisting}%s\n%s\n\\end{lstlisting}\n' % (nd[1], nd[2]))
         elif t == 'env':
             out.append('\\begin{%s}' % nd[1])
             for _it, label, body in nd[2]:
@@ -1036,6 +1078,8 @@ def _mk_blocks_html(nodes):
                 out.append('<p>%s</p>' % inner)
         elif kind == 'http':
             out.append(_http_html(payload))
+        elif kind == 'lst':
+            out.append('<pre class="code-block">%s</pre>' % _html_esc(payload[2]))
         else:
             out.append(_mk_env_html(payload))
     return ''.join(out)
@@ -1192,6 +1236,8 @@ def _mk_blocks_md(nodes):
                 out.append(inner)
         elif kind == 'http':
             out.append(_http_md(payload).strip())
+        elif kind == 'lst':
+            out.append('```\n%s\n```' % payload[2])
         else:
             out.append(_mk_env_md(payload))
     return '\n\n'.join(out)

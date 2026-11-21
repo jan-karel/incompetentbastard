@@ -390,7 +390,7 @@ install_macos() {
 				collection-fontsrecommended fontspec \
 				booktabs caption colortbl draftwatermark fancyhdr geometry \
 				hyperref listings soul tabularx tools titlesec xcolor \
-				xltabular ltablex pgf babel-dutch lm \
+				xltabular ltablex pgf pgf-blur tikzfill babel-dutch lm \
 				csquotes lastpage parskip tcolorbox environ trimspaces pdfcol &>/dev/null \
 				|| log_warn "Sommige LaTeX-pakketten konden niet via tlmgr worden geinstalleerd"
 			log_ok "LaTeX-pakketten"
